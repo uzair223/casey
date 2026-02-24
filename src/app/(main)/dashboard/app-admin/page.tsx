@@ -15,9 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/contexts/UserContext";
-import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   PlatformStats,
   TenantWithCounts,
@@ -29,6 +27,8 @@ import {
   getAppAdminMembers,
 } from "@/lib/supabase/queries/admin";
 import { Invite } from "@/lib/types";
+import InvitesTable from "@/components/InvitesTable";
+import { apiFetch } from "@/lib/utils";
 
 export default function AppAdminDashboard() {
   const { isLoading, user } = useUser("app_admin");
@@ -38,48 +38,7 @@ export default function AppAdminDashboard() {
   const [appAdminMembers, setAppAdminMembers] = useState<AppAdminMember[]>([]);
   const [tenants, setTenants] = useState<TenantWithCounts[]>([]);
 
-  const [tenantInviteEmail, setTenantInviteEmail] = useState("");
-  const [appAdminInviteEmail, setAppAdminInviteEmail] = useState("");
-  const [tenantCreateError, setTenantCreateError] = useState("");
-  const [appAdminCreateError, setAppAdminCreateError] = useState("");
   const inviteFormMethods = useForm<{ email: string }>();
-
-  const supabase = getSupabaseClient();
-
-  const getAccessToken = async () => {
-    if (!supabase) {
-      throw new Error("Supabase client not available");
-    }
-
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session?.access_token) {
-      throw new Error("User not authenticated");
-    }
-
-    return data.session.access_token;
-  };
-
-  const apiFetch = async <T,>(
-    url: string,
-    options?: RequestInit,
-  ): Promise<T> => {
-    const token = await getAccessToken();
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options?.headers ?? {}),
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || "Request failed");
-    }
-
-    return response.json();
-  };
 
   const fetchData = async () => {
     try {
@@ -113,70 +72,40 @@ export default function AppAdminDashboard() {
     }
   }, [isLoading, user]);
 
-  const handleCreateTenantInvite: SubmitHandler<{ email: string }> = async (
-    data,
-  ) => {
-    setTenantCreateError("");
+  const handleCreateInvite =
+    (role: string): SubmitHandler<{ email: string }> =>
+    async (data) => {
+      inviteFormMethods.clearErrors("email");
 
-    try {
-      const result = await apiFetch<{ emailSent?: boolean }>(
-        "/api/admin/invites",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            email: data.email,
-            role: "tenant_admin",
-          }),
-        },
-      );
-
-      if (result.emailSent === false) {
-        setTenantCreateError(
-          "Invite created, but the email could not be sent. Please resend.",
+      try {
+        const result = await apiFetch<{ emailSent?: boolean }>(
+          "/api/admin/invites",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              email: data.email,
+              role,
+            }),
+          },
         );
+
+        if (result.emailSent === false) {
+          inviteFormMethods.setError("email", {
+            message:
+              "Invite created, but the email could not be sent. Please resend.",
+          });
+        }
+
+        fetchData();
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to create invite";
+        inviteFormMethods.setError("email", {
+          message: errorMessage,
+        });
+        throw new Error(errorMessage);
       }
-
-      setTenantInviteEmail("");
-      fetchData();
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to create invite";
-      setTenantCreateError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
-
-  const handleCreateAppAdminInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAppAdminCreateError("");
-
-    try {
-      const result = await apiFetch<{ emailSent?: boolean }>(
-        "/api/admin/invites",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            email: appAdminInviteEmail,
-            role: "app_admin",
-          }),
-        },
-      );
-
-      if (result.emailSent === false) {
-        setAppAdminCreateError(
-          "Invite created, but the email could not be sent. Please resend.",
-        );
-      }
-
-      setAppAdminInviteEmail("");
-      fetchData();
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to create invite";
-      setAppAdminCreateError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
+    };
 
   const handleRevokeInvite = async (inviteId: string) => {
     if (!confirm("Are you sure you want to revoke this invite?")) return;
@@ -366,7 +295,7 @@ export default function AppAdminDashboard() {
                 <FormProvider {...inviteFormMethods}>
                   <form
                     onSubmit={inviteFormMethods.handleSubmit(
-                      handleCreateTenantInvite,
+                      handleCreateInvite("tenant_admin"),
                     )}
                     className="space-y-4"
                   >
@@ -379,9 +308,9 @@ export default function AppAdminDashboard() {
                         {...inviteFormMethods.register("email")}
                       />
                     </div>
-                    {tenantCreateError && (
+                    {inviteFormMethods.formState.errors.email && (
                       <p className="text-sm text-destructive-foreground">
-                        {tenantCreateError}
+                        {inviteFormMethods.formState.errors.email.message}
                       </p>
                     )}
                     <AsyncButton type="submit" pendingText="Creating...">
@@ -453,71 +382,11 @@ export default function AppAdminDashboard() {
                     No tenant invites created yet.
                   </p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead>Expires</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {tenantInvites.map((invite) => {
-                        const isExpired =
-                          new Date(invite.expires_at) < new Date();
-                        const isAccepted = !!invite.accepted_at;
-
-                        return (
-                          <TableRow key={invite.id}>
-                            <TableCell>{invite.email}</TableCell>
-                            <TableCell>
-                              {isAccepted ? (
-                                <Badge variant="default">Accepted</Badge>
-                              ) : isExpired ? (
-                                <Badge variant="destructive">Expired</Badge>
-                              ) : (
-                                <Badge variant="outline">Pending</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {new Date(invite.created_at).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {new Date(invite.expires_at).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {!isAccepted && !isExpired && (
-                                <div className="flex justify-end gap-2">
-                                  <AsyncButton
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleResendInvite(invite.id)
-                                    }
-                                    pendingText="Resending..."
-                                  >
-                                    Resend
-                                  </AsyncButton>
-                                  <AsyncButton
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleRevokeInvite(invite.id)
-                                    }
-                                    pendingText="Revoking..."
-                                  >
-                                    Revoke
-                                  </AsyncButton>
-                                </div>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                  <InvitesTable
+                    invites={tenantInvites}
+                    onResendInvite={handleResendInvite}
+                    onRevokeInvite={handleRevokeInvite}
+                  />
                 )}
               </CardContent>
             </Card>
@@ -569,23 +438,23 @@ export default function AppAdminDashboard() {
               <CardContent>
                 <FormProvider {...inviteFormMethods}>
                   <form
-                    onSubmit={handleCreateAppAdminInvite}
+                    onSubmit={inviteFormMethods.handleSubmit(
+                      handleCreateInvite("app_admin"),
+                    )}
                     className="space-y-4"
                   >
                     <div>
-                      <Label htmlFor="app-admin-invite-email">Email</Label>
+                      <Label htmlFor="email">Email</Label>
                       <Input
-                        id="app-admin-invite-email"
                         type="email"
-                        value={appAdminInviteEmail}
-                        onChange={(e) => setAppAdminInviteEmail(e.target.value)}
                         placeholder="admin@example.com"
                         required
+                        {...inviteFormMethods.register("email")}
                       />
                     </div>
-                    {appAdminCreateError && (
+                    {inviteFormMethods.formState.errors.email && (
                       <p className="text-sm text-destructive-foreground">
-                        {appAdminCreateError}
+                        {inviteFormMethods.formState.errors.email.message}
                       </p>
                     )}
                     <AsyncButton type="submit" pendingText="Creating...">
@@ -606,71 +475,11 @@ export default function AppAdminDashboard() {
                     No app admin invites created yet.
                   </p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead>Expires</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {appAdminInvites.map((invite) => {
-                        const isExpired =
-                          new Date(invite.expires_at) < new Date();
-                        const isAccepted = !!invite.accepted_at;
-
-                        return (
-                          <TableRow key={invite.id}>
-                            <TableCell>{invite.email}</TableCell>
-                            <TableCell>
-                              {isAccepted ? (
-                                <Badge variant="default">Accepted</Badge>
-                              ) : isExpired ? (
-                                <Badge variant="destructive">Expired</Badge>
-                              ) : (
-                                <Badge variant="outline">Pending</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {new Date(invite.created_at).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {new Date(invite.expires_at).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {!isAccepted && !isExpired && (
-                                <div className="flex justify-end gap-2">
-                                  <AsyncButton
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleResendInvite(invite.id)
-                                    }
-                                    pendingText="Resending..."
-                                  >
-                                    Resend
-                                  </AsyncButton>
-                                  <AsyncButton
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleRevokeInvite(invite.id)
-                                    }
-                                    pendingText="Revoking..."
-                                  >
-                                    Revoke
-                                  </AsyncButton>
-                                </div>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                  <InvitesTable
+                    invites={appAdminInvites}
+                    onResendInvite={handleResendInvite}
+                    onRevokeInvite={handleRevokeInvite}
+                  />
                 )}
               </CardContent>
             </Card>

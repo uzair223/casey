@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Invite } from "@/lib/types";
+import InvitesTable from "@/components/InvitesTable";
 
 export default function TeamPage() {
   const { isLoading, user } = useUser();
@@ -561,83 +562,11 @@ export default function TeamPage() {
                     No invites created yet.
                   </p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Invite Code</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead>Expires</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {invites.map((invite) => {
-                        const isExpired =
-                          new Date(invite.expires_at) < new Date();
-                        const isAccepted = !!invite.accepted_at;
-
-                        return (
-                          <TableRow key={invite.id}>
-                            <TableCell>{invite.email}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="capitalize">
-                                {invite.role.replace("_", " ")}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <code className="text-xs font-mono bg-muted px-2 py-1 rounded">
-                                {invite.token}
-                              </code>
-                            </TableCell>
-                            <TableCell>
-                              {isAccepted ? (
-                                <Badge variant="default">Accepted</Badge>
-                              ) : isExpired ? (
-                                <Badge variant="destructive">Expired</Badge>
-                              ) : (
-                                <Badge variant="outline">Pending</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {new Date(invite.created_at).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {new Date(invite.expires_at).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {!isAccepted && !isExpired && (
-                                <div className="flex justify-end gap-2">
-                                  <AsyncButton
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleResendInvite(invite.id)
-                                    }
-                                    pendingText="Resending..."
-                                  >
-                                    Resend
-                                  </AsyncButton>
-                                  <AsyncButton
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleRevokeInvite(invite.id)
-                                    }
-                                    pendingText="Revoking..."
-                                  >
-                                    Revoke
-                                  </AsyncButton>
-                                </div>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                  <InvitesTable
+                    invites={invites}
+                    onResendInvite={handleResendInvite}
+                    onRevokeInvite={handleRevokeInvite}
+                  />
                 )}
               </CardContent>
             </Card>
