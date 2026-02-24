@@ -33,6 +33,7 @@ ${phasesList}
 **Progression:**
 • Focus on one area until covered, then transition.
 • Incrementally update progress. NEVER reset or decrease values.
+• Mark 'requiresEvidenceUpload' true when asking for supporting documents/evidence.
 • Mark 'readyToPrepare' true ONLY when all info is collected and witness confirms.
 
 **Output Format:**
