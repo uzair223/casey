@@ -17,6 +17,7 @@ import {
 import { CaseCard, CaseSearch, NewCaseForm } from "@/components/cases";
 import type { ProfileWithEmail } from "@/lib/supabase/queries/team";
 import type { StatementStatus } from "@/lib/types";
+import { apiFetch } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -56,43 +57,6 @@ export default function CasesPage() {
     status: "draft" as StatementStatus,
     assignedTo: "",
   });
-
-  const supabase = getSupabaseClient();
-
-  const getAccessToken = async () => {
-    if (!supabase) {
-      throw new Error("Supabase client not available");
-    }
-
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session?.access_token) {
-      throw new Error("User not authenticated");
-    }
-
-    return data.session.access_token;
-  };
-
-  const apiFetch = async <T,>(
-    url: string,
-    options?: RequestInit,
-  ): Promise<T> => {
-    const token = await getAccessToken();
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options?.headers ?? {}),
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || "Request failed");
-    }
-
-    return response.json();
-  };
 
   const fetchData = async () => {
     if (!user || !user?.tenant_id) return;

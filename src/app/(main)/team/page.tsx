@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Invite } from "@/lib/types";
 import InvitesTable from "@/components/InvitesTable";
+import { apiFetch } from "@/lib/utils";
 
 export default function TeamPage() {
   const { isLoading, user } = useUser();
@@ -61,28 +62,6 @@ export default function TeamPage() {
     }
 
     return data.session.access_token;
-  };
-
-  const apiFetch = async <T,>(
-    url: string,
-    options?: RequestInit,
-  ): Promise<T> => {
-    const token = await getAccessToken();
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options?.headers ?? {}),
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || "Request failed");
-    }
-
-    return response.json();
   };
 
   const fetchData = async () => {
