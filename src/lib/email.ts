@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { getAuthURL } from "./utils";
 import { getServiceClient } from "./supabase/server";
 
@@ -15,46 +15,15 @@ type InvitationEmailPayload = {
   token: string;
 };
 
-const getSmtpConfig = () => {
-  const host = process.env.SMTP_HOST || "";
-  const portRaw = process.env.SMTP_PORT || "";
-  const user = process.env.SMTP_USER || "";
-  const pass = process.env.SMTP_PASS || "";
-  const from = process.env.SMTP_FROM || "";
+// Resend integration: Requires RESEND_API_KEY and RESEND_FROM in environment variables
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-  if (!host || !portRaw || !user || !pass || !from) {
-    throw new Error(
-      "Missing SMTP configuration. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM.",
-    );
+const getResendFrom = () => {
+  const from = process.env.RESEND_FROM || "no-reply@casey.com";
+  if (!from) {
+    throw new Error("Missing RESEND_FROM environment variable.");
   }
-
-  const port = Number.parseInt(portRaw, 10);
-  if (!Number.isFinite(port)) {
-    throw new Error("SMTP_PORT must be a valid number.");
-  }
-
-  return {
-    host,
-    port,
-    user,
-    pass,
-    from,
-  };
-};
-
-const getTransporter = () => {
-  const config = getSmtpConfig();
-  const { host, port, user, pass } = config;
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: {
-      user,
-      pass,
-    },
-  });
-  return { transporter, config };
+  return from;
 };
 
 const buildStatementLinkEmailContent = (payload: StatementEmailPayload) => {
@@ -98,10 +67,10 @@ const buildInvitationEmailContent = (payload: InvitationEmailPayload) => {
 export const sendStatementLinkEmail = async (
   payload: StatementEmailPayload,
 ) => {
-  const { transporter, config } = getTransporter();
   const { subject, text, html } = buildStatementLinkEmailContent(payload);
-  await transporter.sendMail({
-    from: `${payload.tenantName} | ${config.from}`,
+  const from = `${payload.tenantName} | ${getResendFrom()}`;
+  await resend.emails.send({
+    from,
     to: payload.to,
     subject,
     text,
@@ -112,10 +81,10 @@ export const sendStatementLinkEmail = async (
 export const sendInvitationEmailToExisting = async (
   payload: InvitationEmailPayload,
 ) => {
-  const { transporter, config } = getTransporter();
   const { subject, text, html } = buildInvitationEmailContent(payload);
-  await transporter.sendMail({
-    from: config.from,
+  const from = getResendFrom();
+  await resend.emails.send({
+    from,
     to: payload.to,
     subject,
     text,
