@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm, FormProvider } from "react-hook-form";
+import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AsyncButton } from "@/components/ui/async-button";
 import { Input } from "@/components/ui/input";
@@ -32,37 +32,21 @@ import InvitesTable from "@/components/InvitesTable";
 import { apiFetch } from "@/lib/utils";
 
 export default function TeamPage() {
-  const { isLoading, user } = useUser();
+  const { isLoading: isUserLoading, user } = useUser();
+  const [isLoading, setIsLoading] = useState(true);
+
   const [teamMembers, setTeamMembers] = useState<ProfileWithEmail[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [enrollmentInvite, setEnrollmentInvite] = useState<Invite | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  const [email, setEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<
-    "tenant_admin" | "solicitor" | "paralegal"
-  >("paralegal");
-  const [createError, setCreateError] = useState("");
-  const inviteFormMethods = useForm();
-
+  const inviteFormMethods = useForm<{ email: string; role: string }>({
+    defaultValues: { email: "", role: "paralegal" },
+  });
   const supabase = getSupabaseClient();
 
   // Check permissions - only tenant_admin and solicitor can access this page
   const canManageTeam =
     user?.role === "tenant_admin" || user?.role === "solicitor";
-
-  const getAccessToken = async () => {
-    if (!supabase) {
-      throw new Error("Supabase client not available");
-    }
-
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session?.access_token) {
-      throw new Error("User not authenticated");
-    }
-
-    return data.session.access_token;
-  };
 
   const fetchData = async () => {
     if (!user?.tenant_id) return;
@@ -89,30 +73,7 @@ export default function TeamPage() {
             invite.role === "paralegal" &&
             !invite.accepted_at,
         );
-
-        if (existingEnrollment) {
-          setEnrollmentInvite(existingEnrollment);
-        } else {
-          // Create a new anonymous invite for paralegals
-          const { data: newInvite } = await supabase
-            .from("invites")
-            .insert({
-              tenant_id: user.tenant_id,
-              role: "paralegal",
-              email: null, // Anonymous invite
-              token: generateAlphanumericCode(8),
-              created_by: user.id,
-              expires_at: new Date(
-                Date.now() + 365 * 24 * 60 * 60 * 1000,
-              ).toISOString(), // 1 year expiry
-            })
-            .select()
-            .single();
-
-          if (newInvite) {
-            setEnrollmentInvite(newInvite);
-          }
-        }
+        setEnrollmentInvite(existingEnrollment || null);
       }
     } catch (error) {
       console.error("Failed to fetch team data:", error);
@@ -120,46 +81,38 @@ export default function TeamPage() {
         error instanceof Error ? error.message : "Failed to load team data",
       );
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!isLoading && user) {
+    if (!isUserLoading && user) {
       fetchData();
     }
-  }, [isLoading, user]);
+  }, [isUserLoading, user]);
 
-  const handleCreateInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreateError("");
-
+  const handleCreateInvite: SubmitHandler<{
+    email: string;
+    role: string;
+  }> = async (data) => {
     if (!canManageTeam) {
-      setCreateError("You don't have permission to invite team members");
+      inviteFormMethods.setError("email", {
+        message: "You don't have permission to create invites",
+      });
       return;
     }
-
     try {
-      const result = await apiFetch<{ emailSent?: boolean }>(
-        "/api/team/invites",
-        {
-          method: "POST",
-          body: JSON.stringify({ email, role: inviteRole }),
-        },
-      );
-
-      if (result.emailSent === false) {
-        setCreateError(
-          "Invite created, but the email could not be sent. Please resend.",
-        );
-      }
-
-      setEmail("");
+      await apiFetch("/api/team/invites", {
+        method: "POST",
+        body: JSON.stringify({ email: data.email, role: data.role }),
+      });
       fetchData();
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to create invite";
-      setCreateError(errorMessage);
+      inviteFormMethods.setError("email", {
+        message: errorMessage,
+      });
       throw new Error(errorMessage);
     }
   };
@@ -190,19 +143,11 @@ export default function TeamPage() {
     }
 
     try {
-      const result = await apiFetch<{ emailSent?: boolean }>(
-        "/api/team/invites",
-        {
-          method: "PUT",
-          body: JSON.stringify({ inviteId }),
-        },
-      );
+      await apiFetch("/api/team/invites", {
+        method: "PUT",
+        body: JSON.stringify({ inviteId }),
+      });
       fetchData();
-      if (result.emailSent === false) {
-        alert("Invite updated, but the email could not be sent.");
-      } else {
-        alert("Invite resent successfully! Expiry date extended by 7 days.");
-      }
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to resend invite");
     }
@@ -240,6 +185,7 @@ export default function TeamPage() {
     }
 
     if (
+      enrollmentInvite &&
       !confirm(
         "Are you sure you want to regenerate the enrollment code? The old code will stop working.",
       )
@@ -271,9 +217,6 @@ export default function TeamPage() {
       if (error) throw error;
 
       setEnrollmentInvite(newInvite);
-      alert("Enrollment code regenerated successfully!");
-
-      // Refresh the full invite list
       fetchData();
     } catch (error) {
       alert(
@@ -303,34 +246,11 @@ export default function TeamPage() {
     }
   };
 
-  if (isLoading || loading) {
+  if (isUserLoading || isLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <p className="text-sm text-muted-foreground">Loading team...</p>
       </div>
-    );
-  }
-
-  if (!canManageTeam) {
-    return (
-      <section className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-semibold text-primary">Team</h1>
-          <p className="mt-2 text-muted-foreground">
-            You don't have permission to manage the team.
-          </p>
-        </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Team Members</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Contact your administrator for team management.
-            </p>
-          </CardContent>
-        </Card>
-      </section>
     );
   }
 
@@ -346,8 +266,7 @@ export default function TeamPage() {
         </p>
       </div>
 
-      {/* Enrollment Code Card (tenant_admin only) */}
-      {user?.role === "tenant_admin" && enrollmentInvite && (
+      {canManageTeam && (
         <Card>
           <CardHeader>
             <CardTitle>Organization Enrollment Code</CardTitle>
@@ -360,20 +279,43 @@ export default function TeamPage() {
             </p>
             <div className="flex items-center gap-4">
               <div className="flex-1 bg-muted p-6 rounded-lg text-center">
-                <p className="text-xs text-muted-foreground mb-2">
-                  Enrollment Code
-                </p>
-                <p className="text-4xl font-mono font-bold tracking-wider text-primary">
-                  {enrollmentInvite.token}
-                </p>
+                {enrollmentInvite ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Enrollment Code
+                    </p>
+                    <p className="text-4xl font-mono font-bold tracking-wider text-primary">
+                      {enrollmentInvite.token}
+                    </p>
+                  </>
+                ) : (
+                  <AsyncButton
+                    variant="outline"
+                    onClick={handleRegenerateEnrollmentCode}
+                    pendingText="Regenerating..."
+                  >
+                    Generate Code
+                  </AsyncButton>
+                )}
               </div>
-              <AsyncButton
-                variant="outline"
-                onClick={handleRegenerateEnrollmentCode}
-                pendingText="Regenerating..."
-              >
-                Regenerate Code
-              </AsyncButton>
+              {enrollmentInvite && (
+                <div className="flex flex-col gap-2">
+                  <AsyncButton
+                    variant="outline"
+                    onClick={handleRegenerateEnrollmentCode}
+                    pendingText="Regenerating..."
+                  >
+                    Regenerate
+                  </AsyncButton>
+                  <AsyncButton
+                    variant="outline"
+                    onClick={() => handleRevokeInvite(enrollmentInvite.id)}
+                    pendingText="Revoking..."
+                  >
+                    Revoke
+                  </AsyncButton>
+                </div>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               💡 New users can use this code during sign-up instead of waiting
@@ -388,7 +330,7 @@ export default function TeamPage() {
           <TabsTrigger value="members">
             Members ({teamMembers.length})
           </TabsTrigger>
-          <TabsTrigger value="invites">
+          <TabsTrigger value="invites" disabled={!canManageTeam}>
             Invites ({invites.filter((i) => !i.accepted_at).length})
           </TabsTrigger>
         </TabsList>
@@ -407,6 +349,7 @@ export default function TeamPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Joined</TableHead>
@@ -416,6 +359,7 @@ export default function TeamPage() {
                   <TableBody>
                     {teamMembers.map((member) => (
                       <TableRow key={member.user_id}>
+                        <TableCell>{member.display_name}</TableCell>
                         <TableCell>{member.email}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="capitalize">
@@ -425,48 +369,50 @@ export default function TeamPage() {
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(member.created_at).toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {member.user_id !== user?.id && (
-                            <div className="flex justify-end gap-2">
-                              <Select
-                                value={member.role}
-                                onValueChange={(newRole) =>
-                                  handleUpdateRole(member.user_id, newRole)
-                                }
-                              >
-                                <SelectTrigger className="w-40">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="tenant_admin">
-                                    Tenant Admin
-                                  </SelectItem>
-                                  <SelectItem value="solicitor">
-                                    Solicitor
-                                  </SelectItem>
-                                  <SelectItem value="paralegal">
-                                    Paralegal
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <AsyncButton
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  handleRemoveMember(member.user_id)
-                                }
-                                pendingText="Removing..."
-                              >
-                                Remove
-                              </AsyncButton>
-                            </div>
-                          )}
-                          {member.user_id === user?.id && (
-                            <span className="text-sm text-muted-foreground">
-                              You
-                            </span>
-                          )}
-                        </TableCell>
+                        {canManageTeam && (
+                          <TableCell className="text-right">
+                            {member.user_id !== user?.id && (
+                              <div className="flex justify-end gap-2">
+                                <Select
+                                  value={member.role}
+                                  onValueChange={(newRole) =>
+                                    handleUpdateRole(member.user_id, newRole)
+                                  }
+                                >
+                                  <SelectTrigger className="w-40">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="tenant_admin">
+                                      Tenant Admin
+                                    </SelectItem>
+                                    <SelectItem value="solicitor">
+                                      Solicitor
+                                    </SelectItem>
+                                    <SelectItem value="paralegal">
+                                      Paralegal
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <AsyncButton
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleRemoveMember(member.user_id)
+                                  }
+                                  pendingText="Removing..."
+                                >
+                                  Remove
+                                </AsyncButton>
+                              </div>
+                            )}
+                            {member.user_id === user?.id && (
+                              <span className="text-sm text-muted-foreground">
+                                You
+                              </span>
+                            )}
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -484,26 +430,29 @@ export default function TeamPage() {
               </CardHeader>
               <CardContent>
                 <FormProvider {...inviteFormMethods}>
-                  <form onSubmit={handleCreateInvite} className="space-y-4">
+                  <form
+                    onSubmit={inviteFormMethods.handleSubmit(
+                      handleCreateInvite,
+                    )}
+                    className="space-y-4"
+                  >
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <Label htmlFor="email">Email</Label>
                         <Input
-                          id="email"
                           type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
                           placeholder="member@example.com"
                           required
+                          {...inviteFormMethods.register("email")}
                         />
                       </div>
                       <div>
                         <Label htmlFor="role">Role</Label>
                         <Select
-                          value={inviteRole}
-                          onValueChange={(
-                            value: "tenant_admin" | "solicitor" | "paralegal",
-                          ) => setInviteRole(value)}
+                          value={inviteFormMethods.watch("role")}
+                          onValueChange={(value) =>
+                            inviteFormMethods.setValue("role", value)
+                          }
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -518,9 +467,9 @@ export default function TeamPage() {
                         </Select>
                       </div>
                     </div>
-                    {createError && (
+                    {inviteFormMethods.formState.errors.email && (
                       <p className="text-sm text-destructive-foreground">
-                        {createError}
+                        {inviteFormMethods.formState.errors.email.message?.toString()}
                       </p>
                     )}
                     <AsyncButton type="submit" pendingText="Creating...">

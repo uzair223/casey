@@ -40,13 +40,6 @@ const requireTeamAccess = async (request: Request) => {
     };
   }
 
-  // Only tenant_admin and solicitor can view team
-  if (profile.role !== "tenant_admin" && profile.role !== "solicitor") {
-    return {
-      error: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
-    };
-  }
-
   return {
     user_id: userData.user.id,
     tenant_id: profile.tenant_id,

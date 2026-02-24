@@ -44,26 +44,6 @@ function StatementContent() {
     );
   }
 
-  // Handle rate limit error
-  if (loadError === "rate_limit") {
-    return (
-      <section className="flex flex-col justify-center items-center h-screenspace-y-4 px-4">
-        <div className="text-destructive-foreground text-6xl mb-2">⚠️</div>
-        <h1 className="text-3xl font-semibold">Too Many Attempts</h1>
-        <p className="text-muted-foreground text-center max-w-md">
-          For security reasons, this link has been temporarily locked due to too
-          many access attempts.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Please wait a few minutes and try again.
-        </p>
-        <Button asChild variant="link">
-          <Link href="/">Return to home</Link>
-        </Button>
-      </section>
-    );
-  }
-
   // Handle other errors
   if (loadError || !statementData) {
     return (
@@ -71,7 +51,7 @@ function StatementContent() {
         <div className="text-muted-foreground text-6xl mb-2">🔒</div>
         <h1 className="text-3xl font-semibold">Link Not Available</h1>
         <p className="text-muted-foreground text-center max-w-md">
-          This magic link is invalid, has already been used, or has expired.
+          This magic link is invalid, or has expired.
         </p>
         <p className="text-sm text-muted-foreground">
           Please contact the law firm for a new link.

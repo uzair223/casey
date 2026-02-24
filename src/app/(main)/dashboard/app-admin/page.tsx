@@ -78,24 +78,13 @@ export default function AppAdminDashboard() {
       inviteFormMethods.clearErrors("email");
 
       try {
-        const result = await apiFetch<{ emailSent?: boolean }>(
-          "/api/admin/invites",
-          {
-            method: "POST",
-            body: JSON.stringify({
-              email: data.email,
-              role,
-            }),
-          },
-        );
-
-        if (result.emailSent === false) {
-          inviteFormMethods.setError("email", {
-            message:
-              "Invite created, but the email could not be sent. Please resend.",
-          });
-        }
-
+        await apiFetch("/api/admin/invites", {
+          method: "POST",
+          body: JSON.stringify({
+            email: data.email,
+            role,
+          }),
+        });
         fetchData();
       } catch (error) {
         const errorMessage =
@@ -123,19 +112,11 @@ export default function AppAdminDashboard() {
 
   const handleResendInvite = async (inviteId: string) => {
     try {
-      const result = await apiFetch<{ emailSent?: boolean }>(
-        "/api/admin/invites",
-        {
-          method: "PUT",
-          body: JSON.stringify({ inviteId }),
-        },
-      );
+      await apiFetch("/api/admin/invites", {
+        method: "PUT",
+        body: JSON.stringify({ inviteId }),
+      });
       fetchData();
-      if (result.emailSent === false) {
-        alert("Invite updated, but the email could not be sent.");
-      } else {
-        alert("Invite resent successfully! Expiry date extended by 7 days.");
-      }
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to resend invite");
     }

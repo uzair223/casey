@@ -81,14 +81,9 @@ export async function POST(
       statementUrl,
     });
 
-    const emailSent = true;
-
     return NextResponse.json({
       success: true,
-      emailSent,
-      message: emailSent
-        ? "Statement link email sent successfully"
-        : "Link generated but email could not be sent",
+      message: "Statement link email sent successfully",
     });
   } catch (error) {
     console.error("Send statement link error:", error);

@@ -6,6 +6,7 @@ import {
   resendInvite,
 } from "@/lib/supabase/queries/invites";
 import { getUserProfile } from "@/lib/supabase/queries/auth";
+import { sendInvitationEmail } from "@/lib/email";
 
 const getBearerToken = (request: Request) => {
   const header = request.headers.get("authorization");
@@ -64,8 +65,9 @@ export async function POST(request: Request) {
     const tenant_id =
       role === "app_admin" || role === "tenant_admin" ? null : null;
 
-    const result = await createInvite(email, role, tenant_id, auth.user_id);
-    return NextResponse.json(result);
+    const { token } = await createInvite(email, role, tenant_id, auth.user_id);
+    if (email) await sendInvitationEmail({ email, token });
+    return NextResponse.json({ email, token });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -86,8 +88,9 @@ export async function PUT(request: Request) {
       );
     }
 
-    const result = await resendInvite(inviteId);
-    return NextResponse.json({ success: true, ...result });
+    const { email, token } = await resendInvite(inviteId);
+    if (email) await sendInvitationEmail({ email, token });
+    return NextResponse.json({ email, token });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

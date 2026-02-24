@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { getSupabaseClient } from "@/lib/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import {
   CaseWithWitness,

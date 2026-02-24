@@ -15,18 +15,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getInviteByToken } from "@/lib/supabase/queries";
-import { Invite } from "@/lib/types";
-import { getRoleLabel } from "@/lib/utils";
+import type { InviteWithTenantName } from "@/lib/supabase/queries";
+import { apiFetch, getAuthURL, getRoleLabel } from "@/lib/utils";
 
 export default function AuthContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoading: userLoading, refreshUser, signOut } = useUser();
+
+  const { user, isLoading: userLoading, refreshUser } = useUser();
   const [status, setStatus] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
 
-  const [inviteInfo, setInviteInfo] = useState<Invite | null>(null);
+  const [inviteInfo, setInviteInfo] = useState<InviteWithTenantName | null>(
+    null,
+  );
 
   const authForm = useForm<{ email: string }>({ defaultValues: { email: "" } });
   const lookupInviteForm = useForm<{ inviteCode: string }>({
@@ -63,26 +65,24 @@ export default function AuthContent() {
   }, [user, userLoading, router]);
 
   useEffect(() => {
-    const inviteCode = searchParams.get("invite") || "";
-    lookupInviteForm.setValue("inviteCode", inviteCode);
+    const inviteCode = searchParams.get("invite");
+    if (inviteCode) {
+      lookupInviteForm.setValue("inviteCode", inviteCode);
+    }
   }, [searchParams]);
 
   const handleMagicLink: SubmitHandler<{ email: string }> = async ({
     email,
   }) => {
     setStatus(null);
-
     try {
       const supabase = getSupabaseClient();
-      // Build redirect URL with invite token if present
-      let redirectUrl = `${window.location.origin}/auth`;
-      redirectUrl += `?invite=${lookupInviteForm.getValues("inviteCode")}`;
-
+      const emailRedirectTo = getAuthURL(
+        lookupInviteForm.getValues("inviteCode"),
+      );
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        options: {
-          emailRedirectTo: redirectUrl,
-        },
+        options: { emailRedirectTo },
       });
 
       if (error) {
@@ -113,8 +113,11 @@ export default function AuthContent() {
     setStatus(null);
 
     try {
-      const inviteInfo = await getInviteByToken(token);
-      setInviteInfo(inviteInfo);
+      const { invite } = await apiFetch<{ invite: InviteWithTenantName }>(
+        `/api/invites/${token}`,
+        { method: "GET" },
+      );
+      setInviteInfo(invite);
       return;
     } catch (error) {
       const errorMessage =
@@ -266,7 +269,7 @@ export default function AuthContent() {
                         You have been invited to join
                       </p>
                       <p className="text-lg font-semibold text-primary">
-                        {inviteInfo.tenant_id}
+                        {inviteInfo.tenant_name}
                       </p>
                     </>
                   ) : (

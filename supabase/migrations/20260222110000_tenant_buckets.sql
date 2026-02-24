@@ -42,7 +42,6 @@ AS $$
     SELECT 1
     FROM public.magic_links ml
     WHERE ml.tenant_id::text = bucket_id_param
-      AND ml.used_at IS NULL
       AND ml.expires_at > NOW()
   );
 $$;

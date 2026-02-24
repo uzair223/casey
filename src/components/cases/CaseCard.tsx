@@ -80,12 +80,6 @@ export function CaseCard({
     return match?.email ?? assignedTo;
   };
 
-  const isLinkExpired =
-    item.magic_link_expires_at &&
-    new Date(item.magic_link_expires_at) < new Date();
-
-  const isLinkUsed = !!item.magic_link_used_at;
-
   return (
     <>
       <Card className="p-6 space-y-4">
@@ -149,7 +143,6 @@ export function CaseCard({
           witness_email: item.witness_email,
           magic_link_token: item.magic_link_token,
           magic_link_expires_at: item.magic_link_expires_at,
-          magic_link_used_at: item.magic_link_used_at,
           signed_document: item.signed_document,
           supporting_documents: item.supporting_documents,
         }}

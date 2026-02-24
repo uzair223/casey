@@ -14,42 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      access_logs: {
-        Row: {
-          access_granted: boolean
-          accessed_id: string | null
-          accessed_table: string
-          created_at: string
-          error_message: string | null
-          id: string
-          ip_address: unknown
-          magic_link_token: string | null
-          user_agent: string | null
-        }
-        Insert: {
-          access_granted?: boolean
-          accessed_id?: string | null
-          accessed_table: string
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          ip_address?: unknown
-          magic_link_token?: string | null
-          user_agent?: string | null
-        }
-        Update: {
-          access_granted?: boolean
-          accessed_id?: string | null
-          accessed_table?: string
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          ip_address?: unknown
-          magic_link_token?: string | null
-          user_agent?: string | null
-        }
-        Relationships: []
-      }
       conversation_messages: {
         Row: {
           content: string
@@ -134,40 +98,25 @@ export type Database = {
       }
       magic_links: {
         Row: {
-          access_count: number | null
           created_at: string
           expires_at: string
-          first_access_ip: unknown
-          first_accessed_at: string | null
-          last_accessed_at: string | null
           statement_id: string
           tenant_id: string
           token: string
-          used_at: string | null
         }
         Insert: {
-          access_count?: number | null
           created_at?: string
           expires_at: string
-          first_access_ip?: unknown
-          first_accessed_at?: string | null
-          last_accessed_at?: string | null
           statement_id: string
           tenant_id: string
           token: string
-          used_at?: string | null
         }
         Update: {
-          access_count?: number | null
           created_at?: string
           expires_at?: string
-          first_access_ip?: unknown
-          first_accessed_at?: string | null
-          last_accessed_at?: string | null
           statement_id?: string
           tenant_id?: string
           token?: string
-          used_at?: string | null
         }
         Relationships: [
           {
@@ -313,36 +262,7 @@ export type Database = {
         Args: { bucket_id_param: string }
         Returns: boolean
       }
-      check_intake_rate_limit: {
-        Args: {
-          p_ip_address?: unknown
-          p_max_attempts?: number
-          p_token?: string
-          p_window_minutes?: number
-        }
-        Returns: {
-          allowed: boolean
-          attempts_count: number
-          window_expires_at: string
-        }[]
-      }
       is_tenant_bucket: { Args: { bucket_id_param: string }; Returns: boolean }
-      log_intake_access: {
-        Args: {
-          p_error?: string
-          p_granted?: boolean
-          p_id?: string
-          p_ip_address?: unknown
-          p_table: string
-          p_token: string
-          p_user_agent?: string
-        }
-        Returns: string
-      }
-      mark_magic_link_used: {
-        Args: { ip_address?: unknown; token_param: string }
-        Returns: boolean
-      }
       statement_has_valid_magic_link: {
         Args: { statement_id_param: string }
         Returns: boolean

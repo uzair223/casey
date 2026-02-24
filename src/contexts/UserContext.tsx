@@ -9,7 +9,7 @@ import React, {
   useCallback,
 } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { getCurrentUserProfile } from "@/lib/supabase/queries";
+import { getCurrentUserProfile } from "@/lib/supabase/queries/auth";
 import { useRouter } from "next/navigation";
 import { User, UserRole } from "@/lib/types";
 

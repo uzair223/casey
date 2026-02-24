@@ -1,7 +1,8 @@
 import { getServiceClient } from "../server";
-import { getSupabaseClient } from "../client";
+
 import { assertServerOnly } from "@/lib/utils";
 import { generateAlphanumericCode } from "@/lib/security";
+
 import { Invite } from "@/lib/types";
 
 /**
@@ -26,8 +27,7 @@ export const createInvite = async (
   role: string,
   tenant_id: string | null,
   createdBy: string,
-): Promise<{ token: string; inviteUrl: string; emailSent: boolean }> => {
-  assertServerOnly("createInvite");
+): Promise<{ email: string | null; token: string }> => {
   const supabase = getServiceClient();
 
   if (email) {
@@ -58,25 +58,7 @@ export const createInvite = async (
     const { data: existingInvite } = await query.maybeSingle();
 
     if (existingInvite && new Date(existingInvite.expires_at) > new Date()) {
-      // Resend email for existing invite
-      const redirectUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth?invite=${existingInvite.token}`;
-
-      const { error: emailError } = await supabase.auth.admin.inviteUserByEmail(
-        email,
-        {
-          redirectTo: redirectUrl,
-        },
-      );
-
-      if (emailError) {
-        console.error("Failed to resend invite email:", emailError);
-      }
-
-      return {
-        token: existingInvite.token,
-        inviteUrl: `/auth?invite=${existingInvite.token}`,
-        emailSent: !emailError,
-      };
+      return { email, token: existingInvite?.token };
     }
   }
 
@@ -97,173 +79,7 @@ export const createInvite = async (
   if (insertError) {
     throw insertError;
   }
-
-  // Send invitation email (if email provided)
-  let emailSent = false;
-  if (email) {
-    const redirectUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth?invite=${token}`;
-
-    const { error: emailError } = await supabase.auth.admin.inviteUserByEmail(
-      email,
-      {
-        redirectTo: redirectUrl,
-      },
-    );
-
-    if (emailError) {
-      console.error("Failed to send invite email:", emailError);
-    } else {
-      emailSent = true;
-    }
-  }
-
-  return {
-    token,
-    inviteUrl: `/auth?invite=${token}`,
-    emailSent,
-  };
-};
-
-/**
- * Create a user invite for a tenant (convenience wrapper)
- * Sends invitation email via Supabase Auth
- * SERVER ONLY - Requires service role for auth.admin operations
- */
-export const createUserInvite = async (
-  email: string,
-  role: string,
-  tenant_id: string,
-  createdBy: string,
-): Promise<{ token: string; inviteUrl: string; emailSent: boolean }> => {
-  return createInvite(email, role, tenant_id, createdBy);
-};
-
-/**
- * Get all invites for a tenant
- * Client-callable: only accesses tenant's own data via RLS
- */
-export const getUserInvites = async (tenant_id: string): Promise<Invite[]> => {
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    throw new Error("Supabase client not available");
-  }
-
-  const { data: invites, error } = await supabase
-    .from("invites")
-    .select("*")
-    .eq("tenant_id", tenant_id)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    throw error;
-  }
-
-  return invites || [];
-};
-
-/**
- * Revoke (delete) a user invite
- * Client-callable: RLS ensures only tenant admins can delete for their tenant
- */
-export const revokeUserInvite = async (
-  inviteId: string,
-  tenant_id: string,
-): Promise<void> => {
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    throw new Error("Supabase client not available");
-  }
-
-  // Check if invite exists, belongs to tenant, and is not accepted
-  const { data: invite } = await supabase
-    .from("invites")
-    .select("tenant_id, accepted_at")
-    .eq("id", inviteId)
-    .maybeSingle();
-
-  if (!invite) {
-    throw new Error("Invite not found");
-  }
-
-  if (invite.tenant_id !== tenant_id) {
-    throw new Error("Unauthorized");
-  }
-
-  if (invite.accepted_at) {
-    throw new Error("Cannot revoke an accepted invite");
-  }
-
-  // Delete the invite
-  const { error: deleteError } = await supabase
-    .from("invites")
-    .delete()
-    .eq("id", inviteId);
-
-  if (deleteError) {
-    throw deleteError;
-  }
-};
-
-/**
- * Resend a user invite (extend expiry by 7 days)
- */
-export const resendUserInvite = async (
-  inviteId: string,
-  tenant_id: string,
-): Promise<{ emailSent: boolean }> => {
-  assertServerOnly("resendUserInvite");
-  const supabase = getServiceClient();
-
-  // Verify invite belongs to user's tenant
-  const { data: invite } = await supabase
-    .from("invites")
-    .select("tenant_id, email, token")
-    .eq("id", inviteId)
-    .maybeSingle();
-
-  if (!invite) {
-    throw new Error("Invite not found");
-  }
-
-  if (invite.tenant_id !== tenant_id) {
-    throw new Error("Unauthorized");
-  }
-
-  // Extend expiry by 7 days from now
-  const newExpiresAt = new Date();
-  newExpiresAt.setDate(newExpiresAt.getDate() + 7);
-
-  const { error: updateError } = await supabase
-    .from("invites")
-    .update({ expires_at: newExpiresAt.toISOString() })
-    .eq("id", inviteId);
-
-  if (updateError) {
-    throw updateError;
-  }
-
-  // Resend email (if email is set)
-  let emailSent = false;
-  if (invite.email) {
-    const redirectUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth?invite=${invite.token}`;
-
-    const { error: emailError } = await supabase.auth.admin.inviteUserByEmail(
-      invite.email,
-      {
-        redirectTo: redirectUrl,
-      },
-    );
-
-    if (emailError) {
-      console.error("Failed to resend invite email:", emailError);
-    } else {
-      emailSent = true;
-    }
-  }
-
-  return {
-    emailSent,
-  };
+  return { email, token };
 };
 
 /**
@@ -272,7 +88,7 @@ export const resendUserInvite = async (
  */
 export const resendInvite = async (
   inviteId: string,
-): Promise<{ emailSent: boolean }> => {
+): Promise<{ email: string | null; token: string }> => {
   assertServerOnly("resendInvite");
   const supabase = getServiceClient();
 
@@ -306,25 +122,7 @@ export const resendInvite = async (
     throw updateError;
   }
 
-  let emailSent = false;
-  if (invite.email) {
-    const redirectUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth?invite=${invite.token}`;
-
-    const { error: emailError } = await supabase.auth.admin.inviteUserByEmail(
-      invite.email,
-      {
-        redirectTo: redirectUrl,
-      },
-    );
-
-    if (emailError) {
-      console.error("Failed to resend invite email:", emailError);
-    } else {
-      emailSent = true;
-    }
-  }
-
-  return { emailSent };
+  return { email: invite.email, token: invite.token };
 };
 
 /**
@@ -363,45 +161,22 @@ export const revokeInvite = async (inviteId: string): Promise<void> => {
   }
 };
 
+export type InviteWithTenantName = Invite & { tenant_name: string | null };
 /**
  * Get and validate an invite by token
  */
 export const getInviteByToken = async (
   token: string,
-): Promise<Invite | null> => {
-  const supabase = getSupabaseClient();
-
-  const { data: invite, error } = await supabase
-    .from("invites")
-    .select("*")
-    .eq("token", token)
-    .maybeSingle();
-
-  if (error || !invite) {
-    return null;
-  }
-
-  // Check if expired or already accepted
-  if (invite.accepted_at || new Date(invite.expires_at) < new Date()) {
-    return null;
-  }
-
-  return invite;
-};
-
-export const getInviteByTokenServer = async (
-  token: string,
-): Promise<Invite | null> => {
-  assertServerOnly("getInviteByTokenServer");
+): Promise<InviteWithTenantName | null> => {
   const supabase = getServiceClient();
 
-  const { data: invite, error } = await supabase
+  const { data: invite, error: inviteError } = await supabase
     .from("invites")
     .select("*")
     .eq("token", token)
     .maybeSingle();
 
-  if (error || !invite) {
+  if (inviteError || !invite) {
     return null;
   }
 
@@ -410,7 +185,17 @@ export const getInviteByTokenServer = async (
     return null;
   }
 
-  return invite;
+  let tenant_name = null;
+  if (invite.tenant_id) {
+    const { data } = await supabase
+      .from("tenants")
+      .select("name")
+      .eq("id", invite.tenant_id)
+      .maybeSingle();
+    tenant_name = data?.name || null;
+  }
+
+  return { ...invite, tenant_name };
 };
 
 /**
@@ -425,7 +210,7 @@ export const acceptInvite = async (
   assertServerOnly("acceptInvite");
   const supabase = getServiceClient();
 
-  const invite = await getInviteByTokenServer(token);
+  const invite = await getInviteByToken(token);
   if (!invite) {
     throw new Error("Invalid or expired invite");
   }
@@ -469,14 +254,15 @@ export const acceptInvite = async (
     throw profileError;
   }
 
-  // Mark invite as accepted
-  const { error: updateError } = await supabase
-    .from("invites")
-    .update({ accepted_at: new Date().toISOString() })
-    .eq("token", token);
-
-  if (updateError) {
-    throw updateError;
+  // Mark invite as accepted if not open invite
+  if (invite.email !== null) {
+    const { error: updateError } = await supabase
+      .from("invites")
+      .update({ accepted_at: new Date().toISOString() })
+      .eq("token", token);
+    if (updateError) {
+      throw updateError;
+    }
   }
 
   return {

@@ -57,7 +57,6 @@ export type CaseWithWitness = Case & {
   witness_email?: string;
   magic_link_token?: string;
   magic_link_expires_at?: string;
-  magic_link_used_at?: string | null;
   signed_document?: UploadedDocument | null;
   supporting_documents?: UploadedDocument[];
   progress?: ProgressData | null;
@@ -78,7 +77,7 @@ export async function getCases(
 
   let query = supabase
     .from("statements")
-    .select("*, magic_links(token, expires_at, used_at)")
+    .select("*, magic_links(token, expires_at)")
     .eq("tenant_id", tenant_id)
     .order("created_at", { ascending: false });
 
@@ -168,7 +167,6 @@ export async function getCases(
       witness_email: statement.witness_email,
       magic_link_token: firstLink?.token,
       magic_link_expires_at: firstLink?.expires_at,
-      magic_link_used_at: firstLink?.used_at,
       signed_document: signedDocument,
       supporting_documents: supportingDocuments,
       progress: latest?.progress || null,

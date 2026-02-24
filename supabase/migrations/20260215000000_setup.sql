@@ -1,8 +1,3 @@
--- ============================================================================
--- Database Schema - Consolidated Migration
--- Complete schema with all tables, indexes, functions, triggers, and RLS policies
--- ============================================================================
-
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
@@ -54,11 +49,6 @@ CREATE TABLE IF NOT EXISTS public.magic_links (
   statement_id UUID NOT NULL REFERENCES statements ON DELETE CASCADE,
   tenant_id UUID NOT NULL REFERENCES tenants ON DELETE CASCADE,
   expires_at TIMESTAMPTZ NOT NULL,
-  used_at TIMESTAMPTZ,
-  first_accessed_at TIMESTAMPTZ,
-  first_access_ip INET,
-  access_count INT DEFAULT 0,
-  last_accessed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -160,41 +150,13 @@ RETURNS TABLE (
 BEGIN
   RETURN QUERY
   SELECT 
-    (ml.used_at IS NULL AND ml.expires_at > NOW())::BOOLEAN,
+    (ml.expires_at > NOW())::BOOLEAN,
     ml.statement_id,
     ml.tenant_id,
     ml.expires_at
   FROM magic_links ml
   WHERE ml.token = token_param
   LIMIT 1;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Update magic link usage (called after witness completes action)
-CREATE OR REPLACE FUNCTION public.mark_magic_link_used(token_param TEXT, ip_address INET DEFAULT NULL)
-RETURNS BOOLEAN AS $$
-DECLARE
-  link_exists BOOLEAN;
-BEGIN
-  -- Check if link exists and hasn't been used
-  SELECT EXISTS(
-    SELECT 1 FROM magic_links 
-    WHERE token = token_param AND used_at IS NULL
-  ) INTO link_exists;
-  
-  IF NOT link_exists THEN
-    RETURN FALSE;
-  END IF;
-  
-  -- Update link atomically
-  UPDATE magic_links
-  SET 
-    used_at = NOW(),
-    last_accessed_at = NOW(),
-    first_access_ip = COALESCE(first_access_ip, ip_address)
-  WHERE token = token_param AND used_at IS NULL;
-  
-  RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -206,7 +168,6 @@ BEGIN
   RETURN EXISTS(
     SELECT 1 FROM magic_links ml
     WHERE ml.statement_id = statement_id_param
-    AND ml.used_at IS NULL
     AND ml.expires_at > NOW()
   );
 END;
@@ -220,7 +181,6 @@ BEGIN
   RETURN EXISTS(
     SELECT 1 FROM magic_links ml
     WHERE ml.tenant_id = tenant_id_param
-    AND ml.used_at IS NULL
     AND ml.expires_at > NOW()
   );
 END;
@@ -241,26 +201,13 @@ ALTER TABLE invites ENABLE ROW LEVEL SECURITY;
 -- TENANTS POLICIES
 -- ============================================================================
 
-CREATE POLICY "Authorized users can read tenants"
+CREATE POLICY "Anyone can read tenants"
   ON tenants FOR SELECT
-  USING (
-    -- Tenant members can read their tenant
-    id = public.user_tenant_id()
-    -- App admins can read all tenants
-    OR public.user_role() = 'app_admin'
-  );
+  USING (true);
 
 CREATE POLICY "App admins can create tenants"
   ON tenants FOR INSERT
   WITH CHECK (public.user_role() = 'app_admin');
-
--- Anon users can read tenants via valid magic links (for statement intake)
-CREATE POLICY "Anon users can read tenants via magic link"
-  ON tenants FOR SELECT
-  TO anon
-  USING (
-    public.tenant_has_valid_magic_link(id)
-  );
 
 -- ============================================================================
 -- PROFILES POLICIES
@@ -300,8 +247,7 @@ CREATE POLICY "Unauthenticated users can read valid magic links"
   ON public.magic_links FOR SELECT
   TO anon
   USING (
-    used_at IS NULL
-    AND expires_at > NOW()
+    expires_at > NOW()
   );
 
 -- Only tenant can create magic links
@@ -446,18 +392,6 @@ CREATE POLICY "Authenticated users can read conversation messages"
     )
   );
 
--- Authenticated users can create messages for their tenant's statements
-CREATE POLICY "Authenticated users can create conversation messages"
-  ON conversation_messages FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM statements s
-      WHERE s.id = conversation_messages.statement_id
-      AND s.tenant_id = public.user_tenant_id()
-    )
-  );
-
 -- Service role can manage all messages (for AI chat API)
 CREATE POLICY "Service role can manage conversation messages"
   ON conversation_messages FOR ALL
@@ -470,142 +404,5 @@ CREATE POLICY "Anon users can read messages via magic link"
   ON conversation_messages FOR SELECT
   TO anon
   USING (
-    EXISTS (
-      SELECT 1 FROM magic_links ml
-      WHERE ml.statement_id = conversation_messages.statement_id
-      AND ml.used_at IS NULL
-      AND ml.expires_at > NOW()
-    )
+    public.statement_has_valid_magic_link(conversation_messages.statement_id)
   );
-
--- Anon users can create messages for statements with valid magic links
-CREATE POLICY "Anon users can create messages via magic link"
-  ON conversation_messages FOR INSERT
-  TO anon
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM magic_links ml
-      WHERE ml.statement_id = conversation_messages.statement_id
-      AND ml.used_at IS NULL
-      AND ml.expires_at > NOW()
-    )
-  );
-
--- ============================================================================
--- AUDIT LOGGING FOR INTAKE ACCESS
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS public.access_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  magic_link_token TEXT,
-  accessed_table TEXT NOT NULL,
-  accessed_id UUID,
-  ip_address INET,
-  user_agent TEXT,
-  access_granted BOOLEAN NOT NULL DEFAULT false,
-  error_message TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_access_logs_token ON access_logs(magic_link_token);
-CREATE INDEX IF NOT EXISTS idx_access_logs_created_at ON access_logs(created_at);
-CREATE INDEX IF NOT EXISTS idx_access_logs_ip ON access_logs(ip_address);
-
-ALTER TABLE access_logs ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Service role and admins can read access logs"
-  ON access_logs FOR SELECT
-  USING (
-    auth.role() = 'service_role'
-    OR public.user_role() = 'app_admin'
-  );
-
-CREATE POLICY "Anyone can insert access logs"
-  ON access_logs FOR INSERT
-  WITH CHECK (true);
-
--- ============================================================================
--- INTAKE ACCESS FUNCTIONS
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION check_intake_rate_limit(
-  p_token TEXT DEFAULT NULL,
-  p_ip_address INET DEFAULT NULL,
-  p_max_attempts INT DEFAULT 10,
-  p_window_minutes INT DEFAULT 5
-)
-RETURNS TABLE(allowed BOOLEAN, attempts_count INT, window_expires_at TIMESTAMPTZ)
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_attempt_count INT;
-  v_window_start TIMESTAMPTZ;
-BEGIN
-  v_window_start := NOW() - (p_window_minutes || ' minutes')::INTERVAL;
-
-  SELECT COUNT(*)
-  INTO v_attempt_count
-  FROM public.access_logs
-  WHERE created_at > v_window_start
-    AND (
-      (p_token IS NOT NULL AND magic_link_token = p_token)
-      OR
-      (p_ip_address IS NOT NULL AND ip_address = p_ip_address)
-    );
-
-  RETURN QUERY SELECT
-    (v_attempt_count < p_max_attempts),
-    v_attempt_count,
-    (v_window_start + (p_window_minutes || ' minutes')::INTERVAL);
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION log_intake_access(
-  p_token TEXT,
-  p_table TEXT,
-  p_id UUID DEFAULT NULL,
-  p_ip_address INET DEFAULT NULL,
-  p_user_agent TEXT DEFAULT NULL,
-  p_granted BOOLEAN DEFAULT true,
-  p_error TEXT DEFAULT NULL
-)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_log_id UUID;
-BEGIN
-  INSERT INTO public.access_logs (
-    magic_link_token,
-    accessed_table,
-    accessed_id,
-    ip_address,
-    user_agent,
-    access_granted,
-    error_message
-  ) VALUES (
-    p_token,
-    p_table,
-    p_id,
-    p_ip_address,
-    p_user_agent,
-    p_granted,
-    p_error
-  )
-  RETURNING id INTO v_log_id;
-
-  IF p_granted AND p_table = 'magic_links' THEN
-    UPDATE public.magic_links
-    SET
-      first_accessed_at = COALESCE(first_accessed_at, NOW()),
-      first_access_ip = COALESCE(first_access_ip, p_ip_address),
-      last_accessed_at = NOW(),
-      access_count = COALESCE(access_count, 0) + 1
-    WHERE token = p_token;
-  END IF;
-
-  RETURN v_log_id;
-END;
-$$;

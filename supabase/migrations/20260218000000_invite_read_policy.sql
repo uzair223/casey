@@ -13,6 +13,9 @@ CREATE POLICY "Read invites"
     -- User can read invite if it's sent to their email
     (invites.email IS NOT NULL AND invites.email = auth.email())
     OR
+    -- Public invite with no email attached
+    (invites.email IS NULL)
+    OR
     -- User can read invites for their tenant if they're tenant_admin or solicitor
     (
       invites.tenant_id IS NOT NULL

@@ -1,6 +1,7 @@
 import { getServiceClient } from "../server";
 import { getSupabaseClient } from "../client";
 import { assertServerOnly } from "@/lib/utils";
+import { Profile } from "@/lib/types";
 
 export type TeamMember = {
   user_id: string;
@@ -8,12 +9,8 @@ export type TeamMember = {
   email: string | null;
 };
 
-export type ProfileWithEmail = {
-  user_id: string;
-  tenant_id: string | null;
-  role: string;
+export type ProfileWithEmail = Profile & {
   email: string | null;
-  created_at: string;
 };
 
 /**
@@ -29,7 +26,7 @@ export const getTeamMembers = async (
 
   const { data: members, error } = await supabase
     .from("profiles")
-    .select("user_id, tenant_id, role, created_at")
+    .select("user_id, tenant_id, display_name, role, created_at")
     .eq("tenant_id", tenant_id);
 
   if (error) {
@@ -42,13 +39,9 @@ export const getTeamMembers = async (
       const { data: userInfo } = await supabase.auth.admin.getUserById(
         member.user_id,
       );
-
       return {
-        user_id: member.user_id,
-        tenant_id: member.tenant_id,
-        role: member.role,
+        ...member,
         email: userInfo?.user?.email ?? null,
-        created_at: member.created_at,
       };
     }),
   );

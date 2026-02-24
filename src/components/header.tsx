@@ -6,7 +6,11 @@ import { AsyncButton } from "@/components/ui/async-button";
 import { useUser } from "@/contexts/UserContext";
 
 export default function Header() {
-  const { user, isLoading: userLoading, signOut } = useUser();
+  const { user, signOut } = useUser();
+  const isTenantUser =
+    user?.role === "tenant_admin" ||
+    user?.role === "solicitor" ||
+    user?.role === "paralegal";
 
   const handleSignOut = async () => {
     try {
@@ -40,32 +44,28 @@ export default function Header() {
         <p className="font-display text-xl">Statement Studio</p>
       </div>
       <nav className="flex items-center gap-6 text-sm font-semibold">
-        <Button size={null} variant="link" asChild>
-          <Link href="/">Home</Link>
-        </Button>
+        {!user && (
+          <Button size={null} variant="link" asChild>
+            <Link href="/">Home</Link>
+          </Button>
+        )}
         <Button size={null} variant="link" asChild>
           <Link href="/dashboard">Dashboard</Link>
         </Button>
-        {user &&
-          (user.role === "tenant_admin" || user.role === "solicitor") && (
-            <Button size={null} variant="link" asChild>
-              <Link href="/team">Team</Link>
-            </Button>
-          )}
-        {user &&
-          (user.role === "tenant_admin" ||
-            user.role === "solicitor" ||
-            user.role === "paralegal") && (
-            <Button size={null} variant="link" asChild>
-              <Link href="/cases">Cases</Link>
-            </Button>
-          )}
+        {user && isTenantUser && (
+          <Button size={null} variant="link" asChild>
+            <Link href="/team">Team</Link>
+          </Button>
+        )}
+        {user && isTenantUser && (
+          <Button size={null} variant="link" asChild>
+            <Link href="/cases">Cases</Link>
+          </Button>
+        )}
         {user && (
           <>
             <div className="relative flex flex-col items-end gap-0.5 text-sm">
-              <span className="font-medium text-foreground">
-                {user.display_name}
-              </span>
+              <span className="font-medium text-foreground">{user.email}</span>
               {user.role && (
                 <span className="absolute left-0 top-[-1.4em] text-xs text-muted-foreground">
                   {getRoleLabel(user.role)}

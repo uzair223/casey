@@ -3,7 +3,6 @@ import { getSupabaseClient } from "../client";
 import { getServiceClient } from "../server";
 import { assertServerOnly } from "@/lib/utils";
 import { Message, ProgressData, UploadedDocument } from "@/lib/types";
-import { logStatementAccess, checkStatementRateLimit } from "./auditLog";
 import { PERSONAL_INJURY_CONFIG } from "@/lib/statementConfigs";
 
 export type StatementSubmission = {
@@ -15,104 +14,47 @@ export type StatementSubmission = {
 /**
  * Get statement context (magic link and case data) for witness
  * Client-callable: token-based access control
- * Includes audit logging and rate limiting
  */
 export const getStatementContext = async (token: string) => {
   const supabase = getSupabaseClient();
 
-  try {
-    // Check rate limit
-    const rateLimit = await checkStatementRateLimit({ token });
-    if (!rateLimit.allowed) {
-      await logStatementAccess({
-        token,
-        table: "magic_links",
-        granted: false,
-        error: "Rate limit exceeded",
-      });
-      throw new Error("Too many attempts. Please try again later.");
-    }
+  // First: Validate magic link (anon can read valid links via RLS)
+  const { data: link, error: linkError } = await supabase
+    .from("magic_links")
+    .select("token, statement_id, tenant_id, expires_at")
+    .eq("token", token)
+    .single();
 
-    // First: Validate magic link (anon can read valid links via RLS)
-    const { data: link, error: linkError } = await supabase
-      .from("magic_links")
-      .select("token, statement_id, tenant_id, expires_at, used_at")
-      .eq("token", token)
-      .single();
-
-    if (linkError || !link) {
-      await logStatementAccess({
-        token,
-        table: "magic_links",
-        granted: false,
-        error: "Link not found",
-      });
-      return null;
-    }
-
-    if (link.used_at || new Date(link.expires_at) < new Date()) {
-      await logStatementAccess({
-        token,
-        table: "magic_links",
-        id: link.token,
-        granted: false,
-        error: link.used_at ? "Link already used" : "Link expired",
-      });
-      return null;
-    }
-
-    // Second: Get statement using statement_id (anon can read via magic link RLS policy)
-    const { data: statement, error: statementError } = await supabase
-      .from("statements")
-      .select("*")
-      .eq("id", link.statement_id)
-      .single();
-
-    if (statementError || !statement) {
-      await logStatementAccess({
-        token,
-        table: "statements",
-        granted: false,
-        error: "Statement not found",
-      });
-      return null;
-    }
-
-    const caseRecord = {
-      id: statement.id,
-      tenant_id: link.tenant_id,
-      title: (statement as any).title,
-      reference: (statement as any).reference,
-      incident_date: (statement as any).incident_date || null,
-      assigned_to: (statement as any).assigned_to || null,
-      created_at: (statement as any).created_at,
-    };
-
-    // Log successful access
-    await logStatementAccess({
-      token,
-      table: "magic_links",
-      id: link.token,
-      granted: true,
-    });
-
-    return {
-      link,
-      statement,
-      caseRecord,
-    };
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("Rate limit")) {
-      throw error;
-    }
-    await logStatementAccess({
-      token,
-      table: "magic_links",
-      granted: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-    throw error;
+  if (linkError || !link || new Date(link.expires_at) < new Date()) {
+    return null;
   }
+
+  // Second: Get statement using statement_id (anon can read via magic link RLS policy)
+  const { data: statement, error: statementError } = await supabase
+    .from("statements")
+    .select("*")
+    .eq("id", link.statement_id)
+    .single();
+
+  if (statementError || !statement) {
+    return null;
+  }
+
+  const caseRecord = {
+    id: statement.id,
+    tenant_id: link.tenant_id,
+    title: (statement as any).title,
+    reference: (statement as any).reference,
+    incident_date: (statement as any).incident_date || null,
+    assigned_to: (statement as any).assigned_to || null,
+    created_at: (statement as any).created_at,
+  };
+
+  return {
+    link,
+    statement,
+    caseRecord,
+  };
 };
 
 /**
@@ -187,7 +129,6 @@ export const getStatementContextServer = async (token: string) => {
 /**
  * Submit a witness statement
  * Client-callable: token-based access control
- * Includes audit logging
  */
 export const submitStatement = async (
   token: string,
@@ -195,85 +136,42 @@ export const submitStatement = async (
 ) => {
   const supabase = getSupabaseClient();
 
-  try {
-    const context = await getStatementContext(token);
+  const context = await getStatementContext(token);
 
-    if (!context) {
-      await logStatementAccess({
-        token,
-        table: "statements",
-        granted: false,
-        error: "Invalid or expired link",
-      });
-      throw new Error("Invalid or expired link.");
-    }
+  if (!context) {
+    throw new Error("Invalid or expired link.");
+  }
 
-    const { link, statement } = context;
+  const { statement } = context;
+  if (statement.status === "locked") {
+    throw new Error(
+      "This intake has been stopped and cannot be submitted. Please contact the law firm.",
+    );
+  }
 
-    if (statement.status === "locked") {
-      throw new Error(
-        "This intake has been stopped and cannot be submitted. Please contact the law firm.",
-      );
-    }
+  const updatePayload: {
+    signed_document: Json;
+    sections?: Json;
+    supporting_documents?: Json;
+  } = {
+    signed_document: submission.signedDocument,
+  };
 
-    const updatePayload: {
-      signed_document: Json;
-      sections?: Json;
-      supporting_documents?: Json;
-    } = {
-      signed_document: submission.signedDocument,
-    };
+  if (submission.sections) {
+    updatePayload.sections = submission.sections as Json;
+  }
 
-    if (submission.sections) {
-      updatePayload.sections = submission.sections as Json;
-    }
+  if (submission.supportingDocuments) {
+    updatePayload.supporting_documents = submission.supportingDocuments as Json;
+  }
 
-    if (submission.supportingDocuments) {
-      updatePayload.supporting_documents =
-        submission.supportingDocuments as Json;
-    }
+  const { error: updateError } = await supabase
+    .from("statements")
+    .update({ ...updatePayload, status: "submitted" })
+    .eq("id", statement.id);
 
-    const { error: updateError } = await supabase
-      .from("statements")
-      .update({ ...updatePayload, status: "submitted" })
-      .eq("id", statement.id);
-
-    if (updateError) {
-      await logStatementAccess({
-        token,
-        table: "statements",
-        id: statement.id,
-        granted: false,
-        error: updateError.message,
-      });
-      throw updateError;
-    }
-
-    const { error: linkUpdateError } = await supabase
-      .from("magic_links")
-      .update({ used_at: new Date().toISOString() })
-      .eq("token", token);
-
-    if (linkUpdateError) {
-      await logStatementAccess({
-        token,
-        table: "magic_links",
-        id: link.token,
-        granted: false,
-        error: linkUpdateError.message,
-      });
-      throw linkUpdateError;
-    }
-
-    // Log successful submission
-    await logStatementAccess({
-      token,
-      table: "statements",
-      id: statement.id,
-      granted: true,
-    });
-  } catch (error) {
-    throw error;
+  if (updateError) {
+    throw updateError;
   }
 };
 
@@ -374,15 +272,6 @@ export const submitStatementServer = async (
 
   if (statementUpdateError) {
     throw statementUpdateError;
-  }
-
-  const { error: linkUpdateError } = await supabase
-    .from("magic_links")
-    .update({ used_at: new Date().toISOString() })
-    .eq("token", link.token);
-
-  if (linkUpdateError) {
-    throw linkUpdateError;
   }
 };
 

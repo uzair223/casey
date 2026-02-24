@@ -43,7 +43,6 @@ interface StatementDetailModalProps {
     witness_email?: string | null;
     magic_link_token?: string;
     magic_link_expires_at?: string;
-    magic_link_used_at?: string | null;
     signed_document?: UploadedDocument | null;
     supporting_documents?: UploadedDocument[];
     claim_number?: string | null;
@@ -124,7 +123,6 @@ export function StatementDetailModal({
   const isLinkExpired =
     caseData.magic_link_expires_at &&
     new Date(caseData.magic_link_expires_at) < new Date();
-  const isLinkUsed = !!caseData.magic_link_used_at;
   const canModify = role !== "paralegal" || assignedTo === currentUserId;
 
   const openDocument = async (doc: UploadedDocument) => {
@@ -163,7 +161,6 @@ export function StatementDetailModal({
                   {caseData.witness_email && (
                     <>
                       {isLinkExpired &&
-                      !isLinkUsed &&
                       (role === "tenant_admin" || role === "solicitor") ? (
                         <AsyncButton
                           size="sm"
@@ -190,11 +187,6 @@ export function StatementDetailModal({
                   {isLinkExpired && (
                     <Badge variant="destructive" className="text-xs">
                       Link Expired
-                    </Badge>
-                  )}
-                  {isLinkUsed && (
-                    <Badge variant="outline" className="text-xs">
-                      Link Used
                     </Badge>
                   )}
                   {caseData.magic_link_token && (

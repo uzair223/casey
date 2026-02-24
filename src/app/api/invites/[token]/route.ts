@@ -4,7 +4,6 @@ import {
   getInviteByToken,
   acceptInvite,
   getTenantById,
-  getInviteByTokenServer,
 } from "@/lib/supabase/queries";
 
 const getBearerToken = (request: Request) => {
@@ -25,20 +24,7 @@ export async function GET(
     if (!invite) {
       return NextResponse.json({ error: "Invite not found" }, { status: 404 });
     }
-
-    let tenantName: string | null = null;
-    if (invite.tenant_id) {
-      const tenant = await getTenantById(invite.tenant_id);
-      tenantName = tenant?.name ?? tenantName;
-    }
-
-    return NextResponse.json({
-      invite: {
-        email: invite.email,
-        role: invite.role,
-        tenantName,
-      },
-    });
+    return NextResponse.json({ invite });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -78,9 +64,7 @@ export async function POST(
       );
     }
 
-    const invite = await getInviteByTokenServer(inviteToken);
-    console.log(invite);
-
+    const invite = await getInviteByToken(inviteToken);
     if (!invite) {
       return NextResponse.json({ error: "Invite not found" }, { status: 404 });
     }
