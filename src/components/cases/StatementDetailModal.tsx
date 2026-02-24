@@ -25,6 +25,7 @@ import {
   PenIcon,
   Trash2Icon,
 } from "lucide-react";
+import { PERSONAL_INJURY_CONFIG } from "@/lib/statementConfigs";
 
 interface StatementDetailModalProps {
   isOpen: boolean;
@@ -127,7 +128,6 @@ export function StatementDetailModal({
   const canModify = role !== "paralegal" || assignedTo === currentUserId;
 
   const openDocument = async (doc: UploadedDocument) => {
-    alert(JSON.stringify(doc));
     const bucketId = doc.bucketId || caseData.tenant_id;
     try {
       const { data, error } = await supabase.storage
@@ -513,7 +513,10 @@ export function StatementDetailModal({
                   <p className="text-sm font-medium text-muted-foreground mb-2">
                     Current Phase
                   </p>
-                  <Badge variant="default">Phase {currentPhase}</Badge>
+                  <Badge variant="default">
+                    {PERSONAL_INJURY_CONFIG.phases[currentPhase]?.title ||
+                      `Phase ${currentPhase}`}
+                  </Badge>
                 </div>
 
                 {progress?.phaseCompleteness && (
@@ -529,7 +532,9 @@ export function StatementDetailModal({
                             className="flex items-center justify-between"
                           >
                             <p className="text-xs capitalize">
-                              {phase.replace(/phase/, "Phase ")}
+                              {PERSONAL_INJURY_CONFIG.phases[
+                                Number.parseInt(phase.replace(/phase/, ""))
+                              ]?.title || phase.replace(/phase/, "Phase ")}
                             </p>
                             <div className="flex items-center gap-2 w-32">
                               <div className="flex-1 h-1.5 bg-secondary rounded-full">
