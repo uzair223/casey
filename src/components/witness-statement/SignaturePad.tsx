@@ -142,7 +142,7 @@ export function SignaturePad({
           onTouchStart={startDrawing}
           onTouchMove={draw}
           onTouchEnd={stopDrawing}
-          className="border-2 border-border rounded bg-white w-full cursor-crosshair"
+          className="border-2 border-border rounded bg-white w-full cursor-crosshair touch-none"
           style={{
             width: "600px",
             height: "150px",
