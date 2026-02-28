@@ -1,82 +1,74 @@
 "use client";
 
-import React, {
-  createContext,
-  useContext,
-  ReactNode,
-  useState,
-  useEffect,
-  useCallback,
-} from "react";
+import { createContext, useContext, ReactNode, useEffect } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUserProfile } from "@/lib/supabase/queries/auth";
 import { useRouter } from "next/navigation";
 import { User, UserRole } from "@/lib/types";
+import { useAsync } from "@/hooks/useAsync";
 
 interface UserContextValue {
-  user: User | null;
+  user?: User | null;
   isLoading: boolean;
-  signOut: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  signOut: () => Promise<unknown>;
+  refreshUser: () => Promise<unknown>;
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const supabase = getSupabaseClient();
 
-  const fetchUser = useCallback(async () => {
-    try {
+  const {
+    data: user,
+    isLoading,
+    handler,
+    reset,
+  } = useAsync(
+    async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
       if (!session?.user) {
-        setUser(null);
-        setIsLoading(false);
         return;
       }
       // Fetch user profile to get role and tenant_id
       const profile = await getCurrentUserProfile(session.user.id);
-
       console.log("Setting user:", profile);
-      setUser({ ...session.user, ...profile });
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [supabase]);
+      return { ...session.user, ...profile };
+    },
+    [supabase],
+    {
+      withUseEffect: false,
+      onlyInitialLoading: true,
+    },
+  );
 
   useEffect(() => {
-    fetchUser();
+    handler();
 
-    // Listen for auth changes
-    if (supabase) {
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session?.user) {
-          fetchUser();
-        } else {
-          setUser(null);
-        }
-      });
+    if (!supabase) return;
 
-      return () => {
-        subscription.unsubscribe();
-      };
-    }
-  }, [supabase, fetchUser]);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        reset();
+      } else if (session?.user) {
+        handler();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase, handler]);
 
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
-      setUser(null);
+      reset();
       router.push("/auth");
     } catch (error) {
       console.error("Error signing out:", error);
@@ -84,12 +76,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshUser = async () => {
-    await fetchUser();
-  };
-
   return (
-    <UserContext.Provider value={{ user, isLoading, signOut, refreshUser }}>
+    <UserContext.Provider
+      value={{ user, isLoading, signOut, refreshUser: handler }}
+    >
       {children}
     </UserContext.Provider>
   );
@@ -119,7 +109,7 @@ export function useUser(
 // Helper hooks for common use cases
 export function useUserRole() {
   const { user } = useUser();
-  return user?.role || null;
+  return user?.role || "user";
 }
 
 export function useIsTenantAdmin() {

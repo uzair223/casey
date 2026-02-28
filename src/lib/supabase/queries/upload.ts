@@ -3,6 +3,7 @@ import { getSupabaseClient } from "../client";
 
 export const uploadFile = async (
   bucketId: string,
+  name: string,
   path: string,
   file: File | Blob,
   contentType: string,
@@ -19,6 +20,7 @@ export const uploadFile = async (
 
   return {
     bucketId,
+    name,
     path: data.path,
     uploadedAt: new Date().toISOString(),
     type: contentType,

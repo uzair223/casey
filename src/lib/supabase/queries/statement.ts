@@ -2,8 +2,12 @@ import { Json } from "@/lib/supabase/types.generated";
 import { getSupabaseClient } from "../client";
 import { getServiceClient } from "../server";
 import { assertServerOnly } from "@/lib/utils";
-import { Message, ProgressData, UploadedDocument } from "@/lib/types";
-import { PERSONAL_INJURY_CONFIG } from "@/lib/statementConfigs";
+import { generateSecureToken } from "@/lib/security";
+import { MagicLink, Message, Statement, UploadedDocument } from "@/lib/types";
+import {
+  StatementSchemaType,
+  UpdateStatementSchemaType,
+} from "@/lib/schema/statement";
 
 export type StatementSubmission = {
   signedDocument: UploadedDocument;
@@ -15,120 +19,44 @@ export type StatementSubmission = {
  * Get statement context (magic link and case data) for witness
  * Client-callable: token-based access control
  */
-export const getStatementContext = async (token: string) => {
+export const getStatementFromToken = async (token: string) => {
   const supabase = getSupabaseClient();
 
-  // First: Validate magic link (anon can read valid links via RLS)
   const { data: link, error: linkError } = await supabase
     .from("magic_links")
     .select("token, statement_id, tenant_id, expires_at")
     .eq("token", token)
     .single();
 
-  if (linkError || !link || new Date(link.expires_at) < new Date()) {
-    return null;
+  if (linkError) {
+    throw linkError;
   }
 
-  // Second: Get statement using statement_id (anon can read via magic link RLS policy)
+  if (new Date(link.expires_at) < new Date()) {
+    throw new Error("Link expired");
+  }
+
   const { data: statement, error: statementError } = await supabase
     .from("statements")
     .select("*")
     .eq("id", link.statement_id)
     .single();
 
-  if (statementError || !statement) {
-    return null;
+  if (statementError) {
+    throw statementError;
   }
-
-  const caseRecord = {
-    id: statement.id,
-    tenant_id: link.tenant_id,
-    title: (statement as any).title,
-    reference: (statement as any).reference,
-    incident_date: (statement as any).incident_date || null,
-    assigned_to: (statement as any).assigned_to || null,
-    created_at: (statement as any).created_at,
-  };
 
   return {
-    link,
-    statement,
-    caseRecord,
+    ...(statement as Statement),
+    link: {
+      token: link.token,
+      expires_at: link.expires_at,
+    },
   };
-};
-
-/**
- * Get statement context (SERVER-SIDE) - Uses SECURITY DEFINER function
- * SERVER ONLY - Avoids RLS recursion by using validate_magic_link function
- */
-export const getStatementContextServer = async (token: string) => {
-  assertServerOnly("getStatementContextServer");
-  const supabase = getServiceClient();
-
-  try {
-    // Call SECURITY DEFINER function to validate magic link
-    const { data: linkValidation, error: validationError } = await supabase.rpc(
-      "validate_magic_link",
-      { token_param: token },
-    );
-
-    if (validationError || !linkValidation || linkValidation.length === 0) {
-      console.error("Magic link validation failed:", validationError);
-      return null;
-    }
-
-    const validation = linkValidation[0];
-    if (!validation.is_valid) {
-      return null;
-    }
-
-    // Now fetch statement data using service client (bypasses RLS)
-    const { data: statement, error: stmtError } = await supabase
-      .from("statements")
-      .select("*")
-      .eq("id", validation.statement_id)
-      .single();
-
-    if (stmtError || !statement) {
-      console.error("Statement fetch failed:", stmtError);
-      return null;
-    }
-
-    const caseRecord = {
-      id: statement.id,
-      tenant_id: statement.tenant_id,
-      title: (statement as any).title,
-      reference: (statement as any).reference,
-      incident_date: statement.incident_date,
-      assigned_to: (statement as any).assigned_to || null,
-      created_at: statement.created_at,
-    };
-
-    // Fetch the magic link in full
-    const { data: link, error: linkError } = await supabase
-      .from("magic_links")
-      .select("*")
-      .eq("token", token)
-      .single();
-
-    if (linkError || !link) {
-      return null;
-    }
-
-    return {
-      link,
-      statement,
-      caseRecord,
-    };
-  } catch (error) {
-    console.error("getStatementContextServer error:", error);
-    return null;
-  }
 };
 
 /**
  * Submit a witness statement
- * Client-callable: token-based access control
  */
 export const submitStatement = async (
   token: string,
@@ -136,110 +64,10 @@ export const submitStatement = async (
 ) => {
   const supabase = getSupabaseClient();
 
-  const context = await getStatementContext(token);
-
-  if (!context) {
+  const statement = await getStatementFromToken(token);
+  if (!statement) {
     throw new Error("Invalid or expired link.");
   }
-
-  const { statement } = context;
-  if (statement.status === "locked") {
-    throw new Error(
-      "This intake has been stopped and cannot be submitted. Please contact the law firm.",
-    );
-  }
-
-  const updatePayload: {
-    signed_document: Json;
-    sections?: Json;
-    supporting_documents?: Json;
-  } = {
-    signed_document: submission.signedDocument,
-  };
-
-  if (submission.sections) {
-    updatePayload.sections = submission.sections as Json;
-  }
-
-  if (submission.supportingDocuments) {
-    updatePayload.supporting_documents = submission.supportingDocuments as Json;
-  }
-
-  const { error: updateError } = await supabase
-    .from("statements")
-    .update({ ...updatePayload, status: "submitted" })
-    .eq("id", statement.id);
-
-  if (updateError) {
-    throw updateError;
-  }
-};
-
-/**
- * Save a conversation message (SERVER-SIDE)
- * SERVER ONLY - Uses service client for API routes
- */
-export const saveConversationMessageServer = async (
-  statementId: string,
-  role: "user" | "assistant" | "system",
-  content: string,
-  progress?: Record<string, unknown> | null,
-  meta?: Record<string, unknown> | null,
-) => {
-  assertServerOnly("saveConversationMessageServer");
-  const supabase = getServiceClient();
-
-  const { error } = await supabase.from("conversation_messages").insert({
-    statement_id: statementId,
-    role,
-    content,
-    progress: progress as Json,
-    meta: meta as Json,
-  });
-
-  if (error) {
-    throw error;
-  }
-};
-
-/**
- * Update statement status (SERVER-SIDE)
- * SERVER ONLY - Uses service client for API routes
- */
-export const updateStatementStatusServer = async (
-  statementId: string,
-  status: "draft" | "in_progress" | "submitted" | "locked",
-) => {
-  assertServerOnly("updateStatementStatusServer");
-  const supabase = getServiceClient();
-
-  const { error } = await supabase
-    .from("statements")
-    .update({ status })
-    .eq("id", statementId);
-
-  if (error) {
-    throw error;
-  }
-};
-
-/**
- * Submit a witness statement (SERVER-SIDE)
- * SERVER ONLY - Uses service client for API routes
- */
-export const submitStatementServer = async (
-  token: string,
-  submission: StatementSubmission,
-) => {
-  assertServerOnly("submitStatementServer");
-  const supabase = getServiceClient();
-
-  const context = await getStatementContextServer(token);
-  if (!context) {
-    throw new Error("Invalid or expired link.");
-  }
-
-  const { link, statement } = context;
 
   if (statement.status === "locked") {
     throw new Error(
@@ -276,6 +104,49 @@ export const submitStatementServer = async (
 };
 
 /**
+ * Save a conversation message
+ */
+export const saveConversationMessageServer = async (
+  statementId: string,
+  role: "user" | "assistant" | "system",
+  content: string,
+  meta?: Record<string, unknown> | null,
+) => {
+  assertServerOnly("saveConversationMessageServer");
+  const supabase = getServiceClient();
+  const { error } = await supabase.from("conversation_messages").insert({
+    statement_id: statementId,
+    role,
+    content,
+    meta: meta as Json,
+  });
+  if (error) {
+    throw error;
+  }
+};
+
+/**
+ * Update statement status (SERVER-SIDE)
+ * SERVER ONLY - Uses service client for API routes
+ */
+export const updateStatementStatusServer = async (
+  statementId: string,
+  status: "draft" | "in_progress" | "submitted" | "locked",
+) => {
+  assertServerOnly("updateStatementStatusServer");
+  const supabase = getServiceClient();
+
+  const { error } = await supabase
+    .from("statements")
+    .update({ status })
+    .eq("id", statementId);
+
+  if (error) {
+    throw error;
+  }
+};
+
+/**
  * Get conversation history for a statement
  * Client-callable: token-based access control
  */
@@ -299,7 +170,7 @@ export const getConversationHistory = async (statementId: string) => {
  * Get the latest statement progress and metadata from the last message
  * Used to display statement status on the case list/detail view
  */
-export const getStatementLatestProgress = async (statementId: string) => {
+export const getConversationLatest = async (statementId: string) => {
   const supabase = getSupabaseClient();
 
   const { data, error } = await supabase
@@ -315,153 +186,318 @@ export const getStatementLatestProgress = async (statementId: string) => {
     return null;
   }
 
-  return {
-    progress: data.progress ? (data.progress as unknown as ProgressData) : null,
-    meta: data.meta ? (data.meta as unknown as Record<string, unknown>) : null,
-    flaggedDeviation: (data.meta as any)?.flaggedDeviation || false,
-    deviationReason: (data.meta as any)?.deviationReason || null,
-  };
+  return;
 };
 
-export type StatementDataResponse = {
-  link_token: string;
-  tenant_id: string;
-  statement_id: string;
-  case_id: string;
+type Base = Statement & {
   tenant_name: string;
-  title: string;
-  reference: string;
-  claim_number: string | null;
-  incident_date: string | null;
-  witness_name: string;
-  witness_address: string | null;
-  witness_occupation: string | null;
-  witness_email: string;
-  statement_status?: string;
-  messages?: Message[];
-  has_history?: boolean;
+  link: Pick<MagicLink, "token" | "expires_at"> | null;
 };
 
-/**
- * Process conversation history and calculate cumulative progress
- * Shared logic between client and server versions
- */
-const processConversationHistory = (
-  history: Array<{
-    id: unknown;
-    role: string;
-    content: string;
-    progress: unknown;
-    meta: unknown;
-  }> | null,
-): Message[] => {
-  // Build phaseCompleteness dynamically from config
-  const phaseCompletenessInit: Record<string, number> = {};
-  PERSONAL_INJURY_CONFIG.phases.forEach((phase) => {
-    phaseCompletenessInit[`phase${phase.order}`] = 0;
-  });
-
-  let cumulativeProgress: ProgressData = {
-    currentPhase: 1,
-    completedPhases: [],
-    phaseCompleteness: phaseCompletenessInit,
-    structuredData: {
-      currentPhase: 1,
-      overallCompletion: 0,
-    },
-    readyToPrepare: false,
-    ignoredMissingDetails: [],
-  };
-
-  const processedMessages: Message[] = [];
-
-  if (history && history.length > 0) {
-    for (const item of history) {
-      const msgProgress = item.progress
-        ? (item.progress as unknown as ProgressData)
-        : null;
-
-      if (msgProgress) {
-        cumulativeProgress = msgProgress;
-      }
-
-      const role =
-        item.role === "system"
-          ? "assistant"
-          : (item.role as "user" | "assistant");
-
-      const msg: Message = {
-        id: String(item.id),
-        role,
-        content: item.content,
-      };
-
-      if (msgProgress) {
-        msg.progress = { ...cumulativeProgress };
-      }
-
-      if (item.meta) {
-        msg.meta = item.meta as Record<string, unknown>;
-      }
-
-      processedMessages.push(msg);
+export type StatementDataResponse<T extends boolean = boolean> = T extends true
+  ? Base & {
+      messages: Message[];
+      has_history: boolean;
     }
-  }
-
-  return processedMessages;
-};
+  : T extends false
+    ? Base & { latest: Message }
+    : Base;
 
 /**
  * Get full statement data including context, conversation history, and tenant info
  * Client-callable: token-based access control
  */
-export const getFullStatementData = async (
+export async function getFullStatementFromToken(
   token: string,
-): Promise<StatementDataResponse | null> => {
+  includeFullHistory: true,
+): Promise<StatementDataResponse<true> | null>;
+export async function getFullStatementFromToken(
+  token: string,
+  includeFullHistory: false,
+): Promise<StatementDataResponse<false> | null>;
+export async function getFullStatementFromToken(
+  token: string,
+  includeFullHistory: boolean,
+): Promise<unknown> {
   const supabase = getSupabaseClient();
-
-  // Get statement context
-  const context = await getStatementContext(token);
-  if (!context) {
-    return null;
-  }
-
-  const { data: history } = await supabase
-    .from("conversation_messages")
-    .select("id, role, content, progress, meta, created_at")
-    .eq("statement_id", context.statement.id)
-    .order("created_at", { ascending: true });
+  const statement = await getStatementFromToken(token);
 
   // Fetch tenant name
   const { data: tenant } = await supabase
     .from("tenants")
     .select("name")
-    .eq("id", context.caseRecord.tenant_id)
+    .eq("id", statement.tenant_id)
     .single();
 
   if (!tenant) {
-    throw new Error();
+    throw new Error("Tenant not found");
   }
 
-  // Process messages and calculate cumulative progress
-  const processedMessages = processConversationHistory(history);
+  const payload = {
+    ...statement,
+    tenant_name: tenant.name,
+  };
+
+  const q = supabase
+    .from("conversation_messages")
+    .select("id, role, content, meta, created_at")
+    .eq("statement_id", statement.id)
+    .order("created_at", { ascending: includeFullHistory });
+
+  if (includeFullHistory) {
+    const { data: messagesData } = await q;
+    const messages = (messagesData as unknown as Message[]) ?? [];
+    return {
+      ...payload,
+      messages,
+      has_history: messages.length > 0,
+    };
+  }
+  const { data: latest } = await q.limit(1).maybeSingle();
+  return {
+    ...payload,
+    latest: latest as unknown as Message | null,
+  };
+}
+
+/**
+ * Get full statement data including context, conversation history, and tenant info
+ */
+export async function getFullStatementFromId(
+  id: string,
+  includeFullHistory: true,
+): Promise<StatementDataResponse<true> | null>;
+export async function getFullStatementFromId(
+  id: string,
+  includeFullHistory: false,
+): Promise<StatementDataResponse<false> | null>;
+export async function getFullStatementFromId(
+  id: string,
+  includeFullHistory: boolean,
+): Promise<unknown> {
+  const supabase = getSupabaseClient();
+
+  const { data: statement, error: statementError } = await supabase
+    .from("statements")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (statementError) {
+    throw statementError;
+  }
+
+  // Fetch tenant name
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("name")
+    .eq("id", statement.tenant_id)
+    .single();
+
+  const { data: link } = await supabase
+    .from("magic_links")
+    .select("token, expires_at")
+    .eq("statement_id", id)
+    .maybeSingle();
+
+  if (!tenant) {
+    throw new Error("Tenant not found");
+  }
+
+  const payload = {
+    ...statement,
+    link,
+    tenant_name: tenant.name,
+  };
+
+  const q = supabase
+    .from("conversation_messages")
+    .select("id, role, content, meta, created_at")
+    .eq("statement_id", statement.id)
+    .order("created_at", { ascending: includeFullHistory });
+
+  if (includeFullHistory) {
+    const { data: messagesData } = await q;
+    const messages = (messagesData as unknown as Message[]) ?? [];
+    return {
+      ...payload,
+      messages,
+      has_history: messages.length > 0,
+    };
+  }
+  const { data: latest } = await q.limit(1).maybeSingle();
+  return {
+    ...payload,
+    latest: latest as unknown as Message | null,
+  };
+}
+
+export async function getStatements(): Promise<Statement[]> {
+  const supabase = getSupabaseClient();
+
+  let query = supabase
+    .from("statements")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as Statement[];
+}
+
+export async function createStatement(
+  payload: StatementSchemaType,
+): Promise<Statement> {
+  const supabase = getSupabaseClient();
+  const magicLinkToken = generateSecureToken();
+
+  const { data: newStatement, error: statementError } = await supabase
+    .from("statements")
+    .insert(payload)
+    .select("*")
+    .single();
+
+  if (statementError) {
+    throw statementError;
+  }
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 30);
+
+  const { error: linkError } = await supabase.from("magic_links").insert({
+    token: magicLinkToken,
+    statement_id: newStatement.id,
+    tenant_id: payload.tenant_id,
+    expires_at: expiresAt.toISOString(),
+  });
+
+  if (linkError) {
+    await supabase.from("statements").delete().eq("id", newStatement.id);
+    throw new Error("Failed to create magic link: " + linkError.message);
+  }
+
+  return newStatement as unknown as Statement;
+}
+
+export async function updateStatement(
+  id: string,
+  payload: UpdateStatementSchemaType,
+) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("statements")
+    .update(payload)
+    .eq("id", id);
+  if (error) {
+    throw error;
+  }
+}
+
+export async function updateStatementByTokenServer(
+  token: string,
+  payload: UpdateStatementSchemaType,
+) {
+  const supabase = getServiceClient();
+  const { data: link, error: linkError } = await supabase
+    .from("magic_links")
+    .select("statement_id")
+    .eq("token", token)
+    .single();
+
+  if (linkError) throw linkError;
+
+  const { error } = await supabase
+    .from("statements")
+    .update(payload)
+    .eq("id", link.statement_id);
+  if (error) {
+    throw error;
+  }
+}
+
+export async function deleteStatement(id: string) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from("statements").delete().eq("id", id);
+  if (error) {
+    throw error;
+  }
+}
+
+export async function getStatementForSendLink(id: string): Promise<{
+  title: string;
+  witness_name: string;
+  witness_email: string;
+  token: string;
+} | null> {
+  assertServerOnly("getStatementForSendLink");
+  const supabase = getServiceClient();
+
+  const { data: statement, error: statementError } = await supabase
+    .from("statements")
+    .select("id, title, witness_name, witness_email")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (statementError || !statement) {
+    return null;
+  }
+
+  const { data: magicLink, error: linkError } = await supabase
+    .from("magic_links")
+    .select("token")
+    .eq("statement_id", statement.id)
+    .maybeSingle();
+
+  if (linkError || !magicLink) {
+    return null;
+  }
 
   return {
-    link_token: context.link.token,
-    tenant_id: context.caseRecord.tenant_id,
-    statement_id: context.statement.id,
-    case_id: context.caseRecord.id,
-    tenant_name: tenant.name,
-    title: context.caseRecord.title,
-    reference: context.caseRecord.reference,
-    claim_number: context.statement.claim_number,
-    incident_date: context.caseRecord.incident_date,
-    witness_name: context.statement.witness_name,
-    witness_address: context.statement.witness_address,
-    witness_occupation: context.statement.witness_occupation,
-    witness_email: context.statement.witness_email,
-    statement_status: context.statement.status,
-    messages: processedMessages,
-    has_history: processedMessages.length > 0,
+    ...statement,
+    token: magicLink.token,
   };
-};
+}
+
+export async function regenerateMagicLink(statementId: string) {
+  const supabase = getSupabaseClient();
+
+  const { data: statement, error: statementError } = await supabase
+    .from("statements")
+    .select("id, tenant_id")
+    .eq("id", statementId)
+    .maybeSingle();
+
+  if (statementError || !statement) {
+    throw new Error("Statement not found");
+  }
+
+  const { error: deleteError } = await supabase
+    .from("magic_links")
+    .delete()
+    .eq("statement_id", statement.id);
+
+  if (deleteError) {
+    throw new Error("Failed to delete old link: " + deleteError.message);
+  }
+
+  const newToken = generateSecureToken();
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  const { error: insertError } = await supabase.from("magic_links").insert({
+    token: newToken,
+    statement_id: statement.id,
+    tenant_id: statement.tenant_id,
+    expires_at: expiresAt.toISOString(),
+  });
+
+  if (insertError) {
+    throw new Error("Failed to create new magic link: " + insertError.message);
+  }
+
+  return { token: newToken, expires_at: expiresAt.toISOString() };
+}

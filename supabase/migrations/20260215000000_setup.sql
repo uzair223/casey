@@ -31,14 +31,14 @@ CREATE TABLE IF NOT EXISTS public.statements (
   claim_number TEXT,
   assigned_to UUID REFERENCES auth.users ON DELETE SET NULL,
   witness_name TEXT NOT NULL,
+  witness_email TEXT NOT NULL,
   witness_address TEXT,
   witness_occupation TEXT,
-  witness_email TEXT NOT NULL,
   incident_date DATE,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'in_progress', 'submitted', 'locked')),
   sections JSONB NOT NULL DEFAULT '{}'::jsonb,
   supporting_documents JSONB NOT NULL DEFAULT '[]'::jsonb,
-  signed_document JSONB NOT NULL DEFAULT '{}'::jsonb,
+  signed_document JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -58,8 +58,7 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   statement_id UUID NOT NULL REFERENCES statements ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
   content TEXT NOT NULL,
-  progress JSONB,
-  meta JSONB,
+  meta JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

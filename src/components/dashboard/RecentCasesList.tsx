@@ -2,24 +2,11 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CaseWithWitness } from "@/lib/supabase/queries";
-
-const statusStyles: Record<string, string> = {
-  draft: "secondary",
-  in_progress: "default",
-  submitted: "default",
-  locked: "outline",
-};
-
-const statusLabels: Record<string, string> = {
-  draft: "Draft",
-  in_progress: "Collecting",
-  submitted: "Review",
-  locked: "Locked",
-};
+import { statusLabels, statusBadgeStyles } from "@/lib/statementUtils";
+import { Statement } from "@/lib/types";
 
 interface RecentCasesListProps {
-  cases: CaseWithWitness[];
+  cases: Statement[];
   isLoading: boolean;
   maxItems?: number;
 }
@@ -56,12 +43,12 @@ export function RecentCasesList({
                   Witness: {item.witness_name}
                 </p>
               </div>
-              {item.statement_status && (
+              {item.status && (
                 <Badge
                   className="uppercase"
-                  variant={statusStyles[item.statement_status] as "secondary"}
+                  variant={statusBadgeStyles[item.status]}
                 >
-                  {statusLabels[item.statement_status]}
+                  {statusLabels[item.status]}
                 </Badge>
               )}
             </div>

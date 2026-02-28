@@ -1,18 +1,18 @@
 "use client";
 
-import { ProgressData } from "@/lib/types";
+import { MetadataProgress } from "@/lib/types";
 import { PERSONAL_INJURY_CONFIG } from "@/lib/statementConfigs";
 import { Badge } from "../ui/badge";
 
 interface ProgressIndicatorProps {
-  progress: ProgressData;
+  progress: MetadataProgress;
   minStartProgress?: number;
   minCompletionProgress?: number;
 }
 
 export function ProgressIndicator({
   progress,
-  minStartProgress = 20,
+  minStartProgress = 10,
   minCompletionProgress = 70,
 }: ProgressIndicatorProps) {
   // Use phases from config, sorted by order
@@ -36,13 +36,15 @@ export function ProgressIndicator({
           `phase${phase.order}` as keyof typeof progress.phaseCompleteness;
         const completionPercent = progress.phaseCompleteness[phaseKey] || 0;
         const isCompleted = completionPercent >= minCompletionProgress;
-        const isStarted = completionPercent >= minStartProgress;
+        const isStarted =
+          progress.currentPhase === phase.order ||
+          completionPercent >= minStartProgress;
 
         return (
           <Badge
             key={phase.id}
             title={`${phase.title}: ${completionPercent}%`}
-            className="capitalize"
+            className="capitalize select-none"
             variant={
               isCompleted ? "accent" : isStarted ? "secondary" : "outline"
             }
@@ -51,7 +53,7 @@ export function ProgressIndicator({
           </Badge>
         );
       })}
-      <span className="text-xs px-2 py-1 text-muted-foreground">
+      <span className="text-xs px-2 py-1 text-muted-foreground select-none">
         {completed}/{total}
       </span>
     </div>

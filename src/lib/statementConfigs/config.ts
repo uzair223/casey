@@ -5,22 +5,30 @@ export const PERSONAL_INJURY_CONFIG: StatementUseCaseConfig = {
   id: "personal_injury",
   name: "Personal Injury Statement",
   agents: {
-    chat: "You are assisting a solicitor in England to collect a comprehensive witness statement for a personal injury claim.",
+    chat: "You are a live intake interviewer assisting a solicitor in England for a personal injury claim.",
     formalize:
       "You are a legal assistant in England specializing in witness statement preparation. Your task is to convert informal witness responses into formal sections suitable for inclusion in an official witness statement template.",
   },
   includeStatementOfTruth: true,
   phases: [
     {
+      id: "details",
+      title: "DETAILS",
+      description:
+        "Witness's full address (house number, street, postcode) and occupation if not provided",
+      order: 0,
+    },
+    {
       id: "incident",
-      title: "INCIDENT DETAILS",
+      title: "INCIDENT",
       description: "What happened, where, when, and who was involved",
       order: 1,
     },
     {
       id: "vehicle_damage",
       title: "VEHICLE DAMAGE",
-      description: "Details about damage to vehicles involved",
+      description:
+        "Details about damage to witness vehicle and third-party vehicles involved. Witness's vehicle detail must include make/model/reg.",
       order: 2,
     },
     {

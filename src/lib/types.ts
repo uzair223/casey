@@ -1,30 +1,19 @@
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import { Tables } from "./supabase/types.generated";
 
-export type ProgressData = {
-  currentPhase: number;
-  completedPhases: number[];
-  phaseCompleteness: Record<string, number>;
-  structuredData: {
-    currentPhase: number;
-    overallCompletion: number;
-  };
-  readyToPrepare: boolean;
-  ignoredMissingDetails?: string[];
-};
+import { ResponseMetadataSchemaType } from "./schema";
+
+export type MetadataProgress = ResponseMetadataSchemaType["progress"];
+export type MetadataMissingDetails =
+  ResponseMetadataSchemaType["ignoredMissingDetails"];
+export type MetadataEvidence = ResponseMetadataSchemaType["evidence"];
+export type MetadataDeviation = ResponseMetadataSchemaType["deviation"];
 
 export type Message = {
   role: "user" | "assistant";
   content: string;
-  id: string;
-  progress?: ProgressData | null;
-  meta?: {
-    requiresEvidenceUpload?: boolean;
-    allowedTypes?: string[];
-    stopIntake?: boolean;
-    flaggedDeviation?: boolean;
-    deviationReason?: string;
-  } | null;
+  id?: string;
+  meta?: ResponseMetadataSchemaType;
 };
 
 export type UserRole =
@@ -33,24 +22,22 @@ export type UserRole =
   | "solicitor"
   | "paralegal"
   | "user";
-export type CaseStatus = "draft" | "collecting" | "review" | "locked";
 export type StatementStatus = "draft" | "in_progress" | "submitted" | "locked";
-export type Case = {
-  id: string;
-  tenant_id: string;
-  title: string;
-  reference: string;
-  incident_date: string | null;
-  assigned_to: string | null;
-  created_at: string;
-};
+
 export type Profile = Tables<"profiles">;
 export type User = SupabaseUser & {
   tenant_id: string | null;
   role: UserRole;
   display_name?: string | null;
 };
-export type Statement = Tables<"statements">;
+export type Statement = Omit<
+  Tables<"statements">,
+  "status" | "signed_document" | "supporting_documents"
+> & {
+  status: StatementStatus;
+  signed_document: UploadedDocument | null;
+  supporting_documents: UploadedDocument[];
+};
 export type ConversationMessage = Tables<"conversation_messages">;
 export type Invite = Tables<"invites">;
 export type Tenant = Tables<"tenants">;
@@ -58,6 +45,7 @@ export type MagicLink = Tables<"magic_links">;
 
 export type UploadedDocument = {
   bucketId?: string;
+  name: string;
   path: string;
   type: string;
   uploadedAt: string;

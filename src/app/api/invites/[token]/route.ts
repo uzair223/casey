@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
-import {
-  getInviteByToken,
-  acceptInvite,
-  getTenantById,
-} from "@/lib/supabase/queries";
+import { getInviteByToken, acceptInvite } from "@/lib/supabase/queries";
 
 const getBearerToken = (request: Request) => {
   const header = request.headers.get("authorization");

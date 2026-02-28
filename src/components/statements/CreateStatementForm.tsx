@@ -1,0 +1,149 @@
+"use client";
+
+import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
+import { Button } from "@/components/ui/button";
+import { AsyncButton } from "@/components/ui/async-button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { createStatement } from "@/lib/supabase/queries";
+import { useUser } from "@/contexts/UserContext";
+import { StatementSchema, StatementSchemaType } from "@/lib/schema/statement";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+interface CreateStatementFormProps {
+  status: string | null;
+  onClose: () => void;
+  fetchData: () => Promise<unknown>;
+}
+
+export function CreateStatementForm({
+  status,
+  onClose,
+  fetchData,
+}: CreateStatementFormProps) {
+  const { user } = useUser(["tenant_admin", "solicitor", "paralegal"]);
+
+  const formMethods = useForm({
+    resolver: zodResolver(StatementSchema),
+    defaultValues: {
+      title: "",
+      tenant_id: user?.tenant_id || "",
+      reference: "",
+      claim_number: "",
+      witness_name: "",
+      witness_address: "",
+      witness_occupation: "",
+      witness_email: "",
+      incident_date: "",
+    },
+  });
+
+  const onSubmit: SubmitHandler<StatementSchemaType> = async (data) => {
+    if (!user || !user.tenant_id) return null;
+    try {
+      await createStatement({
+        ...data,
+        tenant_id: user.tenant_id,
+      });
+      onClose();
+      fetchData();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to create case");
+    }
+  };
+
+  if (!user || !user.tenant_id) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="text-lg font-semibold">Create a new case</h2>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <FormProvider {...formMethods}>
+          <form
+            onSubmit={formMethods.handleSubmit(onSubmit)}
+            className="grid grid-cols-2 gap-4"
+          >
+            <div className="form-item">
+              <Input
+                {...formMethods.register("title", { required: true })}
+                placeholder="Doe vs. Company"
+                required
+              />
+              <Label htmlFor="title">Case Title</Label>
+            </div>
+            <div className="form-item">
+              <Input
+                {...formMethods.register("reference", { required: true })}
+                placeholder="REF-2026-014"
+                required
+              />
+              <Label htmlFor="reference">Reference</Label>
+            </div>
+            <div className="form-item">
+              <Input
+                {...formMethods.register("claim_number")}
+                placeholder="CLM-2026-014"
+              />
+              <Label htmlFor="claim_number">Claim Number</Label>
+            </div>
+            <div className="form-item">
+              <Input
+                {...formMethods.register("witness_name", { required: true })}
+                placeholder="Jane Doe"
+                required
+              />
+              <Label htmlFor="witness_name">Witness Name</Label>
+            </div>
+            <div className="form-item">
+              <Input
+                {...formMethods.register("witness_email", { required: true })}
+                type="email"
+                placeholder="jane.doe@example.com"
+                required
+              />
+              <Label htmlFor="witness_email">Witness Email</Label>
+            </div>
+            <div className="form-item">
+              <Input
+                {...formMethods.register("witness_address")}
+                placeholder="123 High Street, Manchester"
+              />
+              <Label htmlFor="witness_address">Witness Address</Label>
+            </div>
+            <div className="form-item">
+              <Input
+                {...formMethods.register("witness_occupation")}
+                placeholder="Engineer"
+              />
+              <Label htmlFor="witness_occupation">Witness Occupation</Label>
+            </div>
+            <div className="form-item">
+              <Input type="date" {...formMethods.register("incident_date")} />
+              <Label htmlFor="incident_date">Incident Date</Label>
+            </div>
+            <div className="col-span-2 flex gap-2">
+              <AsyncButton type="submit" pendingText="Creating...">
+                Create Case
+              </AsyncButton>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </FormProvider>
+        {status ? (
+          <p
+            className={
+              status.includes("success") ? "text-green-600" : "text-red-600"
+            }
+          >
+            {status}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}

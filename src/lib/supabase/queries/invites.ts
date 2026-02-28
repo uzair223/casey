@@ -4,6 +4,7 @@ import { assertServerOnly } from "@/lib/utils";
 import { generateAlphanumericCode } from "@/lib/security";
 
 import { Invite } from "@/lib/types";
+import { getSupabaseClient } from "../client";
 
 /**
  * Invite type
@@ -19,16 +20,18 @@ import { Invite } from "@/lib/types";
  * SERVER ONLY - Requires service role for auth.admin operations
  * @param email - Email address (or null for anonymous invite)
  * @param role - Role to assign
- * @param tenant_id - Tenant ID (null means create new tenant for tenant_admin role)
+ * @param tenantId - Tenant ID (null means create new tenant for tenant_admin role)
  * @param createdBy - User creating the invite
+ * @param daysTillExpiry - Time till expiry
  */
 export const createInvite = async (
   email: string | null,
   role: string,
-  tenant_id: string | null,
+  tenantId: string | null,
   createdBy: string,
+  daysTillExpiry: number = 7,
 ): Promise<{ email: string | null; token: string }> => {
-  const supabase = getServiceClient();
+  const supabase = getSupabaseClient();
 
   if (email) {
     email = email.trim().toLowerCase();
@@ -49,8 +52,8 @@ export const createInvite = async (
       .order("created_at", { ascending: false })
       .limit(1);
 
-    if (tenant_id) {
-      query.eq("tenant_id", tenant_id);
+    if (tenantId) {
+      query.eq("tenant_id", tenantId);
     } else {
       query.is("tenant_id", null);
     }
@@ -65,10 +68,10 @@ export const createInvite = async (
   // Create new invite
   const token = generateAlphanumericCode(8);
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7);
+  expiresAt.setDate(expiresAt.getDate() + daysTillExpiry);
 
   const { error: insertError } = await supabase.from("invites").insert({
-    tenant_id,
+    tenant_id: tenantId,
     email,
     role,
     token,
@@ -167,8 +170,9 @@ export type InviteWithTenantName = Invite & { tenant_name: string | null };
  */
 export const getInviteByToken = async (
   token: string,
+  unusedOnly: boolean = true,
 ): Promise<InviteWithTenantName | null> => {
-  const supabase = getServiceClient();
+  const supabase = getSupabaseClient();
 
   const { data: invite, error: inviteError } = await supabase
     .from("invites")
@@ -180,8 +184,10 @@ export const getInviteByToken = async (
     return null;
   }
 
-  // Check if expired or already accepted
-  if (invite.accepted_at || new Date(invite.expires_at) < new Date()) {
+  if (
+    unusedOnly &&
+    (invite.accepted_at || new Date(invite.expires_at) < new Date())
+  ) {
     return null;
   }
 
@@ -269,4 +275,14 @@ export const acceptInvite = async (
     tenant_id,
     role: invite.role,
   };
+};
+
+export const getInvites = async () => {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("invites")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
 };

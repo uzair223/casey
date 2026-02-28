@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { PERSONAL_INJURY_CONFIG } from "@/lib/statementConfigs";
-import { useStatement } from "@/contexts/StatementContext";
+import { useWitnessStatement } from "@/contexts/WitnessStatementContext";
 import { generateDoc } from "@/lib/docGenerator";
 import { saveAs } from "file-saver";
 
@@ -15,8 +15,9 @@ export function StatementDocument() {
     setIsEditingStatement,
     signatureData,
     isSigned,
+    isSubmitted,
     setStatementSections,
-  } = useStatement();
+  } = useWitnessStatement();
 
   if (!statementData) return null;
 
@@ -58,12 +59,14 @@ export function StatementDocument() {
   return (
     <>
       <div className="flex gap-2 mb-4 print:hidden">
-        <Button
-          variant="outline"
-          onClick={() => setIsEditingStatement(!isEditingStatement)}
-        >
-          {isEditingStatement ? "Finish Editing" : "Edit Statement"}
-        </Button>
+        {!isSubmitted && (
+          <Button
+            variant="outline"
+            onClick={() => setIsEditingStatement(!isEditingStatement)}
+          >
+            {isEditingStatement ? "Finish Editing" : "Edit Statement"}
+          </Button>
+        )}
         <Button variant="default" disabled={!isSigned} onClick={handleDownload}>
           Download Word Document (.docx)
         </Button>

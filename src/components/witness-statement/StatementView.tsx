@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useStatement } from "@/contexts/StatementContext";
+import { useWitnessStatement } from "@/contexts/WitnessStatementContext";
 import { StatementDocument } from "./StatementDocument";
 import { SignaturePad } from "./SignaturePad";
 import { Loader2 } from "lucide-react";
@@ -20,7 +20,7 @@ export function StatementView() {
     preparationError,
     handlePrepareStatement,
     handleSubmitStatement,
-  } = useStatement();
+  } = useWitnessStatement();
 
   if (!statementData) return null;
 
@@ -113,8 +113,8 @@ export function StatementView() {
           )}
         </div>
       </div>
-      <StatementDocument />
-      {!isSigned && (
+      {!isSubmitted && <StatementDocument />}
+      {!isSubmitted && !isSigned && (
         <SignaturePad
           onSignatureCapture={handleCaptureSignature}
           witnessName={statementData.witness_name}

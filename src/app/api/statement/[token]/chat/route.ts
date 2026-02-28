@@ -1,14 +1,25 @@
 import OpenAI from "openai";
-import { Message, ProgressData } from "@/lib/types";
+import { NextResponse } from "next/server";
+
+import { Message } from "@/lib/types";
+import { ResponseMetadataSchemaType } from "@/lib/schema";
+
 import {
-  getStatementContextServer,
+  getStatementFromToken,
   saveConversationMessageServer,
   updateStatementStatusServer,
 } from "@/lib/supabase/queries";
 import { PERSONAL_INJURY_CONFIG } from "@/lib/statementConfigs";
 import { generateChatSystemPrompt } from "@/lib/statementConfigs/prompts";
-import { cleanResponse, parseMeta, parseProgress } from "@/lib/intakeUtils";
+import {
+  defaultProgress,
+  getLastProgress,
+  parseAndValidateResponse,
+} from "@/lib/statementUtils";
+
 import { randomUUID } from "crypto";
+import { withRetry } from "@/lib/utils";
+import { DEMO_STATEMENT_DATA } from "@/lib/demoData";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -17,62 +28,41 @@ const openai = new OpenAI({
 
 const SYSTEM_PROMPT = generateChatSystemPrompt(PERSONAL_INJURY_CONFIG);
 
-const textResponse = (text: string, status = 200) =>
-  new Response(text, {
-    status,
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
-
-const defaultProgress = (): ProgressData => {
-  const phaseCompleteness = Object.fromEntries(
-    PERSONAL_INJURY_CONFIG.phases.map((p) => [`phase${p.order}`, 0]),
-  );
-
-  return {
-    currentPhase: 1,
-    completedPhases: [],
-    phaseCompleteness,
-    structuredData: {
-      currentPhase: 1,
-      overallCompletion: 0,
-    },
-    readyToPrepare: false,
-  };
-};
-
-const getLastProgress = (history: Message[]): ProgressData =>
-  history
-    .slice()
-    .reverse()
-    .find((m) => m.role === "assistant" && m.progress)?.progress ??
-  defaultProgress();
-
 function isRateLimitError(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
   const e = error as { status?: number; code?: number };
   return e.status === 429 || e.code === 429;
 }
 
-async function createOpenAIStream(
+async function createOpenAIStreamWithRetry(
   messages: { role: "user" | "assistant" | "system"; content: string }[],
   requestId: string,
+  retries = 3,
+  delayMs = 1000,
 ) {
-  try {
-    return await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      messages,
-      temperature: 0.7,
-      stream: true,
-    });
-  } catch (error) {
-    console.error(`[${requestId}] OpenAI API error`, error);
-
-    if (isRateLimitError(error)) {
-      throw new Error("RATE_LIMIT");
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        messages,
+        temperature: 0.7,
+        stream: true,
+      });
+    } catch (error) {
+      if (isRateLimitError(error) && attempt < retries) {
+        console.warn(
+          `[${requestId}] Rate limit hit, retrying in ${delayMs}ms (attempt ${attempt})`,
+        );
+        await new Promise((res) => setTimeout(res, delayMs));
+        delayMs *= 2; // exponential backoff
+        continue;
+      }
+      throw error;
     }
-
-    throw new Error("OPENAI_ERROR");
   }
+  throw new Error(
+    `[${requestId}] Failed to create OpenAI stream after ${retries} retries`,
+  );
 }
 
 export async function POST(
@@ -85,29 +75,28 @@ export async function POST(
   try {
     const { token } = await params;
 
-    if (token === "demo") return textResponse("");
+    if (token === DEMO_STATEMENT_DATA.link!.token)
+      return NextResponse.json("ok");
 
-    const context = await getStatementContextServer(token);
-    if (!context) {
-      return textResponse("Invalid or expired link.", 404);
+    const statement = await getStatementFromToken(token);
+    if (!statement) {
+      return NextResponse.json("Invalid or expired link.", { status: 404 });
     }
 
-    if (context.statement.status === "locked") {
-      const progress = defaultProgress();
-      const meta = {
-        stopIntake: true,
-        flaggedDeviation: true,
-        deviationReason:
-          "This intake was previously stopped because it went out of scope.",
+    if (statement.status === "locked") {
+      const meta: ResponseMetadataSchemaType = {
+        progress: defaultProgress(),
+        evidence: { record: [] },
+        ignoredMissingDetails: [],
+        deviation: {
+          stopIntake: true,
+          flaggedDeviation: true,
+          deviationReason:
+            "This intake was previously stopped because it went out of scope.",
+        },
       };
-
-      const message = `This witness statement intake has already been stopped. Please contact the law firm for next steps.
-
-[END]
-[PROGRESS: ${JSON.stringify(progress)}]
-[META: ${JSON.stringify(meta)}]`;
-
-      return textResponse(message);
+      const message = `This witness statement intake has already been stopped. Please contact the law firm for next steps.\n[META: ${JSON.stringify(meta)}]`;
+      return NextResponse.json(message, { status: 409 });
     }
 
     const body = await request.json();
@@ -117,27 +106,17 @@ export async function POST(
     };
 
     if (!userMessage || typeof userMessage !== "string") {
-      return textResponse("userMessage is required.", 400);
+      return NextResponse.json("userMessage is required.", { status: 400 });
     }
 
     if (!Array.isArray(conversationHistory)) {
-      return textResponse("conversationHistory must be an array.", 400);
+      return NextResponse.json("conversationHistory must be an array.", {
+        status: 400,
+      });
     }
 
     const lastProgress = getLastProgress(conversationHistory);
-
-    const progressContext = `
-CURRENT PROGRESS STATE (build incrementally on this):
-Current Phase: ${lastProgress.currentPhase}
-Completed Phases: [${lastProgress.completedPhases.join(", ")}]
-Phase Completeness: ${JSON.stringify(lastProgress.phaseCompleteness)}
-Ready to Submit: ${lastProgress.readyToPrepare}
-
-When generating the [PROGRESS: ...] block:
-- Use these values as your starting point
-- Only increment values when NEW info is gathered
-- Never decrease values
-`;
+    const progressContext = `CURRENT PROGRESS STATE (build incrementally on this):\n${JSON.stringify(lastProgress)}`;
 
     const messages = [
       ...conversationHistory.map((m) => ({
@@ -148,20 +127,26 @@ When generating the [PROGRESS: ...] block:
         role: "system" as const,
         content: `${SYSTEM_PROMPT}\n${progressContext}`,
       },
+      {
+        role: "user" as const,
+        content: userMessage,
+      },
     ];
 
     let stream;
 
     try {
-      stream = await createOpenAIStream(messages, requestId);
+      stream = await createOpenAIStreamWithRetry(messages, requestId);
     } catch (error) {
-      if (error instanceof Error && error.message === "RATE_LIMIT") {
-        return textResponse(
+      if (isRateLimitError(error)) {
+        return NextResponse.json(
           "AI service is experiencing high demand. Please try again shortly.",
+          { status: 429 },
         );
       }
-      return textResponse(
+      return NextResponse.json(
         "I encountered an error processing your message. Please try again.",
+        { status: 500 },
       );
     }
 
@@ -182,36 +167,57 @@ When generating the [PROGRESS: ...] block:
         } finally {
           controller.close();
 
-          try {
-            const progress = parseProgress(assistantContent);
-            const meta = parseMeta(assistantContent);
-            const cleaned = cleanResponse(assistantContent);
+          void (async () => {
+            try {
+              console.log(`[${requestId}] Starting background persistence`);
 
-            if (meta?.stopIntake) {
-              await updateStatementStatusServer(context.statement.id, "locked");
-            } else {
-              await updateStatementStatusServer(
-                context.statement.id,
-                "in_progress",
+              const { content, meta, error } =
+                parseAndValidateResponse(assistantContent);
+              if (error) {
+                console.log(
+                  `[${requestId}] Assistant response:\n${assistantContent}`,
+                );
+                console.error(
+                  `[${requestId}] Malformed assistant response:\n${typeof error === "string" ? error : error?.message}`,
+                );
+                return;
+              }
+
+              if (meta?.deviation?.stopIntake) {
+                await withRetry(() =>
+                  updateStatementStatusServer(statement.id, "locked"),
+                );
+              } else {
+                await withRetry(() =>
+                  updateStatementStatusServer(statement.id, "in_progress"),
+                );
+              }
+
+              await withRetry(() =>
+                saveConversationMessageServer(
+                  statement.id,
+                  "user",
+                  userMessage,
+                ),
+              );
+
+              await withRetry(() =>
+                saveConversationMessageServer(
+                  statement.id,
+                  "assistant",
+                  content,
+                  meta,
+                ),
+              );
+
+              console.log(`[${requestId}] Background persistence complete`);
+            } catch (persistError) {
+              console.error(
+                `[${requestId}] Background persistence error`,
+                persistError,
               );
             }
-
-            await saveConversationMessageServer(
-              context.statement.id,
-              "user",
-              userMessage,
-            );
-
-            await saveConversationMessageServer(
-              context.statement.id,
-              "assistant",
-              cleaned,
-              progress,
-              meta,
-            );
-          } catch (persistError) {
-            console.error(`[${requestId}] Persistence error`, persistError);
-          }
+          })();
         }
       },
     });
@@ -225,9 +231,9 @@ When generating the [PROGRESS: ...] block:
     });
   } catch (error) {
     console.error(`[${requestId}] Fatal API error`, error);
-    return textResponse(
+    return NextResponse.json(
       error instanceof Error ? error.message : "Unknown error",
-      500,
+      { status: 500 },
     );
   }
 }

@@ -5,7 +5,7 @@ import { Button, type ButtonProps } from "@/components/ui/button";
 import { useFormContext } from "react-hook-form";
 
 export type AsyncButtonProps = Omit<ButtonProps, "onClick"> & {
-  pendingText?: string;
+  pendingText?: React.ReactNode;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => Promise<void>;
 };
 

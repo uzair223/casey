@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
-import { getCaseForSendLink } from "@/lib/supabase/queries/cases";
+import { getStatementForSendLink } from "@/lib/supabase/queries";
 import { sendStatementLinkEmail } from "@/lib/email";
 
 /**
@@ -13,7 +13,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id: caseId } = await params;
+    const { id: statementId } = await params;
     const supabase = getServiceClient();
     const authHeader = request.headers.get("authorization") || "";
     const token = authHeader.toLowerCase().startsWith("bearer ")
@@ -54,15 +54,17 @@ export async function POST(
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
-    // Get case with statement and magic link info
-    const caseData = await getCaseForSendLink(caseId, profile.tenant_id);
+    const statement = await getStatementForSendLink(statementId);
 
-    if (!caseData) {
-      return NextResponse.json({ error: "Case not found" }, { status: 404 });
+    if (!statement) {
+      return NextResponse.json(
+        { error: "Statement not found" },
+        { status: 404 },
+      );
     }
 
     // Check if witness email exists
-    if (!caseData.statement.witness_email) {
+    if (!statement.witness_email) {
       return NextResponse.json(
         { error: "Witness email not set on this case" },
         { status: 400 },
@@ -71,13 +73,13 @@ export async function POST(
 
     // Build statement link URL
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-    const statementUrl = `${baseUrl}/statement/${caseData.magicLinkToken}`;
+    const statementUrl = `${baseUrl}/statement/${statement.token}`;
 
     await sendStatementLinkEmail({
-      to: caseData.statement.witness_email,
+      to: statement.witness_email,
       tenantName: tenant.name,
-      witnessName: caseData.statement.witness_name,
-      caseTitle: caseData.case.title,
+      witnessName: statement.witness_name,
+      caseTitle: statement.title,
       statementUrl,
     });
 

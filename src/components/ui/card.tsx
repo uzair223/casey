@@ -15,9 +15,9 @@ const cardVariants = cva("group rounded-xl border shadow", {
       accent: "text-accent-foreground bg-accent/(--card-opacity)",
     },
     size: {
-      lg: "card-lg",
-      md: "card-md",
-      sm: "card-sm",
+      lg: "[--card-padding:calc(var(--spacing)*6)]",
+      md: "[--card-padding:calc(var(--spacing)*4)]",
+      sm: "[--card-padding:calc(var(--spacing)*2)_calc(var(--spacing)*4)]",
     },
   },
   defaultVariants: {
@@ -25,9 +25,6 @@ const cardVariants = cva("group rounded-xl border shadow", {
     size: "lg",
   },
 });
-
-const CARD_PADDING =
-  "group-[.card-lg]:p-6 group-[.card-md]:p-4 group-[.card-sm]:py-2 group-[.card-sm]:px-4";
 
 export interface CardProps
   extends
@@ -60,7 +57,7 @@ const CardHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn(CARD_PADDING, "flex flex-col space-y-1.5", className)}
+    className={cn("flex flex-col space-y-1.5 p-(--card-padding)", className)}
     {...props}
   />
 ));
@@ -94,7 +91,11 @@ const CardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn(CARD_PADDING, "pt-0!", className)} {...props} />
+  <div
+    ref={ref}
+    className={cn("p-(--card-padding) pt-0", className)}
+    {...props}
+  />
 ));
 CardContent.displayName = "CardContent";
 
@@ -104,7 +105,7 @@ const CardFooter = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn(CARD_PADDING, "flex items-center pt-0! gap-2", className)}
+    className={cn("p-(--card-padding) pt-0 flex items-center gap-2", className)}
     {...props}
   />
 ));

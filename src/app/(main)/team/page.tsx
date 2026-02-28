@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AsyncButton } from "@/components/ui/async-button";
@@ -19,7 +18,6 @@ import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/contexts/UserContext";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { ProfileWithEmail } from "@/lib/supabase/queries/team";
-import { generateAlphanumericCode } from "@/lib/security";
 import {
   Select,
   SelectContent,
@@ -27,69 +25,59 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Invite } from "@/lib/types";
 import InvitesTable from "@/components/InvitesTable";
 import { apiFetch } from "@/lib/utils";
+import { useAsync } from "@/hooks/useAsync";
+import { createInvite, getInvites, revokeInvite } from "@/lib/supabase/queries";
 
 export default function TeamPage() {
   const { isLoading: isUserLoading, user } = useUser();
-  const [isLoading, setIsLoading] = useState(true);
-
-  const [teamMembers, setTeamMembers] = useState<ProfileWithEmail[]>([]);
-  const [invites, setInvites] = useState<Invite[]>([]);
-  const [enrollmentInvite, setEnrollmentInvite] = useState<Invite | null>(null);
 
   const inviteFormMethods = useForm<{ email: string; role: string }>({
     defaultValues: { email: "", role: "paralegal" },
   });
-  const supabase = getSupabaseClient();
 
-  // Check permissions - only tenant_admin and solicitor can access this page
-  const canManageTeam =
-    user?.role === "tenant_admin" || user?.role === "solicitor";
+  const canManageTeam = ["tenant_admin", "solicitor"].includes(
+    user?.role || "",
+  );
 
-  const fetchData = async () => {
-    if (!user?.tenant_id) return;
+  const {
+    data,
+    setData,
+    isLoading: isDataLoading,
+    handler,
+  } = useAsync(
+    async () => {
+      if (!user || !user?.tenant_id) return;
 
-    try {
-      const [membersData, invitesData] = await Promise.all([
-        apiFetch<{ members: ProfileWithEmail[] }>("/api/team/members"),
-        supabase
-          .from("invites")
-          .select("*")
-          .eq("tenant_id", user.tenant_id)
-          .order("created_at", { ascending: false }),
+      const [{ members: teamMembers }, invites] = await Promise.all([
+        apiFetch<{ members: ProfileWithEmail[] }>("/api/tenant/members"),
+        getInvites(),
       ]);
 
-      setTeamMembers(membersData.members);
-      setInvites(invitesData.data || []);
+      const enrollmentInvite =
+        user.role === "tenant_admin"
+          ? invites.find(
+              (invite) =>
+                invite.email === null &&
+                invite.role === "paralegal" &&
+                !invite.accepted_at,
+            )
+          : null;
 
-      // For tenant admins, get or create an anonymous enrollment invite
-      if (user.role === "tenant_admin") {
-        // Find existing anonymous paralegal invite
-        const existingEnrollment = invitesData.data?.find(
-          (invite) =>
-            invite.email === null &&
-            invite.role === "paralegal" &&
-            !invite.accepted_at,
-        );
-        setEnrollmentInvite(existingEnrollment || null);
-      }
-    } catch (error) {
-      console.error("Failed to fetch team data:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to load team data",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return { teamMembers, invites, enrollmentInvite };
+    },
+    [user],
+    { enabled: !!user?.tenant_id },
+  );
 
-  useEffect(() => {
-    if (!isUserLoading && user) {
-      fetchData();
-    }
-  }, [isUserLoading, user]);
+  if (!data || isUserLoading || isDataLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading team...</p>
+      </div>
+    );
+  }
 
   const handleCreateInvite: SubmitHandler<{
     email: string;
@@ -102,11 +90,11 @@ export default function TeamPage() {
       return;
     }
     try {
-      await apiFetch("/api/team/invites", {
+      await apiFetch("/api/tenant/invites", {
         method: "POST",
         body: JSON.stringify({ email: data.email, role: data.role }),
       });
-      fetchData();
+      handler();
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to create invite";
@@ -126,11 +114,11 @@ export default function TeamPage() {
     if (!confirm("Are you sure you want to revoke this invite?")) return;
 
     try {
-      await apiFetch("/api/team/invites", {
+      await apiFetch("/api/tenant/invites", {
         method: "DELETE",
         body: JSON.stringify({ inviteId }),
       });
-      fetchData();
+      handler();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to revoke invite");
     }
@@ -143,11 +131,11 @@ export default function TeamPage() {
     }
 
     try {
-      await apiFetch("/api/team/invites", {
+      await apiFetch("/api/tenant/invites", {
         method: "PUT",
         body: JSON.stringify({ inviteId }),
       });
-      fetchData();
+      handler();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to resend invite");
     }
@@ -167,11 +155,11 @@ export default function TeamPage() {
       return;
 
     try {
-      await apiFetch("/api/team/members", {
+      await apiFetch("/api/tenant/members", {
         method: "PUT",
         body: JSON.stringify({ userId, role: newRole }),
       });
-      fetchData();
+      handler();
     } catch (error) {
       alert(
         error instanceof Error ? error.message : "Failed to update user role",
@@ -185,7 +173,7 @@ export default function TeamPage() {
     }
 
     if (
-      enrollmentInvite &&
+      data.enrollmentInvite &&
       !confirm(
         "Are you sure you want to regenerate the enrollment code? The old code will stop working.",
       )
@@ -194,30 +182,13 @@ export default function TeamPage() {
 
     try {
       // Delete the old enrollment invite if it exists
-      if (enrollmentInvite) {
-        await supabase.from("invites").delete().eq("id", enrollmentInvite.id);
+      if (data.enrollmentInvite) {
+        await revokeInvite(data.enrollmentInvite.id);
       }
 
       // Create a new anonymous invite for paralegals
-      const { data: newInvite, error } = await supabase
-        .from("invites")
-        .insert({
-          tenant_id: user.tenant_id,
-          role: "paralegal",
-          email: null, // Anonymous invite
-          token: generateAlphanumericCode(8),
-          created_by: user.id,
-          expires_at: new Date(
-            Date.now() + 365 * 24 * 60 * 60 * 1000,
-          ).toISOString(), // 1 year expiry
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setEnrollmentInvite(newInvite);
-      fetchData();
+      await createInvite(null, "paralegal", user.tenant_id, user.id, 365);
+      await handler();
     } catch (error) {
       alert(
         error instanceof Error
@@ -236,23 +207,15 @@ export default function TeamPage() {
       return;
 
     try {
-      await apiFetch("/api/team/members", {
+      await apiFetch("/api/tenant/members", {
         method: "DELETE",
         body: JSON.stringify({ userId }),
       });
-      fetchData();
+      handler();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to remove member");
     }
   };
-
-  if (isUserLoading || isLoading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading team...</p>
-      </div>
-    );
-  }
 
   return (
     <section className="space-y-6">
@@ -278,14 +241,14 @@ export default function TeamPage() {
               as a paralegal.
             </p>
             <div className="flex items-center gap-4">
-              <div className="flex-1 bg-muted p-6 rounded-lg text-center">
-                {enrollmentInvite ? (
+              <div className="flex-1 bg-muted p-4 rounded-lg text-center">
+                {data.enrollmentInvite ? (
                   <>
                     <p className="text-sm text-muted-foreground">
                       Enrollment Code
                     </p>
                     <p className="text-4xl font-mono font-bold tracking-wider text-primary">
-                      {enrollmentInvite.token}
+                      {data.enrollmentInvite.token}
                     </p>
                   </>
                 ) : (
@@ -298,7 +261,7 @@ export default function TeamPage() {
                   </AsyncButton>
                 )}
               </div>
-              {enrollmentInvite && (
+              {!!data.enrollmentInvite && (
                 <div className="flex flex-col gap-2">
                   <AsyncButton
                     variant="outline"
@@ -309,7 +272,9 @@ export default function TeamPage() {
                   </AsyncButton>
                   <AsyncButton
                     variant="outline"
-                    onClick={() => handleRevokeInvite(enrollmentInvite.id)}
+                    onClick={() =>
+                      handleRevokeInvite(data.enrollmentInvite!.id)
+                    }
                     pendingText="Revoking..."
                   >
                     Revoke
@@ -328,10 +293,10 @@ export default function TeamPage() {
       <Tabs defaultValue="members" className="space-y-6">
         <TabsList>
           <TabsTrigger value="members">
-            Members ({teamMembers.length})
+            Members ({data.teamMembers.length})
           </TabsTrigger>
           <TabsTrigger value="invites" disabled={!canManageTeam}>
-            Invites ({invites.filter((i) => !i.accepted_at).length})
+            Invites ({data.invites.filter((i) => !i.accepted_at).length})
           </TabsTrigger>
         </TabsList>
 
@@ -341,7 +306,7 @@ export default function TeamPage() {
               <CardTitle>Team Members</CardTitle>
             </CardHeader>
             <CardContent>
-              {teamMembers.length === 0 ? (
+              {data.teamMembers.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No team members yet.
                 </p>
@@ -357,7 +322,7 @@ export default function TeamPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {teamMembers.map((member) => (
+                    {data.teamMembers.map((member) => (
                       <TableRow key={member.user_id}>
                         <TableCell>{member.display_name}</TableCell>
                         <TableCell>{member.email}</TableCell>
@@ -485,13 +450,13 @@ export default function TeamPage() {
                 <CardTitle>Pending Invites</CardTitle>
               </CardHeader>
               <CardContent>
-                {invites.length === 0 ? (
+                {data.invites.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No invites created yet.
                   </p>
                 ) : (
                   <InvitesTable
-                    invites={invites}
+                    invites={data.invites}
                     onResendInvite={handleResendInvite}
                     onRevokeInvite={handleRevokeInvite}
                   />

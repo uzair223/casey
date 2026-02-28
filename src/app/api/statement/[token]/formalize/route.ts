@@ -1,8 +1,10 @@
 import OpenAI from "openai";
-import { NextResponse } from "next/server";
-import { getStatementContextServer } from "@/lib/supabase/queries";
+import { getStatementFromToken } from "@/lib/supabase/queries";
 import { PERSONAL_INJURY_CONFIG } from "@/lib/statementConfigs";
 import { generateFormalizeSystemPrompt } from "@/lib/statementConfigs/prompts";
+import { NextResponse } from "next/server";
+import { withRetry } from "@/lib/utils";
+import { DEMO_STATEMENT_DATA } from "@/lib/demoData";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -17,24 +19,24 @@ export async function POST(
 ) {
   try {
     if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: "OpenAI API key not configured." },
-        { status: 500 },
-      );
+      return NextResponse.json("OpenAI API key not configured.", {
+        status: 500,
+      });
     }
 
     const { token } = await params;
-    if (token === "demo") return NextResponse.json(undefined, { status: 200 });
+    if (token === DEMO_STATEMENT_DATA.link!.token)
+      return NextResponse.json("ok");
 
-    const context = await getStatementContextServer(token);
-    if (!context || context.statement.status === "locked") {
-      return NextResponse.json(
-        { error: "Unauthorized or locked." },
-        { status: 409 },
-      );
+    const statement = await getStatementFromToken(token);
+    if (!statement || statement.status === "locked") {
+      return NextResponse.json("Unauthorized or locked.", { status: 409 });
     }
 
-    const { responses } = await request.json();
+    const { responses, evidence } = (await request.json()) as {
+      responses: { role: "user" | "assistant"; content: string }[];
+      evidence: { name: string; type: string }[];
+    };
 
     // 1. Build the JSON Schema dynamically from your config
     const properties: Record<string, { type: "string" }> = {};
@@ -46,35 +48,40 @@ export async function POST(
     });
 
     // 2. Call OpenAI with response_format
-    const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...responses],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "witness_statement",
-          strict: true,
-          schema: {
-            type: "object",
-            properties: properties,
-            required: requiredFields,
-            additionalProperties: false,
+    const parsed = await withRetry(async () => {
+      const completion = await openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          ...responses,
+          {
+            role: "system",
+            content: `User provided evidence: ${JSON.stringify(evidence)}`,
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "witness_statement",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: properties,
+              required: requiredFields,
+              additionalProperties: false,
+            },
           },
         },
-      },
-      temperature: 0, // Lower temperature is better for structured extraction
+        temperature: 0, // Lower temperature is better for structured extraction
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) throw new Error("Empty AI response");
+      return JSON.parse(content);
     });
-
-    const content = completion.choices[0]?.message?.content;
-    if (!content) throw new Error("Empty AI response");
-
-    const parsed = JSON.parse(content);
     return NextResponse.json(parsed);
   } catch (error) {
     console.error("Formalize error:", error);
-    return NextResponse.json(
-      { error: "Failed to formalize statement" },
-      { status: 500 },
-    );
+    return NextResponse.json("Failed to formalize statement", { status: 500 });
   }
 }

@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader } from "@/components/ui/card";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { ProgressIndicator } from "./ProgressIndicator";
-import { useStatement } from "@/contexts/StatementContext";
+import { useWitnessStatement } from "@/contexts/WitnessStatementContext";
 import { CheckIcon, MicIcon, PaperclipIcon } from "lucide-react";
 import SpeechRecognition, {
   useSpeechRecognition,
@@ -22,19 +22,21 @@ export function ChatAreaContent() {
     isSubmitted,
     handlePrepareStatement,
     isPreparing,
-    addEvidenceFiles,
-  } = useStatement();
+    setEvidence,
+  } = useWitnessStatement();
   const intakeStopped =
-    statementData?.statement_status === "locked" ||
+    statementData?.status === "locked" ||
     messages.some(
-      (message) => message.role === "assistant" && message.meta?.stopIntake,
+      (message) =>
+        message.role === "assistant" && message.meta?.deviation?.stopIntake,
     );
   const stopReason =
     [...messages]
       .reverse()
       .find(
-        (message) => message.role === "assistant" && message.meta?.stopIntake,
-      )?.meta?.deviationReason ||
+        (message) =>
+          message.role === "assistant" && message.meta?.deviation?.stopIntake,
+      )?.meta?.deviation?.deviationReason ||
     "This conversation has been flagged as out of scope.";
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -43,7 +45,6 @@ export function ChatAreaContent() {
   };
 
   useEffect(() => {
-    console.log(messages);
     scrollToBottom();
   }, [messages]);
 
@@ -70,7 +71,10 @@ export function ChatAreaContent() {
                   variant={message.role === "user" ? "accent" : "default"}
                   opacity={40}
                 >
-                  <CardHeader>
+                  <CardHeader className="relative">
+                    <span className="absolute text-transparent select-text whitespace-nowrap text-[0px]">
+                      {message.role.toUpperCase()}:
+                    </span>
                     {message.role === "assistant" ? (
                       <div className="prose prose-invert">
                         <MarkdownMessage content={message.content} />
@@ -87,7 +91,7 @@ export function ChatAreaContent() {
                     !isPrepared &&
                     !isSubmitted &&
                     !isGenerating &&
-                    message.meta?.requiresEvidenceUpload && (
+                    message.meta?.evidence?.currentAsk && (
                       <Button
                         className="bg-card/20"
                         size="sm"
@@ -98,22 +102,27 @@ export function ChatAreaContent() {
                           <input
                             type="file"
                             multiple
-                            accept={message.meta.allowedTypes?.join(",") || "*"}
-                            onChange={(e) => addEvidenceFiles(e.target.files)}
+                            accept={message.meta?.evidence.currentAsk.type}
+                            onChange={(e) =>
+                              setEvidence(
+                                e.target.files,
+                                message.meta?.evidence.currentAsk?.name,
+                              )
+                            }
                           />
                           <PaperclipIcon />
                         </label>
                       </Button>
                     )}
-                  {message?.progress && (
-                    <ProgressIndicator progress={message.progress} />
+                  {message.meta?.progress && (
+                    <ProgressIndicator progress={message.meta?.progress} />
                   )}
                 </>
               )}
             </div>
             {message.role === "assistant" &&
               idx === messages.length - 1 &&
-              message.progress?.readyToPrepare &&
+              message.meta?.progress?.readyToPrepare &&
               !intakeStopped &&
               !isPrepared &&
               !isSubmitted &&
@@ -175,12 +184,13 @@ export function ChatAreaFooter() {
     isPrepared,
     isSubmitted,
     handleSubmitMessage,
-  } = useStatement();
+  } = useWitnessStatement();
 
   const intakeStopped =
-    statementData?.statement_status === "locked" ||
+    statementData?.status === "locked" ||
     messages.some(
-      (message) => message.role === "assistant" && message.meta?.stopIntake,
+      (message) =>
+        message.role === "assistant" && message.meta?.deviation?.stopIntake,
     );
   const isInputDisabled =
     intakeStopped || isPreparing || isPrepared || isSubmitted || isGenerating;

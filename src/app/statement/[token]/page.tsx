@@ -10,15 +10,18 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StatementProvider, useStatement } from "@/contexts/StatementContext";
+import {
+  WitnessStatementProvider,
+  useWitnessStatement,
+} from "@/contexts/WitnessStatementContext";
 import {
   ChatAreaContent,
   ChatAreaFooter,
-} from "@/components/statement/ChatArea";
-import { SupportingDocumentsView } from "@/components/statement/SupportingDocumentsView";
-import { StatementView } from "@/components/statement/StatementView";
-import { PageHeader } from "@/components/statement/PageHeader";
-import { SecurityNotice } from "@/components/statement/SecurityNotice";
+} from "@/components/witness-statement/ChatArea";
+import { SupportingDocumentsView } from "@/components/witness-statement/SupportingDocumentsView";
+import { StatementView } from "@/components/witness-statement/StatementView";
+import { PageHeader } from "@/components/witness-statement/PageHeader";
+import { SecurityNotice } from "@/components/witness-statement/SecurityNotice";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import { ScrollBar } from "@/components/ui/scroll-area";
 
@@ -31,7 +34,7 @@ function StatementContent() {
     loadError,
     isReadyToPrepare,
     isSubmitted,
-  } = useStatement();
+  } = useWitnessStatement();
 
   if (isLoadingData) {
     return (
@@ -85,7 +88,7 @@ function StatementContent() {
   ];
 
   return (
-    <section className="container flex min-h-svh max-h-svh flex-col gap-4 py-6">
+    <section className="container flex min-h-svh max-h-svh overflow-hidden flex-col gap-4 py-6">
       <PageHeader />
       <SecurityNotice />
 
@@ -97,7 +100,7 @@ function StatementContent() {
       >
         <ScrollAreaPrimitive.ScrollArea asChild>
           <Card size="md" className="flex min-h-0 flex-1 flex-col">
-            <CardHeader className="py-0!">
+            <CardHeader className="py-0">
               <TabsList>
                 {tabs.map((tab) => (
                   <TabsTrigger
@@ -117,7 +120,7 @@ function StatementContent() {
                 value={tab.id}
               >
                 <ScrollAreaPrimitive.ScrollAreaViewport className="flex-1 overflow-y-auto overflow-x-hidden">
-                  <CardContent className="pt-4!">
+                  <CardContent className="pt-4">
                     {tab.main}
                     <ScrollBar />
                   </CardContent>
@@ -140,8 +143,8 @@ export default function StatementPage({
   const { token } = React.use(params);
 
   return (
-    <StatementProvider token={token}>
+    <WitnessStatementProvider token={token}>
       <StatementContent />
-    </StatementProvider>
+    </WitnessStatementProvider>
   );
 }

@@ -1,7 +1,5 @@
 import { StatementUseCaseConfig } from ".";
 
-export const END_OF_RESPONSE_MARKER = "[END]";
-
 /**
  * Generate system prompt dynamically from statement configuration
  */
@@ -18,40 +16,115 @@ export function generateChatSystemPrompt(
     .map((_, i) => `"phase${i + 1}": 0`)
     .join(", ");
 
-  return `${config.agents.chat}
+  return `
+${config.agents.chat}
+Do NOT draft statements or generate forms. 
+Gather information gradually, one detail per message. 
+Use calm, neutral, professional tone. 
+Light Markdown (bold, short spacing, lists) is allowed.
 
-**Role:** Methodically collect information across these dimensions:
+Phases:
 ${phasesList}
 
-**Core Rules:**
-• 1 neutral, non-leading question per response. 
-• Never suggest facts, assume negligence, or provide legal advice.
-• Establish precise dates, times, locations, and sequences using the witness's own words.
-• Clarify vague/contradictory info. If witness doesn't know/remember, accept it, log in 'ignoredMissingDetails', and move to the next topic. NEVER re-probe.
-• If witness deviates substantially, stop early, explain, and flag via metadata.
+=====================
+MESSAGE RULES
+=====================
 
-**Progression:**
-• Focus on one area until covered, then transition.
-• Incrementally update progress. NEVER reset or decrease values.
-• Mark 'requiresEvidenceUpload' true when asking for supporting documents/evidence.
-• Mark 'readyToPrepare' true ONLY when all info is collected and witness confirms.
+• Exactly ONE question mark per message. 
+• ONE information request only.
+• Minimal Markdown, ONLY bold, italics and short lists allowed.
+• Full messages shouldn't be in bold.
+• 2-5 sentences max. 
+• No previews, drafting instructions, or formatting guidance. 
+• No repetition of user wording unless clarifying. 
+• If the user has provided their details (e.g address/occupation), parse and add to the "witnessDetails".
 
-**Output Format:**
-Main content
-${END_OF_RESPONSE_MARKER}
-[PROGRESS: {"currentPhase": 1, "completedPhases": [], "phaseCompleteness": {${phaseCompletenessKeys}}, "structuredData": {"currentPhase": 1, "overallCompletion": 0}, "readyToPrepare": false, "ignoredMissingDetails": []}]
+=====================
+EVIDENCE DISCOVERY & TAGGING
+=====================
 
-**Metadata (Conditional):**
-• Evidence: [META: {"requiresEvidenceUpload": true, "allowedTypes": ["image/*", "application/pdf"]}]
-• Stop: [META: {"stopIntake": true, "flaggedDeviation": true, "deviationReason": "..."}]
+• Your goal is to CATALOG what evidence exists, NOT to collect it.
+• PROACTIVE INQUIRY RULE: If you are asking whether a specific new piece of evidence exists (e.g., "Do you have the dashcam footage?"), you MUST include the "evidence.currentAsk" object in the JSON. If not asking for a new item, omit this key or set it to null.
+• "evidence.currentAsk" should include the "name" of the item and a logical "type" (e.g., "image/*,application/pdf").
+• NEVER ask the user to "upload," "send," "attach," or "provide" files/photos.
+• RECORDING RULE: Whenever a user confirms they possess evidence, you MUST add it to the "evidence.record" array in the JSON.
+• NATURAL NAMES: Use clear, natural names for evidence labels (e.g., "Dashcam Footage", "Medical Report").
+• If the user mentions a document, acknowledge it and move to the next item immediately.
 
-**Definitions:**
-- phaseCompleteness: % of fields gathered per phase (0-100).
-- completedPhases: Phase IDs >= 70% complete.
-- overallCompletion: Weighted average %.
-- ignoredMissingDetails: Specific gaps witness cannot recall.
+=====================
+LEGAL RULES
+=====================
 
-Conversational, 1-question limit, topic-specific.`;
+• Never suggest fault or negligence. 
+• Never give legal advice. 
+• Use user's wording. 
+• Brief clarification only if unclear. 
+• Missing info → log in 'ignoredMissingDetails', do not re-probe.
+
+=====================
+PHASE LOGIC & SCORING
+=====================
+
+• Stay in current phase until phaseCompleteness ≥70. 
+• When the user states they have no more information or want to submit, set readyToPrepare: true immediately.
+• If a user provides a detail once, do not ask for it again; refer to your progressContext.
+
+=====================
+DEVIATION DETECTION
+=====================
+
+Minor deviation → short redirection + one relevant question. 
+Major deviation → stop intake by including the "deviation" object in the JSON. Set "stopIntake": true and "flaggedDeviation": true.
+• If no major deviation has occurred, omit the "deviation" key or set it to null.
+
+=====================
+CONTRADICTION HANDLING
+=====================
+
+If user info conflicts with prior statements: 
+• Ask ONE calm clarification question (e.g., "Earlier you mentioned X, now Y — which is correct?").
+• Update understanding silently and continue progression.
+
+=====================
+SELF-VALIDATION
+=====================
+
+Before sending, ensure:
+• You are not asking for a file upload.
+• You are not repeating a question already answered.
+• "currentAsk" is only present if you just asked for a specific document.
+• "deviation" is only present if a major deviation occurred.
+
+=====================
+OUTPUT
+=====================
+
+Main conversational response only.
+
+CRITICAL! You MUST structure the metadata in the EXACT FORMAT:
+
+[META: {
+  "witnessDetails": {
+    "occupation": "...",
+    "address": "..."
+  },
+  "progress": {
+    "currentPhase": 0,
+    "overallCompletion": 0, (out of 100)
+    "completedPhases": [],
+    "phaseCompleteness": {${phaseCompletenessKeys}},
+    "readyToPrepare": false,
+    },
+    "ignoredMissingDetails": []
+    "evidence": {
+    "record": [{ "name": "...", "type": "..."}, ...] 
+    "currentAsk": { "name": "...", "type": "..." },
+  },
+  "deviation": { "stopIntake": true, "flaggedDeviation": true, "deviationReason": "..." }
+}]
+
+(Note: "witnessDetails", "evidence.currentAsk" and "deviation" are optional. Include them only when applicable; otherwise, set them to null or omit them).
+`;
 }
 
 /**
@@ -60,7 +133,6 @@ Conversational, 1-question limit, topic-specific.`;
 export function generateFormalizeSystemPrompt(
   config: StatementUseCaseConfig,
 ): string {
-  // Build section guidelines from config
   const sectionGuidelines = config.sections
     .map((section) => {
       let guideline = `${section.title.toUpperCase()} (1-2 sentences)`;
@@ -71,18 +143,17 @@ export function generateFormalizeSystemPrompt(
     })
     .join("\n\n");
 
-  // Build JSON return structure
   const jsonFields = config.sections
-    .map((section) => `"${section.field}": "..."`)
+    .map((section) => `"${section.field}": ""`)
     .join(",\n  ");
 
   const jsonStructure = `{\n  ${jsonFields}\n}`;
 
   return `${config.agents.formalize}.
 
-IMPORTANT: These sections will be directly inserted into a document template. Format them accordingly.
+IMPORTANT: These sections will be inserted directly into a document template. Format accordingly.
 
-Return ONLY valid JSON with this shape:
+Return ONLY valid JSON with this exact shape:
 ${jsonStructure}
 
 SECTION GUIDELINES:
@@ -90,11 +161,13 @@ SECTION GUIDELINES:
 ${sectionGuidelines}
 
 CRITICAL RULES:
-- Use the witness's own words and phrasing where possible
-- Do NOT add facts, assumptions, or legal interpretations
-- Do NOT include markdown, HTML, or any formatting - plain text only
-- If a section has no information, return an empty string ""
-- Keep language formal but accessible (8th grade reading level max)
-- Remove redundancy between sections
-- If a section is missing from responses, return empty string`;
+- Use the witness's exact words wherever possible.
+- Do NOT add facts, assumptions, or legal interpretations.
+- Do NOT include markdown, HTML, or formatting - plain text only.
+- If a section has no information, return an empty string "".
+- Keep language formal but accessible (8th grade reading level max).
+- Remove redundancy between sections.
+- If a section is missing from responses, return empty string "".
+- Include a summary of the evidence/documents the user confirmed they possess under the "Evidence" section.
+- Ensure the JSON is strictly valid with no extra text or commentary.`;
 }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-interface CaseSearchProps {
+interface StatementSearchProps {
   searchTerm: string;
   onSearchChange: (term: string) => void;
   currentPage: number;
@@ -15,7 +15,7 @@ interface CaseSearchProps {
   onNextPage: () => void;
 }
 
-export function CaseSearch({
+export function StatementSearch({
   searchTerm,
   onSearchChange,
   currentPage,
@@ -24,14 +24,14 @@ export function CaseSearch({
   totalItems,
   onPreviousPage,
   onNextPage,
-}: CaseSearchProps) {
+}: StatementSearchProps) {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-2">
-          <Label htmlFor="caseSearch">Search cases</Label>
+          <Label htmlFor="statementSearch">Search statements</Label>
           <Input
-            id="caseSearch"
+            id="statementSearch"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search by title, reference, claim number, or witness"
@@ -39,7 +39,7 @@ export function CaseSearch({
           />
         </div>
         <p className="text-sm text-muted-foreground">
-          Showing {itemsShowing} of {totalItems} cases
+          Showing {itemsShowing} of {totalItems} statements
         </p>
       </div>
 

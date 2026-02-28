@@ -43,6 +43,20 @@ export const apiFetch = async <T>(
   return response.json();
 };
 
+export const withRetry = async <T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delay = 500,
+): Promise<T> => {
+  try {
+    return await fn();
+  } catch (err) {
+    if (retries <= 0) throw err;
+    await new Promise((res) => setTimeout(res, delay));
+    return withRetry(fn, retries - 1, delay);
+  }
+};
+
 export function assertServerOnly(label: string) {
   if (typeof window !== "undefined") {
     throw new Error(`${label} must be called from server-side code`);

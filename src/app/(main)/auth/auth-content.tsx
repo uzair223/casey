@@ -181,17 +181,17 @@ export default function AuthContent() {
   return (
     <section className="container mx-auto grid max-w-2xl gap-4 py-8">
       {!sessionToken ? (
-        <FormProvider {...authForm}>
-          <form onSubmit={authForm.handleSubmit(handleMagicLink)}>
-            <Card>
-              <CardHeader>
-                <span className="text-xs uppercase tracking-[0.2em] text-accent-foreground mb-0">
-                  Get Started
-                </span>
-                <h1 className="text-2xl font-display">
-                  Sign into your Casey Portal
-                </h1>
-              </CardHeader>
+        <Card>
+          <CardHeader>
+            <span className="text-xs uppercase tracking-[0.2em] text-accent-foreground mb-0">
+              Get Started
+            </span>
+            <h1 className="text-2xl font-display">
+              Sign into your Casey Portal
+            </h1>
+          </CardHeader>
+          <FormProvider {...authForm}>
+            <form onSubmit={authForm.handleSubmit(handleMagicLink)}>
               <CardContent>
                 <div className="form-item">
                   <Input
@@ -212,9 +212,9 @@ export default function AuthContent() {
                   Send magic link
                 </AsyncButton>
               </CardFooter>
-            </Card>
-          </form>
-        </FormProvider>
+            </form>
+          </FormProvider>
+        </Card>
       ) : null}
 
       {sessionToken &&
@@ -230,7 +230,7 @@ export default function AuthContent() {
                     Join an organization
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="pt-4! border-t">
+                <CardContent className="pt-4 border-t">
                   <div className="space-y-2">
                     <Label htmlFor="inviteCode">Invite code</Label>
                     <Input
@@ -281,7 +281,7 @@ export default function AuthContent() {
                     Role: {getRoleLabel(inviteInfo.role)}
                   </p>
                 </CardHeader>
-                <CardContent className="pt-4! border-t space-y-4">
+                <CardContent className="pt-4 border-t space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="displayName">Display Name</Label>
                     <Input

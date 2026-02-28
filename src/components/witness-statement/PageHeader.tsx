@@ -1,13 +1,13 @@
 "use client";
 
-import { useStatement } from "@/contexts/StatementContext";
+import { useWitnessStatement } from "@/contexts/WitnessStatementContext";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
 export function PageHeader() {
-  const { statementData, isDemo } = useStatement();
+  const { statementData, isDemo } = useWitnessStatement();
 
   if (!statementData) return null;
   return (

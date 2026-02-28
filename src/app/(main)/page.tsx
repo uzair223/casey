@@ -57,7 +57,7 @@ export default function Home() {
           },
         ].map((item) => (
           <Card key={item.title}>
-            <CardHeader className="pb-2!">
+            <CardHeader className="pb-2">
               <CardTitle>{item.title}</CardTitle>
             </CardHeader>
             <CardContent>
