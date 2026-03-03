@@ -75,7 +75,6 @@ export async function POST(
       }
     }
 
-    // Check if firm name is required
     if (invite.role === "tenant_admin" && !invite.tenant_id) {
       if (!firmName || typeof firmName !== "string" || !firmName.trim()) {
         return NextResponse.json(

@@ -37,6 +37,11 @@ import InvitesTable from "@/components/InvitesTable";
 import { apiFetch } from "@/lib/utils";
 import { useAsync } from "@/hooks/useAsync";
 import {
+  createInvite,
+  resendInvite,
+  revokeInvite,
+} from "@/lib/supabase/queries";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -79,10 +84,18 @@ export default function AppAdminDashboard() {
     inviteFormMethods.clearErrors("email");
 
     try {
-      await apiFetch("/api/admin/invites", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      const { email, token } = await createInvite(
+        data.email,
+        data.role,
+        null,
+        user!.id,
+      );
+      if (email) {
+        await apiFetch("/api/invites/send", {
+          method: "POST",
+          body: JSON.stringify({ email, token }),
+        });
+      }
       fetchData();
     } catch (error) {
       const errorMessage =
@@ -98,10 +111,7 @@ export default function AppAdminDashboard() {
     if (!confirm("Are you sure you want to revoke this invite?")) return;
 
     try {
-      await apiFetch("/api/admin/invites", {
-        method: "DELETE",
-        body: JSON.stringify({ inviteId }),
-      });
+      await revokeInvite(inviteId);
       fetchData();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to revoke invite");
@@ -110,10 +120,13 @@ export default function AppAdminDashboard() {
 
   const handleResendInvite = async (inviteId: string) => {
     try {
-      await apiFetch("/api/admin/invites", {
-        method: "PUT",
-        body: JSON.stringify({ inviteId }),
-      });
+      const { email, token } = await resendInvite(inviteId);
+      if (email) {
+        await apiFetch("/api/invites/send", {
+          method: "POST",
+          body: JSON.stringify({ email, token }),
+        });
+      }
       fetchData();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to resend invite");
@@ -333,7 +346,6 @@ export default function AppAdminDashboard() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Users</TableHead>
-                      <TableHead>Cases</TableHead>
                       <TableHead>Statements</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -344,7 +356,6 @@ export default function AppAdminDashboard() {
                       <TableRow key={tenant.id}>
                         <TableCell>{tenant.name}</TableCell>
                         <TableCell>{tenant.userCount}</TableCell>
-                        <TableCell>{tenant.caseCount}</TableCell>
                         <TableCell>{tenant.statementCount}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(tenant.createdAt).toLocaleDateString()}

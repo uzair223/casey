@@ -17,7 +17,7 @@ import { getSupabaseClient } from "../client";
 
 /**
  * Create an invite
- * SERVER ONLY - Requires service role for auth.admin operations
+ * Uses RLS-authenticated client
  * @param email - Email address (or null for anonymous invite)
  * @param role - Role to assign
  * @param tenantId - Tenant ID (null means create new tenant for tenant_admin role)
@@ -87,13 +87,12 @@ export const createInvite = async (
 
 /**
  * Resend any invite by id (extend expiry by 7 days)
- * SERVER ONLY - Requires service role for auth.admin operations
+ * Uses RLS-authenticated client
  */
 export const resendInvite = async (
   inviteId: string,
 ): Promise<{ email: string | null; token: string }> => {
-  assertServerOnly("resendInvite");
-  const supabase = getServiceClient();
+  const supabase = getSupabaseClient();
 
   const { data: invite, error: inviteError } = await supabase
     .from("invites")
@@ -130,11 +129,10 @@ export const resendInvite = async (
 
 /**
  * Revoke (delete) any invite by id
- * SERVER ONLY - Requires service role
+ * Uses RLS-authenticated client
  */
 export const revokeInvite = async (inviteId: string): Promise<void> => {
-  assertServerOnly("revokeInvite");
-  const supabase = getServiceClient();
+  const supabase = getSupabaseClient();
 
   const { data: invite, error: inviteError } = await supabase
     .from("invites")

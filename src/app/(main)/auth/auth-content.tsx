@@ -114,7 +114,7 @@ export default function AuthContent() {
 
     try {
       const { invite } = await apiFetch<{ invite: InviteWithTenantName }>(
-        `/api/invites/${token}`,
+        `/api/invites/accept/${token}`,
         { method: "GET" },
       );
       setInviteInfo(invite);
@@ -152,7 +152,7 @@ export default function AuthContent() {
     }
 
     try {
-      const response = await fetch(`/api/invites/${inviteInfo.token}`, {
+      const response = await fetch(`/api/invites/accept/${inviteInfo.token}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

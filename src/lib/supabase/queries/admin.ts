@@ -21,7 +21,6 @@ export type TenantWithCounts = {
   name: string;
   createdAt: string;
   userCount: number;
-  caseCount: number;
   statementCount: number;
 };
 
@@ -147,31 +146,23 @@ export const getTenantsWithCounts = async (): Promise<TenantWithCounts[]> => {
 
   const tenantsWithCounts = await Promise.all(
     (tenants || []).map(async (tenant) => {
-      const [
-        { count: userCount },
-        { count: caseCount },
-        { count: statementCount },
-      ] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("*", { count: "exact", head: true })
-          .eq("tenant_id", tenant.id),
-        supabase
-          .from("statements")
-          .select("*", { count: "exact", head: true })
-          .eq("tenant_id", tenant.id),
-        supabase
-          .from("statements")
-          .select("*", { count: "exact", head: true })
-          .eq("tenant_id", tenant.id),
-      ]);
+      const [{ count: userCount }, { count: statementCount }] =
+        await Promise.all([
+          supabase
+            .from("profiles")
+            .select("*", { count: "exact", head: true })
+            .eq("tenant_id", tenant.id),
+          supabase
+            .from("statements")
+            .select("*", { count: "exact", head: true })
+            .eq("tenant_id", tenant.id),
+        ]);
 
       return {
         id: tenant.id,
         name: tenant.name,
         createdAt: tenant.created_at,
         userCount: userCount || 0,
-        caseCount: caseCount || 0,
         statementCount: statementCount || 0,
       };
     }),

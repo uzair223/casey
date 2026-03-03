@@ -28,7 +28,12 @@ import {
 import InvitesTable from "@/components/InvitesTable";
 import { apiFetch } from "@/lib/utils";
 import { useAsync } from "@/hooks/useAsync";
-import { createInvite, getInvites, revokeInvite } from "@/lib/supabase/queries";
+import {
+  createInvite,
+  getInvites,
+  resendInvite,
+  revokeInvite,
+} from "@/lib/supabase/queries";
 
 export default function TeamPage() {
   const { isLoading: isUserLoading, user } = useUser();
@@ -90,10 +95,18 @@ export default function TeamPage() {
       return;
     }
     try {
-      await apiFetch("/api/tenant/invites", {
-        method: "POST",
-        body: JSON.stringify({ email: data.email, role: data.role }),
-      });
+      const { email, token } = await createInvite(
+        data.email,
+        data.role,
+        user!.tenant_id,
+        user!.id,
+      );
+      if (email) {
+        await apiFetch("/api/invites/send", {
+          method: "POST",
+          body: JSON.stringify({ email, token }),
+        });
+      }
       handler();
     } catch (error) {
       const errorMessage =
@@ -114,10 +127,7 @@ export default function TeamPage() {
     if (!confirm("Are you sure you want to revoke this invite?")) return;
 
     try {
-      await apiFetch("/api/tenant/invites", {
-        method: "DELETE",
-        body: JSON.stringify({ inviteId }),
-      });
+      await revokeInvite(inviteId);
       handler();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to revoke invite");
@@ -131,10 +141,13 @@ export default function TeamPage() {
     }
 
     try {
-      await apiFetch("/api/tenant/invites", {
-        method: "PUT",
-        body: JSON.stringify({ inviteId }),
-      });
+      const { email, token } = await resendInvite(inviteId);
+      if (email) {
+        await apiFetch("/api/invites/send", {
+          method: "POST",
+          body: JSON.stringify({ email, token }),
+        });
+      }
       handler();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to resend invite");
