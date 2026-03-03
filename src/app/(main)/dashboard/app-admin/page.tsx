@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
+import {
+  useForm,
+  FormProvider,
+  SubmitHandler,
+  useWatch,
+} from "react-hook-form";
 import {
   Card,
   CardContent,
@@ -23,18 +27,14 @@ import {
 } from "@/components/ui/table";
 import { useUser } from "@/contexts/UserContext";
 import {
-  PlatformStats,
-  TenantWithCounts,
-  AppAdminMember,
   getPlatformStats,
   getTenantsWithCounts,
   getTenantSignupInvites,
   getAppAdminInvites,
   getAppAdminMembers,
 } from "@/lib/supabase/queries/admin";
-import { Invite } from "@/lib/types";
 import InvitesTable from "@/components/InvitesTable";
-import { apiFetch } from "@/lib/utils";
+import { apiFetch, getRoleLabel } from "@/lib/utils";
 import { useAsync } from "@/hooks/useAsync";
 import {
   createInvite,
@@ -48,6 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PageTitle } from "@/components/PageTitle";
 
 export default function AppAdminDashboard() {
   const { isLoading: isUserLoading, user } = useUser("app_admin");
@@ -57,6 +58,10 @@ export default function AppAdminDashboard() {
       email: "",
       role: "tenant_admin",
     },
+  });
+  const selectedRole = useWatch({
+    control: inviteFormMethods.control,
+    name: "role",
   });
 
   const {
@@ -187,7 +192,7 @@ export default function AppAdminDashboard() {
             </div>
             <div className="form-item w-48">
               <Select
-                value={inviteFormMethods.watch("role")}
+                value={selectedRole}
                 onValueChange={(v) => inviteFormMethods.setValue("role", v)}
               >
                 <SelectTrigger className="w-full">
@@ -218,17 +223,11 @@ export default function AppAdminDashboard() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <p className="text-sm uppercase tracking-[0.2em] text-accent-foreground">
-          App Admin
-        </p>
-        <h1 className="text-3xl font-semibold text-primary">
-          Platform Management
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          Manage tenant onboarding and monitor platform activity.
-        </p>
-      </div>
+      <PageTitle
+        subtitle={getRoleLabel(user?.role)}
+        title="Admin Dashboard"
+        description="View platform statistics and manage tenants and app admins."
+      />
 
       <Tabs className="space-y-2" defaultValue="overview">
         <TabsList>

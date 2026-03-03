@@ -60,6 +60,7 @@ import { FormProvider, SubmitHandler, useForm } from "react-hook-form";
 import { StatementSchema, StatementSchemaType } from "@/lib/schema/statement";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { apiFetch } from "@/lib/utils";
+import { ProfileWithEmail } from "@/lib/supabase/queries/team";
 
 interface StatementDetailModalProps {
   id: string;
@@ -91,8 +92,12 @@ export function StatementDetailModal({
       if (!data) {
         throw new Error("Statement not found");
       }
-      formMethods.reset(data);
-      return data;
+      const normalized = {
+        ...data,
+        assigned_to_ids: data.assigned_to_ids ?? [],
+      };
+      formMethods.reset(normalized);
+      return normalized;
     },
     [id],
     { withUseEffect: false, initialLoading: false },
@@ -114,6 +119,28 @@ export function StatementDetailModal({
 
   const meta = { ...statement?.latest?.meta };
   const progress = meta.progress ?? defaultProgress();
+
+  const { data: members } = useAsync(
+    async () => {
+      if (!statement?.tenant_id) return [] as ProfileWithEmail[];
+      const response = await apiFetch<{ members: ProfileWithEmail[] }>(
+        "/api/tenant/members",
+      );
+      return response.members;
+    },
+    [statement?.tenant_id],
+    { enabled: !!statement?.tenant_id },
+  );
+
+  const selectedAssignees = formMethods.watch("assigned_to_ids") || [];
+
+  const toggleAssignee = (userId: string) => {
+    const current = formMethods.getValues("assigned_to_ids") || [];
+    const next = current.includes(userId)
+      ? current.filter((id) => id !== userId)
+      : [...current, userId];
+    formMethods.setValue("assigned_to_ids", next, { shouldDirty: true });
+  };
 
   const openDocument = async (doc: UploadedDocument) => {
     if (!statement) return;
@@ -364,6 +391,39 @@ export function StatementDetailModal({
                             Witness Occupation
                           </Label>
                         </div>
+                        <div className="col-span-2 space-y-2 rounded-md border p-3">
+                          <Label>Assigned Team Members</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Select one or more assignees to review this
+                            statement.
+                          </p>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            {(members || []).map((member) => (
+                              <label
+                                key={member.user_id}
+                                className="flex items-center gap-2 text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedAssignees.includes(
+                                    member.user_id,
+                                  )}
+                                  onChange={() =>
+                                    toggleAssignee(member.user_id)
+                                  }
+                                />
+                                <span>
+                                  {member.display_name ||
+                                    member.email ||
+                                    member.user_id}
+                                  {member.role
+                                    ? ` (${member.role.replace("_", " ")})`
+                                    : ""}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
                       </CardContent>
                       <CardFooter>
                         <AsyncButton pendingText="Saving..." type="submit">
@@ -420,6 +480,25 @@ export function StatementDetailModal({
                             ? "Review"
                             : statement.status}
                       </Badge>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Assigned Team Members
+                      </p>
+                      <p className="text-sm">
+                        {statement.assigned_to_ids?.length
+                          ? statement.assigned_to_ids
+                              .map((id) => {
+                                const member = (members || []).find(
+                                  (candidate) => candidate.user_id === id,
+                                );
+                                return (
+                                  member?.display_name || member?.email || id
+                                );
+                              })
+                              .join(", ")
+                          : "Unassigned"}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">

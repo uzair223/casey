@@ -15,6 +15,13 @@ type InvitationEmailPayload = {
   token: string;
 };
 
+type StatementSubmittedNotificationPayload = {
+  to: string[];
+  tenantName: string;
+  caseTitle: string;
+  witnessName: string | null;
+};
+
 // Resend integration: Requires RESEND_API_KEY and RESEND_FROM in environment variables
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -58,6 +65,25 @@ const buildInvitationEmailContent = (payload: InvitationEmailPayload) => {
         <a href="${url}" target="_blank" rel="noopener noreferrer">Accept the invite</a>
       </p>
       <p>If you did not expect this email, you can ignore it.</p>
+    </div>
+  `;
+
+  return { subject, text, html };
+};
+
+const buildStatementSubmittedNotificationContent = (
+  payload: StatementSubmittedNotificationPayload,
+) => {
+  const witnessName = payload.witnessName?.trim() || "Unknown witness";
+  const subject = `Statement submitted: ${payload.caseTitle}`;
+  const text = `${witnessName} has submitted a witness statement for ${payload.caseTitle} (${payload.tenantName}).\n\nPlease review the submitted statement in Casey.`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+      <p>A witness statement has been submitted.</p>
+      <p><strong>Tenant:</strong> ${payload.tenantName}</p>
+      <p><strong>Case:</strong> ${payload.caseTitle}</p>
+      <p><strong>Witness:</strong> ${witnessName}</p>
+      <p>Please review the submitted statement in Casey.</p>
     </div>
   `;
 
@@ -113,4 +139,20 @@ export const sendInvitationEmail = async ({
   if (error) {
     throw error;
   }
+};
+
+export const sendStatementSubmittedNotificationEmail = async (
+  payload: StatementSubmittedNotificationPayload,
+) => {
+  if (!payload.to.length) return;
+  const { subject, text, html } =
+    buildStatementSubmittedNotificationContent(payload);
+  const from = getResendFrom();
+  await resend.emails.send({
+    from,
+    to: payload.to,
+    subject,
+    text,
+    html,
+  });
 };

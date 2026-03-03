@@ -39,7 +39,8 @@ export default function Header() {
     <header className="flex container py-6 items-center justify-between">
       <div>
         <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
-          {process.env.NEXT_PUBLIC_APP_NAME}
+          {process.env.NEXT_PUBLIC_APP_NAME}{" "}
+          {user?.tenant_name && `\u00d7 ${user.tenant_name}`}
         </p>
         <p className="font-display text-xl">Statement Studio</p>
       </div>

@@ -63,7 +63,7 @@ export function assertServerOnly(label: string) {
   }
 }
 
-export function getRoleLabel(role: string) {
+export function getRoleLabel(role?: string) {
   const map: Record<string, string> = {
     app_admin: "App Admin",
     tenant_admin: "Tenant Admin",
@@ -71,7 +71,7 @@ export function getRoleLabel(role: string) {
     paralegal: "Paralegal",
     user: "User",
   };
-  return map[role] ?? "Unknown";
+  return map[role ?? "user"] ?? "Unknown";
 }
 
 export const getURL = () => {

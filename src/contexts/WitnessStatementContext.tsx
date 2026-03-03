@@ -215,7 +215,7 @@ export function WitnessStatementProvider({
     return () => {
       timeouts.forEach((timeout) => clearTimeout(timeout));
     };
-  }, [statementData?.has_history]);
+  }, [isDemo, statementData, token]);
 
   // Handle message submission
   const handleSubmitMessage = (e: React.SyntheticEvent) => {
@@ -423,19 +423,11 @@ export function WitnessStatementProvider({
         return;
       }
 
-      // Convert canvas to base64 image
-      let signatureImage: string | undefined;
-      if (signatureData?.canvas) {
-        signatureImage = signatureData.canvas.toDataURL("image/png");
-      }
-
       const blob = await generateDoc({
         caseReference: statementData.reference,
         caseTitle: statementData.title,
         witnessName: statementData.witness_name,
         sections: statementSections,
-        signatureImage,
-        signatureName: signatureData?.name || statementData.witness_name,
       });
 
       // Upload to Supabase storage

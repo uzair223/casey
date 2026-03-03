@@ -1,17 +1,40 @@
 "use client";
 
-import { Statement, StatementStatus } from "@/lib/types";
+import { Statement } from "@/lib/types";
 import { Card } from "@/components/ui/card";
-import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { StatementDetailModal } from "./StatementDetailModal";
 import { statusLabels, statusBadgeStyles } from "@/lib/statementUtils";
 
 interface StatementCardProps {
   item: Statement;
   fetchData: () => Promise<unknown>;
+  assigneeLabelMap?: Record<string, string>;
 }
 
-export function StatementCard({ item, fetchData }: StatementCardProps) {
+export function StatementCard({
+  item,
+  fetchData,
+  assigneeLabelMap,
+}: StatementCardProps) {
+  const assigneeIds = Array.from(
+    new Set([
+      ...(item.assigned_to_ids || []),
+      ...(item.assigned_to ? [item.assigned_to] : []),
+    ]),
+  );
+
+  const assigneeLabels = assigneeIds.map(
+    (id) => assigneeLabelMap?.[id] || "Team member",
+  );
+
+  const assignedSummary =
+    assigneeLabels.length === 0
+      ? "Unassigned"
+      : assigneeLabels.length <= 2
+        ? assigneeLabels.join(", ")
+        : `${assigneeLabels.slice(0, 2).join(", ")} +${assigneeLabels.length - 2} more`;
+
   return (
     <>
       <Card className="p-6 space-y-4">
@@ -33,6 +56,9 @@ export function StatementCard({ item, fetchData }: StatementCardProps) {
             </p>
             <p className="text-sm text-muted-foreground">
               Incident date: {item.incident_date ?? "TBD"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Assigned: {assignedSummary}
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">

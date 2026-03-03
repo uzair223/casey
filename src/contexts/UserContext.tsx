@@ -63,7 +63,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase, handler]);
+  }, [supabase, handler, reset]);
 
   const signOut = async () => {
     try {

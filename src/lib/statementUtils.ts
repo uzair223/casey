@@ -71,7 +71,7 @@ export const parseAndValidateResponse = (fullContent: string) => {
   let parsed;
   try {
     parsed = JSON.parse(metaBlock);
-  } catch (err) {
+  } catch {
     return {
       content,
       error: `Invalid JSON format:\n${metaBlock}`,

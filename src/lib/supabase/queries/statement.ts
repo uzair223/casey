@@ -24,7 +24,9 @@ export const getStatementFromToken = async (token: string) => {
 
   const { data: link, error: linkError } = await supabase
     .from("magic_links")
-    .select("token, statement_id, tenant_id, expires_at")
+    .select(
+      "token, statement_id, tenant_id, expires_at, statement:statements!magic_links_statement_id_fkey(*)",
+    )
     .eq("token", token)
     .single();
 
@@ -36,14 +38,11 @@ export const getStatementFromToken = async (token: string) => {
     throw new Error("Link expired");
   }
 
-  const { data: statement, error: statementError } = await supabase
-    .from("statements")
-    .select("*")
-    .eq("id", link.statement_id)
-    .single();
+  const statement = (link as unknown as { statement?: unknown | null })
+    .statement;
 
-  if (statementError) {
-    throw statementError;
+  if (!statement) {
+    throw new Error("Statement not found");
   }
 
   return {
@@ -61,7 +60,7 @@ export const getStatementFromToken = async (token: string) => {
 export const submitStatement = async (
   token: string,
   submission: StatementSubmission,
-) => {
+): Promise<string> => {
   const supabase = getSupabaseClient();
 
   const statement = await getStatementFromToken(token);
@@ -101,6 +100,8 @@ export const submitStatement = async (
   if (statementUpdateError) {
     throw statementUpdateError;
   }
+
+  return statement.id;
 };
 
 /**
@@ -220,28 +221,54 @@ export async function getFullStatementFromToken(
   includeFullHistory: boolean,
 ): Promise<unknown> {
   const supabase = getSupabaseClient();
-  const statement = await getStatementFromToken(token);
-
-  // Fetch tenant name
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("name")
-    .eq("id", statement.tenant_id)
+  const { data: linkData, error: linkError } = await supabase
+    .from("magic_links")
+    .select(
+      "token, expires_at, statement:statements!magic_links_statement_id_fkey(*, tenants(name))",
+    )
+    .eq("token", token)
     .single();
 
-  if (!tenant) {
+  if (linkError) {
+    throw linkError;
+  }
+
+  if (new Date(linkData.expires_at) < new Date()) {
+    throw new Error("Link expired");
+  }
+
+  const statement = (
+    linkData as unknown as {
+      statement?:
+        | ({ tenants?: { name?: string | null } | null } & Record<
+            string,
+            unknown
+          >)
+        | null;
+    }
+  ).statement;
+
+  if (!statement || !statement.tenants?.name) {
     throw new Error("Tenant not found");
   }
 
+  const statementRecord = statement as unknown as Statement & {
+    tenants: { name: string };
+  };
+
   const payload = {
-    ...statement,
-    tenant_name: tenant.name,
+    ...statementRecord,
+    link: {
+      token: linkData.token,
+      expires_at: linkData.expires_at,
+    },
+    tenant_name: statementRecord.tenants.name,
   };
 
   const q = supabase
     .from("conversation_messages")
     .select("id, role, content, meta, created_at")
-    .eq("statement_id", statement.id)
+    .eq("statement_id", statementRecord.id)
     .order("created_at", { ascending: includeFullHistory });
 
   if (includeFullHistory) {
@@ -279,7 +306,7 @@ export async function getFullStatementFromId(
 
   const { data: statement, error: statementError } = await supabase
     .from("statements")
-    .select("*")
+    .select("*, tenants(name), magic_links(token, expires_at)")
     .eq("id", id)
     .single();
 
@@ -287,27 +314,24 @@ export async function getFullStatementFromId(
     throw statementError;
   }
 
-  // Fetch tenant name
-  const { data: tenant } = await supabase
-    .from("tenants")
-    .select("name")
-    .eq("id", statement.tenant_id)
-    .single();
-
-  const { data: link } = await supabase
-    .from("magic_links")
-    .select("token, expires_at")
-    .eq("statement_id", id)
-    .maybeSingle();
-
-  if (!tenant) {
+  const tenantName = (
+    statement as { tenants?: { name?: string | null } | null }
+  ).tenants?.name;
+  if (!tenantName) {
     throw new Error("Tenant not found");
   }
+
+  const links = (
+    statement as {
+      magic_links?: Array<{ token: string; expires_at: string }> | null;
+    }
+  ).magic_links;
+  const link = links?.[0] ?? null;
 
   const payload = {
     ...statement,
     link,
-    tenant_name: tenant.name,
+    tenant_name: tenantName,
   };
 
   const q = supabase
@@ -335,7 +359,7 @@ export async function getFullStatementFromId(
 export async function getStatements(): Promise<Statement[]> {
   const supabase = getSupabaseClient();
 
-  let query = supabase
+  const query = supabase
     .from("statements")
     .select("*")
     .order("created_at", { ascending: false });
@@ -355,9 +379,15 @@ export async function createStatement(
   const supabase = getSupabaseClient();
   const magicLinkToken = generateSecureToken();
 
+  const assigneeIds = payload.assigned_to_ids ?? [];
+
   const { data: newStatement, error: statementError } = await supabase
     .from("statements")
-    .insert(payload)
+    .insert({
+      ...payload,
+      assigned_to: assigneeIds[0] ?? null,
+      assigned_to_ids: assigneeIds,
+    })
     .select("*")
     .single();
 
@@ -388,13 +418,102 @@ export async function updateStatement(
   payload: UpdateStatementSchemaType,
 ) {
   const supabase = getSupabaseClient();
+  const updatePayload = {
+    ...payload,
+    ...(payload.assigned_to_ids
+      ? { assigned_to: payload.assigned_to_ids[0] ?? null }
+      : {}),
+  };
   const { error } = await supabase
     .from("statements")
-    .update(payload)
+    .update(updatePayload)
     .eq("id", id);
   if (error) {
     throw error;
   }
+}
+
+export async function getStatementSubmissionNotificationRecipients(
+  statementId: string,
+): Promise<{
+  tenantName: string;
+  statementTitle: string;
+  witnessName: string;
+  recipientEmails: string[];
+}> {
+  assertServerOnly("getStatementSubmissionNotificationRecipients");
+  const supabase = getServiceClient();
+
+  const { data: statement, error: statementError } = await supabase
+    .from("statements")
+    .select(
+      "id, tenant_id, title, witness_name, assigned_to_ids, tenants(name)",
+    )
+    .eq("id", statementId)
+    .maybeSingle();
+
+  if (statementError || !statement) {
+    throw new Error("Statement not found");
+  }
+
+  const tenantName = (
+    statement as { tenants?: { name?: string | null } | null }
+  ).tenants?.name;
+
+  if (!tenantName) {
+    throw new Error("Tenant not found");
+  }
+
+  const assigneeIds = statement.assigned_to_ids ?? [];
+  let recipientUserIds: string[] = [];
+
+  if (assigneeIds.length > 0) {
+    const { data: assigneeProfiles, error: assigneeError } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("tenant_id", statement.tenant_id)
+      .in("user_id", assigneeIds);
+
+    if (assigneeError) {
+      throw assigneeError;
+    }
+
+    recipientUserIds = (assigneeProfiles ?? []).map(
+      (profile) => profile.user_id,
+    );
+  } else {
+    const { data: fallbackProfiles, error: fallbackError } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("tenant_id", statement.tenant_id)
+      .in("role", ["solicitor", "tenant_admin"]);
+
+    if (fallbackError) {
+      throw fallbackError;
+    }
+
+    recipientUserIds = (fallbackProfiles ?? []).map(
+      (profile) => profile.user_id,
+    );
+  }
+
+  const emails = await Promise.all(
+    recipientUserIds.map(async (userId) => {
+      const { data } = await supabase.auth.admin.getUserById(userId);
+      return data.user?.email?.toLowerCase() ?? null;
+    }),
+  );
+
+  const recipientEmails = Array.from(
+    new Set(emails.filter((email): email is string => !!email)),
+  );
+
+  return {
+    tenantName,
+    statementTitle: statement.title,
+    witnessName: statement.witness_name,
+    recipientEmails,
+  };
 }
 
 export async function updateStatementByTokenServer(
@@ -438,7 +557,7 @@ export async function getStatementForSendLink(id: string): Promise<{
 
   const { data: statement, error: statementError } = await supabase
     .from("statements")
-    .select("id, title, witness_name, witness_email")
+    .select("id, title, witness_name, witness_email, magic_links(token)")
     .eq("id", id)
     .maybeSingle();
 
@@ -446,19 +565,18 @@ export async function getStatementForSendLink(id: string): Promise<{
     return null;
   }
 
-  const { data: magicLink, error: linkError } = await supabase
-    .from("magic_links")
-    .select("token")
-    .eq("statement_id", statement.id)
-    .maybeSingle();
+  const token = (statement as { magic_links?: Array<{ token: string }> | null })
+    .magic_links?.[0]?.token;
 
-  if (linkError || !magicLink) {
+  if (!token) {
     return null;
   }
 
   return {
-    ...statement,
-    token: magicLink.token,
+    title: statement.title,
+    witness_name: statement.witness_name,
+    witness_email: statement.witness_email,
+    token,
   };
 }
 

@@ -1,0 +1,53 @@
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import React from "react";
+
+interface PageTitleProps {
+  subtitle?: React.ReactNode;
+  title: React.ReactNode;
+  description: React.ReactNode;
+  actions?: Array<{
+    label: React.ReactNode;
+    href?: string;
+    action?: () => void;
+    variant?: "default" | "outline";
+  }>;
+}
+
+export function PageTitle({
+  subtitle,
+  title,
+  description,
+  actions = [],
+}: PageTitleProps) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        {subtitle && (
+          <p className="text-sm uppercase tracking-[0.2em] text-accent-foreground">
+            {subtitle}
+          </p>
+        )}
+        <h1 className="text-3xl font-semibold text-primary">{title}</h1>
+        <p className="mt-2 text-muted-foreground">{description}</p>
+      </div>
+      {actions.length > 0 && (
+        <div className="flex gap-2">
+          {actions.map((action, idx) => (
+            <React.Fragment key={idx}>
+              {action.href ? (
+                <Button asChild variant={action.variant}>
+                  <Link href={action.href}>{action.label}</Link>
+                </Button>
+              ) : (
+                <Button onClick={action.action} variant={action.variant}>
+                  {action.label}
+                </Button>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

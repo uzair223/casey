@@ -69,7 +69,7 @@ export default function AuthContent() {
     if (inviteCode) {
       lookupInviteForm.setValue("inviteCode", inviteCode);
     }
-  }, [searchParams]);
+  }, [searchParams, lookupInviteForm]);
 
   const handleMagicLink: SubmitHandler<{ email: string }> = async ({
     email,
@@ -303,7 +303,7 @@ export default function AuthContent() {
                         {...acceptInviteForm.register("firmName")}
                       />
                       <p className="text-xs text-muted-foreground">
-                        You'll be the admin of this new organization.
+                        You&apos;ll be the admin of this new organization.
                       </p>
                     </div>
                   ) : null}

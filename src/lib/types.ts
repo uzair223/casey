@@ -27,6 +27,7 @@ export type StatementStatus = "draft" | "in_progress" | "submitted" | "locked";
 export type Profile = Tables<"profiles">;
 export type User = SupabaseUser & {
   tenant_id: string | null;
+  tenant_name?: string | null;
   role: UserRole;
   display_name?: string | null;
 };

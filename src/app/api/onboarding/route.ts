@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update profile with display_name and tenant_id (if created)
-    const updateData: Record<string, any> = {
+    const updateData: { display_name: string; tenant_id?: string } = {
       display_name: displayName.trim(),
     };
 

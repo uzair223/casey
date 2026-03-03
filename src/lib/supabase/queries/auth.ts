@@ -5,6 +5,7 @@ import { UserRole } from "@/lib/types";
 
 type UserProfile = {
   tenant_id: string | null;
+  tenant_name?: string | null;
   role: UserRole;
   display_name?: string | null;
 };
@@ -20,7 +21,7 @@ export async function getCurrentUserProfile(
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("tenant_id, role, display_name")
+    .select("tenant_id, role, display_name, tenants(name)")
     .eq("user_id", user_id)
     .maybeSingle();
 
@@ -31,12 +32,19 @@ export async function getCurrentUserProfile(
   if (!data) {
     return {
       tenant_id: null,
+      tenant_name: null,
       role: "user",
       display_name: null,
     };
   }
 
-  return data as UserProfile;
+  return {
+    tenant_id: data.tenant_id,
+    tenant_name: (data as { tenants?: { name?: string | null } | null }).tenants
+      ?.name,
+    role: data.role as UserRole,
+    display_name: data.display_name,
+  };
 }
 
 /**
@@ -51,7 +59,7 @@ export async function getUserProfile(
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("tenant_id, role, display_name")
+    .select("tenant_id, role, display_name, tenants(name)")
     .eq("user_id", user_id)
     .maybeSingle();
 
@@ -59,5 +67,13 @@ export async function getUserProfile(
     throw error;
   }
 
-  return data as UserProfile | null;
+  if (!data) return null;
+
+  return {
+    tenant_id: data.tenant_id,
+    tenant_name: (data as { tenants?: { name?: string | null } | null }).tenants
+      ?.name,
+    role: data.role as UserRole,
+    display_name: data.display_name,
+  };
 }

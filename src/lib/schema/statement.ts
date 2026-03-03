@@ -26,6 +26,7 @@ export const StatementSchema = z.object({
     .trim()
     .nullable()
     .transform((x) => x || null),
+  assigned_to_ids: z.array(z.string().uuid()).default([]),
   status: z
     .enum(["draft", "in_progress", "submitted", "locked"])
     .default("draft"),

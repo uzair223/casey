@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/contexts/UserContext";
 import { getStatements } from "@/lib/supabase/queries";
@@ -7,6 +8,9 @@ import { StatementCard } from "@/components/statements";
 import Link from "next/link";
 import { AsyncButton } from "@/components/ui/async-button";
 import { useAsync } from "@/hooks/useAsync";
+import { apiFetch } from "@/lib/utils";
+import { ProfileWithEmail } from "@/lib/supabase/queries/team";
+import { PageTitle } from "@/components/PageTitle";
 
 export default function ParalegalDashboard() {
   const { isLoading: isUserLoading, user } = useUser("paralegal");
@@ -24,6 +28,27 @@ export default function ParalegalDashboard() {
     { enabled: !!user?.tenant_id },
   );
 
+  const { data: members } = useAsync(
+    async () => {
+      if (!user?.tenant_id) return [] as ProfileWithEmail[];
+      const response = await apiFetch<{ members: ProfileWithEmail[] }>(
+        "/api/tenant/members",
+      );
+      return response.members;
+    },
+    [user?.tenant_id],
+    { enabled: !!user?.tenant_id },
+  );
+
+  const assigneeLabelMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const member of members || []) {
+      map[member.user_id] =
+        member.display_name || member.email || "Team member";
+    }
+    return map;
+  }, [members]);
+
   if (!statements || isUserLoading || isDataLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -32,7 +57,15 @@ export default function ParalegalDashboard() {
     );
   }
 
-  const filterByStatus: Record<string, number> = statements.reduce(
+  const assignedStatements = statements.filter((statement) => {
+    if (!user?.id) return false;
+    return (
+      statement.assigned_to === user.id ||
+      (statement.assigned_to_ids || []).includes(user.id)
+    );
+  });
+
+  const filterByStatus: Record<string, number> = assignedStatements.reduce(
     (acc, caseItem) => {
       const statusKey = caseItem.status || "draft";
       acc[statusKey] = (acc[statusKey] || 0) + 1;
@@ -41,19 +74,15 @@ export default function ParalegalDashboard() {
     {} as Record<string, number>,
   );
 
-  const recent = statements.slice(0, 10); // Show 10 most recent
+  const recent = assignedStatements.slice(0, 10); // Show 10 most recent
 
   return (
     <section className="space-y-6">
-      <div>
-        <p className="text-sm uppercase tracking-[0.2em] text-accent-foreground">
-          Paralegal
-        </p>
-        <h1 className="text-3xl font-semibold text-primary">Dashboard</h1>
-        <p className="mt-2 text-muted-foreground">
-          Manage your assigned cases and collect witness statements.
-        </p>
-      </div>
+      <PageTitle
+        subtitle={user?.tenant_name}
+        title="Paralegal Dashboard"
+        description="Manage your assigned cases and collect witness statements."
+      />
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -64,7 +93,9 @@ export default function ParalegalDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{statements.length}</div>
+            <div className="text-3xl font-bold">
+              {assignedStatements.length}
+            </div>
           </CardContent>
         </Card>
 
@@ -160,6 +191,7 @@ export default function ParalegalDashboard() {
                   key={item.id}
                   item={item}
                   fetchData={fetchData}
+                  assigneeLabelMap={assigneeLabelMap}
                 />
               ))}
             </div>

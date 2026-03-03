@@ -1,6 +1,11 @@
 "use client";
 
-import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
+import {
+  useForm,
+  FormProvider,
+  SubmitHandler,
+  useWatch,
+} from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AsyncButton } from "@/components/ui/async-button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +21,6 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useUser } from "@/contexts/UserContext";
-import { getSupabaseClient } from "@/lib/supabase/client";
 import { ProfileWithEmail } from "@/lib/supabase/queries/team";
 import {
   Select,
@@ -34,6 +38,7 @@ import {
   resendInvite,
   revokeInvite,
 } from "@/lib/supabase/queries";
+import { PageTitle } from "@/components/PageTitle";
 
 export default function TeamPage() {
   const { isLoading: isUserLoading, user } = useUser();
@@ -45,10 +50,13 @@ export default function TeamPage() {
   const canManageTeam = ["tenant_admin", "solicitor"].includes(
     user?.role || "",
   );
+  const selectedInviteRole = useWatch({
+    control: inviteFormMethods.control,
+    name: "role",
+  });
 
   const {
     data,
-    setData,
     isLoading: isDataLoading,
     handler,
   } = useAsync(
@@ -232,16 +240,11 @@ export default function TeamPage() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <p className="text-sm uppercase tracking-[0.2em] text-accent-foreground">
-          {user?.role?.replace("_", " ")}
-        </p>
-        <h1 className="text-3xl font-semibold text-primary">Team Management</h1>
-        <p className="mt-2 text-muted-foreground">
-          Manage team members and send invitations.
-        </p>
-      </div>
-
+      <PageTitle
+        subtitle={user?.tenant_name}
+        title="Team Management"
+        description="Manage your organization's team members and invites."
+      />
       {canManageTeam && (
         <Card>
           <CardHeader>
@@ -427,7 +430,7 @@ export default function TeamPage() {
                       <div>
                         <Label htmlFor="role">Role</Label>
                         <Select
-                          value={inviteFormMethods.watch("role")}
+                          value={selectedInviteRole}
                           onValueChange={(value) =>
                             inviteFormMethods.setValue("role", value)
                           }

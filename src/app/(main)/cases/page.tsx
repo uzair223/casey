@@ -10,6 +10,10 @@ import {
   CreateStatementForm,
 } from "@/components/statements";
 import { useAsync } from "@/hooks/useAsync";
+import { apiFetch } from "@/lib/utils";
+import { ProfileWithEmail } from "@/lib/supabase/queries/team";
+import { PageTitle } from "@/components/PageTitle";
+import { PlusIcon } from "lucide-react";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -31,6 +35,27 @@ export default function StatementsPage() {
     [user],
     { enabled: !!user?.tenant_id },
   );
+
+  const { data: members } = useAsync(
+    async () => {
+      if (!user?.tenant_id) return [] as ProfileWithEmail[];
+      const response = await apiFetch<{ members: ProfileWithEmail[] }>(
+        "/api/tenant/members",
+      );
+      return response.members;
+    },
+    [user?.tenant_id],
+    { enabled: !!user?.tenant_id },
+  );
+
+  const assigneeLabelMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const member of members || []) {
+      map[member.user_id] =
+        member.display_name || member.email || "Team member";
+    }
+    return map;
+  }, [members]);
 
   const filtered = useMemo(() => {
     if (!statements) return [];
@@ -65,20 +90,22 @@ export default function StatementsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm uppercase tracking-[0.2em] text-accent-foreground">
-            {user?.role?.replace("_", " ")}
-          </p>
-          <h1 className="text-3xl font-semibold text-primary">Cases</h1>
-          <p className="mt-2 text-muted-foreground">
-            Manage witness statements and case information.
-          </p>
-        </div>
-        <Button onClick={() => setShowCreateForm(!showCreateForm)}>
-          {showCreateForm ? "Cancel" : "New Case"}
-        </Button>
-      </div>
+      <PageTitle
+        subtitle={user?.tenant_name}
+        title="Cases"
+        description="Manage witness statements and case information."
+        actions={[
+          {
+            label: (
+              <>
+                <PlusIcon />
+                New case
+              </>
+            ),
+            action: () => setShowCreateForm(true),
+          },
+        ]}
+      />
 
       {showCreateForm && (
         <CreateStatementForm
@@ -121,6 +148,7 @@ export default function StatementsPage() {
               key={caseItem.id}
               item={caseItem}
               fetchData={fetchData}
+              assigneeLabelMap={assigneeLabelMap}
             />
           ))
         )}

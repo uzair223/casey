@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUser } from "@/contexts/UserContext";
 import { getStatements } from "@/lib/supabase/queries";
@@ -8,6 +8,8 @@ import { StatementCard } from "@/components/statements";
 import Link from "next/link";
 import { AsyncButton } from "@/components/ui/async-button";
 import { useAsync } from "@/hooks/useAsync";
+import { apiFetch } from "@/lib/utils";
+import { ProfileWithEmail } from "@/lib/supabase/queries/team";
 
 export default function SolicitorDashboard() {
   const { isLoading: isUserLoading, user } = useUser("solicitor");
@@ -23,6 +25,27 @@ export default function SolicitorDashboard() {
     [user],
     { enabled: !!user?.tenant_id },
   );
+
+  const { data: members } = useAsync(
+    async () => {
+      if (!user?.tenant_id) return [] as ProfileWithEmail[];
+      const response = await apiFetch<{ members: ProfileWithEmail[] }>(
+        "/api/tenant/members",
+      );
+      return response.members;
+    },
+    [user?.tenant_id],
+    { enabled: !!user?.tenant_id },
+  );
+
+  const assigneeLabelMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const member of members || []) {
+      map[member.user_id] =
+        member.display_name || member.email || "Team member";
+    }
+    return map;
+  }, [members]);
 
   if (!statements || isDataLoading || isUserLoading) {
     return (
@@ -153,6 +176,7 @@ export default function SolicitorDashboard() {
                   key={caseItem.id}
                   item={caseItem}
                   fetchData={fetchData}
+                  assigneeLabelMap={assigneeLabelMap}
                 />
               ))}
             </div>

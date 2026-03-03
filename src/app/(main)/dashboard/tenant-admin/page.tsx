@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUser } from "@/contexts/UserContext";
-import { TenantStats, getTenantStats } from "@/lib/supabase/queries/admin";
+import { getTenantStats } from "@/lib/supabase/queries/admin";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useAsync } from "@/hooks/useAsync";
+import { PageTitle } from "@/components/PageTitle";
 
 export default function TenantAdminDashboard() {
   const { isLoading: isUserLoading, user } = useUser("tenant_admin");
@@ -31,15 +31,11 @@ export default function TenantAdminDashboard() {
 
   return (
     <section className="space-y-6">
-      <div>
-        <p className="text-sm uppercase tracking-[0.2em] text-accent-foreground">
-          Tenant Admin
-        </p>
-        <h1 className="text-3xl font-semibold text-primary">Firm Management</h1>
-        <p className="mt-2 text-muted-foreground">
-          Manage your team members and monitor case activity.
-        </p>
-      </div>
+      <PageTitle
+        subtitle={user?.tenant_name}
+        title="Admin Dashboard"
+        description="Manage your organization."
+      />
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>

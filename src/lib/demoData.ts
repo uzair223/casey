@@ -710,6 +710,7 @@ export const DEMO_STATEMENT_DATA: StatementDataResponse<true> = {
   reference: DEMO_REFERENCE,
   claim_number: null,
   assigned_to: null,
+  assigned_to_ids: [],
   witness_name: "Jane Doe",
   witness_address: "123 Street Road, PR1 2AB",
   witness_occupation: "full-time student",
@@ -741,5 +742,5 @@ export const DEMO_STATEMENT_DATA: StatementDataResponse<true> = {
     expires_at: "",
   },
   messages: DEMO_CONVERSATION,
-  has_history: true
+  has_history: true,
 };

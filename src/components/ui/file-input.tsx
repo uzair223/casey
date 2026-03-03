@@ -85,6 +85,8 @@ export const FileInput = React.forwardRef<HTMLDivElement, FileInputProps>(
   },
 );
 
+FileInput.displayName = "FileInput";
+
 interface FileInputTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   multiple?: boolean;
   accept?: string;
@@ -154,7 +156,9 @@ export const FileInputTrigger = React.forwardRef<
   },
 );
 
-interface FileInputListProps {}
+FileInputTrigger.displayName = "FileInputTrigger";
+
+type FileInputListProps = Record<string, never>;
 
 export const FileInputList: React.FC<FileInputListProps> = React.memo(() => {
   const context = React.useContext(FileInputContext);
@@ -178,3 +182,5 @@ export const FileInputList: React.FC<FileInputListProps> = React.memo(() => {
     </Button>
   ));
 });
+
+FileInputList.displayName = "FileInputList";

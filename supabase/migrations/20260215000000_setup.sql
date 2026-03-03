@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS public.statements (
   reference TEXT NOT NULL,
   claim_number TEXT,
   assigned_to UUID REFERENCES auth.users ON DELETE SET NULL,
+  assigned_to_ids UUID[] NOT NULL DEFAULT '{}',
   witness_name TEXT NOT NULL,
   witness_email TEXT NOT NULL,
   witness_address TEXT,
@@ -88,6 +89,7 @@ CREATE INDEX IF NOT EXISTS idx_profiles_tenant_id ON profiles(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
 CREATE INDEX IF NOT EXISTS idx_statements_tenant_id ON statements(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_statements_assigned_to ON statements(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_statements_assigned_to_ids ON statements USING GIN(assigned_to_ids);
 CREATE INDEX IF NOT EXISTS idx_magic_links_statement_id ON magic_links(statement_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_messages_statement_id ON conversation_messages(statement_id);
 CREATE INDEX IF NOT EXISTS idx_invites_tenant_id ON invites(tenant_id);

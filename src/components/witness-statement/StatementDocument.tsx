@@ -14,7 +14,6 @@ export function StatementDocument() {
     isEditingStatement,
     setIsEditingStatement,
     signatureData,
-    isSigned,
     isSubmitted,
     setStatementSections,
   } = useWitnessStatement();
@@ -38,10 +37,6 @@ export function StatementDocument() {
     .filter((s) => s.content || isEditingStatement); // Keep empty ones visible while editing
 
   const handleDownload = async () => {
-    if (!isSigned) {
-      alert("Please provide a signature before downloading.");
-      return;
-    }
     const blob = await generateDoc({
       caseReference: statementData.reference,
       claimNumber: statementData.claim_number,
@@ -67,7 +62,7 @@ export function StatementDocument() {
             {isEditingStatement ? "Finish Editing" : "Edit Statement"}
           </Button>
         )}
-        <Button variant="default" disabled={!isSigned} onClick={handleDownload}>
+        <Button variant="default" onClick={handleDownload}>
           Download Word Document (.docx)
         </Button>
       </div>

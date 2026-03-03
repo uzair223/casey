@@ -12,7 +12,7 @@ interface UseAsyncOptions<T> {
 
 export function useAsync<T>(
   func: () => Promise<T>,
-  dependencies: any[] = [],
+  dependencies: unknown[] = [],
   {
     initialLoading = true,
     withUseEffect = true,
@@ -30,17 +30,21 @@ export function useAsync<T>(
   const hasFetchedRef = useRef(false);
   const funcRef = useRef(func);
   const callIdRef = useRef(0);
+  const previousDependenciesRef = useRef<unknown[] | null>(null);
 
   // Keep latest func without retriggering handler
   useEffect(() => {
     funcRef.current = func;
   });
 
-  const log = (message: string) => {
-    if (debugName) {
-      console.log(`[${debugName}] ${message}`);
-    }
-  };
+  const log = useCallback(
+    (message: string) => {
+      if (debugName) {
+        console.log(`[${debugName}] ${message}`);
+      }
+    },
+    [debugName],
+  );
 
   const reset = useCallback(() => {
     setData(null);
@@ -93,12 +97,25 @@ export function useAsync<T>(
         }
       }
     }
-  }, [enabled, onlyInitialLoading, onSuccess, onError, ...dependencies]);
+  }, [enabled, onlyInitialLoading, onSuccess, onError, log]);
 
   useEffect(() => {
     if (!withUseEffect || !enabled) return;
-    handler();
-  }, [handler, withUseEffect, enabled]);
+
+    const previousDependencies = previousDependenciesRef.current;
+    const hasDependencyChanges =
+      !previousDependencies ||
+      previousDependencies.length !== dependencies.length ||
+      dependencies.some(
+        (dependency, index) =>
+          !Object.is(dependency, previousDependencies[index]),
+      );
+
+    if (hasDependencyChanges) {
+      previousDependenciesRef.current = dependencies;
+      handler();
+    }
+  }, [handler, withUseEffect, enabled, dependencies]);
 
   return {
     data,

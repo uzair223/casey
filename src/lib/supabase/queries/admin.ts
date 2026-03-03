@@ -1,6 +1,4 @@
-import { getServiceClient } from "../server";
 import { getSupabaseClient } from "../client";
-import { assertServerOnly } from "@/lib/utils";
 import type { Invite } from "@/lib/types";
 
 export type PlatformStats = {

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import {
+  getStatementSubmissionNotificationRecipients,
   submitStatement,
   updateStatementByTokenServer,
   type StatementSubmission,
 } from "@/lib/supabase/queries";
 import { DEMO_STATEMENT_DATA } from "@/lib/demoData";
+import { sendStatementSubmittedNotificationEmail } from "@/lib/email";
 
 export async function POST(
   request: Request,
@@ -26,7 +28,24 @@ export async function POST(
       );
     }
 
-    await submitStatement(token, body);
+    const statementId = await submitStatement(token, body);
+
+    try {
+      const recipients =
+        await getStatementSubmissionNotificationRecipients(statementId);
+
+      await sendStatementSubmittedNotificationEmail({
+        to: recipients.recipientEmails,
+        tenantName: recipients.tenantName,
+        caseTitle: recipients.statementTitle,
+        witnessName: recipients.witnessName,
+      });
+    } catch (notifyError) {
+      console.error(
+        "Failed to send statement submission notification:",
+        notifyError,
+      );
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

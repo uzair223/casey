@@ -3,14 +3,11 @@
 import { Button } from "@/components/ui/button";
 import { useWitnessStatement } from "@/contexts/WitnessStatementContext";
 import { StatementDocument } from "./StatementDocument";
-import { SignaturePad } from "./SignaturePad";
 import { Loader2 } from "lucide-react";
 
 export function StatementView() {
   const {
     statementData,
-    isSigned,
-    handleCaptureSignature,
     isReadyToPrepare: isreadyToPrepare,
     isPreparing,
     isPrepared,
@@ -72,7 +69,7 @@ export function StatementView() {
           </h2>
           <p className="text-muted-foreground mt-2 max-w-3xl">
             Click the button to start preparing your statement based on the
-            information you've provided. This may take a few moments. Once
+            information you&apos;ve provided. This may take a few moments. Once
             ready, you can review and submit your statement.
           </p>
         </div>
@@ -105,8 +102,7 @@ export function StatementView() {
           {!isSubmitted && (
             <Button
               onClick={isDemo ? undefined : handleSubmitStatement}
-              disabled={isDemo || isSubmitting || isPreparing || !isSigned}
-              title={!isSigned ? "Please sign the statement first" : ""}
+              disabled={isDemo || isSubmitting || isPreparing}
             >
               {isSubmitting ? "Submitting..." : "Submit Statement"}
             </Button>
@@ -114,13 +110,6 @@ export function StatementView() {
         </div>
       </div>
       {!isSubmitted && <StatementDocument />}
-      {!isSubmitted && !isSigned && (
-        <SignaturePad
-          onSignatureCapture={handleCaptureSignature}
-          witnessName={statementData.witness_name}
-          isDisabled={false}
-        />
-      )}
     </div>
   );
 }
