@@ -34,7 +34,7 @@ const AsyncButton = React.forwardRef<HTMLButtonElement, AsyncButtonProps>(
 
     // Use form's isSubmitting state if available and this is a submit button
     const isFormSubmitting =
-      formContext?.formState?.isSubmitting && props.type === "submit";
+      !!formContext?.formState?.isSubmitting && props.type === "submit";
     const isLoading = isPending || isFormSubmitting;
     const content = isLoading && pendingText ? pendingText : children;
 
