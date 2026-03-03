@@ -214,8 +214,17 @@ export const acceptInvite = async (
   assertServerOnly("acceptInvite");
   const supabase = getServiceClient();
 
-  const invite = await getInviteByToken(token);
-  if (!invite) {
+  const { data: invite, error: inviteError } = await supabase
+    .from("invites")
+    .select("*")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (inviteError || !invite) {
+    throw new Error("Invalid or expired invite");
+  }
+
+  if (invite.accepted_at || new Date(invite.expires_at) < new Date()) {
     throw new Error("Invalid or expired invite");
   }
 

@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
-import { getInviteByToken, acceptInvite } from "@/lib/supabase/queries";
+import { acceptInvite } from "@/lib/supabase/queries";
+
+type InviteRow = {
+  id: string;
+  email: string | null;
+  token: string;
+  tenant_id: string | null;
+  role: string;
+  expires_at: string;
+  accepted_at: string | null;
+};
 
 const getBearerToken = (request: Request) => {
   const header = request.headers.get("authorization");
@@ -10,16 +20,116 @@ const getBearerToken = (request: Request) => {
   return token;
 };
 
+const getAuthenticatedUserAndProfile = async (request: Request) => {
+  const token = getBearerToken(request);
+  if (!token) {
+    return {
+      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+
+  const supabase = getServiceClient();
+  const { data: userData, error: userError } =
+    await supabase.auth.getUser(token);
+
+  if (userError || !userData.user) {
+    return {
+      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, tenant_id")
+    .eq("user_id", userData.user.id)
+    .maybeSingle();
+
+  return {
+    supabase,
+    user: userData.user,
+    profile,
+  };
+};
+
+const fetchInviteWithTenantName = async (
+  supabase: ReturnType<typeof getServiceClient>,
+  token: string,
+) => {
+  const { data: invite, error } = await supabase
+    .from("invites")
+    .select("*")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (error || !invite) return null;
+
+  const inviteRow = invite as InviteRow;
+  if (inviteRow.accepted_at || new Date(inviteRow.expires_at) < new Date()) {
+    return null;
+  }
+
+  let tenant_name: string | null = null;
+  if (inviteRow.tenant_id) {
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("name")
+      .eq("id", inviteRow.tenant_id)
+      .maybeSingle();
+    tenant_name = tenant?.name ?? null;
+  }
+
+  return { ...inviteRow, tenant_name };
+};
+
+const canUserReadInvite = (
+  invite: InviteRow,
+  userEmail: string,
+  profile: { role?: string | null; tenant_id?: string | null } | null,
+) => {
+  const normalizedInviteEmail = invite.email?.toLowerCase();
+  const normalizedUserEmail = userEmail.toLowerCase();
+
+  if (normalizedInviteEmail && normalizedInviteEmail === normalizedUserEmail) {
+    return true;
+  }
+
+  if (invite.email === null) {
+    return true;
+  }
+
+  if (profile?.role === "app_admin") {
+    return true;
+  }
+
+  if (
+    invite.tenant_id &&
+    profile?.tenant_id === invite.tenant_id &&
+    (profile.role === "tenant_admin" || profile.role === "solicitor")
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
   try {
+    const auth = await getAuthenticatedUserAndProfile(request);
+    if (auth.error) return auth.error;
+
     const { token } = await params;
-    const invite = await getInviteByToken(token);
+    const invite = await fetchInviteWithTenantName(auth.supabase, token);
     if (!invite) {
       return NextResponse.json({ error: "Invite not found" }, { status: 404 });
     }
+
+    if (!canUserReadInvite(invite, auth.user.email ?? "", auth.profile)) {
+      return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+    }
+
     return NextResponse.json({ invite });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -32,18 +142,8 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> },
 ) {
   try {
-    const token = getBearerToken(request);
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const supabase = getServiceClient();
-    const { data: userData, error: userError } =
-      await supabase.auth.getUser(token);
-
-    if (userError || !userData.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await getAuthenticatedUserAndProfile(request);
+    if (auth.error) return auth.error;
 
     const { token: inviteToken } = await params;
     const body = await request.json();
@@ -60,13 +160,17 @@ export async function POST(
       );
     }
 
-    const invite = await getInviteByToken(inviteToken);
+    const invite = await fetchInviteWithTenantName(auth.supabase, inviteToken);
     if (!invite) {
       return NextResponse.json({ error: "Invite not found" }, { status: 404 });
     }
 
+    if (!canUserReadInvite(invite, auth.user.email ?? "", auth.profile)) {
+      return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+    }
+
     if (invite.email) {
-      const userEmail = (userData.user.email ?? "").toLowerCase();
+      const userEmail = (auth.user.email ?? "").toLowerCase();
       if (userEmail !== invite.email.toLowerCase()) {
         return NextResponse.json(
           { error: "Invite email does not match your account" },
@@ -86,7 +190,7 @@ export async function POST(
 
     await acceptInvite(
       inviteToken,
-      userData.user.id,
+      auth.user.id,
       displayName.trim(),
       firmName ? firmName.trim() : undefined,
     );
