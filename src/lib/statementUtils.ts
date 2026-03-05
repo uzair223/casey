@@ -1,7 +1,10 @@
 import { Message, MetadataProgress, StatementStatus } from "@/lib/types";
 import { StatementDataResponse } from "./supabase/queries";
 import { PERSONAL_INJURY_CONFIG } from "./statementConfigs";
-import { ResponseMetadataSchema } from "./schema/responseMetadata";
+import {
+  ResponseMetadataSchema,
+  ResponseMetadataSchemaType,
+} from "./schema/responseMetadata";
 import { BadgeProps } from "@/components/ui/badge";
 
 export const generateGreeting = (data: StatementDataResponse): Message[] => {
@@ -108,6 +111,21 @@ export const defaultProgress = (): MetadataProgress => {
     readyToPrepare: false,
   };
 };
+
+export const defaultMeta = (): ResponseMetadataSchemaType => {
+  return {
+    progress: defaultProgress(),
+    ignoredMissingDetails: [],
+    evidence: { record: [] },
+    witnessDetails: {},
+  };
+};
+
+export const getLastMeta = (history: Message[]): ResponseMetadataSchemaType =>
+  history
+    .slice()
+    .reverse()
+    .find((m) => m.role === "assistant" && m.meta)?.meta ?? defaultMeta();
 
 export const getLastProgress = (history: Message[]): MetadataProgress =>
   history

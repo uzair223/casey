@@ -13,6 +13,7 @@ import { PERSONAL_INJURY_CONFIG } from "@/lib/statementConfigs";
 import { generateChatSystemPrompt } from "@/lib/statementConfigs/prompts";
 import {
   defaultProgress,
+  getLastMeta,
   getLastProgress,
   parseAndValidateResponse,
 } from "@/lib/statementUtils";
@@ -115,8 +116,9 @@ export async function POST(
       });
     }
 
-    const lastProgress = getLastProgress(conversationHistory);
-    const progressContext = `CURRENT PROGRESS STATE (build incrementally on this):\n${JSON.stringify(lastProgress)}`;
+    const lastMetadata = getLastMeta(conversationHistory);
+    const context = `CURRENT METADATA STATE (build incrementally on this):\n${JSON.stringify(lastMetadata)}`;
+    console.log(context);
 
     const messages = [
       ...conversationHistory.map((m) => ({
@@ -124,12 +126,12 @@ export async function POST(
         content: m.content,
       })),
       {
-        role: "system" as const,
-        content: `${SYSTEM_PROMPT}\n${progressContext}`,
-      },
-      {
         role: "user" as const,
         content: userMessage,
+      },
+      {
+        role: "system" as const,
+        content: `${SYSTEM_PROMPT}\n${context}`,
       },
     ];
 
