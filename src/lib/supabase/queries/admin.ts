@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "../client";
-import type { Invite } from "@/lib/types";
+import type { Invite, WaitlistSignup } from "@/lib/types";
 
 export type PlatformStats = {
   tenants: number;
@@ -39,6 +39,8 @@ export type AppAdminMember = {
   display_name: string | null;
   created_at: string;
 };
+
+export type WaitlistSignupEntry = WaitlistSignup;
 
 /**
  * Get tenant by ID
@@ -223,6 +225,25 @@ export const getAppAdminMembers = async (): Promise<AppAdminMember[]> => {
     .select("user_id, display_name, created_at")
     .eq("role", "app_admin")
     .order("created_at", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+};
+
+/**
+ * Get all waitlist signups
+ * Client-callable: RLS filters to app_admin only
+ */
+export const getWaitlistSignups = async (): Promise<WaitlistSignupEntry[]> => {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("waitlist_signups")
+    .select("*")
+    .order("created_at", { ascending: false });
 
   if (error) {
     throw error;

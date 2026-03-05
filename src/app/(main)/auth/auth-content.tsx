@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import type { InviteWithTenantName } from "@/lib/supabase/queries";
 import { apiFetch, getAuthURL, getRoleLabel } from "@/lib/utils";
+import { WaitlistSignupForm } from "@/components/waitlist/WaitlistSignupForm";
 
 export default function AuthContent() {
   const router = useRouter();
@@ -328,6 +329,21 @@ export default function AuthContent() {
           <CardHeader className="text-sm">{status}</CardHeader>
         </Card>
       ) : null}
+
+      <Card id="waitlist">
+        <CardHeader>
+          <CardTitle className="text-sm uppercase tracking-[0.2em]">
+            Join the waiting list
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            New to Casey? Register your interest and we&apos;ll invite you to
+            onboard.
+          </p>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <WaitlistSignupForm />
+        </CardContent>
+      </Card>
     </section>
   );
 }

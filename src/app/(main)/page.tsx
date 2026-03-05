@@ -10,6 +10,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { WaitlistSignupForm } from "@/components/waitlist/WaitlistSignupForm";
 
 export default function Home() {
   return (
@@ -37,6 +38,9 @@ export default function Home() {
           </Button>
           <Button variant="outline" asChild>
             <Link href="/statement/demo">Preview witness flow</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="#waitlist">Join the waiting list</Link>
           </Button>
         </CardFooter>
       </Card>
@@ -66,6 +70,21 @@ export default function Home() {
           </Card>
         ))}
       </div>
+
+      <Card className="w-full max-w-2xl mx-auto" id="waitlist">
+        <CardHeader>
+          <p className="text-sm uppercase tracking-[0.2em] text-accent-foreground">
+            Early access
+          </p>
+          <CardTitle>Join the waiting list</CardTitle>
+          <CardDescription>
+            Register your interest and we'll invite you to onboard.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <WaitlistSignupForm />
+        </CardContent>
+      </Card>
     </section>
   );
 }

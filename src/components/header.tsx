@@ -37,19 +37,14 @@ export default function Header() {
 
   return (
     <header className="flex container py-6 items-center justify-between">
-      <div>
-        <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+      <Link href="/">
+        <p className="text-sm uppercase leading-[0.8em] tracking-[0.2em] text-muted-foreground">
           {process.env.NEXT_PUBLIC_APP_NAME}{" "}
           {user?.tenant_name && `\u00d7 ${user.tenant_name}`}
         </p>
         <p className="font-display text-xl">Statement Studio</p>
-      </div>
+      </Link>
       <nav className="flex items-center gap-6 text-sm font-semibold">
-        {!user && (
-          <Button size={null} variant="link" asChild>
-            <Link href="/">Home</Link>
-          </Button>
-        )}
         <Button size={null} variant="link" asChild>
           <Link href="/dashboard">Dashboard</Link>
         </Button>

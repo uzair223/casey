@@ -43,6 +43,7 @@ export type ConversationMessage = Tables<"conversation_messages">;
 export type Invite = Tables<"invites">;
 export type Tenant = Tables<"tenants">;
 export type MagicLink = Tables<"magic_links">;
+export type WaitlistSignup = Tables<"waitlist_signups">;
 
 export type UploadedDocument = {
   bucketId?: string;

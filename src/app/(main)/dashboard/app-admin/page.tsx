@@ -32,6 +32,7 @@ import {
   getTenantSignupInvites,
   getAppAdminInvites,
   getAppAdminMembers,
+  getWaitlistSignups,
 } from "@/lib/supabase/queries/admin";
 import InvitesTable from "@/components/InvitesTable";
 import { apiFetch, getRoleLabel } from "@/lib/utils";
@@ -49,6 +50,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageTitle } from "@/components/PageTitle";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import { Badge } from "@/components/ui/badge";
 
 export default function AppAdminDashboard() {
   const { isLoading: isUserLoading, user } = useUser("app_admin");
@@ -76,6 +79,7 @@ export default function AppAdminDashboard() {
         tenantInvites: await getTenantSignupInvites(),
         appAdminInvites: await getAppAdminInvites(),
         appAdminMembers: await getAppAdminMembers(),
+        waitlistSignups: await getWaitlistSignups(),
       };
     },
     [user],
@@ -165,6 +169,42 @@ export default function AppAdminDashboard() {
     }
   };
 
+  const handleInviteWaitlist = async (waitlistId: string, email: string) => {
+    try {
+      const { email: inviteEmail, token } = await createInvite(
+        email,
+        "tenant_admin",
+        null,
+        user!.id,
+      );
+
+      if (inviteEmail) {
+        await apiFetch("/api/invites/send", {
+          method: "POST",
+          body: JSON.stringify({ email: inviteEmail, token }),
+        });
+      }
+
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from("waitlist_signups")
+        .update({ invited_at: new Date().toISOString() })
+        .eq("id", waitlistId);
+
+      if (error) {
+        throw error;
+      }
+
+      fetchData();
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to send invite to waitlist signup",
+      );
+    }
+  };
+
   if (!data || isDataLoading || isUserLoading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -234,6 +274,7 @@ export default function AppAdminDashboard() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenants</TabsTrigger>
           <TabsTrigger value="app_admin">App Admin</TabsTrigger>
+          <TabsTrigger value="waitlist">Waitlist</TabsTrigger>
         </TabsList>
 
         <TabsContent
@@ -452,6 +493,67 @@ export default function AppAdminDashboard() {
                   onResendInvite={handleResendInvite}
                   onRevokeInvite={handleRevokeInvite}
                 />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="waitlist" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Waitlist Signups</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {data.waitlistSignups.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No waitlist signups yet.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.waitlistSignups.map((signup) => (
+                      <TableRow key={signup.id}>
+                        <TableCell>{signup.full_name}</TableCell>
+                        <TableCell>{signup.company_name}</TableCell>
+                        <TableCell>{signup.email}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {new Date(signup.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          {signup.invited_at ? (
+                            <Badge variant="secondary">Invited</Badge>
+                          ) : (
+                            <Badge variant="outline">Pending</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <AsyncButton
+                            variant="ghost"
+                            size="sm"
+                            pendingText={
+                              signup.invited_at ? "Resending..." : "Sending..."
+                            }
+                            onClick={() =>
+                              handleInviteWaitlist(signup.id, signup.email)
+                            }
+                          >
+                            {signup.invited_at ? "Resend Invite" : "Invite"}
+                          </AsyncButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
