@@ -2,30 +2,23 @@
 
 This project now schedules reminder dispatches from Supabase (hourly) instead of Vercel Cron.
 
-## What was added
-
-- Migration: supabase/migrations/20260414200000_statement_reminders_supabase_cron.sql
-- Scheduled job name: statement-reminders-hourly
-- Frequency: 0 \* \* \* \* (once per hour)
-
 ## One-time setup in Supabase SQL Editor
 
 Run this in your Supabase project SQL editor, replacing placeholders with your deployed app URL and reminder secret.
 
 ```sql
-ALTER DATABASE postgres
-SET app.settings.site_url = 'https://your-app-domain.com';
-
-ALTER DATABASE postgres
-SET app.settings.cron_secret = 'your-cron-secret';
-
-SELECT pg_reload_conf();
+INSERT INTO app_private.scheduler_config (key, value)
+VALUES
+	('site_url', 'https://your-app-domain.com'),
+	('cron_secret', 'your-cron-secret')
+ON CONFLICT (key)
+DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
 ```
 
 Notes:
 
-- app.settings.cron_secret must match your app environment variable CRON_SECRET.
-- app.settings.site_url should be your public app origin without a trailing slash.
+- scheduler_config key cron_secret must match your app environment variable CRON_SECRET.
+- scheduler_config key site_url should be your public app origin without a trailing slash.
 
 ## Verify the cron job exists
 

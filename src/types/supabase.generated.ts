@@ -1307,6 +1307,7 @@ export type Database = {
       }
       restore_tenant: { Args: { tenant_id_param: string }; Returns: undefined }
       run_retention_purge_job: { Args: never; Returns: number }
+      run_statement_reminders_job: { Args: never; Returns: number }
       soft_delete_tenant: {
         Args: { tenant_id_param: string }
         Returns: undefined
