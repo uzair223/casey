@@ -3,6 +3,7 @@
 import { createContext, useContext, ReactNode, useEffect } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUserProfile } from "@/lib/supabase/queries";
+import { apiFetch } from "@/lib/api-utils";
 import { useRouter } from "next/navigation";
 import { useAsync } from "@/hooks/useAsync";
 
@@ -102,14 +103,45 @@ export function useUserProtected(
   const { user, isLoading } = context;
 
   useEffect(() => {
-    if (isLoading) {
-      return;
-    }
-    const requiredRoles = Array.isArray(role) ? role : [role];
-    if (!user || !requiredRoles.includes(user.role)) {
-      router.replace(options.redirectTo);
-      return;
-    }
+    let cancelled = false;
+
+    const enforceProtection = async () => {
+      if (isLoading) {
+        return;
+      }
+
+      const requiredRoles = Array.isArray(role) ? role : [role];
+      if (!user || !requiredRoles.includes(user.role)) {
+        router.replace(options.redirectTo);
+        return;
+      }
+
+      if (!user.tenant_id || user.role === "app_admin") {
+        return;
+      }
+
+      try {
+        const lifecycle = await apiFetch<{ softDeleted: boolean }>(
+          "/api/tenant/lifecycle",
+          { method: "GET" },
+        );
+
+        if (!cancelled && lifecycle.softDeleted) {
+          router.replace("/auth?tenantClosed=1");
+        }
+      } catch {
+        if (!cancelled) {
+          // Fail closed for tenant-scoped protected pages when lifecycle cannot be verified.
+          router.replace("/auth?tenantClosed=1");
+        }
+      }
+    };
+
+    void enforceProtection();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, isLoading, role, options.redirectTo, router]);
 
   return context;

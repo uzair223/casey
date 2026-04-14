@@ -50,7 +50,13 @@ export async function softDeleteTenant(tenantId: string) {
     .from("tenants")
     .select(TENANT_SETTINGS_SELECT)
     .eq("id", tenantId)
-    .single();
+    .maybeSingle();
 
-  return requireTenantRecord(data, error);
+  // After soft-delete, RLS/policies may hide the tenant row from the client.
+  // In that case `data` is null and the operation should still be considered successful.
+  if (error) {
+    throw error;
+  }
+
+  return data;
 }

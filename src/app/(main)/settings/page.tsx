@@ -119,9 +119,9 @@ export default function TenantSettingsPage() {
 
     await softDeleteTenant(user!.tenant_id!);
 
-    setStatus(
-      "Tenant soft-deleted. Sign out and restore from login within 90 days.",
-    );
+    const supabase = getSupabaseClient();
+    await supabase.auth.signOut();
+    window.location.href = "/auth?tenantClosed=1";
   };
 
   const handleExportDsar = async (scope: "user" | "tenant") => {

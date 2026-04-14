@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useUser } from "@/contexts/user-context";
 import { AsyncButton } from "@/components/ui/async-button";
@@ -32,6 +32,7 @@ import Loading from "@/components/loading";
 
 function AuthPageContent() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const appName = process.env.NEXT_PUBLIC_APP_NAME || "Casey";
 
@@ -53,6 +54,19 @@ function AuthPageContent() {
   const [inviteInfo, setInviteInfo] = useState<InviteWithTenantName | null>(
     null,
   );
+
+  useEffect(() => {
+    if (searchParams.get("tenantClosed") === "1") {
+      setSuccessStatus(
+        "Organisation closed and you have been signed out. Sign in again to restore your tenant within 90 days.",
+      );
+
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("tenantClosed");
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname);
+    }
+  }, [searchParams, router, pathname]);
 
   const setErrorStatus = (message: string) => {
     setStatus({ type: "error", message });
@@ -100,6 +114,12 @@ function AuthPageContent() {
       // Only proceed if user has accepted an invite (role is not "user")
       if (user.role === "user") {
         // User hasn't accepted an invite yet, stay on auth page
+        return;
+      }
+
+      // For tenant-scoped users, wait until lifecycle state is resolved.
+      // This avoids auth -> dashboard redirects racing ahead of soft-delete checks.
+      if (user.tenant_id && user.role !== "app_admin" && !tenantLifecycle) {
         return;
       }
 
@@ -420,7 +440,7 @@ function AuthPageContent() {
 
           {user?.tenant_id === null && user?.role !== "app_admin" ? (
             !inviteInfo ? (
-              <FormProvider {...lookupInviteForm}>
+              <FormProvider key="lookup-invite" {...lookupInviteForm}>
                 <form
                   onSubmit={lookupInviteForm.handleSubmit(handleLookupInvite)}
                 >
@@ -467,7 +487,7 @@ function AuthPageContent() {
                 </form>
               </FormProvider>
             ) : (
-              <FormProvider {...acceptInviteForm}>
+              <FormProvider key="accept-invite" {...acceptInviteForm}>
                 <form
                   onSubmit={acceptInviteForm.handleSubmit(handleAcceptInvite)}
                 >

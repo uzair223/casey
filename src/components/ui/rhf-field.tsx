@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 
 type RhfFieldControlProps<TName extends FieldPath<FieldValues>> = Pick<
   ControllerRenderProps<FieldValues, TName>,
-  "name" | "onBlur" | "onChange" | "ref"
+  "name" | "onBlur" | "onChange" | "ref" | "value"
 >;
 
 type RhfFieldProps<
@@ -70,6 +70,7 @@ export function RhfField<
           onBlur: field.onBlur,
           onChange: field.onChange,
           ref: field.ref,
+          value: field.value ?? "",
         };
         const message = fieldState.error?.message
           ? String(fieldState.error.message)
