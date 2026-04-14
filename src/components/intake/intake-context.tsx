@@ -699,7 +699,7 @@ export function IntakeProvider({
   useEffect(() => {
     if (!data) return;
     setAcknowledgePrivacyNoticeData(
-      !!data.statement.gdpr_notice_acknowledgement,
+      (p) => p || !!data.statement.gdpr_notice_acknowledgement,
     );
     const hasSubmitted = data.statement.status === "submitted";
     setStatementFormalizationData(hasSubmitted);
