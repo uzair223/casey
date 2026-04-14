@@ -271,7 +271,7 @@ export default function DemoStudioPage() {
     (field) => field.required,
   );
   const requiredWitnessFields = witnessTemplateFields.filter(
-    (field) => field.required || field.requiredOnCreate,
+    (field) => field.requiredOnCreate,
   );
 
   const normalizeRecord = (value: Record<string, string> | undefined) =>
@@ -677,7 +677,12 @@ export default function DemoStudioPage() {
           <CardTitle>1. Create Demo Intake Session</CardTitle>
         </CardHeader>
         <FormProvider {...bootstrapForm}>
-          <form onSubmit={bootstrapForm.handleSubmit(handleBootstrap)}>
+          <form
+            noValidate
+            onSubmit={bootstrapForm.handleSubmit(handleBootstrap, () => {
+              setError("Please fix the highlighted form fields.");
+            })}
+          >
             <CardContent className="grid gap-3 md:grid-cols-2">
               <RhfField
                 form={bootstrapForm}
@@ -701,35 +706,27 @@ export default function DemoStudioPage() {
                 controlId="demo-case-template"
                 label="Case Template"
                 registerOptions={{ required: "Case template is required" }}
-                renderControl={(registration, required) => (
-                  <>
-                    <input
-                      type="hidden"
-                      id="demo-case-template"
-                      required={required}
-                      {...registration}
-                    />
-                    <Select
-                      value={caseTemplateId}
-                      onValueChange={(value) =>
-                        bootstrapForm.setValue("caseTemplateId", value, {
-                          shouldDirty: true,
-                          shouldValidate: true,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose case template" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tenantCaseTemplates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </>
+                renderControl={() => (
+                  <Select
+                    value={caseTemplateId}
+                    onValueChange={(value) =>
+                      bootstrapForm.setValue("caseTemplateId", value, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  >
+                    <SelectTrigger id="demo-case-template">
+                      <SelectValue placeholder="Choose case template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tenantCaseTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               />
 
@@ -739,35 +736,27 @@ export default function DemoStudioPage() {
                 controlId="demo-statement-template"
                 label="Statement Template"
                 registerOptions={{ required: "Statement template is required" }}
-                renderControl={(registration, required) => (
-                  <>
-                    <input
-                      type="hidden"
-                      id="demo-statement-template"
-                      required={required}
-                      {...registration}
-                    />
-                    <Select
-                      value={statementTemplateId}
-                      onValueChange={(value) =>
-                        bootstrapForm.setValue("statementTemplateId", value, {
-                          shouldDirty: true,
-                          shouldValidate: true,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose statement template" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tenantStatementTemplates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </>
+                renderControl={() => (
+                  <Select
+                    value={statementTemplateId}
+                    onValueChange={(value) =>
+                      bootstrapForm.setValue("statementTemplateId", value, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  >
+                    <SelectTrigger id="demo-statement-template">
+                      <SelectValue placeholder="Choose statement template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tenantStatementTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               />
 

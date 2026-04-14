@@ -2,14 +2,19 @@
 
 import type { ReactNode } from "react";
 import {
-  get,
+  Controller,
+  type ControllerRenderProps,
   type FieldPath,
   type FieldValues,
   type RegisterOptions,
-  type UseFormRegisterReturn,
   type UseFormReturn,
 } from "react-hook-form";
 import { Label } from "@/components/ui/label";
+
+type RhfFieldControlProps<TName extends FieldPath<FieldValues>> = Pick<
+  ControllerRenderProps<FieldValues, TName>,
+  "name" | "onBlur" | "onChange" | "ref"
+>;
 
 type RhfFieldProps<
   TFieldValues extends FieldValues,
@@ -21,7 +26,7 @@ type RhfFieldProps<
   label: ReactNode;
   registerOptions?: RegisterOptions<TFieldValues, TName>;
   renderControl: (
-    registration: UseFormRegisterReturn<TName>,
+    registration: RhfFieldControlProps<TName>,
     required: boolean,
   ) => ReactNode;
 };
@@ -52,18 +57,39 @@ export function RhfField<
   registerOptions,
   renderControl,
 }: RhfFieldProps<TFieldValues, TName>) {
-  const registration = form.register(name, registerOptions);
   const required = hasRequiredRule(registerOptions);
-  const fieldError = get(form.formState.errors, name);
-  const message = fieldError?.message ? String(fieldError.message) : "";
 
   return (
-    <div className="flex flex-col gap-1">
-      {renderControl(registration, required)}
-      {message ? <p className="text-xs text-destructive">{message}</p> : null}
-      <Label className="order-first" htmlFor={controlId || registration.name}>
-        {label}
-      </Label>
-    </div>
+    <Controller
+      control={form.control}
+      name={name}
+      rules={registerOptions}
+      render={({ field, fieldState }) => {
+        const registration: RhfFieldControlProps<TName> = {
+          name: field.name as TName,
+          onBlur: field.onBlur,
+          onChange: field.onChange,
+          ref: field.ref,
+        };
+        const message = fieldState.error?.message
+          ? String(fieldState.error.message)
+          : "";
+
+        return (
+          <div className="flex flex-col gap-1">
+            {renderControl(registration, required)}
+            {message ? (
+              <p className="text-xs text-destructive">{message}</p>
+            ) : null}
+            <Label
+              className="order-first"
+              htmlFor={controlId || registration.name}
+            >
+              {label}
+            </Label>
+          </div>
+        );
+      }}
+    />
   );
 }
