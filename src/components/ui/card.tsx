@@ -4,46 +4,44 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-const cardVariants = cva("group rounded-xl border shadow", {
-  variants: {
-    variant: {
-      default: "text-card-foreground bg-card/(--card-opacity)",
-      secondary:
-        "text-secondary-foreground border-secondary bg-secondary/(--card-opacity)",
-      destructive:
-        "text-destructive-foreground bg-destructive/(--card-opacity)",
-      accent: "text-accent-foreground bg-accent/(--card-opacity)",
+const cardVariants = cva(
+  "group rounded-xl border shadow [--card-opacity:50%]",
+  {
+    variants: {
+      variant: {
+        default: "text-card-foreground bg-card/(--card-opacity)",
+        primary: "text-primary-foreground bg-primary/(--card-opacity)",
+        secondary:
+          "text-secondary-foreground border-secondary bg-secondary/(--card-opacity)",
+        accent: "text-accent-foreground bg-accent/(--card-opacity)",
+        destructive:
+          "text-destructive-foreground bg-destructive/(--card-opacity)",
+        warning: "text-warning-foreground bg-warning/(--card-opacity)",
+      },
+      size: {
+        lg: "[--card-padding:calc(var(--spacing)*6)]",
+        md: "[--card-padding:calc(var(--spacing)*4)]",
+        sm: "[--card-padding:calc(var(--spacing)*2)_calc(var(--spacing)*2.5)]",
+      },
     },
-    size: {
-      lg: "[--card-padding:calc(var(--spacing)*6)]",
-      md: "[--card-padding:calc(var(--spacing)*4)]",
-      sm: "[--card-padding:calc(var(--spacing)*2)_calc(var(--spacing)*4)]",
+    defaultVariants: {
+      variant: "default",
+      size: "lg",
     },
   },
-  defaultVariants: {
-    variant: "default",
-    size: "lg",
-  },
-});
+);
 
 export interface CardProps
   extends
     React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof cardVariants> {
-  opacity?: number;
-}
+    VariantProps<typeof cardVariants> {}
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, variant, size, opacity = 50, ...props }, ref) => {
-    const style = {
-      "--card-opacity": `${opacity}%`,
-    } as React.CSSProperties;
-
+  ({ className, variant, size, ...props }, ref) => {
     return (
       <div
         ref={ref}
         className={cardVariants({ className, variant, size })}
-        style={style}
         {...props}
       />
     );
@@ -93,7 +91,7 @@ const CardContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("p-(--card-padding) pt-0", className)}
+    className={cn("p-(--card-padding) pt-0 space-y-1.5", className)}
     {...props}
   />
 ));

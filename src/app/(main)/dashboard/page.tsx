@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@/contexts/UserContext";
+import { useSearchParams } from "next/navigation";
+import { useUser } from "@/contexts/user-context";
 
 const roleRoutes: Record<string, string> = {
   app_admin: "/dashboard/app-admin",
@@ -11,32 +12,33 @@ const roleRoutes: Record<string, string> = {
   paralegal: "/dashboard/paralegal",
 };
 
-export default function DashboardRouterPage() {
+function DashboardRouterPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isLoading } = useUser();
 
-  useEffect(() => {
-    console.log("Dashboard - user:", user, "isLoading:", isLoading);
+  const queryString = searchParams.toString();
 
+  useEffect(() => {
     if (isLoading) return;
 
     // Redirect to auth if no user, no role, or role is "user" (not set up yet)
     if (!user || !user.role || !roleRoutes[user.role]) {
-      console.log("Dashboard - redirecting to auth (no valid user/role)");
       router.replace("/auth");
       return;
     }
 
     // If user has no tenant_id and is not app_admin, redirect to auth to accept invite
     if (!user.tenant_id && user.role !== "app_admin") {
-      console.log("Dashboard - redirecting to auth (no tenant_id)");
       router.replace("/auth");
       return;
     }
 
-    console.log("Dashboard - redirecting to role page:", roleRoutes[user.role]);
-    router.replace(roleRoutes[user.role]);
-  }, [user, isLoading, router]);
+    const target = queryString
+      ? `${roleRoutes[user.role]}?${queryString}`
+      : roleRoutes[user.role];
+    router.replace(target);
+  }, [user, isLoading, router, queryString]);
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
@@ -44,5 +46,19 @@ export default function DashboardRouterPage() {
         {isLoading ? "Loading your dashboard..." : "Redirecting..."}
       </p>
     </div>
+  );
+}
+
+export default function DashboardRouterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <p className="text-sm text-muted-foreground">Redirecting...</p>
+        </div>
+      }
+    >
+      <DashboardRouterPageContent />
+    </Suspense>
   );
 }

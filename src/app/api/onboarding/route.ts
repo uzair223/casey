@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
+import { enforceRateLimit, getRateLimitKey } from "@/lib/api-utils/rate-limit";
+import { logAuditEvent } from "@/lib/audit";
+
+const getBearerToken = (request: Request) => {
+  const header = request.headers.get("authorization");
+  if (!header) return null;
+  const [type, token] = header.split(" ");
+  if (type !== "Bearer" || !token) return null;
+  return token;
+};
 
 /**
  * POST /api/onboarding
@@ -7,13 +17,31 @@ import { getServiceClient } from "@/lib/supabase/server";
  */
 export async function POST(request: NextRequest) {
   try {
+    const rate = enforceRateLimit({
+      key: getRateLimitKey(request, "onboarding"),
+      limit: 10,
+      windowMs: 60_000,
+    });
+
+    if (!rate.ok) {
+      return NextResponse.json(
+        { error: "Too many onboarding attempts. Please try again shortly." },
+        { status: 429 },
+      );
+    }
+
+    const accessToken = getBearerToken(request);
+    if (!accessToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = getServiceClient();
 
     // Authenticate user
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(accessToken);
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -108,6 +136,17 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+
+    await logAuditEvent({
+      tenantId: tenant_id,
+      actorUserId: user.id,
+      action: "onboarding.completed",
+      targetType: "profile",
+      targetId: user.id,
+      metadata: {
+        createdTenant: !!tenant_id && !profile.tenant_id,
+      },
+    });
 
     return NextResponse.json({
       success: true,

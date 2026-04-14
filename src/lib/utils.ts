@@ -1,65 +1,48 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { getSupabaseClient } from "./supabase/client";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const getAccessToken = async () => {
-  const supabase = getSupabaseClient();
+export function slugify(value: string, fallback: string) {
+  const cleaned = value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, " ") // turn separators into spaces
+    .split(" ")
+    .filter(Boolean);
 
-  if (!supabase) {
-    throw new Error("Supabase client not available");
+  if (cleaned.length === 0) return fallback;
+
+  const camel = cleaned
+    .map((word, i) =>
+      i === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1),
+    )
+    .join("");
+
+  return camel;
+}
+
+export function uniqueSlug(base: string, used: Set<string>) {
+  if (!used.has(base)) {
+    used.add(base);
+    return base;
   }
 
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session?.access_token) {
-    throw new Error("User not authenticated");
+  let suffix = 2;
+  while (used.has(`${base}${suffix}`)) {
+    suffix += 1;
   }
 
-  return data.session.access_token;
-};
+  const next = `${base}${suffix}`;
+  used.add(next);
+  return next;
+}
 
-export const apiFetch = async <T>(
-  url: string,
-  options?: RequestInit,
-): Promise<T> => {
-  const token = await getAccessToken();
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.headers ?? {}),
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || "Request failed");
-  }
-
-  return response.json();
-};
-
-export const withRetry = async <T>(
-  fn: () => Promise<T>,
-  retries = 3,
-  delay = 500,
-): Promise<T> => {
-  try {
-    return await fn();
-  } catch (err) {
-    if (retries <= 0) throw err;
-    await new Promise((res) => setTimeout(res, delay));
-    return withRetry(fn, retries - 1, delay);
-  }
-};
-
-export function assertServerOnly(label: string) {
+export function assertServerOnly(source: string = "function") {
   if (typeof window !== "undefined") {
-    throw new Error(`${label} must be called from server-side code`);
+    throw new Error(`${source} must be called from server-side code`);
   }
 }
 

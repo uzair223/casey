@@ -1,7 +1,26 @@
-import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getServiceClient } from "@/lib/supabase/server";
-import { getUserProfile } from "@/lib/supabase/queries/auth";
-import { getTeamMembers } from "@/lib/supabase/queries/team";
+import { SERVERONLY_getUserProfile } from "@/lib/supabase/queries";
+import { SERVERONLY_getTeamMembers } from "@/lib/supabase/queries";
+import { logAuditEvent } from "@/lib/audit";
+import {
+  badRequest,
+  conflict,
+  forbidden,
+  notFound,
+  ok,
+  serverError,
+  unauthorized,
+} from "@/lib/api-utils";
+
+const UpdateRoleSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(["tenant_admin", "solicitor", "paralegal"]),
+});
+
+const DeleteMemberSchema = z.object({
+  userId: z.string().uuid(),
+});
 
 const getBearerToken = (request: Request) => {
   const header = request.headers.get("authorization");
@@ -15,7 +34,7 @@ const requireTeamAccess = async (request: Request) => {
   const token = getBearerToken(request);
   if (!token) {
     return {
-      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      error: unauthorized(),
     };
   }
 
@@ -25,18 +44,15 @@ const requireTeamAccess = async (request: Request) => {
 
   if (userError || !userData.user) {
     return {
-      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      error: unauthorized(),
     };
   }
 
-  const profile = await getUserProfile(userData.user.id);
+  const profile = await SERVERONLY_getUserProfile(userData.user.id);
 
   if (!profile || !profile.tenant_id) {
     return {
-      error: NextResponse.json(
-        { error: "No tenant associated" },
-        { status: 403 },
-      ),
+      error: forbidden("No tenant associated"),
     };
   }
 
@@ -52,10 +68,155 @@ export async function GET(request: Request) {
   if (auth.error) return auth.error;
 
   try {
-    const members = await getTeamMembers(auth.tenant_id);
-    return NextResponse.json({ members });
+    const members = await SERVERONLY_getTeamMembers(auth.tenant_id);
+    return ok({ members });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return serverError(error);
+  }
+}
+
+export async function PUT(request: Request) {
+  const auth = await requireTeamAccess(request);
+  if (auth.error) return auth.error;
+
+  if (auth.role !== "tenant_admin") {
+    return forbidden();
+  }
+
+  try {
+    const raw = await request.json();
+    const parsed = UpdateRoleSchema.safeParse(raw);
+
+    if (!parsed.success) {
+      return badRequest(parsed.error.issues[0]?.message ?? "Invalid payload");
+    }
+
+    const { userId, role } = parsed.data;
+    if (userId === auth.user_id) {
+      return conflict("Use a different tenant admin to change your role");
+    }
+
+    const supabase = getServiceClient();
+
+    const { data: targetProfile, error: targetError } = await supabase
+      .from("profiles")
+      .select("tenant_id, role")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (targetError || !targetProfile) {
+      return notFound("User not found");
+    }
+
+    if (targetProfile.tenant_id !== auth.tenant_id) {
+      return forbidden("User not in your tenant");
+    }
+
+    if (targetProfile.role === "tenant_admin" && role !== "tenant_admin") {
+      const { count, error: countError } = await supabase
+        .from("profiles")
+        .select("user_id", { count: "exact", head: true })
+        .eq("tenant_id", auth.tenant_id)
+        .eq("role", "tenant_admin");
+
+      if (countError) {
+        throw countError;
+      }
+
+      if ((count ?? 0) <= 1) {
+        return conflict("Cannot demote the final tenant admin");
+      }
+    }
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ role })
+      .eq("user_id", userId)
+      .eq("tenant_id", auth.tenant_id);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    await logAuditEvent({
+      tenantId: auth.tenant_id,
+      actorUserId: auth.user_id,
+      action: "team.member.role_updated",
+      targetType: "profile",
+      targetId: userId,
+      metadata: {
+        newRole: role,
+      },
+    });
+
+    return ok({ ok: true });
+  } catch (error) {
+    return serverError(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  const auth = await requireTeamAccess(request);
+  if (auth.error) return auth.error;
+
+  if (auth.role !== "tenant_admin") {
+    return forbidden();
+  }
+
+  try {
+    const raw = await request.json();
+    const parsed = DeleteMemberSchema.safeParse(raw);
+
+    if (!parsed.success) {
+      return badRequest(parsed.error.issues[0]?.message ?? "Invalid payload");
+    }
+
+    const { userId } = parsed.data;
+
+    if (userId === auth.user_id) {
+      return conflict("Cannot remove yourself from tenant members");
+    }
+
+    const supabase = getServiceClient();
+
+    const { data: targetProfile, error: targetError } = await supabase
+      .from("profiles")
+      .select("tenant_id, role")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (targetError || !targetProfile) {
+      return notFound("User not found");
+    }
+
+    if (targetProfile.tenant_id !== auth.tenant_id) {
+      return forbidden("User not in your tenant");
+    }
+
+    if (targetProfile.role === "tenant_admin") {
+      return conflict("Cannot remove another tenant admin");
+    }
+
+    const { error: deleteError } = await supabase
+      .from("profiles")
+      .delete()
+      .eq("user_id", userId)
+      .eq("tenant_id", auth.tenant_id);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    await logAuditEvent({
+      tenantId: auth.tenant_id,
+      actorUserId: auth.user_id,
+      action: "team.member.removed",
+      targetType: "profile",
+      targetId: userId,
+    });
+
+    return ok({ ok: true });
+  } catch (error) {
+    return serverError(error);
   }
 }

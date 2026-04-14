@@ -18,8 +18,10 @@
   --muted-foreground: oklch(0.708 0 0);
   --accent: oklch(26.2% 0.051 172.552);
   --accent-foreground: oklch(90.5% 0.093 164.15);
-  --destructive: oklch(27.1% 0.105 12.094);
-  --destructive-foreground: oklch(94.8% 0.028 342.258);
+  --destructive: oklch(41% 0.159 10.272);
+  --destructive-foreground: oklch(89.2% 0.058 10.001);
+  --warning: oklch(47.3% 0.137 46.201);
+  --warning-foreground: oklch(92.4% 0.12 95.746);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -33,6 +35,8 @@
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -60,13 +64,6 @@ body {
     system-ui,
     -apple-system,
     sans-serif;
-}
-
-@utility form-item {
-  @apply flex flex-col gap-0.5;
-  label {
-    @apply order-first;
-  }
 }
 
 @utility font-display {

@@ -1,33 +1,61 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 
-interface UseAsyncOptions<T> {
+interface UseAsyncOptions<State, InitialState, ErrorState> {
+  initialState?: InitialState;
   initialLoading?: boolean;
   withUseEffect?: boolean;
   enabled?: boolean;
-  onlyInitialLoading?: boolean;
+  onlyFirstLoad?: boolean;
   debugName?: string;
-  onSuccess?: (data: T) => void;
-  onError?: (error: Error) => void;
+  onError?: (
+    error: Error,
+    previousData: State | InitialState | ErrorState,
+  ) => ErrorState;
 }
 
-export function useAsync<T>(
-  func: () => Promise<T>,
+export interface UseAsyncReturn<
+  State,
+  InitialState = null,
+  ErrorState = null,
+  Args extends unknown[] = never[],
+> {
+  data: State | InitialState | ErrorState;
+  setData: React.Dispatch<
+    React.SetStateAction<State | InitialState | ErrorState>
+  >;
+  isLoading: boolean;
+  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  error: Error | null;
+  handler: (...args: Args) => Promise<State | undefined>;
+  reset: () => void;
+  hasFetched: boolean;
+}
+
+export function useAsync<
+  State,
+  InitialState = null,
+  ErrorState = InitialState,
+  Args extends unknown[] = never[],
+>(
+  func: (...args: Args) => Promise<State>,
   dependencies: unknown[] = [],
   {
+    initialState = null as InitialState,
     initialLoading = true,
     withUseEffect = true,
+    onlyFirstLoad = true,
     enabled = true,
-    onlyInitialLoading = true,
     debugName,
-    onSuccess,
     onError,
-  }: UseAsyncOptions<T> = {},
-) {
-  const [data, setData] = useState<T | null>(null);
+  }: UseAsyncOptions<State, InitialState, ErrorState> = {},
+): UseAsyncReturn<State, InitialState, ErrorState, Args> {
+  const [data, setData] = useState<State | InitialState | ErrorState>(
+    initialState,
+  );
   const [isLoading, setIsLoading] = useState(initialLoading);
   const [error, setError] = useState<Error | null>(null);
 
-  const hasFetchedRef = useRef(false);
+  const hasCalledRef = useRef(false);
   const funcRef = useRef(func);
   const callIdRef = useRef(0);
   const previousDependenciesRef = useRef<unknown[] | null>(null);
@@ -47,57 +75,57 @@ export function useAsync<T>(
   );
 
   const reset = useCallback(() => {
-    setData(null);
+    setData(initialState);
     setError(null);
     setIsLoading(initialLoading);
-    hasFetchedRef.current = false;
-  }, [initialLoading]);
+    hasCalledRef.current = false;
+  }, [initialState, initialLoading]);
 
-  const handler = useCallback(async (): Promise<T | undefined> => {
-    if (!enabled) return;
+  const handler = useCallback(
+    async (...args: Args): Promise<State | undefined> => {
+      if (!enabled) return;
 
-    const callId = ++callIdRef.current;
-    const isFirstFetch = !hasFetchedRef.current;
+      const callId = ++callIdRef.current;
+      const isFirstCall = !hasCalledRef.current;
 
-    log(`isFirstFetch? ${isFirstFetch}`);
+      log(`isFirstCall? ${isFirstCall}`);
 
-    if (!onlyInitialLoading || isFirstFetch) {
-      setIsLoading(true);
-      log("setIsLoading(true)");
-    }
+      if (!onlyFirstLoad || isFirstCall) {
+        setIsLoading(true);
+        log("setIsLoading(true)");
+      }
 
-    setError(null);
+      setError(null);
 
-    try {
-      const result = await funcRef.current();
+      try {
+        const result = await funcRef.current(...args);
 
-      // Ignore stale responses
-      if (callId !== callIdRef.current) return;
+        // Ignore stale responses
+        if (callId !== callIdRef.current) return;
 
-      hasFetchedRef.current = true;
-      setData(result);
-      onSuccess?.(result);
+        hasCalledRef.current = true;
+        setData(result);
+        return result;
+      } catch (err) {
+        if (callId !== callIdRef.current) return;
 
-      return result;
-    } catch (err) {
-      if (callId !== callIdRef.current) return;
+        const parsed =
+          err instanceof Error ? err : new Error("An unknown error occurred");
 
-      const parsed =
-        err instanceof Error ? err : new Error("An unknown error occurred");
-
-      setError(parsed);
-      onError?.(parsed);
-
-      throw parsed;
-    } finally {
-      if (callId === callIdRef.current) {
-        if (!onlyInitialLoading || isFirstFetch) {
-          setIsLoading(false);
-          log("setIsLoading(false)");
+        setError(parsed);
+        if (onError) setData((prev) => onError(parsed, prev));
+        throw parsed;
+      } finally {
+        if (callId === callIdRef.current) {
+          if (!onlyFirstLoad || isFirstCall) {
+            setIsLoading(false);
+            log("setIsLoading(false)");
+          }
         }
       }
-    }
-  }, [enabled, onlyInitialLoading, onSuccess, onError, log]);
+    },
+    [enabled, onlyFirstLoad, onError, log],
+  );
 
   useEffect(() => {
     if (!withUseEffect || !enabled) return;
@@ -113,17 +141,27 @@ export function useAsync<T>(
 
     if (hasDependencyChanges) {
       previousDependenciesRef.current = dependencies;
-      handler();
+      if (handler.length > 0) {
+        log(
+          "Dependencies changed, but handler requires arguments. Skipping automatic call.",
+        );
+        return;
+      }
+      void (handler as unknown as () => Promise<void>)().catch((err) => {
+        // The hook already stores error state in handler; avoid bubbling an unhandled rejection.
+        log(`Automatic call failed: ${String(err)}`);
+      });
     }
-  }, [handler, withUseEffect, enabled, dependencies]);
+  }, [handler, log, withUseEffect, enabled, dependencies]);
 
   return {
     data,
     setData,
     isLoading,
+    setIsLoading,
     error,
     handler,
     reset,
-    hasFetched: hasFetchedRef.current,
+    hasFetched: hasCalledRef.current,
   };
 }

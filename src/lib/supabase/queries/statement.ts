@@ -1,32 +1,186 @@
-import { Json } from "@/lib/supabase/types.generated";
+import type {
+  Case,
+  MagicLink,
+  Message,
+  Statement,
+  StatementConfig,
+  StatementDataResponse,
+  UploadedDocument,
+} from "@/types";
+import { EMPTY_STATEMENT_CONFIG, normalizeConfig } from "@/lib/statement-utils";
 import { getSupabaseClient } from "../client";
 import { getServiceClient } from "../server";
-import { assertServerOnly } from "@/lib/utils";
-import { generateSecureToken } from "@/lib/security";
-import { MagicLink, Message, Statement, UploadedDocument } from "@/lib/types";
-import {
-  StatementSchemaType,
-  UpdateStatementSchemaType,
-} from "@/lib/schema/statement";
+import { SupabaseClient } from "@supabase/supabase-js";
 
-export type StatementSubmission = {
-  signedDocument: UploadedDocument;
-  sections?: Record<string, unknown>;
-  supportingDocuments?: UploadedDocument[];
+type StatementFlat = Statement & {
+  statement_config: StatementConfig;
+  template_document_snapshot?: UploadedDocument | null;
+  link?: Pick<MagicLink, "token" | "expires_at"> | null;
 };
 
-/**
- * Get statement context (magic link and case data) for witness
- * Client-callable: token-based access control
- */
-export const getStatementFromToken = async (token: string) => {
-  const supabase = getSupabaseClient();
+type FullStatementRecord = StatementFlat & {
+  tenant_name: string;
+  case: Omit<Case, "tenant_id">;
+  statement: StatementFlat;
+};
 
+type QueryClient =
+  | ReturnType<typeof getSupabaseClient>
+  | ReturnType<typeof getServiceClient>;
+
+type SnapshotRelation = {
+  config_json: unknown;
+  template_document?: unknown;
+};
+
+type StatementWithRelations = Statement & {
+  cases?: Case | null;
+  tenants?: { name: string } | null;
+  magic_links?: Array<Pick<MagicLink, "token" | "expires_at">> | null;
+  statement_config_snapshots?: SnapshotRelation | SnapshotRelation[] | null;
+};
+
+type StatementWithSnapshot = Statement & {
+  statement_config_snapshots?: SnapshotRelation | SnapshotRelation[] | null;
+};
+
+function getSnapshotRelation(
+  relation: StatementWithRelations["statement_config_snapshots"],
+): SnapshotRelation | null {
+  if (!relation) {
+    return null;
+  }
+
+  return Array.isArray(relation) ? (relation[0] ?? null) : relation;
+}
+
+function getRelatedSnapshotConfig(
+  relation: StatementWithRelations["statement_config_snapshots"],
+): StatementConfig | null {
+  const snapshot = getSnapshotRelation(relation);
+  if (!snapshot) {
+    return null;
+  }
+
+  return normalizeConfig(snapshot.config_json);
+}
+
+function getRelatedSnapshotTemplateDocument(
+  relation: StatementWithRelations["statement_config_snapshots"],
+) {
+  const snapshot = getSnapshotRelation(relation);
+  if (!snapshot) {
+    return null;
+  }
+
+  return (snapshot.template_document as UploadedDocument | null) ?? null;
+}
+
+function getStatementLink(
+  statement: StatementWithRelations,
+): Pick<MagicLink, "token" | "expires_at"> | null {
+  const link = statement.magic_links?.[0];
+  return link ? { token: link.token, expires_at: link.expires_at } : null;
+}
+
+function toStatementFlat(statement: StatementWithRelations): StatementFlat {
+  const statementRow = Object.fromEntries(
+    Object.entries(statement).filter(
+      ([key]) =>
+        key !== "cases" &&
+        key !== "tenants" &&
+        key !== "magic_links" &&
+        key !== "statement_config_snapshots",
+    ),
+  ) as StatementFlat;
+
+  return {
+    ...statementRow,
+    statement_config:
+      getRelatedSnapshotConfig(statement.statement_config_snapshots) ??
+      EMPTY_STATEMENT_CONFIG,
+    template_document_snapshot: getRelatedSnapshotTemplateDocument(
+      statement.statement_config_snapshots,
+    ),
+    link: getStatementLink(statement),
+  };
+}
+
+function toFullStatementRecord(
+  statement: StatementWithRelations,
+): FullStatementRecord {
+  const flat = toStatementFlat(statement);
+  const caseRecord = statement.cases;
+
+  if (!caseRecord) {
+    throw new Error("Case not found");
+  }
+
+  const caseWithoutTenantId = Object.fromEntries(
+    Object.entries(caseRecord).filter(([key]) => key !== "tenant_id"),
+  ) as FullStatementRecord["case"];
+
+  return {
+    ...flat,
+    tenant_name: statement.tenants?.name ?? "",
+    case: caseWithoutTenantId,
+    statement: { ...flat },
+  };
+}
+
+async function loadStatementWithRelations(
+  supabase: QueryClient,
+  statementId: string,
+): Promise<StatementWithRelations> {
+  const { data, error } = await supabase
+    .from("statements")
+    .select(
+      "*, cases(*), tenants(name), magic_links(token, expires_at), statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, template_document)",
+    )
+    .eq("id", statementId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error("Statement not found");
+  }
+
+  return data as StatementWithRelations;
+}
+
+async function loadStatementWithSnapshot(
+  supabase: QueryClient,
+  statementId: string,
+): Promise<StatementWithSnapshot> {
+  const { data, error } = await supabase
+    .from("statements")
+    .select(
+      "*, statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, template_document)",
+    )
+    .eq("id", statementId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error("Statement not found");
+  }
+
+  return data as StatementWithSnapshot;
+}
+
+const _getStatementWithConfigFromToken = async (
+  supabase: SupabaseClient,
+  token: string,
+): Promise<StatementFlat> => {
   const { data: link, error: linkError } = await supabase
     .from("magic_links")
-    .select(
-      "token, statement_id, tenant_id, expires_at, statement:statements!magic_links_statement_id_fkey(*)",
-    )
+    .select("statement_id, token, expires_at")
     .eq("token", token)
     .single();
 
@@ -38,15 +192,19 @@ export const getStatementFromToken = async (token: string) => {
     throw new Error("Link expired");
   }
 
-  const statement = (link as unknown as { statement?: unknown | null })
-    .statement;
-
-  if (!statement) {
-    throw new Error("Statement not found");
-  }
+  const statement = await loadStatementWithSnapshot(
+    supabase,
+    link.statement_id,
+  );
 
   return {
-    ...(statement as Statement),
+    ...statement,
+    statement_config:
+      getRelatedSnapshotConfig(statement.statement_config_snapshots) ??
+      EMPTY_STATEMENT_CONFIG,
+    template_document_snapshot: getRelatedSnapshotTemplateDocument(
+      statement.statement_config_snapshots,
+    ),
     link: {
       token: link.token,
       expires_at: link.expires_at,
@@ -54,109 +212,21 @@ export const getStatementFromToken = async (token: string) => {
   };
 };
 
-/**
- * Submit a witness statement
- */
-export const submitStatement = async (
-  token: string,
-  submission: StatementSubmission,
-): Promise<string> => {
-  const supabase = getSupabaseClient();
+export const SERVERONLY_getStatementWithConfigFromToken = (token: string) =>
+  _getStatementWithConfigFromToken(
+    getServiceClient("SERVERONLY_getStatementWithConfigFromToken"),
+    token,
+  );
 
-  const statement = await getStatementFromToken(token);
-  if (!statement) {
-    throw new Error("Invalid or expired link.");
-  }
+export const getStatementWithConfigFromToken = (token: string) =>
+  _getStatementWithConfigFromToken(getSupabaseClient(), token);
 
-  if (statement.status === "locked") {
-    throw new Error(
-      "This intake has been stopped and cannot be submitted. Please contact the law firm.",
-    );
-  }
-
-  const updatePayload: {
-    signed_document: Json;
-    sections?: Json;
-    supporting_documents?: Json;
-    status: "submitted";
-  } = {
-    signed_document: submission.signedDocument,
-    status: "submitted",
-  };
-
-  if (submission.sections) {
-    updatePayload.sections = submission.sections as Json;
-  }
-
-  if (submission.supportingDocuments) {
-    updatePayload.supporting_documents = submission.supportingDocuments as Json;
-  }
-
-  const { error: statementUpdateError } = await supabase
-    .from("statements")
-    .update(updatePayload)
-    .eq("id", statement.id);
-
-  if (statementUpdateError) {
-    throw statementUpdateError;
-  }
-
-  return statement.id;
-};
-
-/**
- * Save a conversation message
- */
-export const saveConversationMessageServer = async (
-  statementId: string,
-  role: "user" | "assistant" | "system",
-  content: string,
-  meta?: Record<string, unknown> | null,
-) => {
-  assertServerOnly("saveConversationMessageServer");
-  const supabase = getServiceClient();
-  const { error } = await supabase.from("conversation_messages").insert({
-    statement_id: statementId,
-    role,
-    content,
-    meta: meta as Json,
-  });
-  if (error) {
-    throw error;
-  }
-};
-
-/**
- * Update statement status (SERVER-SIDE)
- * SERVER ONLY - Uses service client for API routes
- */
-export const updateStatementStatusServer = async (
-  statementId: string,
-  status: "draft" | "in_progress" | "submitted" | "locked",
-) => {
-  assertServerOnly("updateStatementStatusServer");
-  const supabase = getServiceClient();
-
-  const { error } = await supabase
-    .from("statements")
-    .update({ status })
-    .eq("id", statementId);
-
-  if (error) {
-    throw error;
-  }
-};
-
-/**
- * Get conversation history for a statement
- * Client-callable: token-based access control
- */
 export const getConversationHistory = async (statementId: string) => {
   const supabase = getSupabaseClient();
 
   const { data, error } = await supabase
     .from("conversation_messages")
-    .select("*")
+    .select("id, role, content, meta, created_at")
     .eq("statement_id", statementId)
     .order("created_at", { ascending: true });
 
@@ -167,16 +237,12 @@ export const getConversationHistory = async (statementId: string) => {
   return data || [];
 };
 
-/**
- * Get the latest statement progress and metadata from the last message
- * Used to display statement status on the case list/detail view
- */
 export const getConversationLatest = async (statementId: string) => {
   const supabase = getSupabaseClient();
 
   const { data, error } = await supabase
     .from("conversation_messages")
-    .select("progress, meta, role")
+    .select("meta")
     .eq("statement_id", statementId)
     .eq("role", "assistant")
     .order("created_at", { ascending: false })
@@ -187,45 +253,124 @@ export const getConversationLatest = async (statementId: string) => {
     return null;
   }
 
-  return;
+  return data;
 };
 
-type Base = Statement & {
-  tenant_name: string;
-  link: Pick<MagicLink, "token" | "expires_at"> | null;
-};
+async function getLatestConversationMessage(
+  statementId: string,
+  supabase: ReturnType<typeof getSupabaseClient>,
+) {
+  const { data: latestAssistantWithMeta, error: latestWithMetaError } =
+    await supabase
+      .from("conversation_messages")
+      .select("id, role, content, meta, created_at")
+      .eq("statement_id", statementId)
+      .eq("role", "assistant")
+      .not("meta", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-export type StatementDataResponse<T extends boolean = boolean> = T extends true
-  ? Base & {
-      messages: Message[];
-      has_history: boolean;
+  if (latestWithMetaError) {
+    throw latestWithMetaError;
+  }
+
+  if (latestAssistantWithMeta) {
+    return latestAssistantWithMeta as unknown as Message;
+  }
+
+  const { data: latestAssistant, error: latestAssistantError } = await supabase
+    .from("conversation_messages")
+    .select("id, role, content, meta, created_at")
+    .eq("statement_id", statementId)
+    .eq("role", "assistant")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestAssistantError) {
+    throw latestAssistantError;
+  }
+
+  if (latestAssistant) {
+    return latestAssistant as unknown as Message;
+  }
+
+  const { data: latestAny, error: latestAnyError } = await supabase
+    .from("conversation_messages")
+    .select("id, role, content, meta, created_at")
+    .eq("statement_id", statementId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestAnyError) {
+    throw latestAnyError;
+  }
+
+  return (latestAny as unknown as Message | null) ?? null;
+}
+
+async function loadFullStatementById(
+  statementId: string,
+  includeFullHistory: boolean,
+  supabase = getSupabaseClient(),
+) {
+  const statement = await loadStatementWithRelations(supabase, statementId);
+  if (!statement.cases) {
+    throw new Error("Case not found");
+  }
+  if (!statement.tenants?.name) {
+    throw new Error("Tenant not found");
+  }
+
+  const base = toFullStatementRecord(statement);
+
+  const q = supabase
+    .from("conversation_messages")
+    .select("id, role, content, meta, created_at")
+    .eq("statement_id", statementId)
+    .order("created_at", { ascending: includeFullHistory });
+
+  if (includeFullHistory) {
+    const { data: messagesData, error: messagesError } = await q;
+    if (messagesError) {
+      throw messagesError;
     }
-  : T extends false
-    ? Base & { latest: Message }
-    : Base;
 
-/**
- * Get full statement data including context, conversation history, and tenant info
- * Client-callable: token-based access control
- */
-export async function getFullStatementFromToken(
+    const messages = (messagesData as unknown as Message[]) ?? [];
+    return {
+      ...base,
+      messages,
+      has_history: messages.length > 0,
+    };
+  }
+
+  const latest = await getLatestConversationMessage(statementId, supabase);
+
+  return {
+    ...base,
+    latest,
+  };
+}
+
+export async function SERVERONLY_getFullStatementFromToken(
   token: string,
   includeFullHistory: true,
 ): Promise<StatementDataResponse<true> | null>;
-export async function getFullStatementFromToken(
+export async function SERVERONLY_getFullStatementFromToken(
   token: string,
   includeFullHistory: false,
 ): Promise<StatementDataResponse<false> | null>;
-export async function getFullStatementFromToken(
+export async function SERVERONLY_getFullStatementFromToken(
   token: string,
   includeFullHistory: boolean,
 ): Promise<unknown> {
-  const supabase = getSupabaseClient();
-  const { data: linkData, error: linkError } = await supabase
+  const supabase = getServiceClient("SERVERONLY_getFullStatementFromToken");
+
+  const { data: link, error: linkError } = await supabase
     .from("magic_links")
-    .select(
-      "token, expires_at, statement:statements!magic_links_statement_id_fkey(*, tenants(name))",
-    )
+    .select("statement_id, token, expires_at")
     .eq("token", token)
     .single();
 
@@ -233,63 +378,25 @@ export async function getFullStatementFromToken(
     throw linkError;
   }
 
-  if (new Date(linkData.expires_at) < new Date()) {
+  if (new Date(link.expires_at) < new Date()) {
     throw new Error("Link expired");
   }
 
-  const statement = (
-    linkData as unknown as {
-      statement?:
-        | ({ tenants?: { name?: string | null } | null } & Record<
-            string,
-            unknown
-          >)
-        | null;
-    }
-  ).statement;
+  const response = await loadFullStatementById(
+    link.statement_id,
+    includeFullHistory,
+    supabase,
+  );
 
-  if (!statement || !statement.tenants?.name) {
-    throw new Error("Tenant not found");
-  }
-
-  const statementRecord = statement as unknown as Statement & {
-    tenants: { name: string };
-  };
-
-  const payload = {
-    ...statementRecord,
-    link: {
-      token: linkData.token,
-      expires_at: linkData.expires_at,
-    },
-    tenant_name: statementRecord.tenants.name,
-  };
-
-  const q = supabase
-    .from("conversation_messages")
-    .select("id, role, content, meta, created_at")
-    .eq("statement_id", statementRecord.id)
-    .order("created_at", { ascending: includeFullHistory });
-
-  if (includeFullHistory) {
-    const { data: messagesData } = await q;
-    const messages = (messagesData as unknown as Message[]) ?? [];
-    return {
-      ...payload,
-      messages,
-      has_history: messages.length > 0,
-    };
-  }
-  const { data: latest } = await q.limit(1).maybeSingle();
   return {
-    ...payload,
-    latest: latest as unknown as Message | null,
+    ...(response as Record<string, unknown>),
+    link: {
+      token: link.token,
+      expires_at: link.expires_at,
+    },
   };
 }
 
-/**
- * Get full statement data including context, conversation history, and tenant info
- */
 export async function getFullStatementFromId(
   id: string,
   includeFullHistory: true,
@@ -303,137 +410,10 @@ export async function getFullStatementFromId(
   includeFullHistory: boolean,
 ): Promise<unknown> {
   const supabase = getSupabaseClient();
-
-  const { data: statement, error: statementError } = await supabase
-    .from("statements")
-    .select("*, tenants(name), magic_links(token, expires_at)")
-    .eq("id", id)
-    .single();
-
-  if (statementError) {
-    throw statementError;
-  }
-
-  const tenantName = (
-    statement as { tenants?: { name?: string | null } | null }
-  ).tenants?.name;
-  if (!tenantName) {
-    throw new Error("Tenant not found");
-  }
-
-  const links = (
-    statement as {
-      magic_links?: Array<{ token: string; expires_at: string }> | null;
-    }
-  ).magic_links;
-  const link = links?.[0] ?? null;
-
-  const payload = {
-    ...statement,
-    link,
-    tenant_name: tenantName,
-  };
-
-  const q = supabase
-    .from("conversation_messages")
-    .select("id, role, content, meta, created_at")
-    .eq("statement_id", statement.id)
-    .order("created_at", { ascending: includeFullHistory });
-
-  if (includeFullHistory) {
-    const { data: messagesData } = await q;
-    const messages = (messagesData as unknown as Message[]) ?? [];
-    return {
-      ...payload,
-      messages,
-      has_history: messages.length > 0,
-    };
-  }
-  const { data: latest } = await q.limit(1).maybeSingle();
-  return {
-    ...payload,
-    latest: latest as unknown as Message | null,
-  };
+  return loadFullStatementById(id, includeFullHistory, supabase);
 }
 
-export async function getStatements(): Promise<Statement[]> {
-  const supabase = getSupabaseClient();
-
-  const query = supabase
-    .from("statements")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data as Statement[];
-}
-
-export async function createStatement(
-  payload: StatementSchemaType,
-): Promise<Statement> {
-  const supabase = getSupabaseClient();
-  const magicLinkToken = generateSecureToken();
-
-  const assigneeIds = payload.assigned_to_ids ?? [];
-
-  const { data: newStatement, error: statementError } = await supabase
-    .from("statements")
-    .insert({
-      ...payload,
-      assigned_to: assigneeIds[0] ?? null,
-      assigned_to_ids: assigneeIds,
-    })
-    .select("*")
-    .single();
-
-  if (statementError) {
-    throw statementError;
-  }
-
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 30);
-
-  const { error: linkError } = await supabase.from("magic_links").insert({
-    token: magicLinkToken,
-    statement_id: newStatement.id,
-    tenant_id: payload.tenant_id,
-    expires_at: expiresAt.toISOString(),
-  });
-
-  if (linkError) {
-    await supabase.from("statements").delete().eq("id", newStatement.id);
-    throw new Error("Failed to create magic link: " + linkError.message);
-  }
-
-  return newStatement as unknown as Statement;
-}
-
-export async function updateStatement(
-  id: string,
-  payload: UpdateStatementSchemaType,
-) {
-  const supabase = getSupabaseClient();
-  const updatePayload = {
-    ...payload,
-    ...(payload.assigned_to_ids
-      ? { assigned_to: payload.assigned_to_ids[0] ?? null }
-      : {}),
-  };
-  const { error } = await supabase
-    .from("statements")
-    .update(updatePayload)
-    .eq("id", id);
-  if (error) {
-    throw error;
-  }
-}
-
-export async function getStatementSubmissionNotificationRecipients(
+export async function SERVERONLY_getStatementSubmissionNotificationRecipients(
   statementId: string,
 ): Promise<{
   tenantName: string;
@@ -441,13 +421,14 @@ export async function getStatementSubmissionNotificationRecipients(
   witnessName: string;
   recipientEmails: string[];
 }> {
-  assertServerOnly("getStatementSubmissionNotificationRecipients");
-  const supabase = getServiceClient();
+  const supabase = getServiceClient(
+    "SERVERONLY_getStatementSubmissionNotificationRecipients",
+  );
 
   const { data: statement, error: statementError } = await supabase
     .from("statements")
     .select(
-      "id, tenant_id, title, witness_name, assigned_to_ids, tenants(name)",
+      "id, case_id, tenant_id, witness_name, cases(title, status, assigned_to, assigned_to_ids), tenants(name)",
     )
     .eq("id", statementId)
     .maybeSingle();
@@ -464,7 +445,13 @@ export async function getStatementSubmissionNotificationRecipients(
     throw new Error("Tenant not found");
   }
 
-  const assigneeIds = statement.assigned_to_ids ?? [];
+  const assigneeIds =
+    (
+      statement as {
+        cases?: { assigned_to_ids?: string[] | null } | null;
+      }
+    ).cases?.assigned_to_ids ?? [];
+
   let recipientUserIds: string[] = [];
 
   if (assigneeIds.length > 0) {
@@ -510,55 +497,30 @@ export async function getStatementSubmissionNotificationRecipients(
 
   return {
     tenantName,
-    statementTitle: statement.title,
+    statementTitle:
+      (statement as { cases?: { title?: string | null } | null }).cases
+        ?.title ?? "",
     witnessName: statement.witness_name,
     recipientEmails,
   };
 }
 
-export async function updateStatementByTokenServer(
-  token: string,
-  payload: UpdateStatementSchemaType,
-) {
-  const supabase = getServiceClient();
-  const { data: link, error: linkError } = await supabase
-    .from("magic_links")
-    .select("statement_id")
-    .eq("token", token)
-    .single();
-
-  if (linkError) throw linkError;
-
-  const { error } = await supabase
-    .from("statements")
-    .update(payload)
-    .eq("id", link.statement_id);
-  if (error) {
-    throw error;
-  }
-}
-
-export async function deleteStatement(id: string) {
-  const supabase = getSupabaseClient();
-  const { error } = await supabase.from("statements").delete().eq("id", id);
-  if (error) {
-    throw error;
-  }
-}
-
-export async function getStatementForSendLink(id: string): Promise<{
+export async function SERVERONLY_getStatementForSendLink(
+  id: string,
+  tenantId: string,
+): Promise<{
   title: string;
   witness_name: string;
   witness_email: string;
   token: string;
 } | null> {
-  assertServerOnly("getStatementForSendLink");
-  const supabase = getServiceClient();
+  const supabase = getServiceClient("SERVERONLY_getStatementForSendLink");
 
   const { data: statement, error: statementError } = await supabase
     .from("statements")
     .select("id, title, witness_name, witness_email, magic_links(token)")
     .eq("id", id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   if (statementError || !statement) {
@@ -578,44 +540,4 @@ export async function getStatementForSendLink(id: string): Promise<{
     witness_email: statement.witness_email,
     token,
   };
-}
-
-export async function regenerateMagicLink(statementId: string) {
-  const supabase = getSupabaseClient();
-
-  const { data: statement, error: statementError } = await supabase
-    .from("statements")
-    .select("id, tenant_id")
-    .eq("id", statementId)
-    .maybeSingle();
-
-  if (statementError || !statement) {
-    throw new Error("Statement not found");
-  }
-
-  const { error: deleteError } = await supabase
-    .from("magic_links")
-    .delete()
-    .eq("statement_id", statement.id);
-
-  if (deleteError) {
-    throw new Error("Failed to delete old link: " + deleteError.message);
-  }
-
-  const newToken = generateSecureToken();
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7);
-
-  const { error: insertError } = await supabase.from("magic_links").insert({
-    token: newToken,
-    statement_id: statement.id,
-    tenant_id: statement.tenant_id,
-    expires_at: expiresAt.toISOString(),
-  });
-
-  if (insertError) {
-    throw new Error("Failed to create new magic link: " + insertError.message);
-  }
-
-  return { token: newToken, expires_at: expiresAt.toISOString() };
 }

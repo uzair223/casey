@@ -1,41 +1,49 @@
 "use client";
 
-import * as React from "react";
+import React from "react";
 import { Button, type ButtonProps } from "@/components/ui/button";
-import { useFormContext } from "react-hook-form";
+import { useFormContext, useFormState } from "react-hook-form";
 
 export type AsyncButtonProps = Omit<ButtonProps, "onClick"> & {
   pendingText?: React.ReactNode;
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => Promise<void>;
 };
 
-const AsyncButton = React.forwardRef<HTMLButtonElement, AsyncButtonProps>(
-  ({ onClick, disabled, pendingText, children, ...props }, ref) => {
-    const [isPending, setIsPending] = React.useState(false);
-    const formContext = useFormContext();
+const AsyncButtonBase = React.forwardRef<
+  HTMLButtonElement,
+  AsyncButtonProps & { isLoading?: boolean }
+>(
+  (
+    {
+      onClick,
+      disabled,
+      pendingText,
+      children,
+      isLoading: externalLoading,
+      ...props
+    },
+    ref,
+  ) => {
+    const [internalLoading, setInternalLoading] = React.useState(false);
+    const isLoading = externalLoading || internalLoading;
 
-    const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
-      if (disabled || isPending) {
-        event.preventDefault();
-        return;
-      }
+    const handleClick = React.useCallback(
+      async (event: React.MouseEvent<HTMLButtonElement>) => {
+        if (disabled || isLoading) {
+          event.preventDefault();
+          return;
+        }
+        if (!onClick) return;
+        setInternalLoading(true);
+        try {
+          await onClick(event);
+        } finally {
+          setInternalLoading(false);
+        }
+      },
+      [onClick, disabled, isLoading],
+    );
 
-      if (!onClick) {
-        return;
-      }
-
-      setIsPending(true);
-      try {
-        await onClick(event);
-      } finally {
-        setIsPending(false);
-      }
-    };
-
-    // Use form's isSubmitting state if available and this is a submit button
-    const isFormSubmitting =
-      !!formContext?.formState?.isSubmitting && props.type === "submit";
-    const isLoading = isPending || isFormSubmitting;
     const content = isLoading && pendingText ? pendingText : children;
 
     return (
@@ -51,7 +59,30 @@ const AsyncButton = React.forwardRef<HTMLButtonElement, AsyncButtonProps>(
     );
   },
 );
+AsyncButtonBase.displayName = "AsyncButtonBase";
 
+const AsyncButtonWithForm = React.forwardRef<
+  HTMLButtonElement,
+  AsyncButtonProps & { formContext: ReturnType<typeof useFormContext> }
+>(({ formContext, ...props }, ref) => {
+  const { isSubmitting } = useFormState({ control: formContext.control });
+  return <AsyncButtonBase ref={ref} {...props} isLoading={isSubmitting} />;
+});
+AsyncButtonWithForm.displayName = "AsyncButtonWithForm";
+
+const AsyncButton = React.forwardRef<HTMLButtonElement, AsyncButtonProps>(
+  (props, ref) => {
+    const formContext = useFormContext();
+
+    if (formContext && props.type === "submit") {
+      return (
+        <AsyncButtonWithForm ref={ref} formContext={formContext} {...props} />
+      );
+    }
+
+    return <AsyncButtonBase ref={ref} {...props} />;
+  },
+);
 AsyncButton.displayName = "AsyncButton";
 
 export { AsyncButton };

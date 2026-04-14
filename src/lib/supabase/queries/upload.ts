@@ -1,28 +1,30 @@
-import { UploadedDocument } from "@/lib/types";
+import { UploadedDocument } from "@/types";
 import { getSupabaseClient } from "../client";
 
-export const uploadFile = async (
-  bucketId: string,
-  name: string,
-  path: string,
-  file: File | Blob,
-  contentType: string,
-): Promise<UploadedDocument> => {
+export const downloadUploadedDocument = async (
+  document: UploadedDocument,
+): Promise<Blob> => {
   const supabase = getSupabaseClient();
+  const bucketId = document.bucketId;
+
+  if (!bucketId) {
+    throw new Error("Uploaded document is missing its bucket id");
+  }
 
   const { data, error } = await supabase.storage
     .from(bucketId)
-    .upload(path, file, { contentType });
+    .createSignedUrl(document.path, 60 * 10);
 
-  if (error) {
-    throw new Error(`Failed to upload file: ${error.message}`);
+  if (error || !data?.signedUrl) {
+    throw new Error(
+      `Failed to create document download link: ${error?.message ?? "unknown error"}`,
+    );
   }
 
-  return {
-    bucketId,
-    name,
-    path: data.path,
-    uploadedAt: new Date().toISOString(),
-    type: contentType,
-  };
+  const response = await fetch(data.signedUrl);
+  if (!response.ok) {
+    throw new Error("Failed to download uploaded document");
+  }
+
+  return await response.blob();
 };

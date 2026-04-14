@@ -2,7 +2,7 @@
 
 import React, { useCallback, useRef, useState } from "react";
 import { Slot } from "@radix-ui/react-slot";
-import { Button } from "./button";
+import { Button, ButtonProps } from "./button";
 import { TrashIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,8 @@ interface FileInputContextValue {
   addFiles: (files: Iterable<File>) => void;
   removeFile: (index: number) => void;
   disabled: boolean;
+  multiple: boolean;
+  accept?: string;
 }
 
 const FileInputContext = React.createContext<FileInputContextValue | null>(
@@ -21,6 +23,8 @@ interface FileInputProps extends Omit<
   React.HTMLAttributes<HTMLDivElement>,
   "value" | "onChange"
 > {
+  multiple?: boolean;
+  accept?: string;
   value?: File[]; // controlled
   onChange?: (newFiles: File[]) => void;
   asChild?: boolean;
@@ -28,7 +32,19 @@ interface FileInputProps extends Omit<
 }
 
 export const FileInput = React.forwardRef<HTMLDivElement, FileInputProps>(
-  ({ value, onChange, children, asChild, disabled = false, ...props }, ref) => {
+  (
+    {
+      multiple = false,
+      accept,
+      value,
+      onChange,
+      children,
+      asChild,
+      disabled = false,
+      ...props
+    },
+    ref,
+  ) => {
     // Controlled vs uncontrolled
     const isControlled = value !== undefined;
     const [internalFiles, setInternalFiles] = useState<File[]>(value ?? []);
@@ -38,26 +54,38 @@ export const FileInput = React.forwardRef<HTMLDivElement, FileInputProps>(
     const addFiles = useCallback(
       (newFiles: Iterable<File>) => {
         const fileArray = Array.from(newFiles);
-        const nextFiles = [...files];
 
-        fileArray.forEach((file) => {
-          const exists = nextFiles.some(
-            (f) =>
-              f.name === file.name &&
-              f.size === file.size &&
-              f.lastModified === file.lastModified,
-          );
-          if (!exists) nextFiles.push(file);
-        });
-
-        if (isControlled) {
-          onChange?.(nextFiles);
+        if (!multiple) {
+          // If not multiple, only keep the first new file
+          const nextFiles = fileArray.length > 0 ? [fileArray[0]] : [];
+          if (isControlled) {
+            onChange?.(nextFiles);
+          } else {
+            setInternalFiles(nextFiles);
+            onChange?.(nextFiles);
+          }
         } else {
-          setInternalFiles(nextFiles);
-          onChange?.(nextFiles);
+          // If multiple, add files without duplicates
+          const nextFiles = [...files];
+          fileArray.forEach((file) => {
+            const exists = nextFiles.some(
+              (f) =>
+                f.name === file.name &&
+                f.size === file.size &&
+                f.lastModified === file.lastModified,
+            );
+            if (!exists) nextFiles.push(file);
+          });
+
+          if (isControlled) {
+            onChange?.(nextFiles);
+          } else {
+            setInternalFiles(nextFiles);
+            onChange?.(nextFiles);
+          }
         }
       },
-      [files, isControlled, onChange],
+      [files, isControlled, onChange, multiple],
     );
 
     return (
@@ -75,6 +103,8 @@ export const FileInput = React.forwardRef<HTMLDivElement, FileInputProps>(
             }
           },
           disabled,
+          multiple,
+          accept,
         }}
       >
         <Comp ref={ref} {...props}>
@@ -87,20 +117,14 @@ export const FileInput = React.forwardRef<HTMLDivElement, FileInputProps>(
 
 FileInput.displayName = "FileInput";
 
-interface FileInputTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  multiple?: boolean;
-  accept?: string;
-}
-
 export const FileInputTrigger = React.forwardRef<
   HTMLButtonElement,
-  FileInputTriggerProps
+  ButtonProps
 >(
   (
     {
-      multiple = false,
-      accept,
       className,
+      variant = "accent",
       children = "Choose Files",
       disabled = false,
       ...props
@@ -112,7 +136,7 @@ export const FileInputTrigger = React.forwardRef<
     if (!context)
       throw new Error("FileInputTrigger must be used within a FileInput");
 
-    const { files, addFiles } = context;
+    const { multiple, accept, files, addFiles } = context;
 
     const handleClick = () => inputRef.current?.click();
 
@@ -134,7 +158,7 @@ export const FileInputTrigger = React.forwardRef<
         <div>
           <Button
             type="button"
-            variant="accent"
+            variant={variant}
             onClick={handleClick}
             className={cn("w-min file-input-trigger", className)}
             ref={ref}

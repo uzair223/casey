@@ -1,16 +1,14 @@
-import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
-import { acceptInvite } from "@/lib/supabase/queries";
-
-type InviteRow = {
-  id: string;
-  email: string | null;
-  token: string;
-  tenant_id: string | null;
-  role: string;
-  expires_at: string;
-  accepted_at: string | null;
-};
+import { SERVERONLY_acceptInvite } from "@/lib/supabase/mutations";
+import type { InviteReadProfile, InviteRow } from "@/types";
+import {
+  badRequest,
+  forbidden,
+  notFound,
+  ok,
+  serverError,
+  unauthorized,
+} from "@/lib/api-utils";
 
 const getBearerToken = (request: Request) => {
   const header = request.headers.get("authorization");
@@ -24,7 +22,7 @@ const getAuthenticatedUserAndProfile = async (request: Request) => {
   const token = getBearerToken(request);
   if (!token) {
     return {
-      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      error: unauthorized(),
     };
   }
 
@@ -34,7 +32,7 @@ const getAuthenticatedUserAndProfile = async (request: Request) => {
 
   if (userError || !userData.user) {
     return {
-      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      error: unauthorized(),
     };
   }
 
@@ -84,7 +82,7 @@ const fetchInviteWithTenantName = async (
 const canUserReadInvite = (
   invite: InviteRow,
   userEmail: string,
-  profile: { role?: string | null; tenant_id?: string | null } | null,
+  profile: InviteReadProfile,
 ) => {
   const normalizedInviteEmail = invite.email?.toLowerCase();
   const normalizedUserEmail = userEmail.toLowerCase();
@@ -123,17 +121,16 @@ export async function GET(
     const { token } = await params;
     const invite = await fetchInviteWithTenantName(auth.supabase, token);
     if (!invite) {
-      return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+      return notFound("Invite not found");
     }
 
     if (!canUserReadInvite(invite, auth.user.email ?? "", auth.profile)) {
-      return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+      return notFound("Invite not found");
     }
 
-    return NextResponse.json({ invite });
+    return ok({ invite });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return serverError(error);
   }
 }
 
@@ -154,49 +151,39 @@ export async function POST(
       typeof displayName !== "string" ||
       !displayName.trim()
     ) {
-      return NextResponse.json(
-        { error: "Display name is required" },
-        { status: 400 },
-      );
+      return badRequest("Display name is required");
     }
 
     const invite = await fetchInviteWithTenantName(auth.supabase, inviteToken);
     if (!invite) {
-      return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+      return notFound("Invite not found");
     }
 
     if (!canUserReadInvite(invite, auth.user.email ?? "", auth.profile)) {
-      return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+      return notFound("Invite not found");
     }
 
     if (invite.email) {
       const userEmail = (auth.user.email ?? "").toLowerCase();
       if (userEmail !== invite.email.toLowerCase()) {
-        return NextResponse.json(
-          { error: "Invite email does not match your account" },
-          { status: 403 },
-        );
+        return forbidden("Invite email does not match your account");
       }
     }
 
     if (invite.role === "tenant_admin" && !invite.tenant_id) {
       if (!firmName || typeof firmName !== "string" || !firmName.trim()) {
-        return NextResponse.json(
-          { error: "Firm name is required for new tenant admin" },
-          { status: 400 },
-        );
+        return badRequest("Firm name is required for new tenant admin");
       }
     }
 
-    await acceptInvite(
+    await SERVERONLY_acceptInvite(
       inviteToken,
       auth.user.id,
       displayName.trim(),
       firmName ? firmName.trim() : undefined,
     );
-    return NextResponse.json({ success: true });
+    return ok({ success: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return serverError(error);
   }
 }

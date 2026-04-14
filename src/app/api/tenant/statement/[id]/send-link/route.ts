@@ -1,7 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
-import { getStatementForSendLink } from "@/lib/supabase/queries";
+import { SERVERONLY_getStatementForSendLink } from "@/lib/supabase/queries";
 import { sendStatementLinkEmail } from "@/lib/email";
+import {
+  badRequest,
+  notFound,
+  ok,
+  serverError,
+  unauthorized,
+} from "@/lib/api-utils";
 
 /**
  * POST /api/cases/[id]/send-link
@@ -27,7 +34,7 @@ export async function POST(
     } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     // Get user profile with tenant_id
@@ -38,10 +45,7 @@ export async function POST(
       .single();
 
     if (profileError || !profile?.tenant_id) {
-      return NextResponse.json(
-        { error: "User profile not found" },
-        { status: 404 },
-      );
+      return notFound("User profile not found");
     }
 
     const { data: tenant, error: tenantError } = await supabase
@@ -51,29 +55,26 @@ export async function POST(
       .single();
 
     if (tenantError || !tenant?.name) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+      return notFound("Tenant not found");
     }
 
-    const statement = await getStatementForSendLink(statementId);
+    const statement = await SERVERONLY_getStatementForSendLink(
+      statementId,
+      profile.tenant_id,
+    );
 
     if (!statement) {
-      return NextResponse.json(
-        { error: "Statement not found" },
-        { status: 404 },
-      );
+      return notFound("Statement not found");
     }
 
     // Check if witness email exists
     if (!statement.witness_email) {
-      return NextResponse.json(
-        { error: "Witness email not set on this case" },
-        { status: 400 },
-      );
+      return badRequest("Witness email not set on this case");
     }
 
     // Build statement link URL
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-    const statementUrl = `${baseUrl}/statement/${statement.token}`;
+    const statementUrl = `${baseUrl}/intake/${statement.token}`;
 
     await sendStatementLinkEmail({
       to: statement.witness_email,
@@ -83,20 +84,12 @@ export async function POST(
       statementUrl,
     });
 
-    return NextResponse.json({
+    return ok({
       success: true,
       message: "Statement link email sent successfully",
     });
   } catch (error) {
     console.error("Send statement link error:", error);
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to send statement link",
-      },
-      { status: 500 },
-    );
+    return serverError(error);
   }
 }

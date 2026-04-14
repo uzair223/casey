@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { WaitlistSignupSchema } from "@/lib/schema";
+import { badRequest, ok, serverError } from "@/lib/api-utils";
 
 export async function POST(request: Request) {
   try {
@@ -8,13 +8,9 @@ export async function POST(request: Request) {
     const parsed = WaitlistSignupSchema.safeParse(payload);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error:
-            parsed.error.issues[0]?.message ||
-            "Name, company name, and email are required.",
-        },
-        { status: 400 },
+      return badRequest(
+        parsed.error.issues[0]?.message ||
+          "Name, company name, and email are required.",
       );
     }
 
@@ -35,14 +31,11 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    return NextResponse.json({
+    return ok({
       success: true,
       message: "Thanks, you are on the waitlist.",
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unable to join waitlist";
-
-    return NextResponse.json({ error: message }, { status: 500 });
+    return serverError(error);
   }
 }

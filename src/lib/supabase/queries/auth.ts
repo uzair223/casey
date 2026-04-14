@@ -1,14 +1,6 @@
 import { getServiceClient } from "../server";
 import { getSupabaseClient } from "../client";
-import { assertServerOnly } from "@/lib/utils";
-import { UserRole } from "@/lib/types";
-
-type UserProfile = {
-  tenant_id: string | null;
-  tenant_name?: string | null;
-  role: UserRole;
-  display_name?: string | null;
-};
+import { UserRole, UserProfile } from "@/types";
 
 /**
  * Get current user's own profile
@@ -40,8 +32,9 @@ export async function getCurrentUserProfile(
 
   return {
     tenant_id: data.tenant_id,
-    tenant_name: (data as { tenants?: { name?: string | null } | null }).tenants
-      ?.name,
+    tenant_name:
+      (data as { tenants?: { name?: string | null } | null }).tenants?.name ??
+      null,
     role: data.role as UserRole,
     display_name: data.display_name,
   };
@@ -51,11 +44,10 @@ export async function getCurrentUserProfile(
  * Get user profile by user ID
  * SERVER ONLY - Used by API routes for authentication
  */
-export async function getUserProfile(
+export async function SERVERONLY_getUserProfile(
   user_id: string,
 ): Promise<UserProfile | null> {
-  assertServerOnly("getUserProfile");
-  const supabase = getServiceClient();
+  const supabase = getServiceClient("SERVERONLY_getUserProfile");
 
   const { data, error } = await supabase
     .from("profiles")
@@ -71,8 +63,9 @@ export async function getUserProfile(
 
   return {
     tenant_id: data.tenant_id,
-    tenant_name: (data as { tenants?: { name?: string | null } | null }).tenants
-      ?.name,
+    tenant_name:
+      (data as { tenants?: { name?: string | null } | null }).tenants?.name ??
+      null,
     role: data.role as UserRole,
     display_name: data.display_name,
   };

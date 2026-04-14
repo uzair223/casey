@@ -1,13 +1,14 @@
 import Header from "@/components/header";
-import { UserProvider } from "@/contexts/UserContext";
+import Footer from "@/components/footer";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <UserProvider>
-      <div className="relative min-h-screen flex flex-col">
-        <Header />
-        <main className="container pb-6 flex flex-col flex-1">{children}</main>
-      </div>
-    </UserProvider>
+    <div className="[--header-height:80px] relative min-h-screen flex flex-col">
+      <Header />
+      <main className="min-h-[calc(100vh-var(--header-height))] container pb-6 flex flex-col flex-1">
+        {children}
+      </main>
+      <Footer />
+    </div>
   );
 }

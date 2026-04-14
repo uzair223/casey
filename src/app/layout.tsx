@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
+
+import { UserProvider } from "@/contexts/user-context";
+import { TenantProvider } from "@/contexts/tenant-context";
+
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -13,9 +17,8 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Casey",
-  description:
-    "Casey is a witness statement management tool designed for legal professionals. Streamline the intake, review, and management of witness statements with our secure and user-friendly platform.",
+  title: process.env.NEXT_PUBLIC_APP_NAME,
+  description: `${process.env.NEXT_PUBLIC_APP_NAME} is a witness statement management tool designed for legal professionals. Streamline the intake, review, and management of witness statements with our secure and user-friendly platform.`,
 };
 
 export default function RootLayout({
@@ -26,9 +29,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${fraunces.variable} ${manrope.variable} min-h-screen bg-aurora antialiased`}
+        className={`${fraunces.variable} ${manrope.variable} min-h-screen antialiased`}
       >
-        {children}
+        <div className="fixed inset-0 w-screen h-screen bg-aurora -z-50" />
+        <UserProvider>
+          <TenantProvider>{children}</TenantProvider>
+        </UserProvider>
       </body>
     </html>
   );
