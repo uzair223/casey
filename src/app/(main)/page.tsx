@@ -28,7 +28,7 @@ import { MessageBox } from "@/components/intake/chat-area";
 export default function Home() {
   return (
     <main className="space-y-10">
-      <section className="container">
+      <section>
         <div className="relative overflow-hidden rounded-4xl border border-border/60 bg-background/80 shadow-2xl backdrop-blur">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.14),transparent_28%),radial-gradient(circle_at_80%_10%,rgba(56,189,248,0.12),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(251,191,36,0.10),transparent_28%)]" />
           <div className="relative grid gap-10 p-6 sm:p-10 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
@@ -196,7 +196,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
             icon: FileText,
@@ -231,7 +231,7 @@ export default function Home() {
         ))}
       </section>
 
-      <section className="container grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+      <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
         <Card className="border-border/70 bg-card/80">
           <CardHeader>
             <p className="text-sm uppercase tracking-[0.22em] text-accent-foreground">
@@ -367,7 +367,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="waitlist" className="container">
+      <section id="waitlist">
         <Card className="overflow-hidden border-border/70 bg-card/85">
           <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="border-b border-border/70 bg-background/60 p-8 lg:border-b-0 lg:border-r">

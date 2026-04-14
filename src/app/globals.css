@@ -58,6 +58,11 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
+@media (max-width: 768px) {
+  html {
+    font-size: 90%;
+  }
+}
 body {
   font-family:
     var(--font-manrope),

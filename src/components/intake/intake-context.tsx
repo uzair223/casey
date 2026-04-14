@@ -253,10 +253,8 @@ export function IntakeProvider({
       return;
     }
 
-    queueMicrotask(() => {
-      setIsDemoPlaybackActive(true);
-      clearDemoPlaybackTimeouts();
-    });
+    clearDemoPlaybackTimeouts();
+    setIsDemoPlaybackActive(true);
 
     let cumulativeDelay = 0;
     demoPlaybackTimeoutsRef.current = source.map((message, index) => {
