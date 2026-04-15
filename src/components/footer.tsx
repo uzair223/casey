@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { WaitlistSignupForm } from "./waitlist/waitlist-form";
@@ -10,8 +11,8 @@ export default function Footer() {
         <div className="min-w-md max-w-xl flex-1 space-y-6">
           <div>
             <p className="font-display text-xl">
-              {process.env.NEXT_PUBLIC_APP_NAME} &mdash; UK legal practice
-              witness intake
+              {env.NEXT_PUBLIC_APP_NAME} &mdash; UK legal practice witness
+              intake
             </p>
             <p className="text-sm leading-6 text-muted-foreground">
               Purpose-built for legal professionals handling witness statements,
@@ -72,8 +73,8 @@ export default function Footer() {
         </div>
       </div>
       <p className="mt-8 text-center text-sm text-muted-foreground">
-        &copy; {new Date().getFullYear()} {process.env.NEXT_PUBLIC_APP_NAME}.
-        All rights reserved.
+        &copy; {new Date().getFullYear()} {env.NEXT_PUBLIC_APP_NAME}. All rights
+        reserved.
       </p>
     </footer>
   );

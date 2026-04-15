@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/api-utils/rate-limit";
-import { logAuditEvent } from "@/lib/audit";
+import { logAuditEvent } from "@/lib/observability/audit";
 
 const getBearerToken = (request: Request) => {
   const header = request.headers.get("authorization");

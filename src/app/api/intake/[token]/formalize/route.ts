@@ -5,15 +5,21 @@ import { NextResponse } from "next/server";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { Allow, parse as parsePartialJson } from "partial-json";
 import { z } from "zod";
+import { logServerEvent } from "@/lib/observability/logger";
+
+import { env } from "@/lib/env";
+
+function previewText(value: string, maxLength = 800): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength)}...[truncated]`;
+}
 
 const client = new OpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
+  apiKey: env.OPENROUTER_API_KEY,
 });
-
-function parsePositiveInt(value: string | undefined, fallback: number) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
-}
 
 function isRetriableError(error: unknown) {
   if (typeof error !== "object" || error === null) return false;
@@ -212,20 +218,17 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
-  try {
-    if (!process.env.OPENROUTER_API_KEY) {
-      return NextResponse.json(
-        { error: "OpenRouter API key not configured." },
-        {
-          status: 500,
-        },
-      );
-    }
+  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
 
+  try {
     const { token } = await params;
 
     const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
     if (!statement) {
+      await logServerEvent("warn", "api.intake.formalize.not_found", {
+        requestId,
+        tokenSuffix: token.slice(-6),
+      });
       return NextResponse.json(
         { error: "Link not available" },
         { status: 404 },
@@ -238,10 +241,19 @@ export async function POST(
       "interact",
     );
     if (accessError) {
+      await logServerEvent("warn", "api.intake.formalize.access_denied", {
+        requestId,
+        status: accessError.status,
+      });
       return accessError;
     }
 
     if (statement.status === "locked") {
+      await logServerEvent("warn", "api.intake.formalize.precondition_failed", {
+        requestId,
+        reason: "statement_locked",
+        statementId: statement.id,
+      });
       return NextResponse.json(
         { error: "Unauthorized or locked." },
         { status: 409 },
@@ -263,31 +275,22 @@ export async function POST(
       evidence: { exhibit: string; description: string }[];
     };
 
-    const maxUserTurns = parsePositiveInt(
-      process.env.OPENAI_FORMALIZE_MAX_USER_TURNS,
-      40,
-    );
-    const maxCharsPerTurn = parsePositiveInt(
-      process.env.OPENAI_FORMALIZE_MAX_CHARS_PER_TURN,
-      1200,
-    );
-    const formalizeTimeoutMs = parsePositiveInt(
-      process.env.OPENAI_FORMALIZE_TIMEOUT_MS,
-      45000,
-    );
-    const maxAttempts = parsePositiveInt(
-      process.env.OPENAI_FORMALIZE_MAX_ATTEMPTS,
-      3,
-    );
+    await logServerEvent("info", "api.intake.formalize.request", {
+      requestId,
+      path: "/api/intake/[token]/formalize",
+      tokenSuffix: token.slice(-6),
+      responseCount: responses.length,
+      evidenceCount: (evidence ?? []).length,
+    });
 
     const normalizedUserResponses = responses
       .filter((response) => response.role === "user")
       .map((response) => response.content.trim())
       .filter(Boolean)
-      .slice(-maxUserTurns)
+      .slice(-env.FORMALIZE_MAX_USER_TURNS)
       .map((content, index) => {
         const normalized = content.replace(/\s+/g, " ").trim();
-        const bounded = normalized.slice(0, maxCharsPerTurn);
+        const bounded = normalized.slice(0, env.FORMALIZE_MAX_CHARS_PER_TURN);
         return `${index + 1}. ${bounded}`;
       });
 
@@ -316,16 +319,24 @@ export async function POST(
     let parsed: Record<string, string> | null = null;
     let lastError: unknown = null;
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await logServerEvent("info", "api.intake.formalize.model.call", {
+      requestId,
+      model: env.OPENROUTER_MODEL,
+      maxAttempts: env.FORMALIZE_MAX_ATTEMPTS,
+      timeoutMs: env.FORMALIZE_TIMEOUT_MS,
+      transcriptLength: transcriptText.length,
+    });
+
+    for (let attempt = 1; attempt <= env.FORMALIZE_MAX_ATTEMPTS; attempt++) {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), formalizeTimeoutMs);
+      const timeout = setTimeout(
+        () => controller.abort(),
+        env.FORMALIZE_TIMEOUT_MS,
+      );
       try {
         const result = client.callModel(
           {
-            model:
-              process.env.OPENAI_FORMALIZE_MODEL ||
-              process.env.OPENAI_MODEL ||
-              "gpt-4o-mini",
+            model: env.OPENROUTER_MODEL,
             instructions: generateFormalizeSystemPrompt(
               statementConfig,
               evidenceList,
@@ -354,13 +365,35 @@ export async function POST(
         }
 
         parsed = parseFormalizeContent(content, formalizeSchema);
+
+        await logServerEvent("info", "api.intake.formalize.model.response", {
+          requestId,
+          model: env.OPENROUTER_MODEL,
+          attempt,
+          rawResponsePreview: previewText(content),
+          rawResponseLength: content.length,
+          parsed,
+        });
+
         break;
       } catch (error) {
         lastError = error;
+
+        await logServerEvent(
+          "warn",
+          "api.intake.formalize.model.attempt_failed",
+          {
+            requestId,
+            model: env.OPENROUTER_MODEL,
+            attempt,
+            error,
+          },
+        );
+
         if (
           (!isRetriableError(error) &&
             !isStructuredParseOrValidationError(error)) ||
-          attempt === maxAttempts
+          attempt === env.FORMALIZE_MAX_ATTEMPTS
         ) {
           break;
         }
@@ -371,6 +404,10 @@ export async function POST(
 
     if (!parsed) {
       if (isAbortError(lastError)) {
+        await logServerEvent("warn", "api.intake.formalize.timed_out", {
+          requestId,
+          model: env.OPENROUTER_MODEL,
+        });
         return NextResponse.json(
           { error: "Formalization timed out. Please try again." },
           { status: 504 },
@@ -385,9 +422,18 @@ export async function POST(
       evidence ?? [],
     );
 
+    await logServerEvent("info", "api.intake.formalize.response", {
+      requestId,
+      sectionCount: Object.keys(parsedWithEvidence).length,
+      parsedWithEvidence,
+    });
+
     return NextResponse.json(parsedWithEvidence);
   } catch (error) {
-    console.error("Formalize error:", error);
+    await logServerEvent("error", "api.intake.formalize.failed", {
+      requestId,
+      error,
+    });
     return NextResponse.json(
       { error: "Failed to formalize statement" },
       { status: 500 },

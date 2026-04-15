@@ -1,9 +1,11 @@
+import { env } from "../env";
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "../../types/supabase.generated";
 import { assertServerOnly } from "../utils";
+import { createSupabaseLoggedFetch } from "./logging-fetch";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const secretKey = process.env.SUPABASE_SECRET_KEY ?? "";
+const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+const secretKey = env.SUPABASE_SECRET_KEY;
 
 export const getServiceClient = (source?: string) => {
   assertServerOnly(source);
@@ -13,5 +15,8 @@ export const getServiceClient = (source?: string) => {
 
   return createClient<Database>(supabaseUrl, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      fetch: createSupabaseLoggedFetch("service-client", source),
+    },
   });
 };

@@ -1,8 +1,9 @@
+import { env } from "@/lib/env";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata = {
-  title: `GDPR Notice | ${process.env.NEXT_PUBLIC_APP_NAME}`,
-  description: `High-level GDPR and UK data protection notice for ${process.env.NEXT_PUBLIC_APP_NAME}, built for legal practices handling witness statements.`,
+  title: `GDPR Notice | ${env.NEXT_PUBLIC_APP_NAME}`,
+  description: `High-level GDPR and UK data protection notice for ${env.NEXT_PUBLIC_APP_NAME}, built for legal practices handling witness statements.`,
 };
 
 export default function GdprPage() {
@@ -19,12 +20,12 @@ export default function GdprPage() {
         </CardHeader>
         <CardContent className="space-y-4 text-sm leading-6 text-muted-foreground">
           <p>
-            {process.env.NEXT_PUBLIC_APP_NAME} is designed for UK legal
-            practices that process personal data in the context of dispute
-            handling, witness statements, and legal case management. The
-            platform supports a controller/processor model where the law firm
-            remains responsible for the legal basis, instructions, retention
-            decisions, and responses to data subject rights.
+            {env.NEXT_PUBLIC_APP_NAME} is designed for UK legal practices that
+            process personal data in the context of dispute handling, witness
+            statements, and legal case management. The platform supports a
+            controller/processor model where the law firm remains responsible
+            for the legal basis, instructions, retention decisions, and
+            responses to data subject rights.
           </p>
           <p>
             At a high level, the service supports key UK GDPR obligations by
@@ -57,7 +58,7 @@ export default function GdprPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>How {process.env.NEXT_PUBLIC_APP_NAME} helps</CardTitle>
+            <CardTitle>How {env.NEXT_PUBLIC_APP_NAME} helps</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <p>Tenant-scoped access for legal teams</p>
@@ -80,10 +81,10 @@ export default function GdprPage() {
             handled by the firm that controls the relevant matter.
           </p>
           <p>
-            {process.env.NEXT_PUBLIC_APP_NAME} is a tool used by legal
-            professionals to support those processes. It is not a substitute for
-            the firm&apos;s own privacy notices, record-keeping, or legal advice
-            about compliance.
+            {env.NEXT_PUBLIC_APP_NAME} is a tool used by legal professionals to
+            support those processes. It is not a substitute for the firm&apos;s
+            own privacy notices, record-keeping, or legal advice about
+            compliance.
           </p>
         </CardContent>
       </Card>

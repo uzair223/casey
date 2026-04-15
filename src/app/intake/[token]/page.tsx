@@ -1,5 +1,5 @@
 "use client";
-
+import { env } from "@/lib/env";
 import React, { useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -79,7 +79,7 @@ function StatementContent() {
               Before starting, please review this notice. Your responses are
               processed for witness statement preparation for a UK legal matter.
               The law firm acts as controller for case handling, and{" "}
-              {process.env.NEXT_PUBLIC_APP_NAME}
+              {env.NEXT_PUBLIC_APP_NAME}
               processes data on their instructions.
             </p>
             <p>

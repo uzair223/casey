@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import { OpenRouter } from "@openrouter/sdk";
 import { NextResponse } from "next/server";
 
@@ -21,9 +22,10 @@ import { enforceRateLimit, getRateLimitKey } from "@/lib/api-utils/rate-limit";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { Allow, parse } from "partial-json";
 import { z } from "zod";
+import { logServerEvent } from "@/lib/observability/logger";
 
 const client = new OpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
+  apiKey: env.OPENROUTER_API_KEY,
 });
 
 function isRateLimitError(error: unknown): boolean {
@@ -56,11 +58,25 @@ function safeClose(controller: ReadableStreamDefaultController) {
   }
 }
 
+function previewText(value: string, maxLength = 800): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength)}...[truncated]`;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
-  if (!process.env.OPENROUTER_API_KEY) {
+  const requestId = request.headers.get("x-request-id") ?? randomUUID();
+
+  if (!env.OPENROUTER_API_KEY) {
+    await logServerEvent("error", "api.intake.chat.misconfigured", {
+      requestId,
+      reason: "missing_openrouter_api_key",
+    });
     return NextResponse.json(
       { error: "OpenRouter API key not configured." },
       {
@@ -69,7 +85,6 @@ export async function POST(
     );
   }
 
-  const requestId = randomUUID();
   const encoder = new TextEncoder();
 
   try {
@@ -81,14 +96,31 @@ export async function POST(
     };
 
     if (!userMessage || typeof userMessage !== "string") {
+      await logServerEvent("warn", "api.intake.chat.bad_request", {
+        requestId,
+        reason: "missing_user_message",
+      });
       return NextResponse.json("userMessage is required.", { status: 400 });
     }
 
     if (!Array.isArray(conversationHistory)) {
+      await logServerEvent("warn", "api.intake.chat.bad_request", {
+        requestId,
+        reason: "invalid_conversation_history",
+      });
       return NextResponse.json("conversationHistory must be an array.", {
         status: 400,
       });
     }
+
+    await logServerEvent("info", "api.intake.chat.request", {
+      requestId,
+      path: "/api/intake/[token]/chat",
+      tokenSuffix: token.slice(-6),
+      userMessagePreview: previewText(userMessage),
+      userMessageLength: userMessage.length,
+      conversationHistoryLength: conversationHistory.length,
+    });
 
     const rate = enforceRateLimit({
       key: getRateLimitKey(request, `intake-chat:${token}`),
@@ -97,6 +129,10 @@ export async function POST(
     });
 
     if (!rate.ok) {
+      await logServerEvent("warn", "api.intake.chat.rate_limited", {
+        requestId,
+        key: `intake-chat:${token}`,
+      });
       return NextResponse.json(
         "Too many requests. Please wait and try again.",
         { status: 429 },
@@ -106,6 +142,10 @@ export async function POST(
     const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
 
     if (!statement) {
+      await logServerEvent("warn", "api.intake.chat.not_found", {
+        requestId,
+        tokenSuffix: token.slice(-6),
+      });
       return NextResponse.json("Invalid or expired link.", { status: 404 });
     }
 
@@ -115,10 +155,19 @@ export async function POST(
       "interact",
     );
     if (accessError) {
+      await logServerEvent("warn", "api.intake.chat.access_denied", {
+        requestId,
+        status: accessError.status,
+      });
       return accessError;
     }
 
     if (!statement.gdpr_notice_acknowledgement) {
+      await logServerEvent("warn", "api.intake.chat.precondition_failed", {
+        requestId,
+        reason: "gdpr_notice_not_acknowledged",
+        statementId: statement.id,
+      });
       return NextResponse.json(
         "Please review and accept the privacy notice before starting this intake.",
         { status: 409 },
@@ -126,6 +175,11 @@ export async function POST(
     }
 
     if (statement.status === "locked") {
+      await logServerEvent("warn", "api.intake.chat.precondition_failed", {
+        requestId,
+        reason: "statement_locked",
+        statementId: statement.id,
+      });
       return NextResponse.json(
         "This witness statement intake has already been stopped. Please contact the law firm for next steps.",
         { status: 409 },
@@ -149,10 +203,19 @@ export async function POST(
       .strict();
 
     let responseStream;
+    const selectedModel = env.OPENROUTER_MODEL || "";
+
+    await logServerEvent("info", "api.intake.chat.model.call", {
+      requestId,
+      model: selectedModel,
+      transcriptLength: transcript.length,
+      temperature: 0.7,
+    });
+
     try {
       responseStream = client
         .callModel({
-          model: process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
+          model: selectedModel,
           instructions: `${generateChatSystemPrompt(statementConfig)}
 
 ${generateMetadataSystemPrompt(statementConfig)}
@@ -188,8 +251,16 @@ Coupling rules:
         })
         .getTextStream();
     } catch (error) {
-      console.error(`[${requestId}]`, error);
+      await logServerEvent("error", "api.intake.chat.model.call.failed", {
+        requestId,
+        model: selectedModel,
+        error,
+      });
       if (isRateLimitError(error)) {
+        await logServerEvent("warn", "api.intake.chat.model.rate_limited", {
+          requestId,
+          model: selectedModel,
+        });
         return NextResponse.json(
           "AI service is experiencing high demand. Please try again shortly.",
           { status: 429 },
@@ -255,9 +326,15 @@ Coupling rules:
               assistantContent = parsed.content;
             }
           } catch (parseError) {
-            console.error(
-              `[${requestId}] Coupled response parse failed, using streamed fallback.`,
-              parseError,
+            await logServerEvent(
+              "warn",
+              "api.intake.chat.model.parse_fallback",
+              {
+                requestId,
+                error: parseError,
+                rawResponsePreview: previewText(rawResponse),
+                streamedContentPreview: previewText(streamedContent),
+              },
             );
             if (!assistantContent) {
               assistantContent =
@@ -270,6 +347,14 @@ Coupling rules:
               }
             }
           }
+
+          await logServerEvent("info", "api.intake.chat.model.response", {
+            requestId,
+            assistantContentPreview: previewText(assistantContent),
+            assistantContentLength: assistantContent.length,
+            rawResponseLength: rawResponse.length,
+            metadata,
+          });
 
           if (canStream) {
             safeEnqueue(
@@ -308,10 +393,21 @@ Coupling rules:
               metadata,
             );
           } catch (persistError) {
-            console.error(`[${requestId}] Persistence error`, persistError);
+            await logServerEvent(
+              "error",
+              "api.intake.chat.persistence.failed",
+              {
+                requestId,
+                statementId: statement.id,
+                error: persistError,
+              },
+            );
           }
         } catch (err) {
-          console.error(`[${requestId}] Stream error`, err);
+          await logServerEvent("error", "api.intake.chat.stream.failed", {
+            requestId,
+            error: err,
+          });
         } finally {
           safeClose(controller);
         }
@@ -326,7 +422,10 @@ Coupling rules:
       },
     });
   } catch (error) {
-    console.error(`[${requestId}] Fatal API error`, error);
+    await logServerEvent("error", "api.intake.chat.failed", {
+      requestId,
+      error,
+    });
     return NextResponse.json(
       "I encountered an error processing your message. Please try again.",
       { status: 500 },

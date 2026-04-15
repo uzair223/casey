@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 
@@ -17,8 +18,8 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: process.env.NEXT_PUBLIC_APP_NAME,
-  description: `${process.env.NEXT_PUBLIC_APP_NAME} is a witness statement management tool designed for legal professionals. Streamline the intake, review, and management of witness statements with our secure and user-friendly platform.`,
+  title: env.NEXT_PUBLIC_APP_NAME,
+  description: `${env.NEXT_PUBLIC_APP_NAME} is a witness statement management tool designed for legal professionals. Streamline the intake, review, and management of witness statements with our secure and user-friendly platform.`,
 };
 
 export default function RootLayout({

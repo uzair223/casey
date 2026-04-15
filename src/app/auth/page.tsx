@@ -1,5 +1,5 @@
 "use client";
-
+import { env } from "@/lib/env";
 import { Suspense, useEffect, useState } from "react";
 import { useForm, FormProvider, SubmitHandler } from "react-hook-form";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -34,7 +34,6 @@ function AuthPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || "Casey";
 
   const { user, isLoading: isUserLoading, refreshUser } = useUser();
   const [status, setStatus] = useState<{
@@ -281,7 +280,7 @@ function AuthPageContent() {
         <aside>
           <div className="rounded-3xl border border-border/70 bg-card/75 p-6 backdrop-blur">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent-foreground">
-              {appName}
+              {env.NEXT_PUBLIC_APP_NAME}
             </p>
             <h1 className="mt-3 font-display text-3xl leading-tight text-primary">
               Sign in, join your firm workspace, and start intake in minutes.
@@ -579,8 +578,8 @@ function AuthPageContent() {
                   Join the waiting list
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  New to {appName}? Register your interest and we&apos;ll invite
-                  your firm to onboard.
+                  New to {env.NEXT_PUBLIC_APP_NAME}? Register your interest and
+                  we&apos;ll invite your firm to onboard.
                 </p>
               </CardHeader>
               <CardContent className="pt-0">

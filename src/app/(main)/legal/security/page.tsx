@@ -1,8 +1,9 @@
+import { env } from "@/lib/env";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata = {
-  title: `Security | ${process.env.NEXT_PUBLIC_APP_NAME}`,
-  description: `Security information for ${process.env.NEXT_PUBLIC_APP_NAME}, including access controls and data protection for UK legal practices.`,
+  title: `Security | ${env.NEXT_PUBLIC_APP_NAME}`,
+  description: `Security information for ${env.NEXT_PUBLIC_APP_NAME}, including access controls and data protection for UK legal practices.`,
 };
 
 export default function SecurityPage() {
@@ -19,10 +20,9 @@ export default function SecurityPage() {
         </CardHeader>
         <CardContent className="space-y-4 text-sm leading-6 text-muted-foreground">
           <p>
-            {process.env.NEXT_PUBLIC_APP_NAME} uses tenant-scoped access
-            controls so only authorized users can view and manage case records.
-            Witness links are time-bound and tied to a specific statement
-            record.
+            {env.NEXT_PUBLIC_APP_NAME} uses tenant-scoped access controls so
+            only authorized users can view and manage case records. Witness
+            links are time-bound and tied to a specific statement record.
           </p>
           <p>
             We design the platform to use secure defaults, role-based access,
@@ -76,7 +76,7 @@ export default function SecurityPage() {
           <p>
             Legal practices should ensure their own policies cover information
             security, retention, staff training, and incident response.{" "}
-            {process.env.NEXT_PUBLIC_APP_NAME} is a tool that supports those
+            {env.NEXT_PUBLIC_APP_NAME} is a tool that supports those
             obligations, not a replacement for them.
           </p>
           <p>

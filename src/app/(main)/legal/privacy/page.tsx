@@ -1,9 +1,10 @@
+import { env } from "@/lib/env";
 import { PageTitle } from "@/components/page-title";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata = {
-  title: `Privacy Policy | ${process.env.NEXT_PUBLIC_APP_NAME}`,
-  description: `Privacy policy for ${process.env.NEXT_PUBLIC_APP_NAME}, including how witness statement data is handled for UK legal practices.`,
+  title: `Privacy Policy | ${env.NEXT_PUBLIC_APP_NAME}`,
+  description: `Privacy policy for ${env.NEXT_PUBLIC_APP_NAME}, including how witness statement data is handled for UK legal practices.`,
 };
 
 export default function PrivacyPage() {
@@ -15,17 +16,17 @@ export default function PrivacyPage() {
         </CardHeader>
         <CardContent className="space-y-4 text-sm leading-6 text-muted-foreground">
           <p>
-            {process.env.NEXT_PUBLIC_APP_NAME} is designed for UK legal
-            practices that need to collect, review, and store witness statement
-            data securely. Personal data is processed only to provide the
-            service, support legal case handling, and meet contractual,
-            security, and compliance obligations.
+            {env.NEXT_PUBLIC_APP_NAME} is designed for UK legal practices that
+            need to collect, review, and store witness statement data securely.
+            Personal data is processed only to provide the service, support
+            legal case handling, and meet contractual, security, and compliance
+            obligations.
           </p>
           <p>
-            The law firm using {process.env.NEXT_PUBLIC_APP_NAME} remains the
-            controller for the underlying matter.{" "}
-            {process.env.NEXT_PUBLIC_APP_NAME} acts as a processor on the
-            firm&apos;s instructions for the data hosted in the platform.
+            The law firm using {env.NEXT_PUBLIC_APP_NAME} remains the controller
+            for the underlying matter. {env.NEXT_PUBLIC_APP_NAME} acts as a
+            processor on the firm&apos;s instructions for the data hosted in the
+            platform.
           </p>
           <p>
             Access to case data is restricted to authorized users within the
@@ -82,8 +83,8 @@ export default function PrivacyPage() {
           <p>
             If you are a witness and want to understand how your personal data
             is handled, please contact the firm that invited you. If you are a
-            legal practice evaluating {process.env.NEXT_PUBLIC_APP_NAME}, see
-            the dedicated UK GDPR notice for platform-specific guidance.
+            legal practice evaluating {env.NEXT_PUBLIC_APP_NAME}, see the
+            dedicated UK GDPR notice for platform-specific guidance.
           </p>
         </CardContent>
       </Card>

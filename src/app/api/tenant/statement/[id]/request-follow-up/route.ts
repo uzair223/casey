@@ -1,6 +1,7 @@
+import { env } from "@/lib/env";
 import { NextRequest } from "next/server";
 
-import { logAuditEvent } from "@/lib/audit";
+import { logAuditEvent } from "@/lib/observability/audit";
 import { requireTenantUser } from "@/lib/api-utils/auth";
 import { badRequest, ok, serverError } from "@/lib/api-utils/response";
 import { sendStatementFollowUpRequestEmail } from "@/lib/email";
@@ -52,7 +53,7 @@ export async function POST(
       return badRequest("Tenant not found");
     }
 
-    const statementUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/intake/${statement.token}`;
+    const statementUrl = `${env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/intake/${statement.token}`;
 
     await sendStatementFollowUpRequestEmail({
       to: statement.witness_email,

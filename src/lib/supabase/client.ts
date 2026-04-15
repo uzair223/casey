@@ -1,8 +1,10 @@
+import { env } from "../env";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../../types/supabase.generated";
+import { createSupabaseLoggedFetch } from "./logging-fetch";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+const supabasePublishableKey = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 let client: SupabaseClient<Database> | null = null;
 
@@ -12,7 +14,14 @@ export const getSupabaseClient = () => {
   }
 
   if (!client) {
-    client = createClient(supabaseUrl, supabasePublishableKey);
+    client = createClient(supabaseUrl, supabasePublishableKey, {
+      global:
+        typeof window === "undefined"
+          ? {
+              fetch: createSupabaseLoggedFetch("browser-client"),
+            }
+          : undefined,
+    });
   }
 
   return client;

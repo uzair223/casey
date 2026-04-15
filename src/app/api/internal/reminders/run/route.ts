@@ -1,6 +1,7 @@
+import { env } from "@/lib/env";
 import { NextRequest } from "next/server";
 
-import { logAuditEvent } from "@/lib/audit";
+import { logAuditEvent } from "@/lib/observability/audit";
 import { ok, serverError, unauthorized } from "@/lib/api-utils/response";
 import { sendStatementReminderEmail } from "@/lib/email";
 import { getServiceClient } from "@/lib/supabase/server";
@@ -62,7 +63,7 @@ function getSchedulerSecret(request: NextRequest): string | null {
 }
 
 function getExpectedSecret(): string | null {
-  return process.env.CRON_SECRET || null;
+  return env.CRON_SECRET || null;
 }
 
 function nextSendAtIso(from: Date, cadenceDays: number): string {
@@ -107,7 +108,7 @@ async function runReminderJob(request: NextRequest) {
 
   const now = new Date();
   const nowIso = now.toISOString();
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const baseUrl = env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
   const supabase = getServiceClient("internal_reminders_runner");
 
   const { data: dueRules, error: dueRulesError } = await supabase

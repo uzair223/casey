@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getServiceClient } from "@/lib/supabase/server";
 import { SERVERONLY_getUserProfile } from "@/lib/supabase/queries";
-import { logAuditEvent } from "@/lib/audit";
+import { logAuditEvent } from "@/lib/observability/audit";
 import {
   badRequest,
   conflict,

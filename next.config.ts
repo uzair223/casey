@@ -1,11 +1,8 @@
 import type { NextConfig } from "next";
+import { env } from "@/lib/env";
 
 const supabaseHostname = (() => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  if (!supabaseUrl) {
-    return undefined;
-  }
+  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
 
   try {
     return new URL(supabaseUrl).hostname;

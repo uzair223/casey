@@ -1,5 +1,5 @@
 "use client";
-
+import { env } from "@/lib/env";
 import { useState } from "react";
 import Link from "next/link";
 import { BellIcon, MenuIcon, XIcon } from "lucide-react";
@@ -45,7 +45,7 @@ export default function Header() {
     >
       <Link href="/">
         <p className="text-sm uppercase leading-[0.8em] tracking-[0.2em] text-muted-foreground">
-          {user?.tenant_name ?? process.env.NEXT_PUBLIC_APP_NAME}
+          {user?.tenant_name ?? env.NEXT_PUBLIC_APP_NAME}
         </p>
         <p className="font-display text-xl">Statement Studio</p>
       </Link>

@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import { NextRequest } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { SERVERONLY_getStatementForSendLink } from "@/lib/supabase/queries";
@@ -73,7 +74,7 @@ export async function POST(
     }
 
     // Build statement link URL
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const baseUrl = env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
     const statementUrl = `${baseUrl}/intake/${statement.token}`;
 
     await sendStatementLinkEmail({

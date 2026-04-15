@@ -2,7 +2,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { SERVERONLY_getUserProfile } from "@/lib/supabase/queries";
 import { sendInvitationEmail } from "@/lib/email";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/api-utils/rate-limit";
-import { logAuditEvent } from "@/lib/audit";
+import { logAuditEvent } from "@/lib/observability/audit";
 import {
   badRequest,
   forbidden,

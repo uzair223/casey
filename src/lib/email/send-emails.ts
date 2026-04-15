@@ -1,3 +1,4 @@
+import { env } from "../env";
 import { Resend } from "resend";
 import { getAuthURL } from "../utils";
 import { getServiceClient } from "../supabase/server";
@@ -18,10 +19,10 @@ import {
 } from "./templates";
 
 // Resend integration: Requires RESEND_API_KEY and RESEND_FROM in environment variables
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(env.RESEND_API_KEY);
 
 const getResendFrom = () => {
-  const from = process.env.RESEND_FROM;
+  const from = env.RESEND_FROM;
   if (!from) {
     throw new Error("Missing RESEND_FROM environment variable.");
   }
