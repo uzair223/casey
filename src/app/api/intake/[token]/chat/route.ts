@@ -237,25 +237,9 @@ export async function POST(
     try {
       const completion = await client.chat.completions.create({
         model: selectedModel,
-        messages: [
-          {
-            role: "system",
-            content: `${generateChatSystemPrompt(statementConfig)}
 
-${generateMetadataSystemPrompt(statementConfig)}
+        temperature: 0.3,
 
-Coupling rules:
-- Produce content and metadata for the SAME turn.
-- metadata.progress.currentPhase must match the phase being asked about in content.
-- Do not ask next-phase questions in content while current phase is not sufficiently complete.
-- metadata.progress.phaseCompleteness must reflect the progression implied by content and latest user message.`,
-          },
-          {
-            role: "system",
-            content: `PREVIOUS METADATA\n${JSON.stringify(lastMetadata)}`,
-          },
-          ...modelMessages,
-        ],
         response_format: {
           type: "json_schema",
           json_schema: {
@@ -264,7 +248,65 @@ Coupling rules:
             schema: responseSchema.toJSONSchema(),
           },
         },
-        temperature: 0.7,
+
+        messages: [
+          // 1. GLOBAL PRIORITY (very short, very strict)
+          {
+            role: "system",
+            content: `
+HIGHEST PRIORITY RULE:
+You are a stateful intake system producing BOTH chat + metadata.
+
+Metadata correctness and phase tracking are the source of truth.
+Chat output must not violate metadata state rules.
+`,
+          },
+
+          // 2. METADATA ENGINE (isolated logic block)
+          {
+            role: "system",
+            content: generateMetadataSystemPrompt(statementConfig),
+          },
+
+          // 3. CHAT BEHAVIOR (isolated logic block)
+          {
+            role: "system",
+            content: generateChatSystemPrompt(statementConfig),
+          },
+
+          // 4. HARD COUPLING CONTRACT (VERY IMPORTANT — KEEP SEPARATE)
+          {
+            role: "system",
+            content: `
+COUPLING CONTRACT (STRICT):
+
+- metadata.progress.currentPhase defines the ONLY active phase.
+- Chat must ask ONLY about metadata.progress.currentPhase.
+- Chat must NOT introduce or imply a new phase unless metadata already advanced it.
+- metadata.phaseCompleteness must reflect ONLY verified progression from:
+  (assistant questions + user factual responses + evidence checks)
+
+- If chat and metadata conflict:
+  → metadata is authoritative
+  → chat must be interpreted as invalid progression attempt
+
+- Phase advancement requires BOTH:
+  (1) assistant explicitly shifting domain
+  AND
+  (2) metadata validation consistency
+`,
+          },
+
+          // 5. STATE INPUT (unchanged state only)
+          {
+            role: "system",
+            content: `PREVIOUS METADATA:\n${JSON.stringify(lastMetadata)}`,
+          },
+
+          // 6. CONVERSATION
+          ...modelMessages,
+        ],
+
         stream: true,
       });
 
