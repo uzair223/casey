@@ -1,5 +1,5 @@
 import { env } from "@/lib/env";
-import { OpenRouter } from "@openrouter/sdk";
+import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
 import { Message } from "@/types";
@@ -24,8 +24,20 @@ import { Allow, parse } from "partial-json";
 import { z } from "zod";
 import { logServerEvent } from "@/lib/observability/logger";
 
-const client = new OpenRouter({
+const openRouterHeaders: Record<string, string> = {};
+
+if (env.NEXT_PUBLIC_BASE_URL) {
+  openRouterHeaders["HTTP-Referer"] = env.NEXT_PUBLIC_BASE_URL;
+}
+
+if (env.NEXT_PUBLIC_APP_NAME) {
+  openRouterHeaders["X-Title"] = env.NEXT_PUBLIC_APP_NAME;
+}
+
+const client = new OpenAI({
   apiKey: env.OPENROUTER_API_KEY,
+  baseURL: "https://openrouter.ai/api/v1",
+  defaultHeaders: openRouterHeaders,
 });
 
 function isRateLimitError(error: unknown): boolean {
@@ -189,10 +201,20 @@ export async function POST(
     const statementConfig = statement.statement_config;
 
     const lastMetadata = getLastMeta(conversationHistory, statementConfig);
-    const transcript = conversationHistory
-      .concat([{ role: "user", content: userMessage }])
-      .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
-      .join("\n\n");
+    const modelMessages: Array<{
+      role: "user" | "assistant";
+      content: string;
+    }> = [
+      ...conversationHistory.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+      { role: "user", content: userMessage },
+    ];
+    const contextCharLength = modelMessages.reduce(
+      (total, message) => total + message.content.length,
+      0,
+    );
 
     const metadataSchema = ResponseMetadataSchema(statementConfig);
     const responseSchema = z
@@ -202,21 +224,23 @@ export async function POST(
       })
       .strict();
 
-    let responseStream;
+    let responseStream: AsyncIterable<string>;
     const selectedModel = env.OPENROUTER_MODEL || "";
 
     await logServerEvent("info", "api.intake.chat.model.call", {
       requestId,
       model: selectedModel,
-      transcriptLength: transcript.length,
+      transcriptLength: contextCharLength,
       temperature: 0.7,
     });
 
     try {
-      responseStream = client
-        .callModel({
-          model: selectedModel,
-          instructions: `${generateChatSystemPrompt(statementConfig)}
+      const completion = await client.chat.completions.create({
+        model: selectedModel,
+        messages: [
+          {
+            role: "system",
+            content: `${generateChatSystemPrompt(statementConfig)}
 
 ${generateMetadataSystemPrompt(statementConfig)}
 
@@ -225,31 +249,33 @@ Coupling rules:
 - metadata.progress.currentPhase must match the phase being asked about in content.
 - Do not ask next-phase questions in content while current phase is not sufficiently complete.
 - metadata.progress.phaseCompleteness must reflect the progression implied by content and latest user message.`,
-          input: [
-            {
-              role: "user",
-              content: `TRANSCRIPT\n\n${transcript}`,
-            },
-            {
-              role: "user",
-              content: `LATEST USER MESSAGE\n${userMessage}`,
-            },
-            {
-              role: "user",
-              content: `PREVIOUS METADATA\n${JSON.stringify(lastMetadata)}`,
-            },
-          ],
-          text: {
-            format: {
-              type: "json_schema",
-              name: "witness_statement_response",
-              strict: true,
-              schema: responseSchema.toJSONSchema(),
-            },
           },
-          temperature: 0.7,
-        })
-        .getTextStream();
+          {
+            role: "system",
+            content: `PREVIOUS METADATA\n${JSON.stringify(lastMetadata)}`,
+          },
+          ...modelMessages,
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "witness_statement_response",
+            strict: true,
+            schema: responseSchema.toJSONSchema(),
+          },
+        },
+        temperature: 0.7,
+        stream: true,
+      });
+
+      responseStream = (async function* () {
+        for await (const chunk of completion) {
+          const delta = chunk.choices[0]?.delta?.content;
+          if (typeof delta === "string" && delta.length > 0) {
+            yield delta;
+          }
+        }
+      })();
     } catch (error) {
       await logServerEvent("error", "api.intake.chat.model.call.failed", {
         requestId,

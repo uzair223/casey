@@ -1,4 +1,4 @@
-import { OpenRouter } from "@openrouter/sdk";
+import OpenAI from "openai";
 import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
 import { generateFormalizeSystemPrompt } from "@/lib/statement-utils/prompts";
 import { NextResponse } from "next/server";
@@ -17,8 +17,20 @@ function previewText(value: string, maxLength = 800): string {
   return `${value.slice(0, maxLength)}...[truncated]`;
 }
 
-const client = new OpenRouter({
+const openRouterHeaders: Record<string, string> = {};
+
+if (env.NEXT_PUBLIC_BASE_URL) {
+  openRouterHeaders["HTTP-Referer"] = env.NEXT_PUBLIC_BASE_URL;
+}
+
+if (env.NEXT_PUBLIC_APP_NAME) {
+  openRouterHeaders["X-Title"] = env.NEXT_PUBLIC_APP_NAME;
+}
+
+const client = new OpenAI({
   apiKey: env.OPENROUTER_API_KEY,
+  baseURL: "https://openrouter.ai/api/v1",
+  defaultHeaders: openRouterHeaders,
 });
 
 function isRetriableError(error: unknown) {
@@ -334,22 +346,25 @@ export async function POST(
         env.FORMALIZE_TIMEOUT_MS,
       );
       try {
-        const result = client.callModel(
+        const completion = await client.chat.completions.create(
           {
             model: env.OPENROUTER_MODEL,
-            instructions: generateFormalizeSystemPrompt(
-              statementConfig,
-              evidenceList,
-            ),
-            input: [
+            messages: [
+              {
+                role: "system",
+                content: generateFormalizeSystemPrompt(
+                  statementConfig,
+                  evidenceList,
+                ),
+              },
               {
                 role: "user",
                 content: `Witness responses (user-only transcript):\n${transcriptText}`,
               },
             ],
-            text: {
-              format: {
-                type: "json_schema",
+            response_format: {
+              type: "json_schema",
+              json_schema: {
                 name: "witness_statement",
                 strict: true,
                 schema: formalizeJsonSchema,
@@ -359,7 +374,7 @@ export async function POST(
           { signal: controller.signal },
         );
 
-        const content = await result.getText();
+        const content = completion.choices[0]?.message?.content?.trim();
         if (!content) {
           throw new Error("Empty AI response");
         }
