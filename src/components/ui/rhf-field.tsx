@@ -11,10 +11,17 @@ import {
 } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 
-type RhfFieldControlProps<TName extends FieldPath<FieldValues>> = Pick<
-  ControllerRenderProps<FieldValues, TName>,
-  "name" | "onBlur" | "onChange" | "ref" | "value"
->;
+type RhfDomControlValue = string | number | readonly string[] | undefined;
+
+type RhfFieldControlProps<
+  TFieldValues extends FieldValues,
+  TName extends FieldPath<TFieldValues>,
+> = Pick<
+  ControllerRenderProps<TFieldValues, TName>,
+  "name" | "onBlur" | "onChange" | "ref"
+> & {
+  value: RhfDomControlValue;
+};
 
 type RhfFieldProps<
   TFieldValues extends FieldValues,
@@ -26,7 +33,7 @@ type RhfFieldProps<
   label: ReactNode;
   registerOptions?: RegisterOptions<TFieldValues, TName>;
   renderControl: (
-    registration: RhfFieldControlProps<TName>,
+    registration: RhfFieldControlProps<TFieldValues, TName>,
     required: boolean,
   ) => ReactNode;
 };
@@ -44,6 +51,22 @@ function hasRequiredRule<
   }
 
   return true;
+}
+
+function toDomControlValue(value: unknown): RhfDomControlValue {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item));
+  }
+
+  return String(value);
 }
 
 export function RhfField<
@@ -65,12 +88,12 @@ export function RhfField<
       name={name}
       rules={registerOptions}
       render={({ field, fieldState }) => {
-        const registration: RhfFieldControlProps<TName> = {
-          name: field.name as TName,
+        const registration: RhfFieldControlProps<TFieldValues, TName> = {
+          name: field.name,
           onBlur: field.onBlur,
           onChange: field.onChange,
           ref: field.ref,
-          value: field.value ?? "",
+          value: toDomControlValue(field.value),
         };
         const message = fieldState.error?.message
           ? String(fieldState.error.message)

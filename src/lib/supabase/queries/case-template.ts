@@ -167,7 +167,10 @@ export async function listFavouriteCaseTemplatesForCaseCreation(params: {
     favouriteSet.has(template.id),
   );
 
-  return withDefaultFirst(favourites, preferences.default_case_template_id);
+  return withDefaultFirst(
+    favourites.length === 0 ? templates : favourites,
+    preferences.default_case_template_id,
+  );
 }
 
 export async function getCaseTemplateStatementTemplateLinks(
