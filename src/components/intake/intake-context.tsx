@@ -350,7 +350,10 @@ export function IntakeProvider({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get AI response");
+        throw new Error(
+          (await response.text()) ||
+            "An unknown error occurred. Please try again.",
+        );
       }
 
       const reader = response.body?.getReader();
