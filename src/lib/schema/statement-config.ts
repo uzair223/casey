@@ -5,6 +5,10 @@ export const StatementPhaseConfigSchema = z
     id: z.string().trim().min(1),
     title: z.string().trim().min(1),
     description: z.string(),
+    allowedTopics: z.array(z.string()).optional(),
+    forbiddenTopics: z.array(z.string()).optional(),
+    completionCriteria: z.array(z.string()).optional(),
+    questioningMode: z.enum(["narrative", "structured", "mixed"]).optional(),
   })
   .strict();
 

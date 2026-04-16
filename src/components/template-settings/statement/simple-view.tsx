@@ -88,6 +88,29 @@ export function StatementTemplateSimpleView() {
     return !currentId || currentId === expectedId;
   };
 
+  const parseListValue = (
+    value: string,
+    separator: "newline" | "comma" = "newline",
+  ): string[] | undefined => {
+    const next = value
+      .split(separator === "comma" ? "," : "\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    return next.length > 0 ? next : undefined;
+  };
+
+  const formatListValue = (
+    value?: string[],
+    separator: "newline" | "comma" = "newline",
+  ): string => {
+    if (!value || value.length === 0) {
+      return "";
+    }
+
+    return value.join(separator === "comma" ? ", " : "\n");
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid gap-2">
@@ -442,6 +465,87 @@ export function StatementTemplateSimpleView() {
                   updatePhases(next);
                 }}
               />
+
+              <Textarea
+                className="col-span-2"
+                rows={2}
+                value={formatListValue(phase.allowedTopics, "comma")}
+                placeholder="Allowed topics (comma-separated)"
+                disabled={!canEditActiveTemplate}
+                onChange={(event) => {
+                  const next = [...draftConfig.phases];
+                  next[index] = {
+                    ...next[index],
+                    allowedTopics: parseListValue(event.target.value, "comma"),
+                  };
+                  updatePhases(next);
+                }}
+              />
+
+              <Textarea
+                className="col-span-2"
+                rows={2}
+                value={formatListValue(phase.forbiddenTopics, "comma")}
+                placeholder="Forbidden topics (comma-separated)"
+                disabled={!canEditActiveTemplate}
+                onChange={(event) => {
+                  const next = [...draftConfig.phases];
+                  next[index] = {
+                    ...next[index],
+                    forbiddenTopics: parseListValue(
+                      event.target.value,
+                      "comma",
+                    ),
+                  };
+                  updatePhases(next);
+                }}
+              />
+
+              <Textarea
+                className="col-span-2"
+                rows={2}
+                value={formatListValue(phase.completionCriteria)}
+                placeholder="Completion criteria (one per line)"
+                disabled={!canEditActiveTemplate}
+                onChange={(event) => {
+                  const next = [...draftConfig.phases];
+                  next[index] = {
+                    ...next[index],
+                    completionCriteria: parseListValue(event.target.value),
+                  };
+                  updatePhases(next);
+                }}
+              />
+
+              <div className="col-span-2 grid gap-1">
+                <p className="text-xs text-muted-foreground">
+                  Questioning mode
+                </p>
+                <select
+                  className="h-9 rounded-md border bg-background px-3 text-sm"
+                  value={phase.questioningMode ?? ""}
+                  disabled={!canEditActiveTemplate}
+                  onChange={(event) => {
+                    const next = [...draftConfig.phases];
+                    const value = event.target.value;
+                    next[index] = {
+                      ...next[index],
+                      questioningMode:
+                        value === "narrative" ||
+                        value === "structured" ||
+                        value === "mixed"
+                          ? value
+                          : undefined,
+                    };
+                    updatePhases(next);
+                  }}
+                >
+                  <option value="">Default</option>
+                  <option value="narrative">Narrative</option>
+                  <option value="structured">Structured</option>
+                  <option value="mixed">Mixed</option>
+                </select>
+              </div>
             </div>
           );
         }}
@@ -456,6 +560,10 @@ export function StatementTemplateSimpleView() {
                 new Set(next.map((phase) => phase.id)),
               ),
               description: "",
+              allowedTopics: undefined,
+              forbiddenTopics: undefined,
+              completionCriteria: undefined,
+              questioningMode: undefined,
             },
           ]);
         }}
@@ -465,6 +573,28 @@ export function StatementTemplateSimpleView() {
               id: phase.id,
               title: phase.title,
               description: phase.description ?? "",
+              allowedTopics: phase.allowedTopics
+                ?.map((item) => item.trim())
+                .filter(Boolean).length
+                ? phase.allowedTopics
+                    ?.map((item) => item.trim())
+                    .filter(Boolean)
+                : undefined,
+              forbiddenTopics: phase.forbiddenTopics
+                ?.map((item) => item.trim())
+                .filter(Boolean).length
+                ? phase.forbiddenTopics
+                    ?.map((item) => item.trim())
+                    .filter(Boolean)
+                : undefined,
+              completionCriteria: phase.completionCriteria
+                ?.map((item) => item.trim())
+                .filter(Boolean).length
+                ? phase.completionCriteria
+                    ?.map((item) => item.trim())
+                    .filter(Boolean)
+                : undefined,
+              questioningMode: phase.questioningMode,
             })),
           );
         }}
