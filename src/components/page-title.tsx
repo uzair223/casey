@@ -16,6 +16,7 @@ type PageTitleProps = {
   title: ReactNode;
   description?: ReactNode;
   actions?: PageTitleAction[];
+  titleTag?: React.ElementType;
 };
 
 export function PageTitle({
@@ -23,6 +24,7 @@ export function PageTitle({
   title,
   description,
   actions = [],
+  titleTag: TitleTag = "h1",
 }: PageTitleProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -32,9 +34,9 @@ export function PageTitle({
             {subtitle}
           </p>
         )}
-        <h1 className="text-3xl font-display font-semibold text-primary">
+        <TitleTag className="text-3xl font-display font-medium text-primary">
           {title}
-        </h1>
+        </TitleTag>
         {description && (
           <p className="mt-2 text-muted-foreground">{description}</p>
         )}

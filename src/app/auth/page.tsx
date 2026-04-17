@@ -276,9 +276,9 @@ function AuthPageContent() {
 
   return (
     <section className="relative container min-h-screen py-6">
-      <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+      <div className="grid gap-6 md:grid-cols-[0.9fr_1.1fr] md:items-start">
         <aside>
-          <div className="rounded-3xl border border-border/70 bg-card/75 p-6 backdrop-blur">
+          <div className="max-md:hidden rounded-3xl border border-border/70 bg-card/75 p-6 backdrop-blur">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent-foreground">
               {env.NEXT_PUBLIC_APP_NAME}
             </p>
