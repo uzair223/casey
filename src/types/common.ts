@@ -31,12 +31,17 @@ export type Case = Omit<Tables<"cases">, "case_metadata"> & {
 };
 
 //#region Message
+
 export type Message = {
+  id?: string;
   role: "user" | "assistant";
   content: string;
-  id?: string;
+};
+
+export type IntakeChatMessage = Message & {
   meta?: ResponseMetadata;
 };
+
 export type ConversationMessage = Tables<"conversation_messages">;
 export type MetadataProgress = ResponseMetadata["progress"];
 export type MetadataMissingDetails = ResponseMetadata["ignoredMissingDetails"];
@@ -193,11 +198,11 @@ export type FullStatementDataResponseBase = {
 export type FullStatementDataResponse<T extends boolean = boolean> =
   T extends true
     ? FullStatementDataResponseBase & {
-        messages: Message[];
+        messages: IntakeChatMessage[];
         has_history: boolean;
       }
     : T extends false
-      ? FullStatementDataResponseBase & { latest: Message }
+      ? FullStatementDataResponseBase & { latest: IntakeChatMessage }
       : FullStatementDataResponseBase;
 
 export type StatementDataResponse<T extends boolean = boolean> =

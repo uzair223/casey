@@ -1,4 +1,11 @@
-import { Document, Packer, Paragraph, TextRun } from "docx";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  AlignmentType,
+  BorderStyle,
+} from "docx";
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import type { DocGeneratorStatementData } from "@/types";
@@ -91,116 +98,250 @@ export async function generateStarterDoc(params: {
   templateName: string;
   config: DocGeneratorStatementData["config"];
 }): Promise<Blob> {
+  const { config } = params;
+
+  // ── Key resolution helpers ─────────────────────────────────────────────────
+  const PARTY_KEYS = new Set(["court", "claimNumber", "claimant", "defendant"]);
+  const depSet = new Set(config.case_metadata_deps ?? []);
+  const nonPartyDeps = (config.case_metadata_deps ?? []).filter(
+    (d) => !PARTY_KEYS.has(d),
+  );
+  const hasDep = (key: string) => depSet.has(key);
+
+  const witnessFieldIds = new Set(
+    (config.witness_metadata_fields ?? []).map((f) => f.id),
+  );
+  const hasAddress = witnessFieldIds.has("address");
+  const hasOccupation = witnessFieldIds.has("occupation");
+
+  const INLINE_WITNESS_KEYS = new Set(["address", "occupation"]);
+  const remainingWitnessMeta = (config.witness_metadata_fields ?? []).filter(
+    (f) => !INLINE_WITNESS_KEYS.has(f.id),
+  );
+
+  // ── Design tokens ──────────────────────────────────────────────────────────
+  // Font sizes (half-points): 20 = 10pt footer, 22 = 11pt body, 24 = 12pt heading, 28 = 14pt title
+  const SZ = { footer: 20, body: 22, heading: 24, title: 28 } as const;
+  // Spacing grid (twips, multiples of 80): 80≈1.7mm, 160≈3.4mm, 240≈5mm, 320≈6.7mm, 400≈8.5mm
+  const SP = { xs: 80, sm: 160, md: 240, lg: 320, xl: 400 } as const;
+
+  // ── Paragraph builders ─────────────────────────────────────────────────────
+
+  const centered = (
+    text: string,
+    sz: number = SZ.heading,
+    sp: number = SP.xs,
+    bold = true,
+  ) =>
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: sp },
+      children: [new TextRun({ text, bold, size: sz })],
+    });
+
+  const spacer = (after: number) =>
+    new Paragraph({ spacing: { after }, children: [new TextRun("")] });
+
+  // Full-width heavy rule — heavier (sz=8) to read cleanly at A4 margins
+  const heavyRule = () =>
+    new Paragraph({
+      spacing: { before: SP.sm, after: SP.sm },
+      border: {
+        bottom: {
+          style: BorderStyle.SINGLE,
+          size: 8,
+          color: "000000",
+          space: 1,
+        },
+      },
+      children: [new TextRun("")],
+    });
+
+  // Section heading: bold 12pt with a hairline bottom border
+  const sectionHeading = (title: string) =>
+    new Paragraph({
+      spacing: { before: SP.md, after: SP.xs },
+      border: {
+        bottom: {
+          style: BorderStyle.SINGLE,
+          size: 4,
+          color: "000000",
+          space: 12,
+        },
+      },
+      children: [new TextRun({ text: title, bold: true, size: SZ.heading })],
+    });
+
+  // Section body: black (formal), standard body size
+  const sectionBody = (tag: string) =>
+    new Paragraph({
+      spacing: { after: SP.sm },
+      children: [new TextRun({ text: tag, size: SZ.body })],
+    });
+
+  // Plain body paragraph: consistent rhythm, no ad-hoc before/after pairs
+  const bodyPara = (
+    text: string,
+    opts?: { bold?: boolean; italics?: boolean; size?: number },
+  ) =>
+    new Paragraph({
+      spacing: { after: SP.sm },
+      children: [
+        new TextRun({
+          text,
+          size: opts?.size ?? SZ.body,
+          bold: opts?.bold,
+          italics: opts?.italics,
+        }),
+      ],
+    });
+
+  // ── Opening "I, ..." paragraph ─────────────────────────────────────────────
+  const openingRuns: TextRun[] = [
+    new TextRun({ text: "I, " }),
+    new TextRun({ text: "{witnessName}", bold: true }),
+  ];
+  if (hasAddress) {
+    openingRuns.push(new TextRun({ text: ", of {witnessMetadata.address}" }));
+  }
+  if (hasOccupation) {
+    openingRuns.push(new TextRun({ text: ", {witnessMetadata.occupation}" }));
+  }
+  openingRuns.push(new TextRun({ text: ", will say as follows:" }));
+
   const doc = new Document({
+    styles: {
+      default: {
+        document: { run: { font: "Times New Roman", size: SZ.body } },
+      },
+    },
     sections: [
       {
+        properties: {
+          page: {
+            size: { width: 11906, height: 16838 }, // A4
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1800 },
+          },
+        },
         children: [
+          // ── Non-party case metadata ──────────────────────────────────────
+          ...(nonPartyDeps.length > 0
+            ? [
+                bodyPara("Case Metadata", { bold: true }),
+                ...nonPartyDeps.map((dep) =>
+                  bodyPara(`${dep}: {caseMetadata.${dep}}`),
+                ),
+                spacer(SP.sm),
+              ]
+            : []),
+
+          // ── Court & claim number ─────────────────────────────────────────
+          ...(hasDep("court")
+            ? [centered("IN THE {caseMetadata.court}", SZ.heading, SP.md)]
+            : []),
+          ...(hasDep("claimNumber")
+            ? [centered("CLAIM NO: {caseMetadata.claimNumber}", SZ.body, SP.md)]
+            : []),
+
+          // ── Parties block ────────────────────────────────────────────────
+          ...(hasDep("claimant") && hasDep("defendant")
+            ? [
+                centered("BETWEEN:", SZ.body, SP.sm),
+                centered("{caseMetadata.claimant}", SZ.body, SP.xs),
+                centered("Claimant", SZ.body, SP.sm, false),
+                centered("- and -", SZ.body, SP.sm),
+                centered("{caseMetadata.defendant}", SZ.body, SP.xs),
+                centered("Claimant", SZ.body, SP.md, false),
+              ]
+            : []),
+
+          // ── Heavy rule ───────────────────────────────────────────────────
+          heavyRule(),
+          spacer(SP.xs),
+
+          // ── Witness statement title ───────────────────────────────────────
+          centered("WITNESS STATEMENT OF {witnessName}", SZ.title),
+          spacer(SP.md),
+
+          // ── Opening paragraph ─────────────────────────────────────────────
           new Paragraph({
-            children: [
-              new TextRun({ text: params.templateName, bold: true, size: 28 }),
-            ],
+            spacing: { after: SP.md },
+            children: openingRuns,
           }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "This template keeps the merge tags used by the app. Preserve them if you edit the layout.",
-                italics: true,
-                size: 18,
-              }),
-            ],
-          }),
-          new Paragraph({
-            children: [new TextRun({ text: "Case title: {caseTitle}" })],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: "\nCase metadata dependencies\n",
-                bold: true,
-              }),
-            ],
-          }),
-          ...(params.config.case_metadata_deps ?? []).map(
-            (dep) =>
-              new Paragraph({
-                children: [
-                  new TextRun({ text: `${dep}: {caseMetadata.${dep}}` }),
-                ],
-              }),
-          ),
-          ...(params.config.case_metadata_deps?.length
-            ? []
-            : [
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: "Example: {caseMetadata.fieldKey}",
-                    }),
-                  ],
-                }),
-              ]),
-          new Paragraph({
-            children: [new TextRun({ text: "Witness name: {witnessName}" })],
-          }),
-          new Paragraph({
-            children: [new TextRun({ text: "Witness email: {witnessEmail}" })],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: "\nStatement sections\n", bold: true }),
-            ],
-          }),
-          ...(params.config.sections ?? []).flatMap((section) => [
-            new Paragraph({
-              children: [new TextRun({ text: section.title, bold: true })],
-            }),
-            new Paragraph({
-              children: [new TextRun({ text: `{sections.${section.id}}` })],
-            }),
+
+          // ── Remaining witness metadata fields ─────────────────────────────
+          ...(remainingWitnessMeta.length > 0
+            ? [
+                sectionHeading("1. Witness Details"),
+                bodyPara(
+                  remainingWitnessMeta
+                    .map((f) => `${f.label}: {witnessMetadata.${f.id}}`)
+                    .join("\n"),
+                ),
+              ]
+            : []),
+
+          // ── Statement sections ────────────────────────────────────────────
+          ...(config.sections ?? []).flatMap((section, i) => [
+            sectionHeading(
+              `${i + (!remainingWitnessMeta.length ? 1 : 2)}. ${section.title}`,
+            ),
+            sectionBody(`{sections.${section.id}}`),
           ]),
-          ...(params.config.sections?.length
-            ? []
-            : [
-                new Paragraph({
-                  children: [
-                    new TextRun({ text: "Example: {sections.sectionKey}" }),
-                  ],
-                }),
-              ]),
+
+          // ── Heavy rule before Statement of Truth ──────────────────────────
+          spacer(SP.md),
+          heavyRule(),
+          spacer(SP.sm),
+
+          // ── Statement of Truth ────────────────────────────────────────────
           new Paragraph({
+            spacing: { after: SP.sm },
             children: [
-              new TextRun({ text: "\nWitness metadata\n", bold: true }),
-            ],
-          }),
-          ...(params.config.witness_metadata_fields ?? []).map(
-            (field) =>
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `${field.label}: {witnessMetadata.${field.id}}`,
-                  }),
-                ],
+              new TextRun({
+                text: "STATEMENT OF TRUTH",
+                bold: true,
+                size: SZ.heading,
               }),
-          ),
-          ...(params.config.witness_metadata_fields?.length
-            ? []
-            : [
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: "Example: {witnessMetadata.fieldKey}",
-                    }),
-                  ],
-                }),
-              ]),
-          new Paragraph({
-            children: [new TextRun({ text: "Signature name: {witnessName}" })],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({ text: "Signature date: {signatureDate}" }),
             ],
           }),
+          new Paragraph({
+            spacing: { after: SP.lg },
+            children: [
+              new TextRun({
+                text:
+                  "I believe that the facts stated in this witness statement are true. " +
+                  "I understand that proceedings for contempt of court may be brought against " +
+                  "anyone who makes, or causes to be made, a false statement in a document " +
+                  "verified by a statement of truth without an honest belief in its truth.",
+                size: SZ.body,
+              }),
+            ],
+          }),
+
+          // ── Signature block ───────────────────────────────────────────────
+          new Paragraph({
+            spacing: { after: SP.sm },
+            children: [
+              new TextRun({ text: "Signed:  " }),
+              new TextRun({
+                text: "................................................................",
+              }),
+            ],
+          }),
+          new Paragraph({
+            spacing: { after: SP.xs },
+            children: [new TextRun({ text: "Full name:  {witnessName}" })],
+          }),
+          new Paragraph({
+            spacing: { after: SP.xs },
+            children: [new TextRun({ text: "Date:  {signatureDate}" })],
+          }),
+
+          // ── Heavy rule after signature ────────────────────────────────────
+          spacer(SP.sm),
+          heavyRule(),
+          spacer(SP.xs),
         ],
       },
     ],

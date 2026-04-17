@@ -58,6 +58,24 @@ export function getRoleLabel(role?: string) {
   return map[role ?? "user"] ?? "Unknown";
 }
 
+export function getOpenRouterClientOptions() {
+  const defaultHeaders: Record<string, string> = {};
+
+  if (env.NEXT_PUBLIC_BASE_URL) {
+    defaultHeaders["HTTP-Referer"] = env.NEXT_PUBLIC_BASE_URL;
+  }
+
+  if (env.NEXT_PUBLIC_APP_NAME) {
+    defaultHeaders["X-Title"] = env.NEXT_PUBLIC_APP_NAME;
+  }
+
+  return {
+    apiKey: env.OPENROUTER_API_KEY,
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders,
+  };
+}
+
 export const getURL = () => {
   let url =
     env.NEXT_PUBLIC_BASE_URL ?? // Set this to your site URL in production env.

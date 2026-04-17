@@ -9,14 +9,13 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { Message, StatementDataResponse } from "@/types";
+import { IntakeChatMessage, StatementDataResponse } from "@/types";
 import { generateDoc } from "@/lib/doc-gen";
-import { CHAT_METADATA_MARKER, generateGreeting } from "@/lib/statement-utils";
+import { CHAT_METADATA_MARKER } from "@/lib/statement-utils";
 import { uploadFile } from "@/lib/supabase/mutations";
 import { useAsync, UseAsyncReturn } from "@/hooks/useAsync";
 import Loading from "@/components/loading";
 import { apiFetch } from "@/lib/api-utils";
-import { getSupabaseClient } from "@/lib/supabase/client";
 import { Button } from "../ui/button";
 import { Link } from "lucide-react";
 
@@ -56,7 +55,7 @@ export type IntakeContextValue = {
   setTab: (tab: IntakeTabs) => void;
 
   data: IntakeContextData;
-  messages: Message[];
+  messages: IntakeChatMessage[];
   suggestedEvidence: { name: string; type: string }[] | null;
   evidenceFiles: Record<string, File[]>;
   statementSections: Record<string, string>;
@@ -92,18 +91,6 @@ export function IntakeProvider({
   token: string;
   children: ReactNode;
 }) {
-  const getOptionalAuthHeaders = async () => {
-    try {
-      const supabase = getSupabaseClient();
-      const { data } = await supabase.auth.getSession();
-      const accessToken = data.session?.access_token;
-      return accessToken
-        ? ({ Authorization: `Bearer ${accessToken}` } as Record<string, string>)
-        : ({} as Record<string, string>);
-    } catch {
-      return {} as Record<string, string>;
-    }
-  };
   const [tab, setTab] = useState<IntakeTabs>("chat");
   const [statementSections, setStatementSections] = useState<
     Record<string, string>
@@ -113,9 +100,11 @@ export function IntakeProvider({
   };
 
   const hasBootstrappedGreetingRef = useRef(false);
-  const demoPlaybackSourceRef = useRef<Message[]>([]);
+  const demoPlaybackSourceRef = useRef<IntakeChatMessage[]>([]);
   const demoPlaybackTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const [messages, setMessages] = useState<(Message & { raw?: string })[]>([]);
+  const [messages, setMessages] = useState<
+    (IntakeChatMessage & { raw?: string })[]
+  >([]);
   const [isDemoPlaybackActive, setIsDemoPlaybackActive] = useState(false);
   const [isDemoTabsUnlocked, setIsDemoTabsUnlocked] = useState(false);
   const reversed = useMemo(() => messages.slice().reverse(), [messages]);
@@ -133,12 +122,8 @@ export function IntakeProvider({
   } = useAsync<IntakeContextData>(
     async () => {
       const data = await apiFetch<StatementDataResponse<true>>(
-        `/api/intake/${token}`,
-        {
-          method: "GET",
-          headers: await getOptionalAuthHeaders(),
-        },
-        false,
+        `/api/intake/${token}/shared`,
+        { method: "GET", requireAuth: false },
       );
 
       const {
@@ -178,12 +163,14 @@ export function IntakeProvider({
     if (!templateDocumentSnapshot) return null;
 
     try {
-      const response = await fetch(`/api/intake/${token}/template-document`, {
-        method: "GET",
-        headers: {
-          ...(await getOptionalAuthHeaders()),
+      const response = await apiFetch(
+        `/api/intake/${token}/shared/template-document`,
+        {
+          method: "GET",
+          requireAuth: false,
+          returnType: "response",
         },
-      });
+      );
 
       if (!response.ok) {
         return null;
@@ -198,16 +185,15 @@ export function IntakeProvider({
 
   const acknowledgePrivacyNotice = useAsync(
     async () => {
-      const response = await fetch(`/api/intake/${token}/consent`, {
-        method: "POST",
-        headers: {
-          ...(await getOptionalAuthHeaders()),
-        },
-      });
-      if (!response.ok) {
+      try {
+        await apiFetch(`/api/intake/${token}/shared/consent`, {
+          method: "POST",
+          requireAuth: false,
+        });
+        return true;
+      } catch {
         throw new Error("Failed to acknowledge privacy notice");
       }
-      return true;
     },
     [token],
     {
@@ -254,7 +240,9 @@ export function IntakeProvider({
     }
 
     clearDemoPlaybackTimeouts();
-    setIsDemoPlaybackActive(true);
+    queueMicrotask(() => {
+      setIsDemoPlaybackActive(true);
+    });
 
     let cumulativeDelay = 0;
     demoPlaybackTimeoutsRef.current = source.map((message, index) => {
@@ -330,23 +318,21 @@ export function IntakeProvider({
       if (!hasAcknowledgedPrivacyNotice) return;
       if (!input.trim()) return;
 
-      const userMessage: Message = {
+      const userMessage: IntakeChatMessage = {
         role: "user",
         content: input,
         id: `user-${Date.now()}`,
       };
       setMessages((prev) => [...prev, userMessage]);
 
-      const response = await fetch(`/api/intake/${token}/chat`, {
+      const response = await apiFetch(`/api/intake/${token}/interview/chat`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(await getOptionalAuthHeaders()),
-        },
         body: JSON.stringify({
           conversationHistory: messages,
           userMessage: userMessage.content,
         }),
+        requireAuth: false,
+        returnType: "response",
       });
 
       if (!response.ok) {
@@ -363,7 +349,7 @@ export function IntakeProvider({
         throw new Error("No response body");
       }
 
-      let assistantMessage: Message & { raw: string } = {
+      let assistantMessage: IntakeChatMessage & { raw: string } = {
         role: "assistant",
         content: "",
         raw: "",
@@ -430,7 +416,9 @@ export function IntakeProvider({
 
         if (metadataJson) {
           try {
-            const parsedMeta = JSON.parse(metadataJson) as Message["meta"];
+            const parsedMeta = JSON.parse(
+              metadataJson,
+            ) as IntakeChatMessage["meta"];
             assistantMessage = {
               ...assistantMessage,
               meta: parsedMeta,
@@ -511,16 +499,14 @@ export function IntakeProvider({
 
       if (patchDetails && Object.keys(patchDetails).length > 0) {
         // yield "Updating witness details...";
-        await fetch(`/api/intake/${token}/submit`, {
+        await apiFetch(`/api/intake/${token}/interview/submit`, {
+          requireAuth: false,
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            ...(await getOptionalAuthHeaders()),
-          },
           body: JSON.stringify({
             witnessDetails: patchDetails,
           }),
         });
+
         setStatementData((prev) =>
           prev
             ? ({
@@ -545,31 +531,21 @@ export function IntakeProvider({
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 65000);
 
-      const response = await fetch(`/api/intake/${token}/formalize`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(await getOptionalAuthHeaders()),
+      const payload = await apiFetch<Record<string, string>>(
+        `/api/intake/${token}/interview/formalize`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            responses,
+            evidence: exhibits.map((e) => ({
+              exhibit: e.exhibit,
+              description: e.description,
+            })),
+          }),
+          signal: controller.signal,
+          requireAuth: false,
         },
-        body: JSON.stringify({
-          responses,
-          evidence: exhibits.map((e) => ({
-            exhibit: e.exhibit,
-            description: e.description,
-          })),
-        }),
-        signal: controller.signal,
-      }).finally(() => clearTimeout(timeout));
-
-      if (!response.ok) {
-        const errorPayload = await response
-          .json()
-          .catch(() => ({ error: "Failed to formalize statement" }));
-        throw new Error(errorPayload?.error || "Failed to formalize statement");
-      }
-
-      // yield "Finalizing sections...";
-      const payload = await response.json();
+      ).finally(() => clearTimeout(timeout));
 
       // Build sections dynamically from config
       const newSections: Record<string, string> = {};
@@ -665,25 +641,15 @@ export function IntakeProvider({
         }),
       );
 
-      const submitResponse = await fetch(`/api/intake/${token}/submit`, {
+      await apiFetch(`/api/intake/${token}/interview/submit`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(await getOptionalAuthHeaders()),
-        },
         body: JSON.stringify({
           sections: statementSections,
           signedDocument,
           supportingDocuments,
         }),
+        requireAuth: false,
       });
-
-      if (!submitResponse.ok) {
-        const errorPayload = await submitResponse
-          .json()
-          .catch(() => ({ error: "Failed to submit statement" }));
-        throw new Error(errorPayload?.error || "Failed to submit statement");
-      }
       return true;
     },
     [token, statementSections, evidenceFiles],
@@ -763,29 +729,55 @@ export function IntakeProvider({
     hasBootstrappedGreetingRef.current = true;
     setSendMessageLoading(true);
     const delay = 500;
-    const greetingMessages = [...generateGreeting(data.case, data.statement)];
-    let cumulativeDelay = 0;
-    const timeouts = greetingMessages.map((message, index) => {
-      const timeout = setTimeout(async () => {
-        setMessages((prev) => [...prev, message]);
-        await fetch(`/api/intake/${token}/chat/save`, {
+    let isCancelled = false;
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+
+    void (async () => {
+      const greetingMessages = await apiFetch<IntakeChatMessage[]>(
+        `/api/intake/${token}/interview/greeting`,
+        {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(await getOptionalAuthHeaders()),
-          },
-          body: JSON.stringify({ ...message, order: index }),
-        }).catch((error) => {
-          console.error("Error saving greeting message:", error);
-        });
-        if (index === greetingMessages.length - 1) {
-          setSendMessageLoading(false);
-        }
-      }, cumulativeDelay);
-      cumulativeDelay += delay;
-      return timeout;
-    });
+          requireAuth: false,
+        },
+      ).catch((error) => {
+        console.error("Error generating greeting:", error);
+        return [];
+      });
+
+      if (isCancelled || greetingMessages.length === 0) {
+        setSendMessageLoading(false);
+        return;
+      }
+
+      let cumulativeDelay = 0;
+
+      greetingMessages.forEach((message, index) => {
+        const timeout = setTimeout(async () => {
+          if (isCancelled) {
+            return;
+          }
+
+          setMessages((prev) => [...prev, message]);
+          await apiFetch(`/api/intake/${token}/interview/chat/save`, {
+            method: "POST",
+            body: JSON.stringify({ ...message, order: index }),
+            requireAuth: false,
+          }).catch((error) => {
+            console.error("Error saving greeting message:", error);
+          });
+
+          if (index === greetingMessages.length - 1) {
+            setSendMessageLoading(false);
+          }
+        }, cumulativeDelay);
+
+        cumulativeDelay += delay;
+        timeouts.push(timeout);
+      });
+    })();
+
     return () => {
+      isCancelled = true;
       timeouts.forEach((timeout) => clearTimeout(timeout));
     };
   }, [

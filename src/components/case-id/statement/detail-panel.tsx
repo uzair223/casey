@@ -68,6 +68,7 @@ import { StatementFollowUpCard } from "./follow-up-card";
 import { StatementInternalDocumentsCard } from "./documents-card";
 import { StatementNotesCard } from "./notes-card";
 import { StatementReminderSettingsCard } from "./settings-card";
+import { TranscriptDialog } from "./transcript-dialog";
 import {
   statementStatusVariant,
   statementStatusLabel,
@@ -393,6 +394,8 @@ export function StatementDetailPanel({
           <CardTitle className="text-base">Actions</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
+          <TranscriptDialog statementId={data.statement.id} />
+
           {canModify ? (
             <>
               <AsyncButton
@@ -647,21 +650,22 @@ export function StatementDetailPanel({
                 </Link>
               </div>
 
-              {witnessMetadataFields.map((field) => {
-                const value = witnessMetadataValues[field.id];
-                return (
-                  <div key={field.id}>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      {field.label}
-                    </p>
-                    <p className="text-sm">
-                      {typeof value === "string" && value.trim() !== ""
-                        ? value
-                        : "-"}
-                    </p>
-                  </div>
-                );
-              })}
+              {witnessMetadataFields
+                .filter((field) => {
+                  const value = witnessMetadataValues[field.id];
+                  return typeof value === "string" && value.trim() !== "";
+                })
+                .map((field) => {
+                  const value = witnessMetadataValues[field.id];
+                  return (
+                    <div key={field.id}>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {field.label}
+                      </p>
+                      <p className="text-sm">{value}</p>
+                    </div>
+                  );
+                })}
             </CardContent>
           </>
         )}

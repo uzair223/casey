@@ -23,7 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { WaitlistSignupForm } from "@/components/waitlist/waitlist-form";
-import { MessageBox } from "@/components/intake/chat-area";
+import { MessageCard } from "@/components/ui/message";
 
 export default function Home() {
   return (
@@ -146,7 +146,7 @@ export default function Home() {
                             "Thank you. When did you first seek treatment, and do you have any photos or reports?",
                         },
                       ].map((msg, index) => (
-                        <MessageBox key={index} message={msg} />
+                        <MessageCard key={index} message={msg} />
                       ))}
                     </div>
                   </div>

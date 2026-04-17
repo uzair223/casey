@@ -75,6 +75,7 @@ type CaseTemplateSettingsContextValue = {
   saveTemplate: () => Promise<void>;
   saveTemplateWithStatus: (status: TemplateStatus) => Promise<void>;
   forkTemplate: () => Promise<void>;
+  duplicateTemplate: () => Promise<void>;
   deleteTemplate: () => Promise<void>;
   toggleFavourite: () => Promise<void>;
   toggleDefault: () => Promise<void>;
@@ -446,6 +447,41 @@ export function CaseTemplateSettingsProvider({
     setMessage("Case template forked to tenant scope");
   };
 
+  const duplicateTemplate = async () => {
+    if (!activeTemplate || !canEditActiveTemplate) {
+      return;
+    }
+
+    const scope: "global" | "tenant" = isAppAdmin ? "global" : "tenant";
+    const config = withGeneratedDynamicFieldKeys(
+      normalizeConfig(activeTemplate.draft_config),
+    );
+
+    const created = await createCaseTemplate({
+      tenantId: scope === "tenant" ? user?.tenant_id : null,
+      name: `${activeTemplate.name} (Copy)`,
+      templateScope: scope,
+      status: "draft",
+      draftConfig: config,
+      sourceTemplateId: activeTemplate.id,
+    });
+
+    await setCaseTemplateStatementTemplates({
+      caseTemplateId: created.id,
+      statementTemplateIds: linkedStatementTemplateIds,
+      defaultStatementTemplateId,
+    });
+
+    const refreshed = await refreshData();
+    const copy =
+      refreshed.find((template) => template.id === created.id) ?? created;
+
+    setActiveTemplateId(copy.id);
+    syncEditorFromTemplate(copy);
+    await loadTemplateStatementLinks(copy.id);
+    setMessage("Case template duplicated");
+  };
+
   const deleteTemplate = async () => {
     if (!activeTemplateId) return;
     if (!confirm("Delete this case template? This cannot be undone.")) {
@@ -579,6 +615,7 @@ export function CaseTemplateSettingsProvider({
     saveTemplate,
     saveTemplateWithStatus,
     forkTemplate,
+    duplicateTemplate,
     deleteTemplate,
     toggleFavourite,
     toggleDefault,

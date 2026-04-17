@@ -8,6 +8,7 @@ import { z } from "zod";
 import { logServerEvent } from "@/lib/observability/logger";
 
 import { env } from "@/lib/env";
+import { getOpenRouterClientOptions } from "@/lib/utils";
 
 function previewText(value: string, maxLength = 800): string {
   if (value.length <= maxLength) {
@@ -17,21 +18,7 @@ function previewText(value: string, maxLength = 800): string {
   return `${value.slice(0, maxLength)}...[truncated]`;
 }
 
-const openRouterHeaders: Record<string, string> = {};
-
-if (env.NEXT_PUBLIC_BASE_URL) {
-  openRouterHeaders["HTTP-Referer"] = env.NEXT_PUBLIC_BASE_URL;
-}
-
-if (env.NEXT_PUBLIC_APP_NAME) {
-  openRouterHeaders["X-Title"] = env.NEXT_PUBLIC_APP_NAME;
-}
-
-const client = new OpenAI({
-  apiKey: env.OPENROUTER_API_KEY,
-  baseURL: "https://openrouter.ai/api/v1",
-  defaultHeaders: openRouterHeaders,
-});
+const client = new OpenAI(getOpenRouterClientOptions());
 
 function isRetriableError(error: unknown) {
   if (typeof error !== "object" || error === null) return false;
@@ -289,7 +276,7 @@ export async function POST(
 
     await logServerEvent("info", "api.intake.formalize.request", {
       requestId,
-      path: "/api/intake/[token]/formalize",
+      path: "/api/intake/[token]/interview/formalize",
       tokenSuffix: token.slice(-6),
       responseCount: responses.length,
       evidenceCount: (evidence ?? []).length,

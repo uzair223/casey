@@ -55,7 +55,6 @@ export async function GET(request: Request) {
 
   try {
     const supabase = getServiceClient();
-    await supabase.rpc("permanently_delete_expired_soft_deleted_tenants");
 
     const { data, error } = await supabase
       .from("tenants")

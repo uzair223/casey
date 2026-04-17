@@ -6,6 +6,7 @@ import { requireTenantUser } from "@/lib/api-utils/auth";
 import { badRequest, ok, serverError } from "@/lib/api-utils/response";
 import { sendStatementFollowUpRequestEmail } from "@/lib/email";
 import { SERVERONLY_getStatementForSendLink } from "@/lib/supabase/queries";
+import { SERVERONLY_saveConversationMessage } from "@/lib/supabase/mutations";
 import { getServiceClient } from "@/lib/supabase/server";
 
 export async function POST(
@@ -53,7 +54,18 @@ export async function POST(
       return badRequest("Tenant not found");
     }
 
-    const statementUrl = `${env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/intake/${statement.token}`;
+    const statementUrl = `${env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/intake/${statement.token}/follow-up`;
+
+    await SERVERONLY_saveConversationMessage(
+      statementId,
+      "assistant",
+      message,
+      {
+        followUpRequest: true,
+        requestedAt: new Date().toISOString(),
+        requestedBy: auth.profile.display_name || auth.email || "Legal team",
+      },
+    );
 
     await sendStatementFollowUpRequestEmail({
       to: statement.witness_email,

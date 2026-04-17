@@ -1,4 +1,4 @@
-import { Message, MetadataProgress, StatementConfig } from "@/types";
+import { IntakeChatMessage, MetadataProgress, StatementConfig } from "@/types";
 import { ResponseMetadata } from "../schema/response-metadata";
 
 export const CHAT_METADATA_MARKER = "\n\n[[METADATA]]";
@@ -33,7 +33,7 @@ export const defaultMeta = (
 };
 
 export const getLastMeta = (
-  history: Message[],
+  history: IntakeChatMessage[],
   config: StatementConfig,
 ): ResponseMetadata =>
   history
@@ -42,7 +42,7 @@ export const getLastMeta = (
     .find((m) => m.role === "assistant" && m.meta)?.meta ?? defaultMeta(config);
 
 export const getLastProgress = (
-  history: Message[],
+  history: IntakeChatMessage[],
   config: StatementConfig,
 ): MetadataProgress =>
   history

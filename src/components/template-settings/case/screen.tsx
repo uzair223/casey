@@ -37,6 +37,7 @@ export function CaseTemplateSettingsScreen() {
     selectTemplate,
     createNewTemplate,
     deleteTemplate,
+    duplicateTemplate,
     saveTemplateWithStatus,
     saveTemplate,
     forkTemplate,
@@ -181,6 +182,16 @@ export function CaseTemplateSettingsScreen() {
                             Archive
                           </AsyncButton>
                         )}
+                        {activeTemplate?.id ? (
+                          <AsyncButton
+                            variant="outline"
+                            size="sm"
+                            onClick={duplicateTemplate}
+                            pendingText="Duplicating..."
+                          >
+                            Duplicate
+                          </AsyncButton>
+                        ) : null}
                         {activeTemplate?.id ? (
                           <AsyncButton
                             variant="outline"

@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MarkdownMessage } from "@/components/ui/md-message";
+import { MarkdownMessage } from "@/components/ui/message";
 import { RhfField } from "@/components/ui/rhf-field";
 import {
   Select,
@@ -584,7 +584,7 @@ export default function DemoStudioPage() {
         }));
 
       const response = await fetch(
-        `/api/intake/${selectedMagicLinkToken}/chat`,
+        `/api/intake/${selectedMagicLinkToken}/interview/chat`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

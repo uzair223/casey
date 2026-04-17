@@ -1,7 +1,9 @@
 "use client";
 
 import { useFormContext, useWatch } from "react-hook-form";
+import { PencilIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -187,30 +189,49 @@ export function CaseTemplateSimpleView() {
                 depsWarningsByTemplateId.get(template.id) ?? [];
               return (
                 <div key={template.id} className="space-y-1">
-                  <label className="inline-flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      disabled={!canEditActiveTemplate}
-                      onChange={(event) => {
-                        const next = event.target.checked
-                          ? [...linkedStatementTemplateIds, template.id]
-                          : linkedStatementTemplateIds.filter(
-                              (id) => id !== template.id,
-                            );
+                  <div className="flex items-center gap-1">
+                    <label className="inline-flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        disabled={!canEditActiveTemplate}
+                        onChange={(event) => {
+                          const next = event.target.checked
+                            ? [...linkedStatementTemplateIds, template.id]
+                            : linkedStatementTemplateIds.filter(
+                                (id) => id !== template.id,
+                              );
 
-                        const unique = Array.from(new Set(next));
-                        setLinkedStatementTemplateIds(unique);
-                        if (
-                          defaultStatementTemplateId === template.id &&
-                          !event.target.checked
-                        ) {
-                          setDefaultStatementTemplateId(null);
-                        }
-                      }}
-                    />
-                    <span>{template.name}</span>
-                  </label>
+                          const unique = Array.from(new Set(next));
+                          setLinkedStatementTemplateIds(unique);
+                          if (
+                            defaultStatementTemplateId === template.id &&
+                            !event.target.checked
+                          ) {
+                            setDefaultStatementTemplateId(null);
+                          }
+                        }}
+                      />
+                      <span>{template.name}</span>
+                    </label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      asChild
+                    >
+                      <a
+                        href={`/settings/statements?templateId=${encodeURIComponent(template.id)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Edit statement template ${template.name}`}
+                        title="Open statement template settings"
+                      >
+                        <PencilIcon className="size-3.5" />
+                      </a>
+                    </Button>
+                  </div>
                   {isChecked && missingDeps.length > 0 ? (
                     <p className="text-xs text-warning-foreground">
                       Warning: missing case fields for this template:{" "}

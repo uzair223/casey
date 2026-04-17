@@ -1,7 +1,7 @@
 import type {
   Case,
   MagicLink,
-  Message,
+  IntakeChatMessage,
   Statement,
   StatementConfig,
   StatementDataResponse,
@@ -276,7 +276,7 @@ async function getLatestConversationMessage(
   }
 
   if (latestAssistantWithMeta) {
-    return latestAssistantWithMeta as unknown as Message;
+    return latestAssistantWithMeta as unknown as IntakeChatMessage;
   }
 
   const { data: latestAssistant, error: latestAssistantError } = await supabase
@@ -293,7 +293,7 @@ async function getLatestConversationMessage(
   }
 
   if (latestAssistant) {
-    return latestAssistant as unknown as Message;
+    return latestAssistant as unknown as IntakeChatMessage;
   }
 
   const { data: latestAny, error: latestAnyError } = await supabase
@@ -308,7 +308,7 @@ async function getLatestConversationMessage(
     throw latestAnyError;
   }
 
-  return (latestAny as unknown as Message | null) ?? null;
+  return (latestAny as unknown as IntakeChatMessage | null) ?? null;
 }
 
 async function loadFullStatementById(
@@ -338,7 +338,7 @@ async function loadFullStatementById(
       throw messagesError;
     }
 
-    const messages = (messagesData as unknown as Message[]) ?? [];
+    const messages = (messagesData as unknown as IntakeChatMessage[]) ?? [];
     return {
       ...base,
       messages,

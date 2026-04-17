@@ -1,7 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Card, CardHeader } from "./card";
 
 type MarkdownMessageProps = {
   content: string;
@@ -49,5 +51,38 @@ export function MarkdownMessage({ content }: MarkdownMessageProps) {
     >
       {content}
     </ReactMarkdown>
+  );
+}
+
+export function MessageCard({
+  message,
+}: {
+  message: { role: string; content: string };
+}) {
+  const isUser = message.role === "user";
+  return (
+    <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
+      <Card
+        size="sm"
+        className={cn(
+          "max-w-sm text-sm rounded-3xl [--card-opacity:90%]",
+          isUser ? "rounded-tr-sm" : "rounded-tl-sm",
+        )}
+        variant={isUser ? "primary" : "default"}
+      >
+        <CardHeader className="relative">
+          <span className="absolute text-transparent select-text whitespace-nowrap text-[0px]">
+            {message.role.toUpperCase()}:
+          </span>
+          {isUser ? (
+            <p>{message.content}</p>
+          ) : (
+            <div className="prose prose-invert">
+              <MarkdownMessage content={message.content} />
+            </div>
+          )}
+        </CardHeader>
+      </Card>
+    </div>
   );
 }

@@ -15,8 +15,8 @@ function getMetadataFieldSchema(label: string, isRequired: boolean) {
 function buildMetadataObjectSchema(
   config: StatementConfig,
   requiredSelector: (field: {
-    required?: boolean;
-    requiredOnCreate?: boolean;
+    required?: boolean | null;
+    requiredOnCreate?: boolean | null;
   }) => boolean,
 ) {
   const metadataShape: Record<string, z.ZodTypeAny> = {};

@@ -2,7 +2,7 @@ import { env } from "@/lib/env";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-import { Message } from "@/types";
+import { IntakeChatMessage } from "@/types";
 
 import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
 import {
@@ -23,22 +23,10 @@ import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { Allow, parse } from "partial-json";
 import { z } from "zod";
 import { logServerEvent } from "@/lib/observability/logger";
+import { zodResponseFormat } from "openai/helpers/zod";
+import { getOpenRouterClientOptions } from "@/lib/utils";
 
-const openRouterHeaders: Record<string, string> = {};
-
-if (env.NEXT_PUBLIC_BASE_URL) {
-  openRouterHeaders["HTTP-Referer"] = env.NEXT_PUBLIC_BASE_URL;
-}
-
-if (env.NEXT_PUBLIC_APP_NAME) {
-  openRouterHeaders["X-Title"] = env.NEXT_PUBLIC_APP_NAME;
-}
-
-const client = new OpenAI({
-  apiKey: env.OPENROUTER_API_KEY,
-  baseURL: "https://openrouter.ai/api/v1",
-  defaultHeaders: openRouterHeaders,
-});
+const client = new OpenAI(getOpenRouterClientOptions());
 
 function isRateLimitError(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
@@ -104,7 +92,7 @@ export async function POST(
     const body = await request.json();
     const { userMessage, conversationHistory } = body as {
       userMessage?: string;
-      conversationHistory?: Message[];
+      conversationHistory?: IntakeChatMessage[];
     };
 
     if (!userMessage || typeof userMessage !== "string") {
@@ -127,7 +115,7 @@ export async function POST(
 
     await logServerEvent("info", "api.intake.chat.request", {
       requestId,
-      path: "/api/intake/[token]/chat",
+      path: "/api/intake/[token]/interview/chat",
       tokenSuffix: token.slice(-6),
       userMessagePreview: previewText(userMessage),
       userMessageLength: userMessage.length,
@@ -240,14 +228,10 @@ export async function POST(
 
         temperature: 0.3,
 
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "witness_statement_response",
-            strict: true,
-            schema: responseSchema.toJSONSchema(),
-          },
-        },
+        response_format: zodResponseFormat(
+          responseSchema,
+          "assistant_response",
+        ),
 
         messages: [
           // 1. GLOBAL PRIORITY (very short, very strict)

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Controller,
   get,
@@ -23,18 +24,23 @@ import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
 
 export function StatementTemplateSimpleView() {
   const {
-    canEditActiveTemplate,
+    isBusy,
     draftName,
     draftNameValidationError,
     setDraftName,
     resetConfig,
     setEditorTab,
+    activeTemplateId,
   } = useStatementTemplateSettings();
   const { control, setValue } = useFormContext<StatementConfig>();
 
   const draftConfig = (useWatch({ control }) ??
     EMPTY_STATEMENT_CONFIG) as StatementConfig;
   const { errors } = useFormState({ control });
+  const [touchedTemplateNameKey, setTouchedTemplateNameKey] = useState<
+    string | null
+  >(null);
+  const currentTemplateTouchKey = activeTemplateId ?? "__new__";
 
   const phaseCount = draftConfig.phases.length;
   const witnessFields: StatementMetadataFieldConfig[] =
@@ -91,17 +97,17 @@ export function StatementTemplateSimpleView() {
   const parseListValue = (
     value: string,
     separator: "newline" | "comma" = "newline",
-  ): string[] | undefined => {
+  ): string[] | null => {
     const next = value
       .split(separator === "comma" ? "," : "\n")
       .map((item) => item.trim())
       .filter(Boolean);
 
-    return next.length > 0 ? next : undefined;
+    return next.length > 0 ? next : null;
   };
 
   const formatListValue = (
-    value?: string[],
+    value: string[] | null,
     separator: "newline" | "comma" = "newline",
   ): string => {
     if (!value || value.length === 0) {
@@ -118,10 +124,12 @@ export function StatementTemplateSimpleView() {
         <Input
           value={draftName}
           onChange={(event) => setDraftName(event.target.value)}
-          disabled={!canEditActiveTemplate}
+          onBlur={() => setTouchedTemplateNameKey(currentTemplateTouchKey)}
+          disabled={isBusy}
           placeholder="Template name"
         />
-        {draftNameValidationError ? (
+        {touchedTemplateNameKey === currentTemplateTouchKey &&
+        draftNameValidationError ? (
           <p className="text-xs text-destructive">{draftNameValidationError}</p>
         ) : null}
       </div>
@@ -134,11 +142,7 @@ export function StatementTemplateSimpleView() {
             name="agents.chat"
             render={({ field }) => (
               <div className="space-y-1">
-                <Textarea
-                  {...field}
-                  rows={5}
-                  disabled={!canEditActiveTemplate}
-                />
+                <Textarea {...field} rows={5} disabled={isBusy} />
                 {errorMessage("agents.chat") ? (
                   <p className="text-xs text-destructive">
                     {errorMessage("agents.chat")}
@@ -155,11 +159,7 @@ export function StatementTemplateSimpleView() {
             name="agents.formalize"
             render={({ field }) => (
               <div className="space-y-1">
-                <Textarea
-                  {...field}
-                  rows={5}
-                  disabled={!canEditActiveTemplate}
-                />
+                <Textarea {...field} rows={5} disabled={isBusy} />
                 {errorMessage("agents.formalize") ? (
                   <p className="text-xs text-destructive">
                     {errorMessage("agents.formalize")}
@@ -175,7 +175,7 @@ export function StatementTemplateSimpleView() {
         title="Witness metadata fields"
         description="Define metadata fields collected from the witness."
         fields={witnessFields}
-        disabled={!canEditActiveTemplate}
+        disabled={isBusy}
         addLabel="Add metadata field"
         renderSummary={(field, index) => {
           return (
@@ -200,7 +200,7 @@ export function StatementTemplateSimpleView() {
               <Input
                 value={field.label}
                 placeholder="Field title"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...witnessFields];
                   const nextLabel = event.target.value;
@@ -229,7 +229,7 @@ export function StatementTemplateSimpleView() {
               <Input
                 value={field.id}
                 placeholder="Custom id"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...witnessFields];
                   next[index] = {
@@ -256,7 +256,7 @@ export function StatementTemplateSimpleView() {
                 className="col-span-2"
                 value={field.description ?? ""}
                 placeholder="Description"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...witnessFields];
                   next[index] = {
@@ -272,7 +272,7 @@ export function StatementTemplateSimpleView() {
                   <input
                     type="checkbox"
                     checked={!!field.required}
-                    disabled={!canEditActiveTemplate}
+                    disabled={isBusy}
                     onChange={(event) => {
                       const next = [...witnessFields];
                       next[index] = {
@@ -289,7 +289,7 @@ export function StatementTemplateSimpleView() {
                   <input
                     type="checkbox"
                     checked={!!field.requiredOnCreate}
-                    disabled={!canEditActiveTemplate}
+                    disabled={isBusy}
                     onChange={(event) => {
                       const next = [...witnessFields];
                       next[index] = {
@@ -333,7 +333,7 @@ export function StatementTemplateSimpleView() {
             <div key={`case-metadata-dep-${index}`} className="flex gap-2">
               <Input
                 value={dep}
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...draftConfig.case_metadata_deps];
                   next[index] = event.target.value;
@@ -344,7 +344,7 @@ export function StatementTemplateSimpleView() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onClick={() => {
                   const next = draftConfig.case_metadata_deps.filter(
                     (_, i) => i !== index,
@@ -361,7 +361,7 @@ export function StatementTemplateSimpleView() {
             type="button"
             variant="outline"
             size="sm"
-            disabled={!canEditActiveTemplate}
+            disabled={isBusy}
             onClick={() => {
               updateCaseMetadataDeps([...draftConfig.case_metadata_deps, ""]);
             }}
@@ -375,7 +375,7 @@ export function StatementTemplateSimpleView() {
         title="Interview phases"
         description="Define the ordered flow of the statement interview."
         fields={phaseFields}
-        disabled={!canEditActiveTemplate}
+        disabled={isBusy}
         addLabel="Add phase"
         renderSummary={(phase, index) => {
           return (
@@ -400,7 +400,7 @@ export function StatementTemplateSimpleView() {
               <Input
                 value={phase.title}
                 placeholder="Phase title"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...draftConfig.phases];
                   const nextTitle = event.target.value;
@@ -427,7 +427,7 @@ export function StatementTemplateSimpleView() {
               <Input
                 value={phase.id}
                 placeholder="Custom id"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...draftConfig.phases];
                   next[index] = {
@@ -455,7 +455,7 @@ export function StatementTemplateSimpleView() {
                 rows={2}
                 value={phase.description}
                 placeholder="Phase description"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...draftConfig.phases];
                   next[index] = {
@@ -471,7 +471,7 @@ export function StatementTemplateSimpleView() {
                 rows={2}
                 value={formatListValue(phase.allowedTopics, "comma")}
                 placeholder="Allowed topics (comma-separated)"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...draftConfig.phases];
                   next[index] = {
@@ -487,7 +487,7 @@ export function StatementTemplateSimpleView() {
                 rows={2}
                 value={formatListValue(phase.forbiddenTopics, "comma")}
                 placeholder="Forbidden topics (comma-separated)"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...draftConfig.phases];
                   next[index] = {
@@ -506,7 +506,7 @@ export function StatementTemplateSimpleView() {
                 rows={2}
                 value={formatListValue(phase.completionCriteria)}
                 placeholder="Completion criteria (one per line)"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...draftConfig.phases];
                   next[index] = {
@@ -524,7 +524,7 @@ export function StatementTemplateSimpleView() {
                 <select
                   className="h-9 rounded-md border bg-background px-3 text-sm"
                   value={phase.questioningMode ?? ""}
-                  disabled={!canEditActiveTemplate}
+                  disabled={isBusy}
                   onChange={(event) => {
                     const next = [...draftConfig.phases];
                     const value = event.target.value;
@@ -535,7 +535,7 @@ export function StatementTemplateSimpleView() {
                         value === "structured" ||
                         value === "mixed"
                           ? value
-                          : undefined,
+                          : null,
                     };
                     updatePhases(next);
                   }}
@@ -560,10 +560,10 @@ export function StatementTemplateSimpleView() {
                 new Set(next.map((phase) => phase.id)),
               ),
               description: "",
-              allowedTopics: undefined,
-              forbiddenTopics: undefined,
-              completionCriteria: undefined,
-              questioningMode: undefined,
+              allowedTopics: null,
+              forbiddenTopics: null,
+              completionCriteria: null,
+              questioningMode: null,
             },
           ]);
         }}
@@ -579,21 +579,21 @@ export function StatementTemplateSimpleView() {
                 ? phase.allowedTopics
                     ?.map((item) => item.trim())
                     .filter(Boolean)
-                : undefined,
+                : null,
               forbiddenTopics: phase.forbiddenTopics
                 ?.map((item) => item.trim())
                 .filter(Boolean).length
                 ? phase.forbiddenTopics
                     ?.map((item) => item.trim())
                     .filter(Boolean)
-                : undefined,
+                : null,
               completionCriteria: phase.completionCriteria
                 ?.map((item) => item.trim())
                 .filter(Boolean).length
                 ? phase.completionCriteria
                     ?.map((item) => item.trim())
                     .filter(Boolean)
-                : undefined,
+                : null,
               questioningMode: phase.questioningMode,
             })),
           );
@@ -603,7 +603,7 @@ export function StatementTemplateSimpleView() {
       <Button
         type="button"
         variant="outline"
-        disabled={!canEditActiveTemplate || phaseCount === 0}
+        disabled={isBusy || phaseCount === 0}
         onClick={() => {
           const used = new Set<string>();
           const generatedSections: StatementSectionConfig[] =
@@ -623,7 +623,7 @@ export function StatementTemplateSimpleView() {
         title="Document sections"
         description="Define statement sections, including the section id, title and description."
         fields={sectionFields}
-        disabled={!canEditActiveTemplate}
+        disabled={isBusy}
         addLabel="Add section"
         renderSummary={(section, index) => {
           return (
@@ -648,7 +648,7 @@ export function StatementTemplateSimpleView() {
               <Input
                 value={section.title}
                 placeholder="Title"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...draftConfig.sections];
                   const nextTitle = event.target.value;
@@ -676,7 +676,7 @@ export function StatementTemplateSimpleView() {
               <Input
                 value={section.id}
                 placeholder="Custom id"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...draftConfig.sections];
                   next[index] = {
@@ -703,7 +703,7 @@ export function StatementTemplateSimpleView() {
                 className="col-span-2"
                 value={section.description ?? ""}
                 placeholder="Description"
-                disabled={!canEditActiveTemplate}
+                disabled={isBusy}
                 onChange={(event) => {
                   const next = [...draftConfig.sections];
                   next[index] = {
@@ -727,7 +727,7 @@ export function StatementTemplateSimpleView() {
           updateSections([
             ...next,
             {
-              id: uniqueSlug("new-section", new Set(next.map((s) => s.id))),
+              id: uniqueSlug("newSection", new Set(next.map((s) => s.id))),
               title: "New Section",
               description: "",
             },
@@ -738,7 +738,7 @@ export function StatementTemplateSimpleView() {
             next.map((section) => ({
               id: section.id,
               title: section.title,
-              description: section.description?.trim() || undefined,
+              description: section.description?.trim() || null,
             })),
           );
         }}
@@ -756,7 +756,7 @@ export function StatementTemplateSimpleView() {
           variant="outline"
           size="sm"
           onClick={resetConfig}
-          disabled={!canEditActiveTemplate}
+          disabled={isBusy}
         >
           Reset config
         </Button>

@@ -14,12 +14,16 @@ import {
   templateStatusLabel,
   templateStatusVariant,
 } from "@/lib/status-styles";
-import type { StatementConfigTemplate } from "@/types";
+import type { StatementConfig, StatementConfigTemplate } from "@/types";
 import { useStatementTemplateSettings } from "./context";
 import { StatementTemplateSimpleView } from "./simple-view";
 import { StatementTemplateJsonView } from "./json-view";
 import { StatementTemplateDocxView } from "./docx-view";
 import { AsyncButton } from "@/components/ui/async-button";
+import { GenerateWithAI, GenerateWithAITrigger } from "../shared/ai-generate";
+import { StatementConfigSchema } from "@/lib/schema";
+import { useFormContext, useFormState, useWatch } from "react-hook-form";
+import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
 
 export function StatementTemplateSettingsScreen() {
   const {
@@ -30,6 +34,7 @@ export function StatementTemplateSettingsScreen() {
     hasPublishedVersion,
     docxErrors,
     templates,
+    activeTemplateId,
     activeTemplate,
     currentStatus,
     message,
@@ -37,20 +42,29 @@ export function StatementTemplateSettingsScreen() {
     mainTemplateValidationErrors,
     isLoading,
     editorTab,
+    setIsGenerating,
+    patchConfig,
     setEditorTab,
     selectTemplate,
     createNewTemplate,
     saveTemplate,
     deleteTemplate,
+    duplicateTemplate,
     saveTemplateWithStatus,
     forkTemplate,
     restorePreviousVersion,
   } = useStatementTemplateSettings();
+  const { control } = useFormContext<StatementConfig>();
+  const { isDirty } = useFormState({ control });
+  const draftConfig = (useWatch({ control }) ??
+    EMPTY_STATEMENT_CONFIG) as StatementConfig;
 
   const templateValidationErrors = [
     ...(draftNameValidationError ? [draftNameValidationError] : []),
     ...mainTemplateValidationErrors,
   ];
+  const showTemplateValidationIssues =
+    isDirty && templateValidationErrors.length > 0;
 
   if (isLoading) {
     return <Loading />;
@@ -110,6 +124,35 @@ export function StatementTemplateSettingsScreen() {
         <SidebarContent>
           <Card>
             <CardHeader className="pb-2">
+              <GenerateWithAI
+                rows={4}
+                placeholder="Generate a statement template for a workplace injury claim..."
+                resetTrigger={activeTemplateId}
+                seedData={draftConfig}
+                schema={StatementConfigSchema.omit({
+                  case_metadata_deps: true,
+                  prompts: true,
+                })}
+                onRequestSent={() => {
+                  setIsGenerating(true);
+                }}
+                onPartial={({ data }) => {
+                  if (!data) return;
+                  patchConfig(data);
+                }}
+                onComplete={({ data }) => {
+                  patchConfig(data);
+                  setIsGenerating(false);
+                }}
+                onError={() => {
+                  setIsGenerating(false);
+                }}
+              >
+                <div className="fixed bottom-6 left-6">
+                  <GenerateWithAITrigger disabled={!canEditActiveTemplate} />
+                </div>
+              </GenerateWithAI>
+
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Editor</CardTitle>
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -162,6 +205,16 @@ export function StatementTemplateSettingsScreen() {
                           <AsyncButton
                             size="sm"
                             variant="outline"
+                            onClick={duplicateTemplate}
+                            pendingText="Duplicating..."
+                          >
+                            Duplicate
+                          </AsyncButton>
+                        ) : null}
+                        {activeTemplate ? (
+                          <AsyncButton
+                            size="sm"
+                            variant="outline"
                             onClick={deleteTemplate}
                             pendingText="Deleting..."
                           >
@@ -175,17 +228,20 @@ export function StatementTemplateSettingsScreen() {
                             onClick={restorePreviousVersion}
                             pendingText="Restoring..."
                           >
-                            Restore from previous
+                            Restore
                           </AsyncButton>
                         ) : null}
-                        <AsyncButton
-                          size="sm"
-                          onClick={saveTemplate}
-                          pendingText="Saving..."
-                        >
-                          Save
-                        </AsyncButton>
                       </>
+                    )}
+
+                    {canEditActiveTemplate && (
+                      <AsyncButton
+                        size="sm"
+                        onClick={saveTemplate}
+                        pendingText="Saving..."
+                      >
+                        Save
+                      </AsyncButton>
                     )}
                   </div>
                 </div>
@@ -199,7 +255,7 @@ export function StatementTemplateSettingsScreen() {
                   </CardHeader>
                 </Card>
               ) : null}
-              {templateValidationErrors.length > 0 ? (
+              {showTemplateValidationIssues ? (
                 <Card size="md" variant="destructive">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm">Validation issues</CardTitle>

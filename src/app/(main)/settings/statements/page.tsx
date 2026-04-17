@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   StatementTemplateSettingsProvider,
   StatementTemplateSettingsScreen,
@@ -5,8 +6,10 @@ import {
 
 export default function IntakeTemplateSettingsPage() {
   return (
-    <StatementTemplateSettingsProvider>
-      <StatementTemplateSettingsScreen />
-    </StatementTemplateSettingsProvider>
+    <Suspense fallback={null}>
+      <StatementTemplateSettingsProvider>
+        <StatementTemplateSettingsScreen />
+      </StatementTemplateSettingsProvider>
+    </Suspense>
   );
 }

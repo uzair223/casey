@@ -1,7 +1,7 @@
 import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
 import { SERVERONLY_saveConversationMessage } from "@/lib/supabase/mutations";
 import { getServiceClient } from "@/lib/supabase/server";
-import { Message } from "@/types";
+import { IntakeChatMessage } from "@/types";
 import { NextResponse } from "next/server";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 
@@ -25,7 +25,7 @@ export async function POST(
       return accessError;
     }
 
-    const message = (await request.json()) as Message;
+    const message = (await request.json()) as IntakeChatMessage;
 
     if (message.role === "assistant") {
       const supabase = getServiceClient();

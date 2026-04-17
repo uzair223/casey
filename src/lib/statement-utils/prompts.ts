@@ -1,4 +1,4 @@
-import { Message, StatementConfig } from "@/types";
+import { IntakeChatMessage, StatementConfig } from "@/types";
 import { defaultMeta as defaultMetadata } from "./message-metadata";
 
 export type PromptTemplateTokens =
@@ -693,6 +693,29 @@ function resolvePromptTemplates(config: StatementConfig) {
   return config.prompts ?? getDefaultPromptTemplates();
 }
 
+export function getMissingRequiredWitnessFieldLabels(statement: {
+  witness_metadata: Record<string, unknown>;
+  statement_config: StatementConfig;
+}): string[] {
+  const missing: string[] = [];
+  const statementConfig = statement.statement_config;
+  const witnessFields = statementConfig.witness_metadata_fields ?? [];
+
+  for (const field of witnessFields) {
+    if (!field.required) {
+      continue;
+    }
+
+    const value = statement.witness_metadata[field.id];
+    const isMissing = value === null || value === undefined || value === "";
+    if (isMissing) {
+      missing.push(field.label.toLowerCase());
+    }
+  }
+
+  return missing;
+}
+
 export const generateGreeting = (
   caseData: { title: string; incident_date?: string | null },
   statement: {
@@ -700,7 +723,7 @@ export const generateGreeting = (
     witness_metadata: Record<string, unknown>;
     statement_config: StatementConfig;
   },
-): Message[] => {
+): IntakeChatMessage[] => {
   const dateStr = caseData.incident_date
     ? new Date(caseData.incident_date).toLocaleDateString("en-GB", {
         year: "numeric",
@@ -709,7 +732,7 @@ export const generateGreeting = (
       })
     : "";
 
-  const missing: string[] = [];
+  const missing = getMissingRequiredWitnessFieldLabels(statement);
   const statementConfig = statement.statement_config;
   const witnessFields = statementConfig.witness_metadata_fields ?? [];
 
@@ -718,17 +741,6 @@ export const generateGreeting = (
       .map((field) => [field.id, statement.witness_metadata[field.id]])
       .filter(([, value]) => value !== undefined),
   );
-
-  for (const field of witnessFields) {
-    if (!field.required) {
-      continue;
-    }
-    const value = statement.witness_metadata[field.id];
-    const isMissing = value === null || value === undefined || value === "";
-    if (isMissing) {
-      missing.push(field.label.toLowerCase());
-    }
-  }
 
   const metadata = defaultMetadata(statementConfig);
   metadata.witnessDetails = witnessDetails;

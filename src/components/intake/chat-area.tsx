@@ -4,11 +4,10 @@ import React, { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader } from "@/components/ui/card";
-import { MarkdownMessage } from "../ui/md-message";
+import { MessageCard } from "../ui/message";
 import { ProgressIndicator } from "./progress-indicator";
 import { useWitnessStatement } from "@/components/intake/intake-context";
 import { CheckIcon, PaperclipIcon, SkipForwardIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export function ChatAreaContent() {
   const {
@@ -46,7 +45,7 @@ export function ChatAreaContent() {
                   : "animate-slide-in-assistant"
               }`}
             >
-              <MessageBox message={message} />
+              <MessageCard message={message} />
               {message.role === "assistant" && (
                 <>
                   {message.meta?.evidence?.requestedEvidence && (
@@ -205,39 +204,6 @@ export function ChatAreaFooter() {
           </Button>
         </form>
       )}
-    </div>
-  );
-}
-
-export function MessageBox({
-  message,
-}: {
-  message: { role: string; content: string };
-}) {
-  const isUser = message.role === "user";
-  return (
-    <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
-      <Card
-        size="sm"
-        className={cn(
-          "max-w-sm text-sm rounded-3xl [--card-opacity:90%]",
-          isUser ? "rounded-tr-sm" : "rounded-tl-sm",
-        )}
-        variant={isUser ? "primary" : "default"}
-      >
-        <CardHeader className="relative">
-          <span className="absolute text-transparent select-text whitespace-nowrap text-[0px]">
-            {message.role.toUpperCase()}:
-          </span>
-          {isUser ? (
-            <p>{message.content}</p>
-          ) : (
-            <div className="prose prose-invert">
-              <MarkdownMessage content={message.content} />
-            </div>
-          )}
-        </CardHeader>
-      </Card>
     </div>
   );
 }

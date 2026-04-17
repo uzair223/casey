@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import { saveAs } from "file-saver";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -62,11 +63,14 @@ type StatementTemplateSettingsContextValue = {
   activeTemplateId: string | null;
   activeTemplate: StatementConfigTemplate | null;
   isLoading: boolean;
+  setIsGenerating: (value: boolean) => void;
+  isGenerating: boolean;
   message: string | null;
   editorTab: StatementEditorTab;
   setEditorTab: (tab: StatementEditorTab) => void;
   canForkGlobalTemplate: boolean;
   canEditActiveTemplate: boolean;
+  isBusy: boolean;
   hasPublishedVersion: boolean;
   draftName: string;
   setDraftName: (value: string) => void;
@@ -91,12 +95,15 @@ type StatementTemplateSettingsContextValue = {
   saveTemplate: () => Promise<void>;
   saveTemplateWithStatus: (status: TemplateStatus) => Promise<void>;
   deleteTemplate: () => Promise<void>;
+  duplicateTemplate: () => Promise<void>;
   forkTemplate: () => Promise<void>;
   restorePreviousVersion: () => Promise<void>;
   resetConfig: () => void;
   applyAdvancedJson: (value: string) => Promise<void>;
+  patchConfig: (patch: Partial<StatementConfig>) => void;
   downloadStarterDocx: () => Promise<void>;
   downloadUploadedDocx: () => Promise<void>;
+  deleteUploadedDocx: () => Promise<void>;
   stageTemplateDocx: (file: File | null) => Promise<void>;
 };
 
@@ -187,7 +194,11 @@ export function StatementTemplateSettingsProvider({
 }: {
   children: ReactNode;
 }) {
+  const searchParams = useSearchParams();
+  const selectedTemplateId = searchParams.get("templateId");
   const { user } = useUserProtected(["app_admin", "tenant_admin", "solicitor"]);
+
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const [templates, setTemplates] = useState<StatementConfigTemplate[]>([]);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
@@ -236,6 +247,9 @@ export function StatementTemplateSettingsProvider({
     activeTemplate.template_scope === "global";
   const canEditActiveTemplate =
     !activeTemplate || isAppAdmin || activeTemplate.template_scope === "tenant";
+
+  const isBusy = !canEditActiveTemplate || isGenerating;
+
   const hasPublishedVersion = !!activeTemplate?.published_config;
 
   const mainTemplateValidationErrors = useMemo(
@@ -369,18 +383,21 @@ export function StatementTemplateSettingsProvider({
     async () => {
       const list = await refreshData();
       if (list.length > 0) {
-        const first = list[0];
-        const config = normalizeConfig(first.draft_config);
-        setActiveTemplateId(first.id);
-        syncEditorFromTemplate(first);
+        const initialTemplate =
+          (selectedTemplateId
+            ? list.find((template) => template.id === selectedTemplateId)
+            : null) ?? list[0];
+        const config = normalizeConfig(initialTemplate.draft_config);
+        setActiveTemplateId(initialTemplate.id);
+        syncEditorFromTemplate(initialTemplate);
 
-        if (first.docx_template_document) {
+        if (initialTemplate.docx_template_document) {
           await preparePreviewFromUploadedDocument(
-            first.docx_template_document,
+            initialTemplate.docx_template_document,
             config,
           );
         } else {
-          await prepareStarterPreview(config, first.name);
+          await prepareStarterPreview(config, initialTemplate.name);
         }
       } else {
         setActiveTemplateId(null);
@@ -392,7 +409,7 @@ export function StatementTemplateSettingsProvider({
       }
       return list;
     },
-    [user?.id, user?.tenant_id, isAppAdmin],
+    [user?.id, user?.tenant_id, isAppAdmin, selectedTemplateId],
     {
       enabled: !!user,
       withUseEffect: true,
@@ -587,6 +604,43 @@ export function StatementTemplateSettingsProvider({
     setMessage("Template deleted");
   };
 
+  const duplicateTemplate = async () => {
+    if (!activeTemplate || !canEditActiveTemplate) {
+      return;
+    }
+
+    const config = normalizeConfig(activeTemplate.draft_config);
+    const scope: "global" | "tenant" = isAppAdmin ? "global" : "tenant";
+
+    const created = await createStatementTemplate({
+      tenantId: scope === "tenant" ? user?.tenant_id : null,
+      name: `${activeTemplate.name} (Copy)`,
+      templateScope: scope,
+      status: "draft",
+      draftConfig: config,
+      docxTemplateDocument: activeTemplate.docx_template_document,
+      sourceTemplateId: activeTemplate.id,
+    });
+
+    const refreshed = await refreshData();
+    const copy =
+      refreshed.find((template) => template.id === created.id) ?? created;
+
+    setActiveTemplateId(copy.id);
+    syncEditorFromTemplate(copy);
+
+    if (copy.docx_template_document) {
+      await preparePreviewFromUploadedDocument(
+        copy.docx_template_document,
+        normalizeConfig(copy.draft_config),
+      );
+    } else {
+      await prepareStarterPreview(config, copy.name);
+    }
+
+    setMessage("Template duplicated");
+  };
+
   const forkTemplate = async () => {
     if (!activeTemplate || !canForkGlobalTemplate || !user?.tenant_id) {
       return;
@@ -637,7 +691,7 @@ export function StatementTemplateSettingsProvider({
       syncEditorFromTemplate(updated);
     }
 
-    setMessage("Restored the published version into the draft.");
+    setMessage("Restored the published version into draft.");
   };
 
   const resetConfig = () => {
@@ -654,6 +708,15 @@ export function StatementTemplateSettingsProvider({
       setMessage(error instanceof Error ? error.message : "Invalid JSON");
       throw error;
     }
+  };
+
+  const patchConfig = (patch: Partial<StatementConfig>) => {
+    const current = formMethods.getValues();
+    const next = withGeneratedConfigIds({
+      ...current,
+      ...patch,
+    });
+    formMethods.reset(next);
   };
 
   const downloadStarterDocx = async () => {
@@ -678,6 +741,46 @@ export function StatementTemplateSettingsProvider({
       activeTemplate.docx_template_document,
     );
     saveAs(blob, activeTemplate.docx_template_document.name);
+  };
+
+  const deleteUploadedDocx = async () => {
+    if (!activeTemplateId || !activeTemplate?.docx_template_document) {
+      return;
+    }
+
+    if (
+      !confirm(
+        "Delete the uploaded DOCX? This will revert to using the generated starter template.",
+      )
+    ) {
+      return;
+    }
+
+    await updateStatementTemplate(activeTemplateId, {
+      tenantId:
+        activeTemplate.template_scope === "tenant"
+          ? activeTemplate.tenant_id
+          : null,
+      name: activeTemplate.name,
+      templateScope: activeTemplate.template_scope,
+      status: activeTemplate.status,
+      draftConfig: normalizeConfig(activeTemplate.draft_config),
+      docxTemplateDocument: null,
+    });
+
+    const refreshed = await refreshData();
+    const updated =
+      refreshed.find((template) => template.id === activeTemplateId) ?? null;
+
+    if (updated) {
+      syncEditorFromTemplate(updated);
+      await prepareStarterPreview(
+        normalizeConfig(updated.draft_config),
+        updated.name,
+      );
+    }
+
+    setMessage("Uploaded DOCX deleted");
   };
 
   const stageTemplateDocx = async (file: File | null) => {
@@ -727,11 +830,14 @@ export function StatementTemplateSettingsProvider({
     activeTemplateId,
     activeTemplate,
     isLoading,
+    setIsGenerating,
+    isGenerating,
     message,
     editorTab,
     setEditorTab,
     canForkGlobalTemplate,
     canEditActiveTemplate,
+    isBusy,
     hasPublishedVersion,
     draftName,
     setDraftName,
@@ -754,12 +860,15 @@ export function StatementTemplateSettingsProvider({
     saveTemplate,
     saveTemplateWithStatus,
     deleteTemplate,
+    duplicateTemplate,
     forkTemplate,
     restorePreviousVersion,
     resetConfig,
     applyAdvancedJson,
+    patchConfig,
     downloadStarterDocx,
     downloadUploadedDocx,
+    deleteUploadedDocx,
     stageTemplateDocx,
   };
 

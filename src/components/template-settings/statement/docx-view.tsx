@@ -26,6 +26,7 @@ export function StatementTemplateDocxView() {
     docxErrors,
     downloadStarterDocx,
     downloadUploadedDocx,
+    deleteUploadedDocx,
     stageTemplateDocx,
   } = useStatementTemplateSettings();
 
@@ -71,6 +72,18 @@ export function StatementTemplateDocxView() {
             disabled={!canEditActiveTemplate || !isMainTemplateValid}
           >
             Download uploaded DOCX
+          </AsyncButton>
+
+          <AsyncButton
+            variant="outline"
+            size="sm"
+            onClick={deleteUploadedDocx}
+            pendingText="Deleting..."
+            disabled={
+              !canEditActiveTemplate || !activeTemplate?.docx_template_document
+            }
+          >
+            Delete uploaded DOCX
           </AsyncButton>
 
           <FileInput
