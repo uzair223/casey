@@ -8,11 +8,17 @@ import { Input } from "@/components/ui/input";
 import { RhfField } from "@/components/ui/rhf-field";
 import { WaitlistSignupSchema, WaitlistSignupSchemaType } from "@/lib/schema";
 import { cn } from "@/lib/utils";
+import { Button } from "../ui/button";
+import Link from "next/link";
+import { env } from "@/lib/env";
 
 export function WaitlistSignupForm({
   className,
+  disableCalendly,
   ...props
-}: Exclude<React.FormHTMLAttributes<HTMLFormElement>, "onSubmit">) {
+}: Exclude<React.FormHTMLAttributes<HTMLFormElement>, "onSubmit"> & {
+  disableCalendly?: boolean;
+}) {
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -130,9 +136,31 @@ export function WaitlistSignupForm({
           </p>
         ) : null}
 
-        <AsyncButton className="w-full" type="submit" pendingText="Joining...">
-          Join the waiting list
-        </AsyncButton>
+        <div className="flex flex-col gap-1.5">
+          <AsyncButton
+            className="w-full"
+            type="submit"
+            pendingText="Joining..."
+          >
+            Join the waiting list
+          </AsyncButton>
+          {!disableCalendly && env.NEXT_PUBLIC_CALENDLY_LINK && (
+            <>
+              <span className="text-xs text-center text-muted-foreground">
+                &mdash; or &mdash;
+              </span>
+              <Button className="w-full" variant="outline" asChild>
+                <Link
+                  href={env.NEXT_PUBLIC_CALENDLY_LINK}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Book a demo call
+                </Link>
+              </Button>
+            </>
+          )}
+        </div>
       </form>
     </FormProvider>
   );

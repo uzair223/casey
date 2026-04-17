@@ -8,7 +8,7 @@ const parsePositiveInt = (fallback: number) => (value: string | undefined) => {
 const nonEmpty = z.string().trim().min(1);
 const stringOrEmpty = z.string().trim().optional().default("");
 
-export const EnvSchema = z.object({
+export const EnvSchema = z.looseObject({
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .optional()
@@ -16,7 +16,7 @@ export const EnvSchema = z.object({
 
   NEXT_PUBLIC_APP_NAME: z.string().trim().default("Casey"),
   NEXT_PUBLIC_BASE_URL: z.string().trim().default("http://localhost:3000"),
-  NEXT_PUBLIC_VERCEL_URL: z.string().trim().optional().default(""),
+  NEXT_PUBLIC_VERCEL_URL: stringOrEmpty,
 
   NEXT_PUBLIC_SUPABASE_URL: stringOrEmpty,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: stringOrEmpty,
@@ -24,9 +24,11 @@ export const EnvSchema = z.object({
 
   RESEND_API_KEY: stringOrEmpty,
   RESEND_FROM: stringOrEmpty,
+  NEXT_PUBLIC_SUPPORT_EMAIL: stringOrEmpty,
+  NEXT_PUBLIC_CALENDLY_LINK: stringOrEmpty,
 
   OPENROUTER_API_KEY: stringOrEmpty,
-  OPENROUTER_MODEL: z.string().trim().default("openai/gpt-4o-mini"),
+  OPENROUTER_MODEL: z.string().trim().optional().default("openai/gpt-4o-mini"),
 
   FORMALIZE_MAX_USER_TURNS: z
     .string()
@@ -42,11 +44,11 @@ export const EnvSchema = z.object({
     .transform(parsePositiveInt(45000)),
   FORMALIZE_MAX_ATTEMPTS: z.string().optional().transform(parsePositiveInt(3)),
 
-  CRON_SECRET: z.string().trim().optional(),
+  CRON_SECRET: stringOrEmpty,
 
-  AXIOM_TOKEN: z.string().trim().optional().default(""),
-  AXIOM_DATASET: z.string().trim().optional().default(""),
-  AXIOM_BASE_URL: z.string().trim().default("https://api.axiom.co"),
+  AXIOM_TOKEN: stringOrEmpty,
+  AXIOM_DATASET: stringOrEmpty,
+  AXIOM_BASE_URL: z.string().trim().optional().default("https://api.axiom.co"),
 });
 
 export const BuildEnvSchema = z.object({
@@ -59,6 +61,8 @@ export const BuildEnvSchema = z.object({
   SUPABASE_SECRET_KEY: nonEmpty,
   RESEND_API_KEY: nonEmpty,
   RESEND_FROM: nonEmpty,
+  NEXT_PUBLIC_SUPPORT_EMAIL: z.string().optional(),
+  NEXT_PUBLIC_CALENDLY_LINK: z.string().optional(),
   OPENROUTER_API_KEY: nonEmpty,
   OPENROUTER_MODEL: nonEmpty,
   FORMALIZE_MAX_USER_TURNS: z.string().optional(),
@@ -82,6 +86,8 @@ const envInput = {
   SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   RESEND_FROM: process.env.RESEND_FROM,
+  NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
+  NEXT_PUBLIC_CALENDLY_LINK: process.env.NEXT_PUBLIC_CALENDLY_LINK,
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
   OPENROUTER_MODEL: process.env.OPENROUTER_MODEL,
   FORMALIZE_MAX_USER_TURNS: process.env.FORMALIZE_MAX_USER_TURNS,

@@ -73,9 +73,14 @@ export default function Home() {
               <em className="italic">without the chaos.</em>
             </h1>
 
-            <p className="mt-8 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
               {env.NEXT_PUBLIC_APP_NAME} combines secure witness intake,
               AI-assisted drafting, and governed collaboration in one platform.
+            </p>
+
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+              Built for personal injury solicitors handling RTA, EL/PL, and
+              clinical negligence claims.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-3">
@@ -84,10 +89,17 @@ export default function Home() {
                 asChild
                 className="rounded-full px-7 shadow-lg shadow-accent/20"
               >
-                <Link href="#beta">
-                  Request beta access
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+                {env.NEXT_PUBLIC_CALENDLY_LINK ? (
+                  <Link href={env.NEXT_PUBLIC_CALENDLY_LINK} target="_blank">
+                    Book a demo call
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                ) : (
+                  <Link href="/#beta">
+                    Request beta access
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                )}
               </Button>
               <Button
                 size="lg"
@@ -239,18 +251,18 @@ export default function Home() {
                   <MessageSquareText className="h-5 w-5" />
                 </div>
                 <CardTitle className="text-lg text-foreground mb-2">
-                  AI-guided interview, not generic chat
+                  Complete witness statements in one pass
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-sm leading-6">
-                  Interview turns are shaped by configured phases and required
-                  metadata, with progression only when factual completeness is
-                  achieved.
+                  {env.NEXT_PUBLIC_APP_NAME} flags vague answers and prompts
+                  follow-ups automatically, so your team gets a complete
+                  statement without a second interview.
                 </CardDescription>
                 <CardDescription className="text-sm leading-6">
-                  This keeps witness narratives coherent and reduces downstream
-                  legal rework from missing anchors.
+                  Witness narratives stay coherent from first account to final
+                  draft, reducing avoidable legal rework.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -320,7 +332,7 @@ export default function Home() {
       <section className="space-y-8 mx-auto mt-28 max-w-6xl sm:mt-32">
         <PageTitle
           subtitle="Intake process"
-          title="From first account to final statement"
+          title="Consistent witness capture, ready for submission."
           titleTag="h2"
         />
         <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
@@ -468,15 +480,15 @@ export default function Home() {
                 See how it fits your intake workflow before rollout.
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
-                Join the waiting list to get product updates, onboarding
-                previews, and access when the next cohort opens.
+                Get a personalised walkthrough and early pricing lock before
+                general availability.
               </p>
 
               <div className="mt-8 grid gap-3 text-sm text-muted-foreground">
                 {[
-                  "Product updates for legal teams",
-                  "Preview access to new workflow tools",
-                  "Onboarding for firms ready to pilot",
+                  "A personalised walkthrough of your intake workflow",
+                  "Early pricing lock before general availability",
+                  "Priority onboarding guidance for your team",
                 ].map((item) => (
                   <div key={item} className="flex items-center gap-2">
                     <BadgeCheck className="h-4 w-4 text-accent-foreground" />

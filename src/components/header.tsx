@@ -44,10 +44,12 @@ export default function Header() {
       )}
     >
       <Link href="/">
-        <p className="text-sm uppercase leading-[0.8em] tracking-[0.2em] text-muted-foreground">
-          {user?.tenant_name ?? env.NEXT_PUBLIC_APP_NAME}
-        </p>
-        <p className="font-display text-xl">Statement Studio</p>
+        {user?.tenant_name && (
+          <p className="text-sm uppercase leading-[0.8em] tracking-[0.2em] text-muted-foreground">
+            {user.tenant_name}
+          </p>
+        )}
+        <p className="font-display text-xl">{env.NEXT_PUBLIC_APP_NAME}</p>
       </Link>
 
       <nav className="hidden md:flex items-center gap-6 text-sm font-semibold">
