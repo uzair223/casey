@@ -223,7 +223,7 @@ export default function CaseDetailPage() {
           {isEditingCase ? (
             <EditCaseForm
               caseData={data}
-              caseTemplateConfig={caseTemplate?.draft_config || null}
+              caseTemplateConfig={caseTemplate?.published_config || null}
               onClose={() => setIsEditingCase(false)}
               onSaved={handleCaseSaved}
             />
@@ -235,12 +235,6 @@ export default function CaseDetailPage() {
                     Case name
                   </p>
                   <p className="text-sm">{data.title || "-"}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Incident date
-                  </p>
-                  <p className="text-sm">{data.incident_date || "TBD"}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
@@ -268,22 +262,24 @@ export default function CaseDetailPage() {
                 ) : null}
               </div>
               {/* Case metadata fields */}
-              {caseTemplate?.draft_config?.dynamicFields?.length ? (
+              {caseTemplate?.published_config?.dynamicFields?.length ? (
                 <div className="mt-6">
                   <h3 className="text-sm font-semibold mb-2">Case metadata</h3>
                   <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
-                    {caseTemplate.draft_config.dynamicFields.map((field) => (
-                      <div key={field.id}>
-                        <p className="text-sm font-medium text-muted-foreground">
-                          {field.label}
-                        </p>
-                        <p className="text-sm">
-                          {data.case_metadata?.[field.id] == null
-                            ? "-"
-                            : String(data.case_metadata[field.id])}
-                        </p>
-                      </div>
-                    ))}
+                    {caseTemplate.published_config.dynamicFields.map(
+                      (field) => (
+                        <div key={field.id}>
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {field.label}
+                          </p>
+                          <p className="text-sm">
+                            {data.case_metadata?.[field.id] == null
+                              ? "-"
+                              : String(data.case_metadata[field.id])}
+                          </p>
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
               ) : null}
@@ -296,13 +292,17 @@ export default function CaseDetailPage() {
         <Sidebar
           title="Witnesses"
           count={data.statements.length}
-          actionLabel={
-            <>
-              <PlusIcon className="h-4 w-4" />
-              Add witness
-            </>
-          }
-          onAction={() => setIsAddWitnessOpen(true)}
+          actions={[
+            {
+              label: (
+                <>
+                  <PlusIcon className="h-4 w-4" />
+                  Add witness
+                </>
+              ),
+              onClick: () => setIsAddWitnessOpen(true),
+            },
+          ]}
           items={data.statements}
           activeItemId={activeStatement?.id ?? null}
           getItemId={(statement) => statement.id}

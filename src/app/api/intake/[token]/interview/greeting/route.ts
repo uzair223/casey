@@ -9,7 +9,7 @@ import { logServerEvent } from "@/lib/observability/logger";
 import { SERVERONLY_getFullStatementFromToken } from "@/lib/supabase/queries";
 import {
   generateGreeting,
-  getMissingRequiredWitnessFieldLabels,
+  getMissingWitnessFieldLabels,
 } from "@/lib/statement-utils/prompts";
 import { getOpenRouterClientOptions } from "@/lib/utils";
 
@@ -43,9 +43,12 @@ export async function POST(
     }
 
     const fallback = generateGreeting(data.case, data.statement);
-    const missing = getMissingRequiredWitnessFieldLabels(data.statement);
+    const missing = getMissingWitnessFieldLabels(data.statement);
 
-    if (missing.length === 0 || !env.OPENROUTER_API_KEY) {
+    if (
+      (missing.required.length === 0 && missing.optional.length === 0) ||
+      !env.OPENROUTER_API_KEY
+    ) {
       return NextResponse.json(fallback);
     }
 
@@ -61,13 +64,13 @@ export async function POST(
           {
             role: "system",
             content:
-              "Write one warm, concise intake question asking for all missing witness details in natural language. Ask exactly one question and keep it under 30 words.",
+              "Write one warm, concise intake question asking for missing witness details in natural language. Ask exactly one question and keep it under 30 words. Address the witness directly in second person only (use 'you'/'your'). Never refer to the witness in third person and never include the witness's name. Required fields should be asked directly. Optional fields should be invited as non-blocking using wording like 'if available'.",
           },
           {
             role: "user",
             content: JSON.stringify({
-              witnessName: data.statement.witness_name,
-              missingFields: missing,
+              requiredMissingFields: missing.required,
+              optionalMissingFields: missing.optional,
             }),
           },
         ],

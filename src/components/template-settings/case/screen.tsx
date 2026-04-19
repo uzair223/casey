@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { PageTitle } from "@/components/page-title";
 import Loading from "@/components/loading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,8 +20,11 @@ import {
   templateStatusLabel,
   templateStatusVariant,
 } from "@/lib/status-styles";
+import { Input } from "@/components/ui/input";
 
 export function CaseTemplateSettingsScreen() {
+  const [templateSearch, setTemplateSearch] = useState("");
+
   const {
     userTenantName,
     canForkGlobalTemplate,
@@ -46,6 +50,43 @@ export function CaseTemplateSettingsScreen() {
     setEditorTab,
   } = useCaseTemplateSettings();
 
+  const filteredCaseTemplates = useMemo(() => {
+    const query = templateSearch.trim().toLowerCase();
+
+    return [...caseTemplates]
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      )
+      .filter((template) =>
+        query.length === 0 ? true : template.name.toLowerCase().includes(query),
+      );
+  }, [caseTemplates, templateSearch]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const isSaveShortcut =
+        (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s";
+
+      if (!isSaveShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (!canEditActiveTemplate) {
+        return;
+      }
+
+      void saveTemplate();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [canEditActiveTemplate, saveTemplate]);
+
   if (isLoading) {
     return <Loading />;
   }
@@ -55,9 +96,7 @@ export function CaseTemplateSettingsScreen() {
       <Badge variant={templateStatusVariant[template.status]}>
         {templateStatusLabel[template.status]}
       </Badge>
-      {activeTemplate && (
-        <Badge className="capitalize">{activeTemplate?.template_scope}</Badge>
-      )}
+      <Badge className="capitalize">{template.template_scope}</Badge>
       {template.id === defaultTemplateId ? <Badge>Default</Badge> : null}
       {template.id !== defaultTemplateId &&
       favouriteTemplateIds.includes(template.id) ? (
@@ -84,22 +123,30 @@ export function CaseTemplateSettingsScreen() {
       <SidebarWrapper>
         <Sidebar<CaseTemplate>
           title="Case Templates"
-          count={caseTemplates.length}
-          actionLabel="New"
-          onAction={createNewTemplate}
-          items={caseTemplates}
+          actions={[
+            <Input
+              key="case-template-search"
+              value={templateSearch}
+              onChange={(event) => setTemplateSearch(event.target.value)}
+              placeholder="Search templates..."
+              className="h-8"
+            />,
+            {
+              label: "New",
+              onClick: () => void createNewTemplate(),
+            },
+          ]}
+          items={filteredCaseTemplates}
           activeItemId={activeTemplate?.id}
           getItemId={(template) => template.id}
           onSelectItem={(template) => {
             void selectTemplate(template);
           }}
           renderItem={(template) => (
-            <div className="flex w-full flex-col items-start gap-1">
-              <div className="flex w-full flex-wrap items-center justify-between gap-2">
-                <span className="font-medium text-sm">{template.name}</span>
-                <div className="flex flex-wrap items-center gap-1">
-                  {badges(template)}
-                </div>
+            <div className="flex w-full flex-col gap-2">
+              <span className="font-medium text-sm">{template.name}</span>
+              <div className="ml-auto flex flex-wrap items-center gap-1">
+                {badges(template)}
               </div>
             </div>
           )}

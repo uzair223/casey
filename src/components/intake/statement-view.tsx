@@ -1,14 +1,26 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo } from "react";
 import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 import { useWitnessStatement } from "@/components/intake/intake-context";
 import { Loader2 } from "lucide-react";
 import { PageTitle } from "../page-title";
-import { PreviewDocx } from "../ui/preview-docx";
 import { generateDoc } from "@/lib/doc-gen";
 import { useAsync } from "@/hooks/useAsync";
+
+const DocxEditor = dynamic(
+  async () => (await import("@eigenpal/docx-js-editor")).DocxEditor,
+  {
+    ssr: false,
+    loading: () => (
+      <p className="text-sm text-muted-foreground">
+        Loading statement preview...
+      </p>
+    ),
+  },
+);
 
 export function StatementView() {
   const {
@@ -177,7 +189,18 @@ export function StatementView() {
           )}
         </div>
       </div>
-      {doc && <PreviewDocx source={doc} />}
+      {doc ? (
+        <div className="overflow-hidden rounded-md border bg-white">
+          <DocxEditor
+            documentBuffer={doc}
+            documentName="Witness Statement"
+            readOnly
+            mode="viewing"
+            showToolbar={false}
+            showOutlineButton={false}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

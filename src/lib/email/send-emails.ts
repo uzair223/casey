@@ -2,6 +2,7 @@ import { env } from "../env";
 import { Resend } from "resend";
 import { getAuthURL } from "../utils";
 import { getServiceClient } from "../supabase/server";
+import { logServerEvent } from "@/lib/observability/logger";
 import type {
   MentionNotificationPayload,
   StatementReminderEmailPayload,
@@ -13,6 +14,7 @@ import {
   buildStatementReminderEmailTemplate,
   buildStatementFollowUpRequestTemplate,
   buildInvitationEmailTemplate,
+  buildSignInEmailTemplate,
   buildMentionNotificationEmailTemplate,
   buildStatementLinkEmailTemplate,
   buildStatementSubmittedNotificationTemplate,
@@ -29,12 +31,70 @@ const getResendFrom = () => {
   return from;
 };
 
+const toRecipientList = (to: string | string[]) =>
+  (Array.isArray(to) ? to : [to]).filter(Boolean);
+
+const toRecipientDomains = (to: string | string[]) => {
+  return Array.from(
+    new Set(
+      toRecipientList(to)
+        .map((email) => {
+          const at = email.lastIndexOf("@");
+          return at > -1 ? email.slice(at + 1).toLowerCase() : null;
+        })
+        .filter((domain): domain is string => Boolean(domain)),
+    ),
+  ).slice(0, 5);
+};
+
+const sendEmailWithLogging = async (
+  emailType: string,
+  payload: Parameters<typeof resend.emails.send>[0],
+) => {
+  const startedAt = Date.now();
+
+  try {
+    const result = await resend.emails.send(payload);
+    const providerError = (
+      result as { error?: { message?: string | null } | null }
+    ).error;
+
+    if (providerError) {
+      throw new Error(
+        providerError.message ?? "Email provider returned an error",
+      );
+    }
+
+    await logServerEvent("info", "email.send.succeeded", {
+      provider: "resend",
+      emailType,
+      subject: payload.subject,
+      recipientCount: toRecipientList(payload.to).length,
+      recipientDomains: toRecipientDomains(payload.to),
+      durationMs: Date.now() - startedAt,
+    });
+
+    return result;
+  } catch (error) {
+    await logServerEvent("error", "email.send.failed", {
+      provider: "resend",
+      emailType,
+      subject: payload.subject,
+      recipientCount: toRecipientList(payload.to).length,
+      recipientDomains: toRecipientDomains(payload.to),
+      durationMs: Date.now() - startedAt,
+      error,
+    });
+    throw error;
+  }
+};
+
 export const sendStatementLinkEmail = async (
   payload: StatementEmailPayload,
 ) => {
   const template = buildStatementLinkEmailTemplate(payload);
   const from = `${payload.tenantName} | ${getResendFrom()}`;
-  await resend.emails.send({
+  await sendEmailWithLogging("statement.link", {
     from,
     to: payload.to,
     subject: template.subject,
@@ -69,11 +129,11 @@ export const sendExistingUserSignInEmail = async ({
     throw new Error("Failed to generate sign-in link");
   }
 
-  const template = buildInvitationEmailTemplate({
+  const template = buildSignInEmailTemplate({
     url: actionLink,
   });
 
-  await resend.emails.send({
+  await sendEmailWithLogging("auth.magic_link", {
     from: getResendFrom(),
     to: email,
     subject: template.subject,
@@ -112,7 +172,7 @@ const sendNewUserInviteEmail = async ({
     url: actionLink,
   });
 
-  await resend.emails.send({
+  await sendEmailWithLogging("invite.new_user", {
     from: getResendFrom(),
     to: email,
     subject: template.subject,
@@ -146,7 +206,7 @@ export const sendStatementSubmittedNotificationEmail = async (
   if (!payload.to.length) return;
   const template = buildStatementSubmittedNotificationTemplate(payload);
   const from = getResendFrom();
-  await resend.emails.send({
+  await sendEmailWithLogging("statement.submitted_notification", {
     from,
     to: payload.to,
     subject: template.subject,
@@ -161,7 +221,7 @@ export const sendStatementFollowUpRequestEmail = async (
   const template = buildStatementFollowUpRequestTemplate(payload);
   const from = `${payload.tenantName} | ${getResendFrom()}`;
 
-  await resend.emails.send({
+  await sendEmailWithLogging("statement.follow_up_request", {
     from,
     to: payload.to,
     subject: template.subject,
@@ -176,7 +236,7 @@ export const sendStatementReminderEmail = async (
   const template = buildStatementReminderEmailTemplate(payload);
   const from = `${payload.tenantName} | ${getResendFrom()}`;
 
-  await resend.emails.send({
+  await sendEmailWithLogging("statement.reminder", {
     from,
     to: payload.to,
     subject: template.subject,
@@ -190,7 +250,7 @@ export const sendMentionNotificationEmail = async (
 ) => {
   const template = buildMentionNotificationEmailTemplate(payload);
 
-  await resend.emails.send({
+  await sendEmailWithLogging("mention.notification", {
     from: `${payload.tenantName} | ${getResendFrom()}`,
     to: payload.to,
     subject: template.subject,

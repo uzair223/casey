@@ -367,6 +367,22 @@ export async function renameStatementInternalDocument(input: {
   }
 }
 
+export async function replaceStatementInternalDocument(input: {
+  documentId: string;
+  document: UploadedDocument;
+}) {
+  const supabase = getSupabaseClient();
+
+  const { error } = await supabase
+    .from("statement_internal_documents")
+    .update({ document: input.document })
+    .eq("id", input.documentId);
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function deleteStatementInternalDocument(input: {
   documentId: string;
   document: UploadedDocument;

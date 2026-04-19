@@ -15,7 +15,7 @@ function getMetadataFieldSchema(label: string, isRequired: boolean) {
 function buildMetadataObjectSchema(
   config: StatementConfig,
   requiredSelector: (field: {
-    required?: boolean | null;
+    requiredOnIntake?: boolean | null;
     requiredOnCreate?: boolean | null;
   }) => boolean,
 ) {
@@ -37,7 +37,7 @@ export function buildCreateWitnessSchema(config: StatementConfig) {
     witness_email: z.string().trim(), //.email("Enter a valid email"),
     witness_metadata: buildMetadataObjectSchema(
       config,
-      (field) => field.requiredOnCreate ?? field.required ?? false,
+      (field) => field.requiredOnCreate ?? field.requiredOnIntake ?? false,
     ),
     template_id: StatementConfigIdSchema,
   });
@@ -57,7 +57,7 @@ export function buildUpdateWitnessDetailsSchema(config: StatementConfig) {
     witness_email: z.email("Enter a valid email").trim(),
     witness_metadata: buildMetadataObjectSchema(
       config,
-      (field) => field.requiredOnCreate ?? field.required ?? false,
+      (field) => field.requiredOnCreate ?? field.requiredOnIntake ?? false,
     ),
   });
 }

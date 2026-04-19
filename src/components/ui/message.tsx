@@ -56,33 +56,70 @@ export function MarkdownMessage({ content }: MarkdownMessageProps) {
 
 export function MessageCard({
   message,
+  children,
 }: {
-  message: { role: string; content: string };
+  message: {
+    role: string;
+    content: string;
+    status?: "pending" | "complete" | "error";
+  };
+  children?: React.ReactNode;
 }) {
   const isUser = message.role === "user";
+  const showPendingIndicator = message.status === "pending" && !isUser;
+  const hasContent = message.content.trim().length > 0;
+
   return (
-    <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
-      <Card
-        size="sm"
-        className={cn(
-          "max-w-sm text-sm rounded-3xl [--card-opacity:90%]",
-          isUser ? "rounded-tr-sm" : "rounded-tl-sm",
-        )}
-        variant={isUser ? "primary" : "default"}
-      >
-        <CardHeader className="relative">
-          <span className="absolute text-transparent select-text whitespace-nowrap text-[0px]">
-            {message.role.toUpperCase()}:
-          </span>
-          {isUser ? (
-            <p>{message.content}</p>
-          ) : (
-            <div className="prose prose-invert">
-              <MarkdownMessage content={message.content} />
-            </div>
+    <div
+      className={cn(
+        "flex flex-col gap-1",
+        isUser ? "items-end" : "items-start",
+      )}
+    >
+      {hasContent ? (
+        <Card
+          size="sm"
+          className={cn(
+            "max-w-sm text-sm rounded-3xl [--card-opacity:90%]",
+            isUser ? "rounded-tr-sm" : "rounded-tl-sm",
           )}
-        </CardHeader>
-      </Card>
+          variant={isUser ? "primary" : "default"}
+        >
+          <CardHeader className="relative">
+            <span className="absolute text-transparent select-text whitespace-nowrap text-[0px]">
+              {message.role.toUpperCase()}:
+            </span>
+            {isUser ? (
+              <p>{message.content}</p>
+            ) : (
+              <div className="prose prose-invert">
+                <MarkdownMessage content={message.content} />
+              </div>
+            )}
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      {showPendingIndicator ? (
+        <Card size="sm" className="w-min rounded-md!">
+          <CardHeader className="flex flex-row justify-center gap-1">
+            <div
+              className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
+              style={{ animationDelay: "0ms" }}
+            ></div>
+            <div
+              className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
+              style={{ animationDelay: "150ms" }}
+            ></div>
+            <div
+              className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
+              style={{ animationDelay: "300ms" }}
+            ></div>
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      {children}
     </div>
   );
 }

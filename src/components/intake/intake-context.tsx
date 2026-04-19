@@ -91,6 +91,8 @@ export function IntakeProvider({
   token: string;
   children: ReactNode;
 }) {
+  const requiresDemoAuth = token.startsWith("demo-");
+
   const [tab, setTab] = useState<IntakeTabs>("chat");
   const [statementSections, setStatementSections] = useState<
     Record<string, string>
@@ -109,6 +111,13 @@ export function IntakeProvider({
   const [isDemoTabsUnlocked, setIsDemoTabsUnlocked] = useState(false);
   const reversed = useMemo(() => messages.slice().reverse(), [messages]);
 
+  const withCompleteStatus = (
+    message: IntakeChatMessage,
+  ): IntakeChatMessage => ({
+    ...message,
+    status: "complete",
+  });
+
   const clearDemoPlaybackTimeouts = () => {
     demoPlaybackTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
     demoPlaybackTimeoutsRef.current = [];
@@ -123,7 +132,7 @@ export function IntakeProvider({
     async () => {
       const data = await apiFetch<StatementDataResponse<true>>(
         `/api/intake/${token}/shared`,
-        { method: "GET", requireAuth: false },
+        { method: "GET", requireAuth: requiresDemoAuth },
       );
 
       const {
@@ -141,16 +150,16 @@ export function IntakeProvider({
 
       setStatementSections(sections || {});
       if (isDemoStatement && initialMessages.length > 0) {
-        demoPlaybackSourceRef.current = initialMessages;
+        demoPlaybackSourceRef.current = initialMessages.map(withCompleteStatus);
         setMessages([]);
       } else {
         demoPlaybackSourceRef.current = [];
-        setMessages(initialMessages);
+        setMessages(initialMessages.map(withCompleteStatus));
       }
 
       return { statement, case: caseData, ...rest };
     },
-    [token],
+    [token, requiresDemoAuth],
     { initialLoading: true },
   );
 
@@ -167,7 +176,7 @@ export function IntakeProvider({
         `/api/intake/${token}/shared/template-document`,
         {
           method: "GET",
-          requireAuth: false,
+          requireAuth: requiresDemoAuth,
           returnType: "response",
         },
       );
@@ -181,21 +190,21 @@ export function IntakeProvider({
       console.warn("Template document unavailable for intake preview", error);
       return null;
     }
-  }, [data?.statement.template_document_snapshot, token]);
+  }, [data?.statement.template_document_snapshot, token, requiresDemoAuth]);
 
   const acknowledgePrivacyNotice = useAsync(
     async () => {
       try {
         await apiFetch(`/api/intake/${token}/shared/consent`, {
           method: "POST",
-          requireAuth: false,
+          requireAuth: requiresDemoAuth,
         });
         return true;
       } catch {
         throw new Error("Failed to acknowledge privacy notice");
       }
     },
-    [token],
+    [token, requiresDemoAuth],
     {
       initialState: false,
       onlyFirstLoad: false,
@@ -322,6 +331,7 @@ export function IntakeProvider({
         role: "user",
         content: input,
         id: `user-${Date.now()}`,
+        status: "complete",
       };
       setMessages((prev) => [...prev, userMessage]);
 
@@ -331,7 +341,7 @@ export function IntakeProvider({
           conversationHistory: messages,
           userMessage: userMessage.content,
         }),
-        requireAuth: false,
+        requireAuth: requiresDemoAuth,
         returnType: "response",
       });
 
@@ -354,6 +364,7 @@ export function IntakeProvider({
         content: "",
         raw: "",
         id: `assistant-${Date.now()}`,
+        status: "pending",
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -371,6 +382,7 @@ export function IntakeProvider({
                 ? raw.slice(0, metadataMarkerIndex).trimEnd()
                 : raw,
             raw,
+            status: "pending",
           };
           setMessages((prev) =>
             prev.map((msg) =>
@@ -391,6 +403,7 @@ export function IntakeProvider({
                   ? raw.slice(0, metadataMarkerIndex).trimEnd()
                   : raw,
               raw,
+              status: "pending",
             };
             setMessages((prev) =>
               prev.map((msg) =>
@@ -412,6 +425,7 @@ export function IntakeProvider({
         assistantMessage = {
           ...assistantMessage,
           content: assistantMessage.raw.slice(0, metadataMarkerIndex).trimEnd(),
+          status: "complete",
         };
 
         if (metadataJson) {
@@ -433,9 +447,19 @@ export function IntakeProvider({
             msg.id === assistantMessage.id ? assistantMessage : msg,
           ),
         );
+      } else {
+        assistantMessage = {
+          ...assistantMessage,
+          status: "complete",
+        };
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessage.id ? assistantMessage : msg,
+          ),
+        );
       }
     },
-    [token, messages, hasAcknowledgedPrivacyNotice],
+    [token, messages, hasAcknowledgedPrivacyNotice, requiresDemoAuth],
     {
       onlyFirstLoad: false,
       initialLoading: false,
@@ -448,6 +472,7 @@ export function IntakeProvider({
             role: "assistant",
             content: "Sorry, something went wrong.",
             id: `assistant-error-${Date.now()}`,
+            status: "error",
           },
         ]);
       },
@@ -500,7 +525,7 @@ export function IntakeProvider({
       if (patchDetails && Object.keys(patchDetails).length > 0) {
         // yield "Updating witness details...";
         await apiFetch(`/api/intake/${token}/interview/submit`, {
-          requireAuth: false,
+          requireAuth: requiresDemoAuth,
           method: "PUT",
           body: JSON.stringify({
             witnessDetails: patchDetails,
@@ -543,7 +568,7 @@ export function IntakeProvider({
             })),
           }),
           signal: controller.signal,
-          requireAuth: false,
+          requireAuth: requiresDemoAuth,
         },
       ).finally(() => clearTimeout(timeout));
 
@@ -556,7 +581,7 @@ export function IntakeProvider({
 
       return true;
     },
-    [token, messages, exhibits],
+    [token, messages, exhibits, requiresDemoAuth],
     {
       onlyFirstLoad: false,
       initialLoading: false,
@@ -648,11 +673,11 @@ export function IntakeProvider({
           signedDocument,
           supportingDocuments,
         }),
-        requireAuth: false,
+        requireAuth: requiresDemoAuth,
       });
       return true;
     },
-    [token, statementSections, evidenceFiles],
+    [token, statementSections, evidenceFiles, requiresDemoAuth],
     {
       initialLoading: false,
       onlyFirstLoad: false,
@@ -737,7 +762,7 @@ export function IntakeProvider({
         `/api/intake/${token}/interview/greeting`,
         {
           method: "POST",
-          requireAuth: false,
+          requireAuth: requiresDemoAuth,
         },
       ).catch((error) => {
         console.error("Error generating greeting:", error);
@@ -760,8 +785,13 @@ export function IntakeProvider({
           setMessages((prev) => [...prev, message]);
           await apiFetch(`/api/intake/${token}/interview/chat/save`, {
             method: "POST",
-            body: JSON.stringify({ ...message, order: index }),
-            requireAuth: false,
+            body: JSON.stringify({
+              role: message.role,
+              content: message.content,
+              meta: message.meta,
+              order: index,
+            }),
+            requireAuth: requiresDemoAuth,
           }).catch((error) => {
             console.error("Error saving greeting message:", error);
           });
@@ -782,6 +812,7 @@ export function IntakeProvider({
     };
   }, [
     token,
+    requiresDemoAuth,
     isDemo,
     data,
     hasAcknowledgedPrivacyNotice,

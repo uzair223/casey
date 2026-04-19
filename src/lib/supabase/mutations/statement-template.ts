@@ -23,7 +23,117 @@ type UpsertTemplateInput = {
 };
 
 const TEMPLATE_SELECT =
-  "id, tenant_id, name, template_scope, status, draft_config, published_config, docx_template_document, source_template_id, published_at, created_at, updated_at, created_by";
+  "id, tenant_id, name, template_scope, status, draft_config, published_config, source_template_id, published_at, created_at, updated_at, created_by";
+
+async function getTemplateDocumentColumns(templateId: string): Promise<{
+  draftDoc: UploadedDocument | null;
+  publishedDoc: UploadedDocument | null;
+}> {
+  const supabase = getSupabaseClient() as unknown as {
+    from: (table: string) => {
+      select: (columns: string) => {
+        eq: (
+          column: string,
+          value: string,
+        ) => {
+          single: () => Promise<{
+            data: Record<string, unknown> | null;
+            error: unknown;
+          }>;
+        };
+      };
+    };
+  };
+
+  try {
+    const { data, error } = await supabase
+      .from("statement_config_templates")
+      .select("draft_docx_template_document, published_docx_template_document")
+      .eq("id", templateId)
+      .single();
+
+    if (error || !data) {
+      return { draftDoc: null, publishedDoc: null };
+    }
+
+    const draftDoc =
+      (data.draft_docx_template_document as UploadedDocument | null) ?? null;
+    const publishedDoc =
+      (data.published_docx_template_document as UploadedDocument | null) ??
+      null;
+
+    return { draftDoc, publishedDoc };
+  } catch {
+    // Column may not exist yet in environments where migrations have not run.
+    return { draftDoc: null, publishedDoc: null };
+  }
+}
+
+async function setDraftTemplateDocumentColumn(params: {
+  templateId: string;
+  document: Json | null;
+}) {
+  const supabase = getSupabaseClient() as unknown as {
+    from: (table: string) => {
+      update: (values: Record<string, unknown>) => {
+        eq: (column: string, value: string) => Promise<unknown>;
+      };
+    };
+  };
+
+  try {
+    await supabase
+      .from("statement_config_templates")
+      .update({ draft_docx_template_document: params.document })
+      .eq("id", params.templateId);
+  } catch {
+    // Ignore until migration is applied.
+  }
+}
+
+async function setPublishedTemplateDocumentColumn(params: {
+  templateId: string;
+  document: Json | null;
+}) {
+  const supabase = getSupabaseClient() as unknown as {
+    from: (table: string) => {
+      update: (values: Record<string, unknown>) => {
+        eq: (column: string, value: string) => Promise<unknown>;
+      };
+    };
+  };
+
+  try {
+    await supabase
+      .from("statement_config_templates")
+      .update({ published_docx_template_document: params.document })
+      .eq("id", params.templateId);
+  } catch {
+    // Ignore until migration is applied.
+  }
+}
+
+function normalizeTemplateRow(
+  row: Record<string, unknown>,
+): StatementConfigTemplate {
+  const draftDoc =
+    (row.draft_docx_template_document as
+      | StatementConfigTemplate["draft_docx_template_document"]
+      | null
+      | undefined) ?? null;
+
+  const publishedDoc =
+    (row.published_docx_template_document as
+      | StatementConfigTemplate["published_docx_template_document"]
+      | null
+      | undefined) ?? null;
+
+  return {
+    ...(row as StatementConfigTemplate),
+    draft_docx_template_document: draftDoc,
+    published_docx_template_document: publishedDoc,
+  };
+}
 
 function createDefaultConfig(): StatementConfig {
   return {
@@ -50,7 +160,12 @@ async function getTemplateById(
     throw error;
   }
 
-  return data as StatementConfigTemplate;
+  const docColumns = await getTemplateDocumentColumns(templateId);
+  return normalizeTemplateRow({
+    ...(data as Record<string, unknown>),
+    draft_docx_template_document: docColumns.draftDoc,
+    published_docx_template_document: docColumns.publishedDoc,
+  });
 }
 
 export async function createStatementTemplate(
@@ -65,8 +180,6 @@ export async function createStatementTemplate(
       template_scope: payload.templateScope,
       status: payload.status ?? "draft",
       draft_config: payload.draftConfig as unknown as Json,
-      docx_template_document:
-        (payload.docxTemplateDocument as Json | null | undefined) ?? null,
       source_template_id: payload.sourceTemplateId ?? null,
     };
 
@@ -80,7 +193,15 @@ export async function createStatementTemplate(
     throw error;
   }
 
-  return data as StatementConfigTemplate;
+  if (payload.docxTemplateDocument !== undefined && data?.id) {
+    await setDraftTemplateDocumentColumn({
+      templateId: data.id,
+      document: payload.docxTemplateDocument as Json | null,
+    });
+  }
+
+  const latest = await getTemplateById(data.id);
+  return latest;
 }
 
 export async function updateStatementTemplate(
@@ -102,9 +223,6 @@ export async function updateStatementTemplate(
   if (payload.status !== undefined) updatePayload.status = payload.status;
   if (payload.draftConfig !== undefined)
     updatePayload.draft_config = payload.draftConfig as unknown as Json;
-  if (payload.docxTemplateDocument !== undefined)
-    updatePayload.docx_template_document =
-      payload.docxTemplateDocument as Json | null;
   if (payload.sourceTemplateId !== undefined)
     updatePayload.source_template_id = payload.sourceTemplateId;
 
@@ -119,7 +237,15 @@ export async function updateStatementTemplate(
     throw error;
   }
 
-  return data as StatementConfigTemplate;
+  if (payload.docxTemplateDocument !== undefined) {
+    await setDraftTemplateDocumentColumn({
+      templateId,
+      document: payload.docxTemplateDocument as Json | null,
+    });
+  }
+
+  const latest = await getTemplateById(templateId);
+  return latest;
 }
 
 export async function publishStatementTemplate(
@@ -137,6 +263,9 @@ export async function publishStatementTemplate(
     throw currentError;
   }
 
+  const docColumns = await getTemplateDocumentColumns(templateId);
+  const draftDoc = docColumns.draftDoc ?? null;
+
   const { data, error } = await supabase
     .from("statement_config_templates")
     .update({
@@ -153,7 +282,12 @@ export async function publishStatementTemplate(
     throw error;
   }
 
-  return data as StatementConfigTemplate;
+  await setPublishedTemplateDocumentColumn({
+    templateId,
+    document: draftDoc as Json | null,
+  });
+
+  return getTemplateById(templateId);
 }
 
 export async function restoreStatementTemplateDraftFromPublished(
@@ -175,6 +309,9 @@ export async function restoreStatementTemplateDraftFromPublished(
     throw new Error("No published version is available to restore.");
   }
 
+  const docColumns = await getTemplateDocumentColumns(templateId);
+  const publishedDoc = docColumns.publishedDoc ?? null;
+
   const { data, error } = await supabase
     .from("statement_config_templates")
     .update({
@@ -189,7 +326,12 @@ export async function restoreStatementTemplateDraftFromPublished(
     throw error;
   }
 
-  return data as StatementConfigTemplate;
+  await setDraftTemplateDocumentColumn({
+    templateId,
+    document: publishedDoc as Json | null,
+  });
+
+  return getTemplateById(templateId);
 }
 
 export async function deleteStatementTemplate(
@@ -224,20 +366,15 @@ export async function createStatementConfigSnapshot(params: {
     configName = template.name;
     templateScope = template.template_scope as TemplateScope;
 
-    if (template.status === "published") {
-      if (!template.published_config) {
-        throw new Error(
-          "Published template is missing published_config and cannot be snapshotted.",
-        );
-      }
+    // Prefer published snapshot artifacts when available; fall back to draft.
+    configJson = template.published_config ?? template.draft_config;
 
-      configJson = template.published_config;
-    } else {
-      configJson = template.draft_config;
-    }
+    const sourceDoc =
+      template.published_docx_template_document ??
+      template.draft_docx_template_document;
 
-    if (template.docx_template_document) {
-      const source = template.docx_template_document;
+    if (sourceDoc) {
+      const source = sourceDoc;
       const blob = await downloadUploadedDocument(source);
       const copiedName = source.name || `${template.name}.docx`;
       const extension = copiedName.toLowerCase().endsWith(".docx")

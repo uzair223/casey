@@ -251,7 +251,7 @@ export async function generateStarterDoc(params: {
                 centered("Claimant", SZ.body, SP.sm, false),
                 centered("- and -", SZ.body, SP.sm),
                 centered("{caseMetadata.defendant}", SZ.body, SP.xs),
-                centered("Claimant", SZ.body, SP.md, false),
+                centered("Defendant", SZ.body, SP.md, false),
               ]
             : []),
 

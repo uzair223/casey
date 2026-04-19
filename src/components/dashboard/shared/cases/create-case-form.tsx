@@ -48,7 +48,6 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
     resolver: zodResolver(CaseSchema),
     defaultValues: {
       title: "",
-      incident_date: "",
       case_template_id: null,
       case_metadata: {},
       assigned_to_ids: [],
@@ -76,10 +75,25 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
   );
 
   const selectedCaseTemplateConfig: CaseConfig =
-    selectedCaseTemplate?.published_config ??
-      selectedCaseTemplate?.draft_config ?? {
-        dynamicFields: [],
-      };
+    selectedCaseTemplate?.published_config ?? {
+      dynamicFields: [],
+    };
+
+  useEffect(() => {
+    const titleTemplate = selectedCaseTemplate?.title_template?.trim();
+    if (!titleTemplate) {
+      return;
+    }
+
+    formMethods.setValue("title", titleTemplate, {
+      shouldDirty: false,
+      shouldValidate: true,
+    });
+  }, [
+    formMethods,
+    selectedCaseTemplate?.id,
+    selectedCaseTemplate?.title_template,
+  ]);
 
   useEffect(() => {
     if (!user?.tenant_id) return;
@@ -125,7 +139,6 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
     await createCase({
       tenant_id: user.tenant_id!,
       title: data.title,
-      incident_date: data.incident_date || null,
       case_template_id: data.case_template_id ?? null,
       case_metadata:
         Object.fromEntries(
@@ -161,21 +174,6 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
             registerOptions={{ required: true }}
             renderControl={(registration, required) => (
               <Input id="case_title" required={required} {...registration} />
-            )}
-          />
-
-          <RhfField
-            form={formMethods}
-            name="incident_date"
-            controlId="case_incident_date"
-            label="Incident date"
-            renderControl={(registration, required) => (
-              <Input
-                id="case_incident_date"
-                type="date"
-                required={required}
-                {...registration}
-              />
             )}
           />
 

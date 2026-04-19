@@ -5,10 +5,32 @@ import type {
 import { getSupabaseClient } from "../client";
 
 const TEMPLATE_SELECT =
-  "id, tenant_id, name, template_scope, status, draft_config, published_config, docx_template_document, source_template_id, published_at, created_at, updated_at, created_by";
+  "id, tenant_id, name, template_scope, status, draft_config, published_config, draft_docx_template_document, published_docx_template_document, source_template_id, published_at, created_at, updated_at, created_by";
 
 const PUBLISHED_TEMPLATE_SELECT =
-  "id, name, template_scope, published_config, docx_template_document";
+  "id, name, template_scope, published_config, published_docx_template_document";
+
+function normalizeTemplateRow(
+  row: Record<string, unknown>,
+): StatementConfigTemplate {
+  const draftDoc =
+    (row.draft_docx_template_document as
+      | StatementConfigTemplate["draft_docx_template_document"]
+      | null
+      | undefined) ?? null;
+
+  const publishedDoc =
+    (row.published_docx_template_document as
+      | StatementConfigTemplate["published_docx_template_document"]
+      | null
+      | undefined) ?? null;
+
+  return {
+    ...(row as StatementConfigTemplate),
+    draft_docx_template_document: draftDoc,
+    published_docx_template_document: publishedDoc,
+  };
+}
 
 async function getPublishedTemplateByScope(params: {
   templateId: string;
@@ -35,7 +57,19 @@ async function getPublishedTemplateByScope(params: {
     throw error;
   }
 
-  return (data as PublishedStatementConfigTemplate | null) ?? null;
+  if (!data) {
+    return null;
+  }
+
+  const normalized = normalizeTemplateRow(data as Record<string, unknown>);
+  return {
+    id: normalized.id,
+    name: normalized.name,
+    template_scope: normalized.template_scope,
+    published_config: normalized.published_config,
+    published_docx_template_document:
+      normalized.published_docx_template_document,
+  };
 }
 
 export async function getPublishedTemplate(params: {
@@ -68,5 +102,7 @@ export async function listStatementTemplates(): Promise<
     throw error;
   }
 
-  return (data ?? []) as StatementConfigTemplate[];
+  return (data ?? []).map((row) =>
+    normalizeTemplateRow(row as Record<string, unknown>),
+  );
 }

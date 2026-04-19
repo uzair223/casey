@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card";
 import type { InviteWithTenantName } from "@/types";
 import { apiFetch } from "@/lib/api-utils";
-import { getAuthURL, getRoleLabel } from "@/lib/utils";
+import { getRoleLabel } from "@/lib/utils";
 import { WaitlistSignupForm } from "@/components/waitlist/waitlist-form";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -149,17 +149,18 @@ function AuthPageContent() {
   }) => {
     setStatus(null);
     try {
-      const supabase = getSupabaseClient();
-      const emailRedirectTo = getAuthURL(
-        lookupInviteForm.getValues("inviteCode"),
-      );
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo },
+      const response = await fetch("/api/auth/magic-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          inviteCode: lookupInviteForm.getValues("inviteCode") || undefined,
+        }),
       });
 
-      if (error) {
-        throw new Error(error.message);
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error ?? "Failed to send magic link");
       }
 
       setSuccessStatus(
@@ -343,19 +344,6 @@ function AuthPageContent() {
         </aside>
 
         <div className="space-y-6">
-          {status ? (
-            <Card
-              size="md"
-              className={
-                status.type === "error"
-                  ? "border-destructive/50 bg-destructive/5"
-                  : "border-emerald-500/40 bg-emerald-500/5"
-              }
-            >
-              <CardHeader className="text-sm">{status.message}</CardHeader>
-            </Card>
-          ) : null}
-
           {!user ? (
             <Card className="border-border/70 bg-card/85">
               <CardHeader>
@@ -402,8 +390,8 @@ function AuthPageContent() {
             </Card>
           ) : null}
 
-          {user && tenantLifecycle?.softDeleted ? (
-            <Card className="border-warning/40 bg-warning/5">
+          {user && tenantLifecycle ? (
+            <Card variant="warning">
               <CardHeader>
                 <CardTitle className="text-sm uppercase tracking-[0.2em]">
                   Tenant archived
@@ -569,6 +557,17 @@ function AuthPageContent() {
                 </form>
               </FormProvider>
             )
+          ) : null}
+
+          {status ? (
+            <Card
+              size="md"
+              variant={status.type === "error" ? "destructive" : "secondary"}
+            >
+              <CardHeader>
+                <CardTitle className="text-sm">{status.message}</CardTitle>
+              </CardHeader>
+            </Card>
           ) : null}
 
           {!user ? (

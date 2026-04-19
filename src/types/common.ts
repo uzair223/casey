@@ -39,6 +39,7 @@ export type Message = {
 };
 
 export type IntakeChatMessage = Message & {
+  status?: "pending" | "complete" | "error";
   meta?: ResponseMetadata;
 };
 
@@ -87,10 +88,11 @@ export type TemplateScope = "global" | "tenant";
 export type TemplateStatus = "draft" | "published" | "archived";
 export type CaseTemplate = Omit<
   Tables<"case_templates">,
-  "template_scope" | "status"
+  "template_scope" | "status" | "title_template"
 > & {
   status: TemplateStatus;
   template_scope: TemplateScope;
+  title_template: string;
   draft_config: CaseConfig;
   published_config: CaseConfig | null;
 };
@@ -102,13 +104,15 @@ export type StatementConfigTemplate = Omit<
   | "status"
   | "draft_config"
   | "published_config"
-  | "docx_template_document"
+  | "draft_docx_template_document"
+  | "published_docx_template_document"
 > & {
   template_scope: TemplateScope;
   status: TemplateStatus;
   draft_config: StatementConfig;
   published_config: StatementConfig | null;
-  docx_template_document: UploadedDocument | null;
+  draft_docx_template_document: UploadedDocument | null;
+  published_docx_template_document: UploadedDocument | null;
 };
 export type PublishedStatementConfigTemplate = Pick<
   StatementConfigTemplate,
@@ -116,7 +120,7 @@ export type PublishedStatementConfigTemplate = Pick<
   | "name"
   | "template_scope"
   | "published_config"
-  | "docx_template_document"
+  | "published_docx_template_document"
 >;
 
 export type StatementStatus =

@@ -316,7 +316,7 @@ export function CreateStatementForm({
               {witnessMetadataFields.map((field) => {
                 const fieldKey = `witness_metadata.${field.id}` as const;
                 const isRequiredOnCreate =
-                  field.requiredOnCreate ?? field.required ?? false;
+                  field.requiredOnCreate ?? field.requiredOnIntake ?? false;
                 return (
                   <RhfField
                     key={field.id}

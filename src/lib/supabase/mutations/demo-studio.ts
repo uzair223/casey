@@ -3,7 +3,7 @@ import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
 import type { Json, TemplateScope } from "@/types";
 
 const TEMPLATE_FIELDS =
-  "id, tenant_id, name, status, template_scope, published_config, docx_template_document";
+  "id, tenant_id, name, status, template_scope, published_config, published_docx_template_document";
 const CASE_TEMPLATE_FIELDS =
   "id, tenant_id, name, status, template_scope, published_config";
 
@@ -94,7 +94,7 @@ export async function SERVERONLY_createDemoStudioStatement(
     name: string;
     template_scope: "global" | "tenant";
     published_config: Json | null;
-    docx_template_document: Json | null;
+    published_docx_template_document: Json | null;
   } | null = null;
 
   if (input.statementTemplateId) {
@@ -116,11 +116,13 @@ export async function SERVERONLY_createDemoStudioStatement(
       name: template.name,
       template_scope: template.template_scope as TemplateScope,
       published_config: template.published_config,
-      docx_template_document: template.docx_template_document,
+      published_docx_template_document:
+        template.published_docx_template_document,
     };
   }
 
   let selectedCaseTemplateId: string | null = null;
+  let allowedStatementTemplateIds: string[] = [];
   if (input.caseTemplateId) {
     const { data: caseTemplate, error: caseTemplateError } = await supabase
       .from("case_templates")
@@ -136,6 +138,26 @@ export async function SERVERONLY_createDemoStudioStatement(
     }
 
     selectedCaseTemplateId = caseTemplate.id;
+
+    const { data: links, error: linksError } = await supabase
+      .from("case_template_statement_templates")
+      .select("statement_template_id")
+      .eq("case_template_id", selectedCaseTemplateId);
+
+    if (linksError) throw linksError;
+    allowedStatementTemplateIds = (links ?? []).map(
+      (link) => link.statement_template_id,
+    );
+  }
+
+  if (
+    selectedCaseTemplateId &&
+    selectedStatementTemplate &&
+    !allowedStatementTemplateIds.includes(selectedStatementTemplate.id)
+  ) {
+    throw new Error(
+      "Selected witness template is not allowed for the selected case template",
+    );
   }
 
   const snapshotName =
@@ -152,7 +174,7 @@ export async function SERVERONLY_createDemoStudioStatement(
         (selectedStatementTemplate?.published_config as Json | null) ??
         (EMPTY_STATEMENT_CONFIG as unknown as Json),
       template_document:
-        (selectedStatementTemplate?.docx_template_document as Json | null) ??
+        (selectedStatementTemplate?.published_docx_template_document as Json | null) ??
         null,
     })
     .select("id")

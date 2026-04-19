@@ -67,7 +67,7 @@ export function ProgressIndicator({
         ) : null;
       })}
       <span className="text-xs px-2 py-1 text-muted-foreground select-none">
-        {completed}/{total}
+        {completed + 1}/{total}
       </span>
     </div>
   );

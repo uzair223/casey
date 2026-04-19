@@ -1,6 +1,7 @@
 import type {
   CaseConfig,
   CaseTemplate,
+  Database,
   Json,
   TemplateScope,
   TemplateStatus,
@@ -12,6 +13,7 @@ import { getSupabaseClient } from "../client";
 type UpsertCaseTemplateInput = {
   tenantId?: string | null;
   name: string;
+  titleTemplate?: string;
   templateScope: TemplateScope;
   status?: TemplateStatus;
   draftConfig: CaseConfig;
@@ -25,7 +27,7 @@ type UpsertCaseTemplatePreferencesInput = {
 };
 
 const CASE_TEMPLATE_SELECT =
-  "id, tenant_id, name, template_scope, status, draft_config, published_config, source_template_id, published_at, created_at, updated_at";
+  "id, tenant_id, name, title_template, template_scope, status, draft_config, published_config, source_template_id, published_at, created_at, updated_at";
 
 const TENANT_CASE_TEMPLATE_PREFERENCES_SELECT =
   "tenant_id, default_case_template_id, favourite_case_template_ids";
@@ -45,6 +47,9 @@ function toCaseTemplate(
 ): CaseTemplate {
   return {
     ...(row as Omit<CaseTemplate, "draft_config" | "published_config">),
+    title_template:
+      (row.title_template as string | null | undefined)?.trim() ||
+      "Case {caseIndex}",
     draft_config: parseCaseConfigOrThrow(row.draft_config, `${context}:draft`),
     published_config: row.published_config
       ? parseCaseConfigOrThrow(row.published_config, `${context}:published`)
@@ -71,17 +76,20 @@ export async function createCaseTemplate(
     payload.draftConfig,
     "createCaseTemplate",
   );
-
-  const { data, error } = await supabase
-    .from("case_templates")
-    .insert({
+  const insertPayload: Database["public"]["Tables"]["case_templates"]["Insert"] =
+    {
       tenant_id: payload.templateScope === "global" ? null : payload.tenantId,
       name: payload.name,
+      title_template: (payload.titleTemplate ?? "Case {caseIndex}").trim(),
       template_scope: payload.templateScope,
       status: payload.status ?? "draft",
       draft_config: normalizedDraftConfig as unknown as Json,
       source_template_id: payload.sourceTemplateId ?? null,
-    })
+    };
+
+  const { data, error } = await supabase
+    .from("case_templates")
+    .insert(insertPayload)
     .select(CASE_TEMPLATE_SELECT)
     .single();
 
@@ -97,7 +105,8 @@ export async function updateCaseTemplate(
   payload: Partial<UpsertCaseTemplateInput>,
 ): Promise<CaseTemplate> {
   const supabase = getSupabaseClient();
-  const updatePayload: Record<string, unknown> = {};
+  const updatePayload: Database["public"]["Tables"]["case_templates"]["Update"] =
+    {};
 
   if (payload.templateScope !== undefined) {
     updatePayload.template_scope = payload.templateScope;
@@ -108,6 +117,9 @@ export async function updateCaseTemplate(
   }
 
   if (payload.name !== undefined) updatePayload.name = payload.name;
+  if (payload.titleTemplate !== undefined)
+    updatePayload.title_template =
+      payload.titleTemplate.trim() || "Case {caseIndex}";
   if (payload.status !== undefined) updatePayload.status = payload.status;
   if (payload.draftConfig !== undefined) {
     updatePayload.draft_config = parseCaseConfigOrThrow(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import {
   FormProvider,
   SubmitHandler,
@@ -25,12 +25,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useUserProtected } from "@/contexts/user-context";
+import { useAsync } from "@/hooks/useAsync";
 import { apiFetch } from "@/lib/api-utils";
 import { CHAT_METADATA_MARKER } from "@/lib/statement-utils";
 import {
   statementStatusLabel,
   statementStatusVariant,
 } from "@/lib/status-styles";
+import { cn } from "@/lib/utils";
 
 type TemplateOption = {
   id: string;
@@ -49,13 +51,15 @@ type CaseTemplateField = {
 type WitnessTemplateField = {
   id: string;
   label: string;
-  required: boolean;
+  requiredOnIntake: boolean;
   requiredOnCreate: boolean;
   description?: string;
 };
 
 type CaseTemplateOption = TemplateOption & {
   fields: CaseTemplateField[];
+  allowedStatementTemplateIds: string[];
+  defaultStatementTemplateId: string | null;
 };
 
 type StatementTemplateOption = TemplateOption & {
@@ -131,6 +135,14 @@ type BootstrapFormValues = {
   witnessMetadata: Record<string, string>;
 };
 
+type RhfControlRegistration = {
+  name: string;
+  onBlur: () => void;
+  onChange: (...event: unknown[]) => void;
+  ref: (instance: HTMLInputElement | null) => void;
+  value: string | number | readonly string[] | undefined;
+};
+
 const DEFAULT_BOOTSTRAP_VALUES: BootstrapFormValues = {
   demoTenantName: "",
   caseTemplateId: "",
@@ -157,6 +169,7 @@ export default function DemoStudioPage() {
 
   const bootstrapForm = useForm<BootstrapFormValues>({
     defaultValues: DEFAULT_BOOTSTRAP_VALUES,
+    shouldUnregister: false,
   });
 
   const demoTenantNameInput =
@@ -167,342 +180,104 @@ export default function DemoStudioPage() {
     useWatch({ control: bootstrapForm.control, name: "statementTemplateId" }) ??
     "";
 
-  const [options, setOptions] = useState<DemoBootstrapOptions | null>(null);
-  const [statements, setStatements] = useState<DemoStatementRow[]>([]);
-  const [messages, setMessages] = useState<DemoConversationMessage[]>([]);
   const [selectedStatementId, setSelectedStatementId] = useState<string | null>(
     null,
   );
   const [selectedMagicLinkToken, setSelectedMagicLinkToken] = useState("");
   const [selectedIntakeUrl, setSelectedIntakeUrl] = useState("");
-  const [isLoadingOptions, setIsLoadingOptions] = useState(true);
-  const [isLoadingStatements, setIsLoadingStatements] = useState(true);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [isBootstrapping, setIsBootstrapping] = useState(false);
-  const [isSendingChat, setIsSendingChat] = useState(false);
   const [isDeletingStatementId, setIsDeletingStatementId] = useState<
     string | null
   >(null);
   const [chatInput, setChatInput] = useState("");
+  const [bootstrapStep, setBootstrapStep] = useState<1 | 2>(1);
   const [streamingAssistant, setStreamingAssistant] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  const resolveTenantIdByName = useCallback(
-    (name: string) => {
-      if (!options) return "";
-      const normalized = name.trim().toLowerCase();
-      if (!normalized) return "";
-
-      return (
-        options.tenants.find(
-          (tenant) => tenant.name.trim().toLowerCase() === normalized,
-        )?.id ?? ""
-      );
+  const bootstrapOptionsAction = useAsync(
+    async () =>
+      apiFetch<DemoBootstrapOptions>("/api/admin/demo-studio/bootstrap", {
+        method: "GET",
+      }),
+    [],
+    {
+      initialLoading: true,
+      withUseEffect: true,
+      onlyFirstLoad: false,
     },
-    [options],
   );
 
-  const tenantId = useMemo(
-    () => resolveTenantIdByName(demoTenantNameInput),
-    [demoTenantNameInput, resolveTenantIdByName],
-  );
-
-  const tenantCaseTemplates = useMemo(() => {
-    if (!options) return [];
-
-    if (tenantId) {
-      return options.caseTemplates.filter(
-        (template) => !template.tenant_id || template.tenant_id === tenantId,
+  const loadMessagesAction = useAsync(
+    async (statementId: string) => {
+      const data = await apiFetch<{ messages: DemoConversationMessage[] }>(
+        `/api/admin/demo-studio/messages?statementId=${encodeURIComponent(statementId)}`,
+        { method: "GET" },
       );
-    }
 
-    const globalTemplates = options.caseTemplates.filter(
-      (template) => !template.tenant_id,
-    );
-    return globalTemplates.length > 0 ? globalTemplates : options.caseTemplates;
-  }, [options, tenantId]);
-
-  const tenantStatementTemplates = useMemo(() => {
-    if (!options) return [];
-
-    if (tenantId) {
-      return options.statementTemplates.filter(
-        (template) => !template.tenant_id || template.tenant_id === tenantId,
-      );
-    }
-
-    const globalTemplates = options.statementTemplates.filter(
-      (template) => !template.tenant_id,
-    );
-    return globalTemplates.length > 0
-      ? globalTemplates
-      : options.statementTemplates;
-  }, [options, tenantId]);
-
-  const activeStatement =
-    statements.find((statement) => statement.id === selectedStatementId) ??
-    null;
-
-  const selectedCaseTemplate = useMemo(
-    () =>
-      tenantCaseTemplates.find((template) => template.id === caseTemplateId) ??
-      null,
-    [tenantCaseTemplates, caseTemplateId],
+      return data.messages ?? [];
+    },
+    [],
+    {
+      initialState: [] as DemoConversationMessage[],
+      initialLoading: false,
+      withUseEffect: false,
+      onlyFirstLoad: false,
+    },
   );
 
-  const selectedStatementTemplate = useMemo(
-    () =>
-      tenantStatementTemplates.find(
-        (template) => template.id === statementTemplateId,
-      ) ?? null,
-    [tenantStatementTemplates, statementTemplateId],
-  );
-
-  const caseTemplateFields = useMemo(
-    () => selectedCaseTemplate?.fields ?? [],
-    [selectedCaseTemplate],
-  );
-  const witnessTemplateFields = useMemo(
-    () => selectedStatementTemplate?.witness_fields ?? [],
-    [selectedStatementTemplate],
-  );
-
-  const requiredCaseFields = caseTemplateFields.filter(
-    (field) => field.required,
-  );
-  const requiredWitnessFields = witnessTemplateFields.filter(
-    (field) => field.requiredOnCreate,
-  );
-
-  const normalizeRecord = (value: Record<string, string> | undefined) =>
-    Object.fromEntries(
-      Object.entries(value ?? {})
-        .map(([key, entryValue]) => [key, String(entryValue ?? "").trim()])
-        .filter(([, entryValue]) => entryValue.length > 0),
-    ) as Record<string, string>;
-
-  const loadStatements = async (nextSelectedId?: string | null) => {
-    setIsLoadingStatements(true);
-    try {
+  const loadStatementsAction = useAsync(
+    async (nextSelectedId?: string | null) => {
       const data = await apiFetch<DemoStatementsResponse>(
         "/api/admin/demo-studio/statements",
         { method: "GET" },
       );
-      const nextStatements = data.statements ?? [];
-      setStatements(nextStatements);
 
+      const nextStatements = data.statements ?? [];
       const preferredId =
         nextSelectedId ?? selectedStatementId ?? nextStatements[0]?.id ?? null;
       const preferred =
         (preferredId
-          ? nextStatements.find((statement) => statement.id === preferredId)
+          ? nextStatements.find(
+              (statement: DemoStatementRow) => statement.id === preferredId,
+            )
           : null) ?? nextStatements[0];
 
       if (preferred) {
         setSelectedStatementId(preferred.id);
         setSelectedMagicLinkToken(preferred.magic_link_token);
         setSelectedIntakeUrl(preferred.intake_url);
-        await loadMessages(preferred.id);
+        await loadMessagesAction.handler(preferred.id);
       } else {
         setSelectedStatementId(null);
         setSelectedMagicLinkToken("");
         setSelectedIntakeUrl("");
-        setMessages([]);
+        loadMessagesAction.setData([]);
       }
-    } finally {
-      setIsLoadingStatements(false);
-    }
-  };
 
-  const loadMessages = async (statementId: string) => {
-    setIsLoadingMessages(true);
-    try {
-      const data = await apiFetch<{ messages: DemoConversationMessage[] }>(
-        `/api/admin/demo-studio/messages?statementId=${encodeURIComponent(statementId)}`,
-        { method: "GET" },
-      );
-      setMessages(data.messages ?? []);
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  };
+      return nextStatements;
+    },
+    [],
+    {
+      initialState: [] as DemoStatementRow[],
+      initialLoading: true,
+      withUseEffect: false,
+      onlyFirstLoad: false,
+    },
+  );
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        setIsLoadingOptions(true);
-        const data = await apiFetch<DemoBootstrapOptions>(
-          "/api/admin/demo-studio/bootstrap",
-          { method: "GET" },
-        );
-
-        setOptions(data);
-
-        if (data.tenants.length > 0) {
-          const demoTenant =
-            data.tenants.find((tenant) =>
-              tenant.name.toLowerCase().includes("demo"),
-            ) ?? data.tenants[0];
-          bootstrapForm.setValue("demoTenantName", demoTenant.name, {
-            shouldDirty: false,
-            shouldValidate: true,
-          });
-        }
-      } catch (loadError) {
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Failed to load Demo Studio options",
-        );
-      } finally {
-        setIsLoadingOptions(false);
-      }
-    })();
-  }, [bootstrapForm]);
-
-  useEffect(() => {
-    void loadStatements();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!tenantCaseTemplates.length) {
-      bootstrapForm.setValue("caseTemplateId", "", {
-        shouldDirty: false,
-        shouldValidate: true,
-      });
-      return;
-    }
-
-    if (
-      !tenantCaseTemplates.some((template) => template.id === caseTemplateId)
-    ) {
-      bootstrapForm.setValue("caseTemplateId", tenantCaseTemplates[0].id, {
-        shouldDirty: false,
-        shouldValidate: true,
-      });
-    }
-  }, [tenantCaseTemplates, caseTemplateId, bootstrapForm]);
-
-  useEffect(() => {
-    if (!tenantStatementTemplates.length) {
-      bootstrapForm.setValue("statementTemplateId", "", {
-        shouldDirty: false,
-        shouldValidate: true,
-      });
-      return;
-    }
-
-    if (
-      !tenantStatementTemplates.some(
-        (template) => template.id === statementTemplateId,
-      )
-    ) {
-      bootstrapForm.setValue(
-        "statementTemplateId",
-        tenantStatementTemplates[0].id,
-        {
-          shouldDirty: false,
-          shouldValidate: true,
-        },
-      );
-    }
-  }, [tenantStatementTemplates, statementTemplateId, bootstrapForm]);
-
-  useEffect(() => {
-    const current = bootstrapForm.getValues("caseMetadata") ?? {};
-    const next = { ...current };
-    let changed = false;
-
-    for (const field of caseTemplateFields) {
-      if (!(field.id in next)) {
-        next[field.id] = "";
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      bootstrapForm.setValue("caseMetadata", next, {
-        shouldDirty: false,
-        shouldValidate: false,
-      });
-    }
-  }, [caseTemplateFields, bootstrapForm]);
-
-  useEffect(() => {
-    const current = bootstrapForm.getValues("witnessMetadata") ?? {};
-    const next = { ...current };
-    let changed = false;
-
-    for (const field of witnessTemplateFields) {
-      if (!(field.id in next)) {
-        next[field.id] = "";
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      bootstrapForm.setValue("witnessMetadata", next, {
-        shouldDirty: false,
-        shouldValidate: false,
-      });
-    }
-  }, [witnessTemplateFields, bootstrapForm]);
-
-  const handleBootstrap: SubmitHandler<BootstrapFormValues> = async (
-    values,
-  ) => {
-    const tenantName = values.demoTenantName.trim();
-    if (!tenantName) {
-      setError("Demo tenant name is required.");
-      return;
-    }
-
-    if (!values.caseTemplateId || !values.statementTemplateId) {
-      setError("Case template and statement template are required.");
-      return;
-    }
-
-    const missingCaseRequired = requiredCaseFields.filter(
-      (field) => !values.caseMetadata?.[field.id]?.trim(),
-    );
-    if (missingCaseRequired.length > 0) {
-      setError(
-        `Please complete required case fields: ${missingCaseRequired
-          .map((field) => field.label)
-          .join(", ")}`,
-      );
-      return;
-    }
-
-    const missingWitnessRequired = requiredWitnessFields.filter(
-      (field) => !values.witnessMetadata?.[field.id]?.trim(),
-    );
-    if (missingWitnessRequired.length > 0) {
-      setError(
-        `Please complete required witness fields: ${missingWitnessRequired
-          .map((field) => field.label)
-          .join(", ")}`,
-      );
-      return;
-    }
-
-    setError(null);
-    setIsBootstrapping(true);
-
-    try {
+  const bootstrapSessionAction = useAsync(
+    async (values: BootstrapFormValues) => {
       const created = await apiFetch<DemoBootstrapResponse>(
         "/api/admin/demo-studio/bootstrap",
         {
           method: "POST",
           body: JSON.stringify({
             tenantId: tenantId || undefined,
-            tenantName,
+            tenantName: String(values.demoTenantName ?? "").trim(),
             caseTemplateId: values.caseTemplateId,
             statementTemplateId: values.statementTemplateId,
-            caseTitle: values.caseTitle.trim() || undefined,
-            witnessName: values.witnessName.trim() || undefined,
-            witnessEmail: values.witnessEmail.trim() || undefined,
+            caseTitle: String(values.caseTitle ?? "").trim() || undefined,
+            witnessName: String(values.witnessName ?? "").trim() || undefined,
+            witnessEmail: String(values.witnessEmail ?? "").trim() || undefined,
             caseMetadata: normalizeRecord(values.caseMetadata),
             witnessMetadata: normalizeRecord(values.witnessMetadata),
           }),
@@ -513,71 +288,48 @@ export default function DemoStudioPage() {
       setSelectedMagicLinkToken(created.magicLink.token);
       setSelectedIntakeUrl(created.magicLink.intakeUrl);
       setChatInput("");
-      await loadStatements(created.statement.id);
-    } catch (bootstrapError) {
-      setError(
-        bootstrapError instanceof Error
-          ? bootstrapError.message
-          : "Failed to create demo intake",
-      );
-    } finally {
-      setIsBootstrapping(false);
-    }
-  };
+      await loadStatementsAction.handler(created.statement.id);
+      return created;
+    },
+    [],
+    {
+      initialLoading: false,
+      withUseEffect: false,
+      onlyFirstLoad: false,
+    },
+  );
 
-  const handleSelectStatement = async (statement: DemoStatementRow) => {
-    setSelectedStatementId(statement.id);
-    setSelectedMagicLinkToken(statement.magic_link_token);
-    setSelectedIntakeUrl(statement.intake_url);
-    await loadMessages(statement.id);
-  };
-
-  const handleDeleteStatement = async (statementId: string) => {
-    setError(null);
-    setIsDeletingStatementId(statementId);
-
-    try {
+  const deleteStatementAction = useAsync(
+    async (statementId: string) => {
       await apiFetch<{ success: boolean }>(
         `/api/admin/demo-studio/statements/${statementId}`,
         { method: "DELETE" },
       );
 
-      if (selectedStatementId === statementId) {
-        setSelectedStatementId(null);
-        setSelectedMagicLinkToken("");
-        setSelectedIntakeUrl("");
-        setMessages([]);
-      }
+      return statementId;
+    },
+    [],
+    {
+      initialLoading: false,
+      withUseEffect: false,
+      onlyFirstLoad: false,
+    },
+  );
 
-      await loadStatements(
-        selectedStatementId === statementId ? null : selectedStatementId,
-      );
-    } catch (deleteError) {
-      setError(
-        deleteError instanceof Error
-          ? deleteError.message
-          : "Failed to delete statement",
-      );
-    } finally {
-      setIsDeletingStatementId(null);
-    }
-  };
+  const sendChatAction = useAsync(
+    async () => {
+      if (!selectedMagicLinkToken) return;
+      const userMessage = chatInput.trim();
+      if (!userMessage) return;
 
-  const handleSendChat = async () => {
-    if (!selectedMagicLinkToken) return;
-    const userMessage = chatInput.trim();
-    if (!userMessage) return;
+      setStreamingAssistant("");
 
-    setError(null);
-    setIsSendingChat(true);
-    setStreamingAssistant("");
-
-    try {
-      const conversationHistory = messages
+      const conversationHistory = (loadMessagesAction.data ?? [])
         .filter(
-          (message) => message.role === "user" || message.role === "assistant",
+          (message: DemoConversationMessage) =>
+            message.role === "user" || message.role === "assistant",
         )
-        .map((message) => ({
+        .map((message: DemoConversationMessage) => ({
           role: message.role,
           content: message.content,
           meta: message.meta ?? undefined,
@@ -635,17 +387,389 @@ export default function DemoStudioPage() {
 
       setChatInput("");
       setStreamingAssistant("");
-      await loadMessages(selectedStatementId ?? statements[0]?.id ?? "");
-    } catch (chatError) {
-      setError(
-        chatError instanceof Error ? chatError.message : "Failed to send chat",
+      await loadMessagesAction.handler(selectedStatementId ?? "");
+    },
+    [],
+    {
+      initialLoading: false,
+      withUseEffect: false,
+      onlyFirstLoad: false,
+    },
+  );
+
+  const options = bootstrapOptionsAction.data ?? null;
+  const statements = loadStatementsAction.data ?? [];
+  const messages = loadMessagesAction.data ?? [];
+
+  const error =
+    validationError ??
+    bootstrapOptionsAction.error?.message ??
+    loadStatementsAction.error?.message ??
+    loadMessagesAction.error?.message ??
+    bootstrapSessionAction.error?.message ??
+    deleteStatementAction.error?.message ??
+    sendChatAction.error?.message ??
+    null;
+
+  const tenantId = useMemo(() => {
+    const normalized = demoTenantNameInput.trim().toLowerCase();
+    if (!normalized || !options) return "";
+
+    return (
+      options.tenants.find(
+        (tenant: TenantOption) =>
+          tenant.name.trim().toLowerCase() === normalized,
+      )?.id ?? ""
+    );
+  }, [demoTenantNameInput, options]);
+
+  const tenantCaseTemplates = useMemo(() => {
+    if (!options) return [];
+
+    if (tenantId) {
+      return options.caseTemplates.filter(
+        (template: CaseTemplateOption) =>
+          !template.tenant_id || template.tenant_id === tenantId,
       );
+    }
+
+    const globalTemplates = options.caseTemplates.filter(
+      (template: CaseTemplateOption) => !template.tenant_id,
+    );
+    return globalTemplates.length > 0 ? globalTemplates : options.caseTemplates;
+  }, [options, tenantId]);
+
+  const tenantStatementTemplates = useMemo(() => {
+    if (!options) return [];
+
+    if (tenantId) {
+      return options.statementTemplates.filter(
+        (template: StatementTemplateOption) =>
+          !template.tenant_id || template.tenant_id === tenantId,
+      );
+    }
+
+    const globalTemplates = options.statementTemplates.filter(
+      (template: StatementTemplateOption) => !template.tenant_id,
+    );
+    return globalTemplates.length > 0
+      ? globalTemplates
+      : options.statementTemplates;
+  }, [options, tenantId]);
+
+  const activeStatement =
+    statements.find(
+      (statement: DemoStatementRow) => statement.id === selectedStatementId,
+    ) ?? null;
+
+  const selectedCaseTemplate = useMemo(
+    () =>
+      tenantCaseTemplates.find(
+        (template: CaseTemplateOption) => template.id === caseTemplateId,
+      ) ?? null,
+    [tenantCaseTemplates, caseTemplateId],
+  );
+
+  const selectedStatementTemplate = useMemo(
+    () =>
+      tenantStatementTemplates.find(
+        (template: StatementTemplateOption) =>
+          template.id === statementTemplateId,
+      ) ?? null,
+    [tenantStatementTemplates, statementTemplateId],
+  );
+
+  const caseTemplateFields = useMemo(
+    () => selectedCaseTemplate?.fields ?? [],
+    [selectedCaseTemplate],
+  );
+  const witnessTemplateFields = useMemo(
+    () => selectedStatementTemplate?.witness_fields ?? [],
+    [selectedStatementTemplate],
+  );
+
+  const allowedStatementTemplatesForCaseTemplate = useMemo(() => {
+    if (!selectedCaseTemplate) {
+      return [] as StatementTemplateOption[];
+    }
+
+    const allowedIds = new Set(
+      selectedCaseTemplate.allowedStatementTemplateIds,
+    );
+    return tenantStatementTemplates.filter(
+      (template: StatementTemplateOption) => allowedIds.has(template.id),
+    );
+  }, [selectedCaseTemplate, tenantStatementTemplates]);
+
+  const requiredCaseFields = caseTemplateFields.filter(
+    (field: CaseTemplateField) => field.required,
+  );
+  const requiredWitnessFields = witnessTemplateFields.filter(
+    (field: WitnessTemplateField) => field.requiredOnCreate,
+  );
+
+  const normalizeRecord = (value: Record<string, string> | undefined) =>
+    Object.fromEntries(
+      Object.entries(value ?? {})
+        .map(([key, entryValue]) => [key, String(entryValue ?? "").trim()])
+        .filter(([, entryValue]) => entryValue.length > 0),
+    ) as Record<string, string>;
+
+  useEffect(() => {
+    if (!options) return;
+
+    if (
+      options.tenants.length > 0 &&
+      !bootstrapForm.getValues("demoTenantName")
+    ) {
+      const demoTenant =
+        options.tenants.find((tenant: TenantOption) =>
+          tenant.name.toLowerCase().includes("demo"),
+        ) ?? options.tenants[0];
+      bootstrapForm.setValue("demoTenantName", demoTenant.name, {
+        shouldDirty: false,
+        shouldValidate: true,
+      });
+    }
+  }, [bootstrapForm, options]);
+
+  useEffect(() => {
+    void loadStatementsAction.handler();
+  }, [loadStatementsAction.handler]);
+
+  useEffect(() => {
+    if (!tenantCaseTemplates.length) {
+      bootstrapForm.setValue("caseTemplateId", "", {
+        shouldDirty: false,
+        shouldValidate: true,
+      });
+      return;
+    }
+
+    if (
+      !tenantCaseTemplates.some(
+        (template: CaseTemplateOption) => template.id === caseTemplateId,
+      )
+    ) {
+      bootstrapForm.setValue("caseTemplateId", tenantCaseTemplates[0].id, {
+        shouldDirty: false,
+        shouldValidate: true,
+      });
+    }
+  }, [tenantCaseTemplates, caseTemplateId, bootstrapForm]);
+
+  useEffect(() => {
+    if (!allowedStatementTemplatesForCaseTemplate.length) {
+      bootstrapForm.setValue("statementTemplateId", "", {
+        shouldDirty: false,
+        shouldValidate: true,
+      });
+      return;
+    }
+
+    if (
+      !allowedStatementTemplatesForCaseTemplate.some(
+        (template) => template.id === statementTemplateId,
+      )
+    ) {
+      const preferredId =
+        selectedCaseTemplate?.defaultStatementTemplateId &&
+        allowedStatementTemplatesForCaseTemplate.some(
+          (template: StatementTemplateOption) =>
+            template.id === selectedCaseTemplate.defaultStatementTemplateId,
+        )
+          ? selectedCaseTemplate.defaultStatementTemplateId
+          : allowedStatementTemplatesForCaseTemplate[0].id;
+
+      bootstrapForm.setValue("statementTemplateId", preferredId, {
+        shouldDirty: false,
+        shouldValidate: true,
+      });
+    }
+  }, [
+    allowedStatementTemplatesForCaseTemplate,
+    statementTemplateId,
+    bootstrapForm,
+    selectedCaseTemplate?.defaultStatementTemplateId,
+  ]);
+
+  useEffect(() => {
+    if (!selectedCaseTemplate) {
+      return;
+    }
+
+    const current = bootstrapForm.getValues("caseMetadata") ?? {};
+    const next = Object.fromEntries(
+      caseTemplateFields.map((field: CaseTemplateField) => [
+        field.id,
+        current[field.id] ?? "",
+      ]),
+    ) as Record<string, string>;
+
+    const changed =
+      Object.keys(current).length !== Object.keys(next).length ||
+      Object.entries(next).some(([key, value]) => current[key] !== value);
+
+    if (changed) {
+      bootstrapForm.setValue("caseMetadata", next, {
+        shouldDirty: false,
+        shouldValidate: false,
+      });
+    }
+  }, [caseTemplateFields, bootstrapForm, selectedCaseTemplate]);
+
+  useEffect(() => {
+    if (!selectedStatementTemplate) {
+      return;
+    }
+
+    const current = bootstrapForm.getValues("witnessMetadata") ?? {};
+    const next = Object.fromEntries(
+      witnessTemplateFields.map((field: WitnessTemplateField) => [
+        field.id,
+        current[field.id] ?? "",
+      ]),
+    ) as Record<string, string>;
+
+    const changed =
+      Object.keys(current).length !== Object.keys(next).length ||
+      Object.entries(next).some(([key, value]) => current[key] !== value);
+
+    if (changed) {
+      bootstrapForm.setValue("witnessMetadata", next, {
+        shouldDirty: false,
+        shouldValidate: false,
+      });
+    }
+  }, [witnessTemplateFields, bootstrapForm, selectedStatementTemplate]);
+
+  const handleBootstrap: SubmitHandler<BootstrapFormValues> = async (
+    values,
+  ) => {
+    const tenantName = String(
+      values.demoTenantName || demoTenantNameInput || "",
+    ).trim();
+
+    if (!tenantName) {
+      setValidationError("Demo tenant name is required.");
+      return;
+    }
+
+    if (!values.caseTemplateId || !values.statementTemplateId) {
+      setValidationError("Case template and statement template are required.");
+      return;
+    }
+
+    const missingCaseRequired = requiredCaseFields.filter(
+      (field: CaseTemplateField) =>
+        !String(values.caseMetadata?.[field.id] ?? "").trim(),
+    );
+    if (missingCaseRequired.length > 0) {
+      setValidationError(
+        `Please complete required case fields: ${missingCaseRequired
+          .map((field: CaseTemplateField) => field.label)
+          .join(", ")}`,
+      );
+      return;
+    }
+
+    const missingWitnessRequired = requiredWitnessFields.filter(
+      (field: WitnessTemplateField) =>
+        !String(values.witnessMetadata?.[field.id] ?? "").trim(),
+    );
+    if (missingWitnessRequired.length > 0) {
+      setValidationError(
+        `Please complete required witness fields: ${missingWitnessRequired
+          .map((field: WitnessTemplateField) => field.label)
+          .join(", ")}`,
+      );
+      return;
+    }
+
+    setValidationError(null);
+    await bootstrapSessionAction.handler(values);
+  };
+
+  const handleContinueToStepTwo = () => {
+    const values = bootstrapForm.getValues();
+    const tenantName = String(
+      values.demoTenantName || demoTenantNameInput || "",
+    ).trim();
+
+    if (!tenantName) {
+      setValidationError("Demo tenant name is required.");
+      return;
+    }
+
+    if (!values.caseTemplateId) {
+      setValidationError("Case template is required.");
+      return;
+    }
+
+    const missingCaseRequired = requiredCaseFields.filter(
+      (field: CaseTemplateField) =>
+        !String(values.caseMetadata?.[field.id] ?? "").trim(),
+    );
+    if (missingCaseRequired.length > 0) {
+      setValidationError(
+        `Please complete required case fields: ${missingCaseRequired
+          .map((field: CaseTemplateField) => field.label)
+          .join(", ")}`,
+      );
+      return;
+    }
+
+    if (!allowedStatementTemplatesForCaseTemplate.length) {
+      setValidationError(
+        "No allowed witness templates are configured for this case template.",
+      );
+      return;
+    }
+
+    setValidationError(null);
+    setBootstrapStep(2);
+  };
+
+  const handleSelectStatement = async (statement: DemoStatementRow) => {
+    setSelectedStatementId(statement.id);
+    setSelectedMagicLinkToken(statement.magic_link_token);
+    setSelectedIntakeUrl(statement.intake_url);
+    setValidationError(null);
+    await loadMessagesAction.handler(statement.id);
+  };
+
+  const handleDeleteStatement = async (statementId: string) => {
+    setValidationError(null);
+    setIsDeletingStatementId(statementId);
+
+    try {
+      await deleteStatementAction.handler(statementId);
+
+      const nextSelectedId =
+        selectedStatementId === statementId ? null : selectedStatementId;
+
+      if (selectedStatementId === statementId) {
+        setSelectedStatementId(null);
+        setSelectedMagicLinkToken("");
+        setSelectedIntakeUrl("");
+        loadMessagesAction.setData([]);
+      }
+
+      await loadStatementsAction.handler(nextSelectedId);
     } finally {
-      setIsSendingChat(false);
+      setIsDeletingStatementId(null);
     }
   };
 
-  if (isUserLoading || isLoadingOptions) {
+  const handleSendChat = async () => {
+    if (!selectedMagicLinkToken) return;
+    if (!chatInput.trim()) return;
+
+    setValidationError(null);
+    await sendChatAction.handler();
+  };
+
+  if (isUserLoading || bootstrapOptionsAction.isLoading) {
     return <Loading />;
   }
 
@@ -664,188 +788,254 @@ export default function DemoStudioPage() {
         ]}
       />
 
-      {error && (
-        <Card>
-          <CardContent className="pt-6 text-sm text-destructive">
-            {error}
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
         <CardHeader>
-          <CardTitle>1. Create Demo Intake Session</CardTitle>
+          <CardTitle>Demo Intake Setup</CardTitle>
+          <div className="mt-2 flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex h-6 w-6 items-center justify-center rounded-full border ${
+                  bootstrapStep === 1
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-muted-foreground/30 bg-muted text-muted-foreground"
+                }`}
+              >
+                1
+              </span>
+              <span
+                className={
+                  bootstrapStep === 1
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground"
+                }
+              >
+                Case Setup
+              </span>
+            </div>
+            <div className="h-px flex-1 bg-border" />
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex h-6 w-6 items-center justify-center rounded-full border ${
+                  bootstrapStep === 2
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-muted-foreground/30 bg-muted text-muted-foreground"
+                }`}
+              >
+                2
+              </span>
+              <span
+                className={
+                  bootstrapStep === 2
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground"
+                }
+              >
+                Witness Setup
+              </span>
+            </div>
+          </div>
         </CardHeader>
         <FormProvider {...bootstrapForm}>
           <form
             noValidate
             onSubmit={bootstrapForm.handleSubmit(handleBootstrap, () => {
-              setError("Please fix the highlighted form fields.");
+              setValidationError("Please fix the highlighted form fields.");
             })}
           >
-            <CardContent className="grid gap-3 md:grid-cols-2">
-              <RhfField
-                form={bootstrapForm}
-                name="demoTenantName"
-                controlId="demo-tenant-name"
-                label="Demo Tenant"
-                registerOptions={{ required: "Demo tenant is required" }}
-                renderControl={(registration, required) => (
-                  <Input
-                    id="demo-tenant-name"
-                    required={required}
-                    placeholder="Type demo tenant name"
-                    {...registration}
-                  />
+            <CardContent>
+              <div
+                className={cn(
+                  "grid gap-3 md:grid-cols-2",
+                  bootstrapStep !== 1 && "hidden",
                 )}
-              />
-
-              <RhfField
-                form={bootstrapForm}
-                name="caseTemplateId"
-                controlId="demo-case-template"
-                label="Case Template"
-                registerOptions={{ required: "Case template is required" }}
-                renderControl={() => (
-                  <Select
-                    value={caseTemplateId}
-                    onValueChange={(value) =>
-                      bootstrapForm.setValue("caseTemplateId", value, {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      })
-                    }
-                  >
-                    <SelectTrigger id="demo-case-template">
-                      <SelectValue placeholder="Choose case template" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tenantCaseTemplates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-
-              <RhfField
-                form={bootstrapForm}
-                name="statementTemplateId"
-                controlId="demo-statement-template"
-                label="Statement Template"
-                registerOptions={{ required: "Statement template is required" }}
-                renderControl={() => (
-                  <Select
-                    value={statementTemplateId}
-                    onValueChange={(value) =>
-                      bootstrapForm.setValue("statementTemplateId", value, {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      })
-                    }
-                  >
-                    <SelectTrigger id="demo-statement-template">
-                      <SelectValue placeholder="Choose statement template" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tenantStatementTemplates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-
-              <RhfField
-                form={bootstrapForm}
-                name="caseTitle"
-                controlId="demo-case-title"
-                label="Case Title"
-                renderControl={(registration) => (
-                  <Input
-                    id="demo-case-title"
-                    placeholder="Demo Intake 2026-04-13"
-                    {...registration}
-                  />
-                )}
-              />
-
-              <RhfField
-                form={bootstrapForm}
-                name="witnessName"
-                controlId="demo-witness-name"
-                label="Witness Name"
-                renderControl={(registration) => (
-                  <Input
-                    id="demo-witness-name"
-                    placeholder="Jane Doe"
-                    {...registration}
-                  />
-                )}
-              />
-
-              <RhfField
-                form={bootstrapForm}
-                name="witnessEmail"
-                controlId="demo-witness-email"
-                label="Witness Email"
-                renderControl={(registration) => (
-                  <Input
-                    id="demo-witness-email"
-                    placeholder="witness@example.com"
-                    {...registration}
-                  />
-                )}
-              />
-
-              {caseTemplateFields.length > 0 && (
-                <div className="md:col-span-2 pt-2">
-                  <p className="text-sm font-medium">Case Metadata Fields</p>
-                </div>
-              )}
-
-              {caseTemplateFields.map((field) => (
+              >
                 <RhfField
-                  key={`case-metadata-${field.id}`}
                   form={bootstrapForm}
-                  name={`caseMetadata.${field.id}` as const}
-                  controlId={`case-metadata-${field.id}`}
-                  label={field.label}
-                  registerOptions={
-                    field.required
-                      ? { required: `${field.label} is required` }
-                      : undefined
-                  }
-                  renderControl={(registration, required) => (
-                    <Input
-                      id={`case-metadata-${field.id}`}
-                      type={
-                        field.type === "number"
-                          ? "number"
-                          : field.type === "date"
-                            ? "date"
-                            : "text"
+                  name="demoTenantName"
+                  controlId="demo-tenant-name"
+                  label="Tenant Name"
+                  registerOptions={{ required: "Demo tenant is required" }}
+                  renderControl={(
+                    registration: RhfControlRegistration,
+                    required: boolean,
+                  ) => {
+                    const { onChange, ...rest } = registration;
+
+                    return (
+                      <Input
+                        id="demo-tenant-name"
+                        required={required}
+                        placeholder="Type tenant name"
+                        {...rest}
+                        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                          onChange(event)
+                        }
+                      />
+                    );
+                  }}
+                />
+
+                <RhfField
+                  form={bootstrapForm}
+                  name="caseTemplateId"
+                  controlId="demo-case-template"
+                  label="Case Template"
+                  registerOptions={{ required: "Case template is required" }}
+                  renderControl={() => (
+                    <Select
+                      value={caseTemplateId}
+                      onValueChange={(value: string) =>
+                        bootstrapForm.setValue("caseTemplateId", value, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
                       }
-                      placeholder={field.placeholder || field.label}
-                      required={required}
+                    >
+                      <SelectTrigger id="demo-case-template">
+                        <SelectValue placeholder="Choose case template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tenantCaseTemplates.map(
+                          (template: CaseTemplateOption) => (
+                            <SelectItem key={template.id} value={template.id}>
+                              {template.name}
+                            </SelectItem>
+                          ),
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+
+                <RhfField
+                  form={bootstrapForm}
+                  name="caseTitle"
+                  controlId="demo-case-title"
+                  label="Case Title"
+                  renderControl={(registration: RhfControlRegistration) => (
+                    <Input
+                      id="demo-case-title"
+                      placeholder="Demo Intake 2026-04-13"
                       {...registration}
                     />
                   )}
                 />
-              ))}
 
-              {witnessTemplateFields.length > 0 && (
-                <div className="md:col-span-2 pt-2">
-                  <p className="text-sm font-medium">Witness Metadata Fields</p>
-                </div>
-              )}
+                {caseTemplateFields.length > 0 && (
+                  <div className="md:col-span-2 pt-2">
+                    <p className="text-sm font-medium">Case Fields</p>
+                  </div>
+                )}
 
-              {witnessTemplateFields.map((field) => {
-                return (
+                {caseTemplateFields.map((field: CaseTemplateField) => (
+                  <RhfField
+                    key={`case-metadata-${field.id}`}
+                    form={bootstrapForm}
+                    name={`caseMetadata.${field.id}` as const}
+                    controlId={`case-metadata-${field.id}`}
+                    label={field.label}
+                    registerOptions={
+                      field.required
+                        ? { required: `${field.label} is required` }
+                        : undefined
+                    }
+                    renderControl={(
+                      registration: RhfControlRegistration,
+                      required: boolean,
+                    ) => (
+                      <Input
+                        id={`case-metadata-${field.id}`}
+                        type={
+                          field.type === "number"
+                            ? "number"
+                            : field.type === "date"
+                              ? "date"
+                              : "text"
+                        }
+                        placeholder={field.placeholder || field.label}
+                        required={required}
+                        {...registration}
+                      />
+                    )}
+                  />
+                ))}
+              </div>
+
+              <div
+                className={cn(
+                  "grid gap-3 md:grid-cols-2",
+                  bootstrapStep !== 2 && "hidden",
+                )}
+              >
+                <RhfField
+                  form={bootstrapForm}
+                  name="statementTemplateId"
+                  controlId="demo-statement-template"
+                  label="Witness Template"
+                  registerOptions={{
+                    required: "Statement template is required",
+                  }}
+                  renderControl={() => (
+                    <Select
+                      value={statementTemplateId}
+                      onValueChange={(value: string) =>
+                        bootstrapForm.setValue("statementTemplateId", value, {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
+                    >
+                      <SelectTrigger id="demo-statement-template">
+                        <SelectValue placeholder="Choose witness template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allowedStatementTemplatesForCaseTemplate.map(
+                          (template: StatementTemplateOption) => (
+                            <SelectItem key={template.id} value={template.id}>
+                              {template.name}
+                            </SelectItem>
+                          ),
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+
+                <RhfField
+                  form={bootstrapForm}
+                  name="witnessName"
+                  controlId="demo-witness-name"
+                  label="Witness Name"
+                  renderControl={(registration: RhfControlRegistration) => (
+                    <Input
+                      id="demo-witness-name"
+                      placeholder="Jane Doe"
+                      {...registration}
+                    />
+                  )}
+                />
+
+                <RhfField
+                  form={bootstrapForm}
+                  name="witnessEmail"
+                  controlId="demo-witness-email"
+                  label="Witness Email"
+                  renderControl={(registration: RhfControlRegistration) => (
+                    <Input
+                      id="demo-witness-email"
+                      placeholder="witness@example.com"
+                      {...registration}
+                    />
+                  )}
+                />
+
+                {witnessTemplateFields.length > 0 && (
+                  <div className="md:col-span-2 pt-2">
+                    <p className="text-sm font-medium">Witness Fields</p>
+                  </div>
+                )}
+
+                {witnessTemplateFields.map((field: WitnessTemplateField) => (
                   <RhfField
                     key={`witness-metadata-${field.id}`}
                     form={bootstrapForm}
@@ -857,7 +1047,10 @@ export default function DemoStudioPage() {
                         ? { required: `${field.label} is required` }
                         : undefined
                     }
-                    renderControl={(registration, required) => (
+                    renderControl={(
+                      registration: RhfControlRegistration,
+                      required: boolean,
+                    ) => (
                       <Input
                         id={`witness-metadata-${field.id}`}
                         placeholder={field.description || field.label}
@@ -866,18 +1059,44 @@ export default function DemoStudioPage() {
                       />
                     )}
                   />
-                );
-              })}
+                ))}
+              </div>
 
               <div className="md:col-span-2 flex items-center gap-3">
-                <Button
-                  type="submit"
-                  disabled={
-                    !caseTemplateId || !statementTemplateId || isBootstrapping
-                  }
-                >
-                  {isBootstrapping ? "Creating..." : "Create Demo Session"}
-                </Button>
+                {bootstrapStep === 1 ? (
+                  <Button
+                    type="button"
+                    disabled={!caseTemplateId}
+                    onClick={handleContinueToStepTwo}
+                  >
+                    Continue to Step 2
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setValidationError(null);
+                        setBootstrapStep(1);
+                      }}
+                    >
+                      Back to Step 1
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={
+                        !caseTemplateId ||
+                        !statementTemplateId ||
+                        bootstrapSessionAction.isLoading
+                      }
+                    >
+                      {bootstrapSessionAction.isLoading
+                        ? "Creating..."
+                        : "Create Demo Session"}
+                    </Button>
+                  </>
+                )}
                 {selectedIntakeUrl && (
                   <a
                     href={selectedIntakeUrl}
@@ -894,10 +1113,18 @@ export default function DemoStudioPage() {
         </FormProvider>
       </Card>
 
+      {error && (
+        <Card size="md" variant="destructive">
+          <CardHeader>
+            <CardTitle className="text-sm">{error}</CardTitle>
+          </CardHeader>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-3">
-          <CardTitle>2. Existing Demo Statements</CardTitle>
-          {isLoadingStatements && (
+          <CardTitle>Existing Demo Statements</CardTitle>
+          {loadStatementsAction.isLoading && (
             <span className="text-sm text-muted-foreground">Refreshing...</span>
           )}
         </CardHeader>
@@ -1009,7 +1236,7 @@ export default function DemoStudioPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>3. Live Transcript</CardTitle>
+          <CardTitle>Live Transcript</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {activeStatement ? (
@@ -1044,12 +1271,12 @@ export default function DemoStudioPage() {
           )}
 
           <div className="max-h-112 space-y-3 overflow-auto rounded-md border p-3">
-            {isLoadingMessages && (
+            {loadMessagesAction.isLoading && (
               <p className="text-sm text-muted-foreground">
                 Loading messages...
               </p>
             )}
-            {!isLoadingMessages && messages.length === 0 && (
+            {!loadMessagesAction.isLoading && messages.length === 0 && (
               <p className="text-sm text-muted-foreground">No messages yet.</p>
             )}
             {messages.map((message) => (
@@ -1074,7 +1301,7 @@ export default function DemoStudioPage() {
                 )}
               </div>
             ))}
-            {isSendingChat && streamingAssistant && (
+            {sendChatAction.isLoading && streamingAssistant && (
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Badge variant="outline">assistant (streaming)</Badge>
@@ -1097,10 +1324,12 @@ export default function DemoStudioPage() {
             <Button
               onClick={() => void handleSendChat()}
               disabled={
-                isSendingChat || !chatInput.trim() || !selectedMagicLinkToken
+                sendChatAction.isLoading ||
+                !chatInput.trim() ||
+                !selectedMagicLinkToken
               }
             >
-              {isSendingChat ? "Sending..." : "Send"}
+              {sendChatAction.isLoading ? "Sending..." : "Send"}
             </Button>
           </div>
         </CardContent>

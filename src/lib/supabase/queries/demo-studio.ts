@@ -1,7 +1,7 @@
 import { getServiceClient } from "../server";
 
 const TEMPLATE_FIELDS =
-  "id, tenant_id, name, status, template_scope, draft_config, published_config, docx_template_document";
+  "id, tenant_id, name, status, template_scope, draft_config, published_config, draft_docx_template_document, published_docx_template_document";
 const CASE_TEMPLATE_FIELDS =
   "id, tenant_id, name, status, template_scope, draft_config, published_config";
 
@@ -16,7 +16,7 @@ type DemoCaseField = {
 type DemoWitnessField = {
   id: string;
   label: string;
-  required: boolean;
+  requiredOnIntake: boolean;
   requiredOnCreate: boolean;
   description?: string;
 };
@@ -60,7 +60,7 @@ function toDemoWitnessFields(config: unknown): DemoWitnessField[] {
     .map((field) => ({
       id: String(field.id ?? "").trim(),
       label: String(field.label ?? "").trim(),
-      required: Boolean(field.required),
+      requiredOnIntake: Boolean(field.requiredOnIntake),
       requiredOnCreate: Boolean(field.requiredOnCreate),
       description:
         typeof field.description === "string" && field.description.trim()
@@ -77,6 +77,7 @@ export async function SERVERONLY_getDemoStudioBootstrapOptions() {
     { data: tenants, error: tenantsError },
     { data: caseTemplates, error: caseTemplatesError },
     { data: statementTemplates, error: statementTemplatesError },
+    { data: caseTemplateLinks, error: caseTemplateLinksError },
   ] = await Promise.all([
     supabase
       .from("tenants")
@@ -92,11 +93,42 @@ export async function SERVERONLY_getDemoStudioBootstrapOptions() {
       .select(TEMPLATE_FIELDS)
       .eq("status", "published")
       .order("updated_at", { ascending: false }),
+    supabase
+      .from("case_template_statement_templates")
+      .select("case_template_id, statement_template_id, is_default"),
   ]);
 
   if (tenantsError) throw tenantsError;
   if (caseTemplatesError) throw caseTemplatesError;
   if (statementTemplatesError) throw statementTemplatesError;
+  if (caseTemplateLinksError) throw caseTemplateLinksError;
+
+  const linksByCaseTemplateId = (caseTemplateLinks ?? []).reduce(
+    (acc, link) => {
+      const caseTemplateId = link.case_template_id;
+      if (!acc.has(caseTemplateId)) {
+        acc.set(caseTemplateId, {
+          allowedStatementTemplateIds: [] as string[],
+          defaultStatementTemplateId: null as string | null,
+        });
+      }
+
+      const current = acc.get(caseTemplateId)!;
+      current.allowedStatementTemplateIds.push(link.statement_template_id);
+      if (link.is_default) {
+        current.defaultStatementTemplateId = link.statement_template_id;
+      }
+
+      return acc;
+    },
+    new Map<
+      string,
+      {
+        allowedStatementTemplateIds: string[];
+        defaultStatementTemplateId: string | null;
+      }
+    >(),
+  );
 
   return {
     tenants: tenants ?? [],
@@ -107,6 +139,12 @@ export async function SERVERONLY_getDemoStudioBootstrapOptions() {
       fields: toDemoCaseFields(
         template.published_config ?? template.draft_config,
       ),
+      allowedStatementTemplateIds:
+        linksByCaseTemplateId.get(template.id)?.allowedStatementTemplateIds ??
+        [],
+      defaultStatementTemplateId:
+        linksByCaseTemplateId.get(template.id)?.defaultStatementTemplateId ??
+        null,
     })),
     statementTemplates: (statementTemplates ?? []).map((template) => ({
       id: template.id,

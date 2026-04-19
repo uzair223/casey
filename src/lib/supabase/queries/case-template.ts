@@ -17,13 +17,13 @@ type CaseTemplateStatementTemplateLink = Pick<
 >;
 
 const CASE_TEMPLATE_SELECT =
-  "id, tenant_id, name, template_scope, status, draft_config, published_config, source_template_id, published_at, created_at, updated_at";
+  "id, tenant_id, name, title_template, template_scope, status, draft_config, published_config, source_template_id, published_at, created_at, updated_at";
 
 const TENANT_CASE_TEMPLATE_PREFERENCES_SELECT =
   "tenant_id, default_case_template_id, favourite_case_template_ids";
 
 const STATEMENT_TEMPLATE_FOR_CASE_SELECT =
-  "id, tenant_id, name, template_scope, status, draft_config, published_config, docx_template_document, source_template_id, published_at, created_at, updated_at";
+  "id, tenant_id, name, template_scope, status, draft_config, published_config, draft_docx_template_document, published_docx_template_document, source_template_id, published_at, created_at, updated_at";
 
 function parseCaseConfigOrThrow(input: unknown, context: string): CaseConfig {
   const parsed = CaseConfigSchema.safeParse(input);
@@ -40,6 +40,9 @@ function toCaseTemplate(
 ): CaseTemplate {
   return {
     ...(row as Omit<CaseTemplate, "draft_config" | "published_config">),
+    title_template:
+      (row.title_template as string | null | undefined)?.trim() ||
+      "Case {caseIndex}",
     draft_config: parseCaseConfigOrThrow(row.draft_config, `${context}:draft`),
     published_config: row.published_config
       ? parseCaseConfigOrThrow(row.published_config, `${context}:published`)
@@ -69,8 +72,11 @@ function toStatementConfigTemplate(
     status: row.status as TemplateStatus,
     draft_config: row.draft_config as StatementConfig,
     published_config: (row.published_config as StatementConfig | null) ?? null,
-    docx_template_document:
-      (row.docx_template_document as StatementConfigTemplate["docx_template_document"]) ??
+    draft_docx_template_document:
+      (row.draft_docx_template_document as StatementConfigTemplate["draft_docx_template_document"]) ??
+      null,
+    published_docx_template_document:
+      (row.published_docx_template_document as StatementConfigTemplate["published_docx_template_document"]) ??
       null,
     source_template_id: (row.source_template_id as string | null) ?? null,
     published_at: (row.published_at as string | null) ?? null,

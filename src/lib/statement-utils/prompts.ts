@@ -222,11 +222,17 @@ EVIDENCE RULES
 --------------------------------
 - Evidence is part of phase completion.
 
-If assistant asks about evidence:
-- increase phaseCompleteness appropriately
-- set evidence.requestedEvidence
+TURN-LOCAL requestedEvidence CONTRACT (STRICT):
+- requestedEvidence is ONLY about the latest assistant message in this turn.
+- If the latest assistant message asks for evidence, confirms available evidence, or alludes to obtaining/checking supporting material (photos, videos, records, receipts, reports, notes, dashcam, documents), you MUST set evidence.requestedEvidence.
+- If the latest assistant message does not ask for or allude to evidence, evidence.requestedEvidence MUST be null.
+- Do NOT carry forward prior turn requestedEvidence values.
 
-If assistant asks factual questions:
+When the latest assistant message is evidence-seeking:
+- increase phaseCompleteness appropriately
+- set evidence.requestedEvidence to the specific evidence item most directly requested in that same message
+
+When the latest assistant message is factual and non-evidence:
 - evidence.requestedEvidence = null
 
 Format MUST be:
@@ -697,42 +703,44 @@ export function getMissingRequiredWitnessFieldLabels(statement: {
   witness_metadata: Record<string, unknown>;
   statement_config: StatementConfig;
 }): string[] {
-  const missing: string[] = [];
+  return getMissingWitnessFieldLabels(statement).required;
+}
+
+export function getMissingWitnessFieldLabels(statement: {
+  witness_metadata: Record<string, unknown>;
+  statement_config: StatementConfig;
+}): { required: string[]; optional: string[] } {
+  const required: string[] = [];
+  const optional: string[] = [];
   const statementConfig = statement.statement_config;
   const witnessFields = statementConfig.witness_metadata_fields ?? [];
 
   for (const field of witnessFields) {
-    if (!field.required) {
+    const value = statement.witness_metadata[field.id];
+    const isMissing = value === null || value === undefined || value === "";
+    if (!isMissing) {
       continue;
     }
 
-    const value = statement.witness_metadata[field.id];
-    const isMissing = value === null || value === undefined || value === "";
-    if (isMissing) {
-      missing.push(field.label.toLowerCase());
+    if (field.requiredOnIntake ?? false) {
+      required.push(field.label.toLowerCase());
+    } else {
+      optional.push(field.label.toLowerCase());
     }
   }
 
-  return missing;
+  return { required, optional };
 }
 
 export const generateGreeting = (
-  caseData: { title: string; incident_date?: string | null },
+  caseData: { title: string },
   statement: {
     witness_name: string;
     witness_metadata: Record<string, unknown>;
     statement_config: StatementConfig;
   },
 ): IntakeChatMessage[] => {
-  const dateStr = caseData.incident_date
-    ? new Date(caseData.incident_date).toLocaleDateString("en-GB", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : "";
-
-  const missing = getMissingRequiredWitnessFieldLabels(statement);
+  const missing = getMissingWitnessFieldLabels(statement);
   const statementConfig = statement.statement_config;
   const witnessFields = statementConfig.witness_metadata_fields ?? [];
 
@@ -745,23 +753,33 @@ export const generateGreeting = (
   const metadata = defaultMetadata(statementConfig);
   metadata.witnessDetails = witnessDetails;
 
-  const missingStr = missing.length
-    ? missing.length > 2
-      ? `${missing.slice(0, -1).join(", ")} and ${missing.at(-1)}`
-      : missing.join(" and ")
+  const requiredMissingStr = missing.required.length
+    ? missing.required.length > 2
+      ? `${missing.required.slice(0, -1).join(", ")} and ${missing.required.at(-1)}`
+      : missing.required.join(" and ")
+    : null;
+
+  const optionalMissingStr = missing.optional.length
+    ? missing.optional.length > 2
+      ? `${missing.optional.slice(0, -1).join(", ")} and ${missing.optional.at(-1)}`
+      : missing.optional.join(" and ")
     : null;
 
   return [
     {
       role: "assistant",
-      content: `Hello ${statement.witness_name}, I'm here to help you prepare your witness statement for ${caseData.title}.${dateStr ? ` This relates to the incident on ${dateStr}.` : ""}
+      content: `Hello ${statement.witness_name}, I'm here to help you prepare your witness statement for ${caseData.title}.
 I'll guide you through the information collection process to ensure we capture all the important details accurately.`,
     },
     {
       role: "assistant",
-      content: missing.length
-        ? `To begin, could you please provide your ${missingStr}?`
-        : "To begin, could you please describe the incident in your own words?",
+      content: requiredMissingStr
+        ? optionalMissingStr
+          ? `To begin, could you please provide your ${requiredMissingStr}, and if available, your ${optionalMissingStr}?`
+          : `To begin, could you please provide your ${requiredMissingStr}?`
+        : optionalMissingStr
+          ? `To begin, could you share your ${optionalMissingStr} if available?`
+          : "To begin, could you please describe the incident in your own words?",
       meta: metadata,
     },
   ];

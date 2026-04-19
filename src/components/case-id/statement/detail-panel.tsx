@@ -63,7 +63,10 @@ import { type UpdateStatementSchemaType } from "@/lib/schema/statement";
 import { generateDoc } from "@/lib/doc-gen";
 import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
 import type { FullStatementDataResponse, UploadedDocument } from "@/types";
-import { DocumentViewer } from "@/components/ui/document-viewer";
+import {
+  DocumentViewer,
+  DocumentViewerTrigger,
+} from "@/components/ui/document-viewer";
 import { StatementFollowUpCard } from "./follow-up-card";
 import { StatementInternalDocumentsCard } from "./documents-card";
 import { StatementNotesCard } from "./notes-card";
@@ -129,17 +132,27 @@ function toFormValues(
 function DocumentRow({
   document,
   bucketId,
+  editable,
+  onReplace,
 }: {
   document: UploadedDocument;
   bucketId: string;
+  editable?: boolean;
+  onReplace?: (file: File) => Promise<void>;
 }) {
   return (
     <DocumentViewer
       document={document}
       bucketId={bucketId}
-      triggerLabel={document.name}
-      triggerVariant="outline"
-    />
+      editable={editable}
+      onReplace={onReplace}
+    >
+      <DocumentViewerTrigger asChild>
+        <Button size="sm" variant="outline">
+          {document.name}
+        </Button>
+      </DocumentViewerTrigger>
+    </DocumentViewer>
   );
 }
 
@@ -387,6 +400,22 @@ export function StatementDetailPanel({
     }
   };
 
+  const replaceUploadedDocument = async (
+    currentDocument: UploadedDocument,
+    file: File,
+  ): Promise<UploadedDocument> => {
+    const uploaded = await uploadFile({
+      bucketId: data.tenant_id,
+      name: file.name,
+      path: currentDocument.path,
+      file,
+      contentType: file.type || currentDocument.type,
+      upsert: true,
+    });
+
+    return uploaded;
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -471,25 +500,6 @@ export function StatementDetailPanel({
           <FormProvider {...formMethods}>
             <form onSubmit={formMethods.handleSubmit(onSave)}>
               <CardContent className="grid grid-cols-2 gap-3 [&_label]:text-muted-foreground">
-                <div className="col-span-2 rounded-md border bg-muted/30 p-3">
-                  <p className="text-sm font-medium">Case information</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Case-level fields are read-only here.
-                  </p>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                    <p>
-                      <span className="text-muted-foreground">Case name:</span>{" "}
-                      {data.case.title}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">
-                        Incident date:
-                      </span>{" "}
-                      {data.case.incident_date || "TBD"}
-                    </p>
-                  </div>
-                </div>
-
                 <RhfField
                   form={formMethods}
                   name="status"
@@ -609,18 +619,6 @@ export function StatementDetailPanel({
         ) : (
           <>
             <CardContent className="grid grid-cols-2 gap-2">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Case name
-                </p>
-                <p className="text-sm">{data.case.title}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Incident date
-                </p>
-                <p className="text-sm">{data.case.incident_date || "TBD"}</p>
-              </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
                   Status
@@ -826,6 +824,17 @@ export function StatementDetailPanel({
               <DocumentRow
                 document={data.statement.signed_document}
                 bucketId={data.tenant_id}
+                editable={canModify}
+                onReplace={async (file) => {
+                  const uploaded = await replaceUploadedDocument(
+                    data.statement.signed_document as UploadedDocument,
+                    file,
+                  );
+
+                  await persistStatement({
+                    signed_document: uploaded,
+                  });
+                }}
               />
             ) : null}
 
@@ -836,6 +845,22 @@ export function StatementDetailPanel({
                     key={`${document.path}-${index}`}
                     document={document}
                     bucketId={data.tenant_id}
+                    editable={canModify}
+                    onReplace={async (file) => {
+                      const uploaded = await replaceUploadedDocument(
+                        document,
+                        file,
+                      );
+
+                      const nextSupportingDocuments =
+                        data.statement.supporting_documents.map((item) =>
+                          item.path === document.path ? uploaded : item,
+                        );
+
+                      await persistStatement({
+                        supporting_documents: nextSupportingDocuments,
+                      });
+                    }}
                   />
                 ))}
               </div>

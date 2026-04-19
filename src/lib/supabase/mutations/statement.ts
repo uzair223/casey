@@ -215,11 +215,13 @@ async function resolveWitnessMetadataPatch(
   const witnessFields = (config ?? EMPTY_STATEMENT_CONFIG)
     .witness_metadata_fields as Array<{
     id: string;
-    required?: boolean;
+    requiredOnIntake?: boolean;
   }>;
 
   const requiredKeys = new Set(
-    witnessFields.filter((field) => field.required).map((field) => field.id),
+    witnessFields
+      .filter((field) => field.requiredOnIntake)
+      .map((field) => field.id),
   );
 
   const resolved: WitnessMetadataRecord = { ...existing };

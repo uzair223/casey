@@ -66,6 +66,34 @@ function previewText(value: string, maxLength = 800): string {
   return `${value.slice(0, maxLength)}...[truncated]`;
 }
 
+function normalizeEvidenceKey(item: { name: string; type: string }) {
+  return `${item.name.trim().toLowerCase()}::${item.type.trim().toLowerCase()}`;
+}
+
+function inferRequestedEvidenceFromRecordDiff(
+  previousRecord: Array<{ name: string; type: string }> | undefined,
+  currentRecord: Array<{ name: string; type: string }> | undefined,
+) {
+  const prev = previousRecord ?? [];
+  const curr = currentRecord ?? [];
+
+  if (curr.length === 0) {
+    return null;
+  }
+
+  const previousKeys = new Set(prev.map((item) => normalizeEvidenceKey(item)));
+  const newlyAdded = curr.filter(
+    (item) => !previousKeys.has(normalizeEvidenceKey(item)),
+  );
+
+  if (newlyAdded.length === 0) {
+    return null;
+  }
+
+  // If several new items appear in one turn, prefer the latest one.
+  return newlyAdded[newlyAdded.length - 1];
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -269,6 +297,9 @@ COUPLING CONTRACT (STRICT):
 - Chat must NOT introduce or imply a new phase unless metadata already advanced it.
 - metadata.phaseCompleteness must reflect ONLY verified progression from:
   (assistant questions + user factual responses + evidence checks)
+- evidence.requestedEvidence is turn-local and tied only to the latest assistant message:
+  set it when that message asks for/alludes to specific evidence;
+  otherwise set it to null.
 
 - If chat and metadata conflict:
   → metadata is authoritative
@@ -365,6 +396,24 @@ COUPLING CONTRACT (STRICT):
           try {
             const parsed = responseSchema.parse(JSON.parse(rawResponse));
             metadata = parsed.metadata;
+
+            if (!metadata.evidence.requestedEvidence) {
+              const inferredRequestedEvidence =
+                inferRequestedEvidenceFromRecordDiff(
+                  lastMetadata.evidence.record,
+                  metadata.evidence.record,
+                );
+
+              if (inferredRequestedEvidence) {
+                metadata = {
+                  ...metadata,
+                  evidence: {
+                    ...metadata.evidence,
+                    requestedEvidence: inferredRequestedEvidence,
+                  },
+                };
+              }
+            }
 
             // Ensure persisted content exactly matches parsed schema content.
             if (parsed.content.startsWith(streamedContent)) {

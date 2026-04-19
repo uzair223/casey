@@ -27,6 +27,7 @@ import {
 import {
   createCaseTemplate,
   deleteCaseTemplate,
+  publishCaseTemplate,
   setCaseTemplateStatementTemplates,
   upsertTenantCaseTemplatePreferences,
   updateCaseTemplate,
@@ -62,6 +63,8 @@ type CaseTemplateSettingsContextValue = {
   setEditorTab: (tab: CaseEditorTab) => void;
   draftName: string;
   setDraftName: (value: string) => void;
+  draftTitleTemplate: string;
+  setDraftTitleTemplate: (value: string) => void;
   currentStatus: TemplateStatus;
   draftConfig: CaseConfig;
   setDraftConfig: (
@@ -157,6 +160,8 @@ export function CaseTemplateSettingsProvider({
   const [editorTab, setEditorTab] = useState<CaseEditorTab>("simple");
 
   const [draftName, setDraftName] = useState("");
+  const [draftTitleTemplate, setDraftTitleTemplate] =
+    useState("Case {caseIndex}");
 
   const formMethods = useForm<CaseConfig>({
     defaultValues: createEmptyConfig(),
@@ -258,6 +263,7 @@ export function CaseTemplateSettingsProvider({
     if (!template) {
       const empty = createEmptyConfig();
       setDraftName("");
+      setDraftTitleTemplate("Case {caseIndex}");
       formMethods.reset(empty);
       setLinkedStatementTemplateIdsState([]);
       setDefaultStatementTemplateIdState(null);
@@ -269,6 +275,7 @@ export function CaseTemplateSettingsProvider({
       normalizeConfig(template.draft_config),
     );
     setDraftName(template.name);
+    setDraftTitleTemplate(template.title_template || "Case {caseIndex}");
     formMethods.reset(config);
     setEditorTab("simple");
   };
@@ -369,22 +376,38 @@ export function CaseTemplateSettingsProvider({
     const normalizedConfig = withGeneratedDynamicFieldKeys(
       normalizeConfig(draftConfig),
     );
+    const targetStatus = nextStatus ?? currentStatus;
 
     const payload = {
       tenantId: scope === "tenant" ? user?.tenant_id : null,
       name: draftName,
+      titleTemplate: draftTitleTemplate || "Case {caseIndex}",
       templateScope: scope,
-      status: nextStatus ?? currentStatus,
+      status: targetStatus,
       draftConfig: normalizedConfig,
     };
 
     let savedId = activeTemplateId;
 
     if (activeTemplateId) {
-      await updateCaseTemplate(activeTemplateId, payload);
+      if (targetStatus === "published") {
+        await updateCaseTemplate(activeTemplateId, {
+          ...payload,
+          status: "draft",
+        });
+        await publishCaseTemplate(activeTemplateId);
+      } else {
+        await updateCaseTemplate(activeTemplateId, payload);
+      }
       setMessage("Case template updated");
     } else {
-      const created = await createCaseTemplate(payload);
+      const created = await createCaseTemplate({
+        ...payload,
+        status: targetStatus === "published" ? "draft" : targetStatus,
+      });
+      if (targetStatus === "published") {
+        await publishCaseTemplate(created.id);
+      }
       savedId = created.id;
       setActiveTemplateId(created.id);
       setMessage("Case template created");
@@ -425,6 +448,7 @@ export function CaseTemplateSettingsProvider({
     const created = await createCaseTemplate({
       tenantId: user.tenant_id,
       name: `${activeTemplate.name} (Tenant)`,
+      titleTemplate: activeTemplate.title_template,
       templateScope: "tenant",
       status: "draft",
       draftConfig: config,
@@ -460,6 +484,7 @@ export function CaseTemplateSettingsProvider({
     const created = await createCaseTemplate({
       tenantId: scope === "tenant" ? user?.tenant_id : null,
       name: `${activeTemplate.name} (Copy)`,
+      titleTemplate: activeTemplate.title_template,
       templateScope: scope,
       status: "draft",
       draftConfig: config,
@@ -604,6 +629,8 @@ export function CaseTemplateSettingsProvider({
     setEditorTab,
     draftName,
     setDraftName,
+    draftTitleTemplate,
+    setDraftTitleTemplate,
     currentStatus,
     draftConfig,
     setDraftConfig,

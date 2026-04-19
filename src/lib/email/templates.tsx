@@ -245,6 +245,33 @@ export const buildInvitationEmailTemplate = (
   };
 };
 
+export const buildSignInEmailTemplate = (
+  payload: InvitationEmailPayload,
+): EmailTemplateContent => {
+  const appName = getAppName();
+  const subject = `Sign in to ${appName}`;
+  const text = `Hello there,\nUse this secure link to sign into your ${appName} account: ${payload.url}\n\nIf you did not request this email, you can ignore it.`;
+
+  return {
+    subject,
+    text,
+    react: (
+      <EmailLayout heading={`${appName} Sign In Link`}>
+        <a
+          href={payload.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={buttonStyle}
+        >
+          Sign In
+        </a>
+        <p style={paragraphStyle}>Or copy and paste this URL:</p>
+        <p style={paragraphStyle}>{payload.url}</p>
+      </EmailLayout>
+    ),
+  };
+};
+
 export const buildMentionNotificationEmailTemplate = (
   payload: MentionNotificationPayload,
 ): EmailTemplateContent => {

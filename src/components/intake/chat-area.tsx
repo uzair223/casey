@@ -3,7 +3,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardHeader } from "@/components/ui/card";
 import { MessageCard } from "../ui/message";
 import { ProgressIndicator } from "./progress-indicator";
 import { useWitnessStatement } from "@/components/intake/intake-context";
@@ -33,6 +32,10 @@ export function ChatAreaContent() {
     scrollToBottom();
   }, [messages]);
 
+  const hasPendingAssistantMessage = messages.some(
+    (message) => message.role === "assistant" && message.status === "pending",
+  );
+
   return (
     <>
       <div className="space-y-2">
@@ -45,37 +48,40 @@ export function ChatAreaContent() {
                   : "animate-slide-in-assistant"
               }`}
             >
-              <MessageCard message={message} />
-              {message.role === "assistant" && (
-                <>
-                  {message.meta?.evidence?.requestedEvidence && (
-                    <Button
-                      className="bg-card/20"
-                      size="sm"
-                      variant="outline"
-                      asChild
-                    >
-                      <label className="cursor-pointer">
-                        <input
-                          type="file"
-                          multiple
-                          accept={message.meta?.evidence.requestedEvidence.type}
-                          onChange={(e) =>
-                            setEvidence(
-                              e.target.files,
-                              message.meta?.evidence.requestedEvidence?.name,
-                            )
-                          }
-                        />
-                        <PaperclipIcon />
-                      </label>
-                    </Button>
-                  )}
-                  {message.meta?.progress && (
-                    <ProgressIndicator progress={message.meta?.progress} />
-                  )}
-                </>
-              )}
+              <MessageCard message={message}>
+                {message.role === "assistant" ? (
+                  <>
+                    {message.meta?.evidence?.requestedEvidence && (
+                      <Button
+                        className="bg-card/20"
+                        size="sm"
+                        variant="outline"
+                        asChild
+                      >
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            multiple
+                            accept={
+                              message.meta?.evidence.requestedEvidence.type
+                            }
+                            onChange={(e) =>
+                              setEvidence(
+                                e.target.files,
+                                message.meta?.evidence.requestedEvidence?.name,
+                              )
+                            }
+                          />
+                          <PaperclipIcon />
+                        </label>
+                      </Button>
+                    )}
+                    {message.meta?.progress && (
+                      <ProgressIndicator progress={message.meta?.progress} />
+                    )}
+                  </>
+                ) : null}
+              </MessageCard>
             </div>
             {message.role === "assistant" &&
               idx === messages.length - 1 &&
@@ -101,23 +107,10 @@ export function ChatAreaContent() {
               )}
           </React.Fragment>
         ))}
-        {sendMessage.isLoading && (
-          <Card size="sm" className="w-min rounded-md!">
-            <CardHeader className="flex flex-row justify-center gap-1">
-              <div
-                className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
-                style={{ animationDelay: "0ms" }}
-              ></div>
-              <div
-                className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
-                style={{ animationDelay: "150ms" }}
-              ></div>
-              <div
-                className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
-                style={{ animationDelay: "300ms" }}
-              ></div>
-            </CardHeader>
-          </Card>
+        {sendMessage.isLoading && !hasPendingAssistantMessage && (
+          <MessageCard
+            message={{ role: "assistant", content: "", status: "pending" }}
+          />
         )}
         {hasIntakeStopped && (
           <div className="flex justify-start animate-fade-in">

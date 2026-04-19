@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import React from "react";
 
 type SidebarWrapperProps = {
   children: ReactNode;
@@ -22,8 +23,13 @@ export function SidebarWrapper({ children, className }: SidebarWrapperProps) {
 type SidebarProps<T> = {
   title?: ReactNode;
   count?: number;
-  actionLabel?: ReactNode;
-  onAction?: () => void;
+  actions?: (
+    | {
+        label: React.ReactNode;
+        onClick: () => void;
+      }
+    | React.ReactNode
+  )[];
   children?: ReactNode;
   items?: T[];
   activeItemId?: string | null;
@@ -38,8 +44,7 @@ type SidebarProps<T> = {
 export function Sidebar<T>({
   title,
   count,
-  actionLabel,
-  onAction,
+  actions,
   children,
   items,
   activeItemId,
@@ -62,7 +67,7 @@ export function Sidebar<T>({
   return (
     <aside className={cn("min-w-0", className)}>
       <Card className="lg:sticky top-4 h-fit">
-        {title || actionLabel ? (
+        {title || actions ? (
           <CardHeader className="pb-2">
             {title ? (
               <CardTitle className="flex text-base">
@@ -74,10 +79,28 @@ export function Sidebar<T>({
                 ) : null}
               </CardTitle>
             ) : null}
-            {actionLabel ? (
-              <Button variant="outline" onClick={onAction}>
-                {actionLabel}
-              </Button>
+            {actions && actions.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {actions.map((action, index) => {
+                  if (
+                    action &&
+                    typeof action === "object" &&
+                    "label" in action
+                  ) {
+                    return (
+                      <Button
+                        key={index}
+                        className="w-full"
+                        variant="outline"
+                        onClick={action.onClick}
+                      >
+                        {action.label}
+                      </Button>
+                    );
+                  }
+                  return <React.Fragment key={index}>{action}</React.Fragment>;
+                })}
+              </div>
             ) : null}
           </CardHeader>
         ) : null}

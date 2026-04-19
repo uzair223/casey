@@ -45,7 +45,6 @@ export function EditCaseForm(props: EditCaseFormProps) {
     resolver: zodResolver(CaseSchema),
     defaultValues: {
       title: caseData.title ?? "",
-      incident_date: caseData.incident_date ?? "",
       assigned_to_ids:
         caseData.assigned_to_ids ??
         (caseData.assigned_to ? [caseData.assigned_to] : []),
@@ -71,7 +70,6 @@ export function EditCaseForm(props: EditCaseFormProps) {
   > = async (data) => {
     await updateCase(caseData.id, {
       title: data.title,
-      incident_date: data.incident_date || null,
       assigned_to_ids: data.assigned_to_ids ?? [],
       status: data.status,
       case_metadata: data.case_metadata ?? {},
@@ -100,21 +98,6 @@ export function EditCaseForm(props: EditCaseFormProps) {
             registerOptions={{ required: true }}
             renderControl={(registration, required) => (
               <Input id="case_title" required={required} {...registration} />
-            )}
-          />
-
-          <RhfField
-            form={formMethods}
-            name="incident_date"
-            controlId="case_incident_date"
-            label="Incident date"
-            renderControl={(registration, required) => (
-              <Input
-                id="case_incident_date"
-                type="date"
-                required={required}
-                {...registration}
-              />
             )}
           />
 

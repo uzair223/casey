@@ -23,7 +23,7 @@ const RequestBodySchema = z.object({
       }),
     )
     .default([]),
-  seedData: z.object().optional(),
+  seedData: z.unknown().optional(),
   responseFormat: z.looseObject({
     type: z.literal("json_schema"),
     json_schema: z.looseObject({
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? randomUUID();
 
   if (!env.OPENROUTER_API_KEY) {
-    await logServerEvent("error", "api.generate.misconfigured", {
+    await logServerEvent("error", "api.generate.config.misconfigured", {
       requestId,
       reason: "missing_openrouter_api_key",
     });
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     const encoder = new TextEncoder();
     const selectedModel = env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
 
-    await logServerEvent("info", "api.generate.request", {
+    await logServerEvent("info", "api.generate.config.request", {
       requestId,
       model: selectedModel,
       userId: auth.userId,
@@ -120,8 +120,10 @@ export async function POST(request: Request) {
         messages: [
           {
             role: "system",
-            content:
-              "You are a strict JSON generator. Output only JSON that conforms to the provided schema. Treat seedData as the current draft state. Preserve all unrelated fields exactly as-is and make only the changes requested in the latest user turn. Do not regenerate unaffected sections unless the user explicitly asks.",
+            content: `You are a JSON object generation agent. Decide whether the user's message is a general question or a JSON generation request.
+If it is a general question, respond with {"kind":"message","message":"...","data": null } with the user-provided schema as context if possible.
+If it is a JSON generation request, respond with {"kind":"patch","message":"...","data":{...}}.
+Use seedData only as the current draft state. Preserve all unrelated fields exactly as-is and make only the requested changes.`,
           },
           ...conversationHistory,
           {
@@ -148,7 +150,7 @@ export async function POST(request: Request) {
         }
       })();
     } catch (error) {
-      await logServerEvent("error", "api.generate.model_call_failed", {
+      await logServerEvent("error", "api.generate.config.model_call_failed", {
         requestId,
         model: selectedModel,
         error,
@@ -197,7 +199,7 @@ export async function POST(request: Request) {
 
           safeClose(controller);
         } catch (error) {
-          await logServerEvent("warn", "api.generate.stream_failed", {
+          await logServerEvent("warn", "api.generate.config.stream_failed", {
             requestId,
             error,
             streamedLength: lastEmitted.length,
@@ -227,7 +229,7 @@ export async function POST(request: Request) {
       return error;
     }
 
-    await logServerEvent("error", "api.generate.failed", {
+    await logServerEvent("error", "api.generate.config.failed", {
       requestId,
       error,
     });

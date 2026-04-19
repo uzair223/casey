@@ -9,7 +9,6 @@ export const CaseStatusSchema = z.enum([
 
 export const CaseSchema = z.object({
   title: z.string().trim().min(1, "Case name is required"),
-  incident_date: z.string().trim().optional(),
   case_template_id: z.uuid().nullable().optional(),
   case_metadata: z.record(z.string(), z.string().nullable()).optional(),
   assigned_to_ids: z.array(z.string().uuid()).optional(),

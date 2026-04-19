@@ -75,12 +75,13 @@ export default function Home() {
 
             <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
               {env.NEXT_PUBLIC_APP_NAME} combines secure witness intake,
-              AI-assisted drafting, and governed collaboration in one platform.
+              AI-assisted drafting, inline document editing, and governed
+              collaboration in one workflow for claimant firms.
             </p>
 
             <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-              Built for personal injury solicitors handling RTA, EL/PL, and
-              clinical negligence claims.
+              Built for personal injury practices handling RTA, EL/PL, and
+              clinical negligence work.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-3">
@@ -133,10 +134,8 @@ export default function Home() {
                   className="rounded-2xl border-border/70 bg-background/75 text-xs text-muted-foreground"
                 >
                   <CardContent className="p-3">
-                    <span className="font-medium text-foreground">
-                      Progress:
-                    </span>{" "}
-                    Ready for evidence confirmation
+                    <span className="font-medium text-foreground">AI:</span>{" "}
+                    Tracks phase completeness and evidence intent in each turn
                   </CardContent>
                 </Card>
                 <Card
@@ -144,8 +143,10 @@ export default function Home() {
                   className="rounded-2xl border-border/70 bg-background/75 text-xs text-muted-foreground"
                 >
                   <CardContent className="p-3">
-                    <span className="font-medium text-foreground">Link:</span>{" "}
-                    Expires in 23h 59m
+                    <span className="font-medium text-foreground">
+                      Inline editor:
+                    </span>{" "}
+                    Paragraph-level legal edits after AI formalization
                   </CardContent>
                 </Card>
               </div>
@@ -168,9 +169,8 @@ export default function Home() {
               content: (
                 <>
                   <CardDescription className="text-sm leading-6">
-                    Teams create a statement from a case template and send a
-                    time-limited witness magic link. Privacy notice
-                    acknowledgement is captured before interview starts.
+                    Start from a case template, issue a time-limited magic link,
+                    and capture privacy consent before intake begins.
                   </CardDescription>
                   <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-2 text-xs font-medium text-muted-foreground">
                     <Link2 className="h-3.5 w-3.5" />
@@ -185,8 +185,8 @@ export default function Home() {
                 <>
                   <CardDescription className="text-sm leading-6">
                     AI-guided chat asks follow-up questions, tracks phase
-                    completeness, and prompts evidence upload when needed so the
-                    timeline and facts are stronger before formal drafting.
+                    completeness, and requests evidence at the right point so
+                    timelines and facts are complete before drafting.
                   </CardDescription>
                   <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-2 text-xs font-medium text-muted-foreground">
                     <BrainCircuit className="h-3.5 w-3.5" />
@@ -196,18 +196,17 @@ export default function Home() {
               ),
             },
             {
-              title: "Formalize, review, and follow-up",
+              title: "Formalize, review, and edit",
               content: (
                 <>
                   <CardDescription className="text-sm leading-6">
                     {env.NEXT_PUBLIC_APP_NAME} formalizes responses into
-                    structured sections, includes confirmed exhibits, renders
-                    DOCX preview, and supports team review before final witness
-                    submission.
+                    structured sections, supports inline document editing, and
+                    keeps submission controlled, auditable, and review-ready.
                   </CardDescription>
                   <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-2 text-xs font-medium text-muted-foreground">
                     <FileText className="h-3.5 w-3.5" />
-                    Statement preview and controlled submit
+                    Statement preview and inline editing
                   </div>
                 </>
               ),
@@ -257,12 +256,12 @@ export default function Home() {
               <CardContent>
                 <CardDescription className="text-sm leading-6">
                   {env.NEXT_PUBLIC_APP_NAME} flags vague answers and prompts
-                  follow-ups automatically, so your team gets a complete
-                  statement without a second interview.
+                  focused follow-ups automatically, helping teams complete
+                  statements in fewer interview cycles.
                 </CardDescription>
                 <CardDescription className="text-sm leading-6">
-                  Witness narratives stay coherent from first account to final
-                  draft, reducing avoidable legal rework.
+                  Narratives stay coherent from first account to final draft,
+                  reducing avoidable fee-earner rework.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -270,17 +269,17 @@ export default function Home() {
             <Card className="rounded-3xl border-border/70 bg-card/75">
               <CardHeader className="flex-row items-center gap-4">
                 <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent-foreground">
-                  <Clock3 className="h-5 w-5" />
+                  <FileText className="h-5 w-5" />
                 </div>
                 <CardTitle className="text-lg text-foreground mb-2">
-                  Reminder and follow-up automation
+                  Inline document editor for legal teams
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-sm leading-6">
-                  Built-in reminder cadence, follow-up requests, and reminder
-                  event history help teams keep statements moving without manual
-                  chasing.
+                  Refine generated sections inline with AI-assisted edits to
+                  tighten wording, chronology, and evidential clarity before
+                  solicitor review.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -298,8 +297,8 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-sm leading-6">
-                  Case and statement notes support mentions, pinning, editing,
-                  deletion, and in-app notification routing for team
+                  Case and statement notes support mentions, pinning, edit
+                  history, and in-app notifications for faster matter
                   coordination.
                 </CardDescription>
               </CardContent>
@@ -316,12 +315,12 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-sm leading-6">
-                  Audit trails span core case and statement activity, and DSAR
-                  export supports data access requests when needed.
+                  Audit trails span core case and statement activity, with DSAR
+                  export support for data access requests.
                 </CardDescription>
                 <CardDescription className="text-sm leading-6">
-                  Security controls use role-based permissions and scoped
-                  document access to keep case material governed end to end.
+                  Role-based permissions and scoped document access keep case
+                  material governed end to end.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -344,18 +343,17 @@ export default function Home() {
               <CardDescription className="text-sm leading-6">
                 Intake starts with privacy notice acknowledgement and then moves
                 through guided phases. {env.NEXT_PUBLIC_APP_NAME} requests
-                supporting documents in context, tracks readiness for statement
-                preparation, and locks down the flow when submission is
-                complete.
+                supporting evidence in context, tracks readiness for statement
+                preparation, and locks the flow at submission.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
               {[
                 "Pre-start privacy notice acknowledgement",
                 "Role-safe token access with intake-state checks",
-                "Suggested evidence uploads from conversation context",
-                "Statement formalization that merges transcript + exhibits",
-                "Preview-before-submit for witness validation",
+                "Context-aware evidence requests from conversation flow",
+                "Formalization that merges transcript and exhibits",
+                "Inline editor for paragraph-level legal refinement",
                 "Follow-up request channel when legal team needs clarification",
               ].map((item) => (
                 <Card key={item} size="sm" className="bg-background/70!">
@@ -380,8 +378,8 @@ export default function Home() {
             <CardContent>
               <CardDescription className="text-sm leading-6">
                 Reminder rules (cadence, limits, event logs) and targeted
-                follow-up emails help keep outstanding witness tasks moving to
-                completion.
+                follow-up emails keep outstanding witness tasks moving to
+                completion without manual chasing.
               </CardDescription>
               <Card size="sm" className="mt-3 bg-background/70!">
                 <CardHeader className="text-xs text-muted-foreground">
@@ -413,8 +411,8 @@ export default function Home() {
             <CardContent>
               <CardDescription className="text-sm leading-6">
                 Template teams can prompt AI to generate a starting config,
-                iterate in structured editors, and validate output before
-                rollout.
+                iterate in structured editors, and validate outputs before
+                publishing.
               </CardDescription>
               <Card size="sm" className="mt-3 bg-background/70!">
                 <CardHeader className="text-xs text-muted-foreground">
@@ -433,8 +431,8 @@ export default function Home() {
               <CardDescription className="text-sm leading-6">
                 {env.NEXT_PUBLIC_APP_NAME} supports shared and firm-specific
                 templates, forking, duplicate/archive/publish status workflows,
-                docx template staging, and snapshot-backed consistency between
-                configured fields and rendered documents.
+                DOCX template staging, and snapshot-backed consistency between
+                configured fields and generated documents.
               </CardDescription>
             </CardHeader>
 
@@ -469,6 +467,132 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="space-y-8 mx-auto mt-28 max-w-6xl sm:mt-32">
+        <PageTitle
+          subtitle="Workflow surfaces"
+          title="Platform capabilities across the case lifecycle"
+          titleTag="h2"
+        />
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          {[
+            {
+              icon: BadgeCheck,
+              title: "Administration and oversight",
+              body: "Manage organizations, waitlist operations, and demo workflows from centralized controls.",
+            },
+            {
+              icon: Users,
+              title: "Case and statement operations",
+              body: "Run casework with governed access to templates, notes, mentions, and document actions.",
+            },
+            {
+              icon: Link2,
+              title: "Secure intake experience",
+              body: "Capture intake through tokenized links with privacy consent, guided interview phases, and controlled submission.",
+            },
+            {
+              icon: FileText,
+              title: "Drafting and refinement",
+              body: "Move from interview transcript to formalized draft and inline refinements without context switching.",
+            },
+          ].map((item) => (
+            <Card
+              key={item.title}
+              className="rounded-3xl border-border/70 bg-card/75"
+            >
+              <CardHeader className="flex-row items-start gap-4">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent-foreground">
+                  <item.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-foreground">
+                    {item.title}
+                  </CardTitle>
+                  <CardDescription className="mt-2 text-sm leading-6">
+                    {item.body}
+                  </CardDescription>
+                </div>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-8 mx-auto mt-28 max-w-6xl sm:mt-32">
+        <PageTitle
+          subtitle="Automation and operations"
+          title="Operational follow-through beyond the interview"
+          titleTag="h2"
+        />
+
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+          <Card className="rounded-3xl border-border/70 bg-card/75">
+            <CardHeader>
+              <CardTitle className="font-display text-2xl text-primary">
+                Keep statements moving without manual chasing
+              </CardTitle>
+              <CardDescription className="text-sm leading-6">
+                Operational tooling supports reminder rules, follow-up
+                workflows, and event tracking so teams can manage outstanding
+                intake tasks at scale.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              {[
+                "Internal reminders runner endpoint for controlled dispatch",
+                "Reminder cadence and limits per statement",
+                "Follow-up request events with notification history",
+                "Outstanding work visibility across dashboard surfaces",
+              ].map((item) => (
+                <Card key={item} size="sm" className="bg-background/70!">
+                  <CardHeader className="flex-row items-start gap-2.5 text-sm text-muted-foreground">
+                    <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground" />
+                    <span>{item}</span>
+                  </CardHeader>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-3xl border-border/70 bg-card/75">
+            <CardHeader>
+              <CardTitle className="text-lg text-foreground">
+                Compliance and lifecycle controls
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {[
+                {
+                  icon: Fingerprint,
+                  label:
+                    "Audit-event coverage across case and statement actions",
+                },
+                {
+                  icon: MailCheck,
+                  label: "DSAR export and account-deletion request support",
+                },
+                {
+                  icon: BellRing,
+                  label: "Retention and lifecycle automation hooks",
+                },
+                {
+                  icon: LockKeyhole,
+                  label: "Tenant-scoped data boundaries with role-based access",
+                },
+              ].map((item) => (
+                <Card key={item.label} size="sm" className="bg-background/70!">
+                  <CardHeader className="flex-row items-start gap-2.5 text-sm text-muted-foreground">
+                    <item.icon className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground" />
+                    <span>{item.label}</span>
+                  </CardHeader>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
       <section id="beta" className="mx-auto mt-28 max-w-6xl sm:mt-32">
         <Card className="overflow-hidden border-border/70 bg-card/85">
           <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
@@ -481,7 +605,7 @@ export default function Home() {
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
                 Get a personalised walkthrough and early pricing lock before
-                general availability.
+                general availability for your firm.
               </p>
 
               <div className="mt-8 grid gap-3 text-sm text-muted-foreground">
@@ -509,8 +633,8 @@ export default function Home() {
         <div className="grid gap-3 sm:grid-cols-3">
           {[
             "Secure magic-link intake with notice consent",
-            "AI-guided interviews and statement formalization",
-            "Template governance, collaboration, and auditability",
+            "AI-guided interviews, formalization, and inline document editing",
+            "Template governance, collaboration, and audit-ready controls",
           ].map((item) => (
             <Card
               key={item}

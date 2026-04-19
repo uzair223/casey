@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { PencilIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -21,10 +22,14 @@ const EMPTY_CASE_CONFIG: CaseConfig = {
 };
 
 export function CaseTemplateSimpleView() {
+  const [templateSearch, setTemplateSearch] = useState("");
+
   const {
     canEditActiveTemplate,
     draftName,
     setDraftName,
+    draftTitleTemplate,
+    setDraftTitleTemplate,
     statementTemplates,
     linkedStatementTemplateIds,
     defaultStatementTemplateId,
@@ -40,6 +45,22 @@ export function CaseTemplateSimpleView() {
     (useWatch({ control }) as CaseConfig | undefined) ?? EMPTY_CASE_CONFIG;
 
   const dynamicFields = draftConfig.dynamicFields ?? [];
+
+  const sortedStatementTemplates = useMemo(
+    () =>
+      [...statementTemplates].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      ),
+    [statementTemplates],
+  );
+
+  const filteredStatementTemplates = useMemo(() => {
+    const query = templateSearch.trim().toLowerCase();
+
+    return sortedStatementTemplates.filter((template) =>
+      query.length === 0 ? true : template.name.toLowerCase().includes(query),
+    );
+  }, [sortedStatementTemplates, templateSearch]);
 
   const updateDynamicFields = (next: CaseConfig["dynamicFields"]) => {
     setValue("dynamicFields", next, {
@@ -58,6 +79,20 @@ export function CaseTemplateSimpleView() {
           disabled={!canEditActiveTemplate}
           placeholder="Case template name"
         />
+      </div>
+
+      <div className="grid gap-2">
+        <p className="text-sm font-medium">Case Title Template</p>
+        <Input
+          value={draftTitleTemplate}
+          onChange={(event) => setDraftTitleTemplate(event.target.value)}
+          disabled={!canEditActiveTemplate}
+          placeholder="Case {caseIndex}"
+        />
+        <p className="text-xs text-muted-foreground">
+          Supports placeholders like {"{caseIndex}"} and case field ids (for
+          example {"{claimant}"}, {"{defendant}"}).
+        </p>
       </div>
 
       <DynamicFieldsEditor
@@ -174,14 +209,22 @@ export function CaseTemplateSimpleView() {
           Select witness templates available for this case template and choose
           one default.
         </p>
+        <Input
+          value={templateSearch}
+          onChange={(event) => setTemplateSearch(event.target.value)}
+          placeholder="Search statement templates..."
+          className="h-8"
+        />
 
         <div className="grid gap-2">
-          {statementTemplates.length === 0 ? (
+          {filteredStatementTemplates.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No published statement templates available.
+              {statementTemplates.length === 0
+                ? "No published statement templates available."
+                : "No statement templates match your search."}
             </p>
           ) : (
-            statementTemplates.map((template) => {
+            filteredStatementTemplates.map((template) => {
               const isChecked = linkedStatementTemplateIds.includes(
                 template.id,
               );
@@ -276,7 +319,7 @@ export function CaseTemplateSimpleView() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">None</SelectItem>
-              {statementTemplates
+              {sortedStatementTemplates
                 .filter((template) =>
                   linkedStatementTemplateIds.includes(template.id),
                 )

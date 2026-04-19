@@ -162,7 +162,7 @@ export const StatementMetadataFieldConfigSchema = z
         "Optional explanation of what this field captures and why it is relevant to the statement",
       ),
 
-    required: z
+    requiredOnIntake: z
       .boolean()
       .nullable()
       .describe(

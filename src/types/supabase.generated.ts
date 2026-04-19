@@ -389,6 +389,7 @@ export type Database = {
           status: string
           template_scope: string
           tenant_id: string | null
+          title_template: string
           updated_at: string
         }
         Insert: {
@@ -403,6 +404,7 @@ export type Database = {
           status?: string
           template_scope: string
           tenant_id?: string | null
+          title_template?: string
           updated_at?: string
         }
         Update: {
@@ -417,6 +419,7 @@ export type Database = {
           status?: string
           template_scope?: string
           tenant_id?: string | null
+          title_template?: string
           updated_at?: string
         }
         Relationships: [
@@ -445,7 +448,6 @@ export type Database = {
           config_snapshot_id: string | null
           created_at: string
           id: string
-          incident_date: string | null
           status: string
           tenant_id: string
           title: string
@@ -459,7 +461,6 @@ export type Database = {
           config_snapshot_id?: string | null
           created_at?: string
           id?: string
-          incident_date?: string | null
           status?: string
           tenant_id: string
           title: string
@@ -473,7 +474,6 @@ export type Database = {
           config_snapshot_id?: string | null
           created_at?: string
           id?: string
-          incident_date?: string | null
           status?: string
           tenant_id?: string
           title?: string
@@ -715,12 +715,13 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
-          docx_template_document: Json | null
           draft_config: Json
+          draft_docx_template_document: Json | null
           id: string
           name: string
           published_at: string | null
           published_config: Json | null
+          published_docx_template_document: Json | null
           source_template_id: string | null
           status: string
           template_scope: string
@@ -730,12 +731,13 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
-          docx_template_document?: Json | null
           draft_config?: Json
+          draft_docx_template_document?: Json | null
           id?: string
           name: string
           published_at?: string | null
           published_config?: Json | null
+          published_docx_template_document?: Json | null
           source_template_id?: string | null
           status?: string
           template_scope: string
@@ -745,12 +747,13 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
-          docx_template_document?: Json | null
           draft_config?: Json
+          draft_docx_template_document?: Json | null
           id?: string
           name?: string
           published_at?: string | null
           published_config?: Json | null
+          published_docx_template_document?: Json | null
           source_template_id?: string | null
           status?: string
           template_scope?: string

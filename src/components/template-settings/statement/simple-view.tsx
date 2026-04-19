@@ -271,13 +271,13 @@ export function StatementTemplateSimpleView() {
                 <label className="ml-1 inline-flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
-                    checked={!!field.required}
+                    checked={!!field.requiredOnIntake}
                     disabled={isBusy}
                     onChange={(event) => {
                       const next = [...witnessFields];
                       next[index] = {
                         ...next[index],
-                        required: event.target.checked,
+                        requiredOnIntake: event.target.checked,
                       };
                       updateWitnessMetadataFields(next);
                     }}
@@ -315,7 +315,7 @@ export function StatementTemplateSimpleView() {
                 new Set(witnessFields.map((field) => field.id)),
               ),
               description: "",
-              required: false,
+              requiredOnIntake: false,
               requiredOnCreate: false,
             },
           ]);

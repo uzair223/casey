@@ -93,6 +93,7 @@ type StatementTemplateSettingsContextValue = {
   selectTemplate: (template: StatementConfigTemplate) => Promise<void>;
   createNewTemplate: () => Promise<void>;
   saveTemplate: () => Promise<void>;
+  saveTemplateWithDocx: (file: File) => Promise<void>;
   saveTemplateWithStatus: (status: TemplateStatus) => Promise<void>;
   deleteTemplate: () => Promise<void>;
   duplicateTemplate: () => Promise<void>;
@@ -113,14 +114,22 @@ const StatementTemplateSettingsContext =
 function createEmptyConfig(): StatementConfig {
   return StatementConfigSchema.parse({
     agents: {
-      chat: "You are a live intake interviewer assisting a solicitor in England for a personal injury claim.",
+      chat: "You are an intake assistant helping collect facts, dates, names, and events from an interview.",
       formalize:
-        "You are a legal assistant in England specializing in witness statement preparation. Your task is to convert informal witness responses into formal sections suitable for inclusion in an official witness statement template.",
+        "You are a drafting assistant turning interview transcript into structured witness statement sections.",
     },
     phases: [],
     sections: [],
-    witness_metadata_fields: [],
-    case_metadata_deps: [],
+    witness_metadata_fields: [
+      {
+        id: "address",
+        label: "Address",
+        description: "The witness's residential address",
+        requiredOnIntake: true,
+        requiredOnCreate: false,
+      },
+    ],
+    case_metadata_deps: ["court", "claimNumber", "claimant", "defendant"],
     prompts: getDefaultPromptTemplates(),
   });
 }
@@ -391,9 +400,9 @@ export function StatementTemplateSettingsProvider({
         setActiveTemplateId(initialTemplate.id);
         syncEditorFromTemplate(initialTemplate);
 
-        if (initialTemplate.docx_template_document) {
+        if (initialTemplate.draft_docx_template_document) {
           await preparePreviewFromUploadedDocument(
-            initialTemplate.docx_template_document,
+            initialTemplate.draft_docx_template_document,
             config,
           );
         } else {
@@ -423,14 +432,43 @@ export function StatementTemplateSettingsProvider({
     },
   );
 
+  useEffect(() => {
+    if (isLoading) return;
+    if (isUploadingTemplateDocx) return;
+    if (pendingTemplateDocx) return;
+    if (activeTemplate?.draft_docx_template_document) return;
+
+    const timeoutId = setTimeout(() => {
+      void prepareStarterPreview(
+        withGeneratedConfigIds(normalizeConfig(draftConfig)),
+        draftName.trim() ||
+          activeTemplate?.name ||
+          "Witness Statement Template",
+      );
+    }, 400);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [
+    isLoading,
+    isUploadingTemplateDocx,
+    draftConfig,
+    draftName,
+    activeTemplate?.id,
+    activeTemplate?.name,
+    activeTemplate?.draft_docx_template_document,
+    pendingTemplateDocx,
+  ]);
+
   const selectTemplate = async (template: StatementConfigTemplate) => {
     const config = normalizeConfig(template.draft_config);
     setActiveTemplateId(template.id);
     syncEditorFromTemplate(template);
 
-    if (template.docx_template_document) {
+    if (template.draft_docx_template_document) {
       await preparePreviewFromUploadedDocument(
-        template.docx_template_document,
+        template.draft_docx_template_document,
         config,
       );
     } else {
@@ -450,7 +488,10 @@ export function StatementTemplateSettingsProvider({
     setMessage("Creating a new template draft");
   };
 
-  const persistTemplate = async (nextStatus?: TemplateStatus) => {
+  const persistTemplate = async (
+    nextStatus?: TemplateStatus,
+    docxFileOverride?: File | null,
+  ) => {
     if (!draftName.trim()) {
       throw new Error("Template name is required");
     }
@@ -477,30 +518,33 @@ export function StatementTemplateSettingsProvider({
     const scope: "global" | "tenant" = isAppAdmin ? "global" : "tenant";
     const normalizedConfig = normalizeConfig(draftConfig);
 
-    let docxTemplateDocument = activeTemplate?.docx_template_document ?? null;
+    let docxTemplateDocument =
+      activeTemplate?.draft_docx_template_document ?? null;
 
-    if (pendingTemplateDocx) {
+    const docxFileForUpload = docxFileOverride ?? pendingTemplateDocx;
+
+    if (docxFileForUpload) {
       setIsUploadingTemplateDocx(true);
       try {
         await validateDocxTemplateDocument({
           config: normalizedConfig,
-          templateDocument: pendingTemplateDocx,
+          templateDocument: docxFileForUpload,
           throw: true,
         });
 
         const uploadPath = [
           "statement-templates",
           user?.tenant_id ?? "global",
-          `${Date.now()}-${pendingTemplateDocx.name}`,
+          `${Date.now()}-${docxFileForUpload.name}`,
         ].join("/");
 
         docxTemplateDocument = await uploadFile({
           bucketId: GLOBAL_TEMPLATE_BUCKET_ID,
-          name: pendingTemplateDocx.name,
+          name: docxFileForUpload.name,
           path: uploadPath,
-          file: pendingTemplateDocx,
+          file: docxFileForUpload,
           contentType:
-            pendingTemplateDocx.type ||
+            docxFileForUpload.type ||
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           upsert: true,
         });
@@ -547,9 +591,9 @@ export function StatementTemplateSettingsProvider({
 
     if (updated) {
       syncEditorFromTemplate(updated);
-      if (updated.docx_template_document) {
+      if (updated.draft_docx_template_document) {
         await preparePreviewFromUploadedDocument(
-          updated.docx_template_document,
+          updated.draft_docx_template_document,
           normalizeConfig(updated.draft_config),
         );
       } else {
@@ -562,6 +606,10 @@ export function StatementTemplateSettingsProvider({
 
   const saveTemplate = async () => {
     await persistTemplate();
+  };
+
+  const saveTemplateWithDocx = async (file: File) => {
+    await persistTemplate(undefined, file);
   };
 
   const saveTemplateWithStatus = async (status: TemplateStatus) => {
@@ -581,9 +629,9 @@ export function StatementTemplateSettingsProvider({
       const first = refreshed[0];
       setActiveTemplateId(first.id);
       syncEditorFromTemplate(first);
-      if (first.docx_template_document) {
+      if (first.draft_docx_template_document) {
         await preparePreviewFromUploadedDocument(
-          first.docx_template_document,
+          first.draft_docx_template_document,
           normalizeConfig(first.draft_config),
         );
       } else {
@@ -618,7 +666,7 @@ export function StatementTemplateSettingsProvider({
       templateScope: scope,
       status: "draft",
       draftConfig: config,
-      docxTemplateDocument: activeTemplate.docx_template_document,
+      docxTemplateDocument: activeTemplate.draft_docx_template_document,
       sourceTemplateId: activeTemplate.id,
     });
 
@@ -629,9 +677,9 @@ export function StatementTemplateSettingsProvider({
     setActiveTemplateId(copy.id);
     syncEditorFromTemplate(copy);
 
-    if (copy.docx_template_document) {
+    if (copy.draft_docx_template_document) {
       await preparePreviewFromUploadedDocument(
-        copy.docx_template_document,
+        copy.draft_docx_template_document,
         normalizeConfig(copy.draft_config),
       );
     } else {
@@ -654,7 +702,7 @@ export function StatementTemplateSettingsProvider({
       templateScope: "tenant",
       status: "draft",
       draftConfig: config,
-      docxTemplateDocument: activeTemplate.docx_template_document,
+      docxTemplateDocument: activeTemplate.draft_docx_template_document,
       sourceTemplateId: activeTemplate.id,
     });
 
@@ -665,9 +713,9 @@ export function StatementTemplateSettingsProvider({
     setActiveTemplateId(tenantCopy.id);
     syncEditorFromTemplate(tenantCopy);
 
-    if (tenantCopy.docx_template_document) {
+    if (tenantCopy.draft_docx_template_document) {
       await preparePreviewFromUploadedDocument(
-        tenantCopy.docx_template_document,
+        tenantCopy.draft_docx_template_document,
         normalizeConfig(tenantCopy.draft_config),
       );
     } else {
@@ -689,6 +737,18 @@ export function StatementTemplateSettingsProvider({
 
     if (updated) {
       syncEditorFromTemplate(updated);
+
+      if (updated.draft_docx_template_document) {
+        await preparePreviewFromUploadedDocument(
+          updated.draft_docx_template_document,
+          normalizeConfig(updated.draft_config),
+        );
+      } else {
+        await prepareStarterPreview(
+          normalizeConfig(updated.draft_config),
+          updated.name,
+        );
+      }
     }
 
     setMessage("Restored the published version into draft.");
@@ -733,18 +793,18 @@ export function StatementTemplateSettingsProvider({
   };
 
   const downloadUploadedDocx = async () => {
-    if (!activeTemplate?.docx_template_document) {
+    if (!activeTemplate?.draft_docx_template_document) {
       setMessage("No uploaded DOCX to download");
       return;
     }
     const blob = await downloadUploadedDocument(
-      activeTemplate.docx_template_document,
+      activeTemplate.draft_docx_template_document,
     );
-    saveAs(blob, activeTemplate.docx_template_document.name);
+    saveAs(blob, activeTemplate.draft_docx_template_document.name);
   };
 
   const deleteUploadedDocx = async () => {
-    if (!activeTemplateId || !activeTemplate?.docx_template_document) {
+    if (!activeTemplateId || !activeTemplate?.draft_docx_template_document) {
       return;
     }
 
@@ -791,9 +851,9 @@ export function StatementTemplateSettingsProvider({
         normalizeConfig(formMethods.getValues()),
       );
 
-      if (activeTemplate?.docx_template_document) {
+      if (activeTemplate?.draft_docx_template_document) {
         await preparePreviewFromUploadedDocument(
-          activeTemplate.docx_template_document,
+          activeTemplate.draft_docx_template_document,
           config,
         );
       } else {
@@ -858,6 +918,7 @@ export function StatementTemplateSettingsProvider({
     selectTemplate,
     createNewTemplate,
     saveTemplate,
+    saveTemplateWithDocx,
     saveTemplateWithStatus,
     deleteTemplate,
     duplicateTemplate,

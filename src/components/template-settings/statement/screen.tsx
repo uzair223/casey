@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { PageTitle } from "@/components/page-title";
 import Loading from "@/components/loading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,12 +21,19 @@ import { StatementTemplateSimpleView } from "./simple-view";
 import { StatementTemplateJsonView } from "./json-view";
 import { StatementTemplateDocxView } from "./docx-view";
 import { AsyncButton } from "@/components/ui/async-button";
-import { GenerateWithAI, GenerateWithAITrigger } from "../shared/ai-generate";
+import {
+  GenerateWithAI,
+  GenerateWithAITrigger,
+} from "../../with-ai/template-generate";
 import { StatementConfigSchema } from "@/lib/schema";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
+import { SparklesIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 export function StatementTemplateSettingsScreen() {
+  const [templateSearch, setTemplateSearch] = useState("");
+
   const {
     userTenantName,
     canForkGlobalTemplate,
@@ -66,6 +74,48 @@ export function StatementTemplateSettingsScreen() {
   const showTemplateValidationIssues =
     isDirty && templateValidationErrors.length > 0;
 
+  const filteredTemplates = useMemo(() => {
+    const query = templateSearch.trim().toLowerCase();
+
+    return [...templates]
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      )
+      .filter((template) =>
+        query.length === 0 ? true : template.name.toLowerCase().includes(query),
+      );
+  }, [templates, templateSearch]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const isSaveShortcut =
+        (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s";
+
+      if (!isSaveShortcut) {
+        return;
+      }
+
+      // DOCX tab has its own dedicated save handler in docx-view.
+      if (editorTab === "docx") {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (!canEditActiveTemplate) {
+        return;
+      }
+
+      void saveTemplate();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [canEditActiveTemplate, editorTab, saveTemplate]);
+
   if (isLoading) {
     return <Loading />;
   }
@@ -96,25 +146,31 @@ export function StatementTemplateSettingsScreen() {
 
       <SidebarWrapper>
         <Sidebar<StatementConfigTemplate>
-          title="Templates"
-          count={templates.length}
-          actionLabel="New"
-          onAction={() => {
-            void createNewTemplate();
-          }}
-          items={templates}
+          title="Statement Templates"
+          actions={[
+            <Input
+              key="statement-template-search"
+              value={templateSearch}
+              onChange={(event) => setTemplateSearch(event.target.value)}
+              placeholder="Search templates..."
+              className="h-8 w-full"
+            />,
+            {
+              label: "New",
+              onClick: () => void createNewTemplate(),
+            },
+          ]}
+          items={filteredTemplates}
           activeItemId={activeTemplate?.id}
           getItemId={(template) => template.id}
           onSelectItem={(template) => {
             void selectTemplate(template);
           }}
           renderItem={(template) => (
-            <div className="flex w-full flex-col items-start gap-1">
-              <div className="flex w-full flex-wrap items-center justify-between gap-2">
-                <span className="font-medium text-sm">{template.name}</span>
-                <div className="flex flex-wrap items-center gap-1">
-                  {badges(template)}
-                </div>
+            <div className="flex w-full flex-col gap-2">
+              <span className="font-medium text-sm">{template.name}</span>
+              <div className="ml-auto flex flex-wrap items-center gap-1">
+                {badges(template)}
               </div>
             </div>
           )}
@@ -136,21 +192,30 @@ export function StatementTemplateSettingsScreen() {
                 onRequestSent={() => {
                   setIsGenerating(true);
                 }}
-                onPartial={({ data }) => {
-                  if (!data) return;
+                onPartial={({ kind, data }) => {
+                  if (kind !== "patch" || !data) return;
                   patchConfig(data);
                 }}
-                onComplete={({ data }) => {
-                  patchConfig(data);
+                onComplete={({ kind, data }) => {
+                  if (kind === "patch" && data) {
+                    patchConfig(data);
+                  }
                   setIsGenerating(false);
                 }}
                 onError={() => {
                   setIsGenerating(false);
                 }}
               >
-                <div className="fixed bottom-6 left-6">
-                  <GenerateWithAITrigger disabled={!canEditActiveTemplate} />
-                </div>
+                {["simple", "json"].includes(editorTab) && (
+                  <div className="fixed bottom-6 right-6">
+                    <GenerateWithAITrigger
+                      className="rounded-full"
+                      disabled={!canEditActiveTemplate}
+                    >
+                      <SparklesIcon /> AI Assistant
+                    </GenerateWithAITrigger>
+                  </div>
+                )}
               </GenerateWithAI>
 
               <div className="flex items-center justify-between">
