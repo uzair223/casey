@@ -2,6 +2,7 @@ import * as React from "react";
 import type {
   InvitationEmailPayload,
   MentionNotificationPayload,
+  StatementFinalReviewRequestPayload,
   StatementReminderEmailPayload,
   StatementFollowUpRequestPayload,
   StatementEmailPayload,
@@ -176,6 +177,43 @@ export const buildStatementFollowUpRequestTemplate = (
         </a>
         <p style={paragraphStyle}>Or copy and paste this URL:</p>
         <p style={paragraphStyle}>{payload.statementUrl}</p>
+      </EmailLayout>
+    ),
+  };
+};
+
+export const buildStatementFinalReviewRequestTemplate = (
+  payload: StatementFinalReviewRequestPayload,
+): EmailTemplateContent => {
+  const witnessName = payload.witnessName?.trim() || "there";
+  const subject = `Final review and signature requested: ${payload.caseTitle}`;
+  const text = `Hello ${witnessName},\n\n${payload.tenantName} has finalized your witness statement and supporting evidence for ${payload.caseTitle}.\n\nPlease review the finalized materials, provide your signature, and submit using this secure link: ${payload.reviewUrl}`;
+
+  return {
+    subject,
+    text,
+    react: (
+      <EmailLayout heading="Final Statement Review Required">
+        <p style={paragraphStyle}>Hello {witnessName},</p>
+        <p style={paragraphStyle}>
+          <strong>{payload.tenantName}</strong> has finalized your witness
+          statement and supporting evidence for{" "}
+          <strong>{payload.caseTitle}</strong>.
+        </p>
+        <p style={paragraphStyle}>
+          Please review the finalized materials, provide your signature, and
+          submit your confirmation.
+        </p>
+        <a
+          href={payload.reviewUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={buttonStyle}
+        >
+          Review and Sign Statement
+        </a>
+        <p style={paragraphStyle}>Or copy and paste this URL:</p>
+        <p style={paragraphStyle}>{payload.reviewUrl}</p>
       </EmailLayout>
     ),
   };

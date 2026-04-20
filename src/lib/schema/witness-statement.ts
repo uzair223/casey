@@ -49,6 +49,8 @@ export function buildUpdateWitnessDetailsSchema(config: StatementConfig) {
       "draft",
       "in_progress",
       "submitted",
+      "finalized",
+      "completed",
       "locked",
       "demo",
       "demo_published",
@@ -74,6 +76,8 @@ export type UpdateWitnessDetailsFormData = {
     | "draft"
     | "in_progress"
     | "submitted"
+    | "finalized"
+    | "completed"
     | "locked"
     | "demo"
     | "demo_published";

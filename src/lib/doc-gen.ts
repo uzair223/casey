@@ -10,6 +10,7 @@ import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import type { DocGeneratorStatementData } from "@/types";
 import expressionParser from "docxtemplater/expressions";
+import ImageModule from "docxtemplater-image-module-free";
 
 interface DocxtemplaterWithTags extends Docxtemplater {
   getTags(): { document: { tags: Record<string, unknown> } };
@@ -37,6 +38,28 @@ export const generateDoc = async (
   });
 
   return await renderTemplateDocument(generatedTemplate, renderData);
+};
+
+export const signDoc = async (params: {
+  data: DocGeneratorStatementData;
+  signatureImage: Blob | ArrayBuffer | Uint8Array;
+  templateDocument?: Blob | ArrayBuffer | Uint8Array | null;
+}): Promise<Blob> => {
+  const renderData = buildTemplateData(params.data);
+  const signatureImage = await toUint8Array(params.signatureImage);
+
+  const sourceTemplate =
+    params.templateDocument ??
+    (await generateStarterDoc({
+      templateName: "Witness Statement Template",
+      config: params.data.config,
+    }));
+
+  return await renderSignedTemplateDocument(
+    sourceTemplate,
+    renderData,
+    signatureImage,
+  );
 };
 
 export const validateDocxTemplateDocument = async (params: {
@@ -324,9 +347,7 @@ export async function generateStarterDoc(params: {
             spacing: { after: SP.sm },
             children: [
               new TextRun({ text: "Signed:  " }),
-              new TextRun({
-                text: "................................................................",
-              }),
+              new TextRun({ text: "{signatureImage}" }),
             ],
           }),
           new Paragraph({
@@ -356,6 +377,7 @@ type DocxTemplateRenderData = {
   witnessName: string;
   witnessEmail: string;
   witnessMetadata: Record<string, string>;
+  signatureImage: string;
   signatureDate: string;
   sections: Record<string, string>;
 };
@@ -399,6 +421,7 @@ function buildTemplateData(
     witnessName: data.witnessName,
     witnessEmail: data.witnessEmail ?? "",
     witnessMetadata: witnessMetadataMap,
+    signatureImage: "{signatureImage}",
     signatureDate: new Date().toLocaleDateString("en-GB"),
     sections: sectionMap,
   };
@@ -421,18 +444,65 @@ async function toArrayBuffer(
   return templateDocument;
 }
 
+async function toUint8Array(
+  source: Blob | ArrayBuffer | Uint8Array,
+): Promise<Uint8Array> {
+  if (source instanceof Uint8Array) {
+    return source;
+  }
+
+  if (source instanceof Blob) {
+    return new Uint8Array(await source.arrayBuffer());
+  }
+
+  return new Uint8Array(source);
+}
+
 async function getTemplateDoc(
   templateDocument: Blob | ArrayBuffer | Uint8Array,
+  modules?: any[],
 ) {
   const templateBuffer = await toArrayBuffer(templateDocument);
   const parser = expressionParser.configure({});
   const zip = new PizZip(templateBuffer);
   const doc = new Docxtemplater(zip, {
     parser,
+    modules: modules ?? [],
     paragraphLoop: true,
     linebreaks: true,
   });
   return doc as unknown as DocxtemplaterWithTags;
+}
+
+async function buildSigningTemplate(
+  templateDocument: Blob | ArrayBuffer | Uint8Array,
+) {
+  const templateBuffer = await toArrayBuffer(templateDocument);
+  const zip = new PizZip(templateBuffer);
+
+  const zipFiles = Object.keys(zip.files);
+  for (const fileName of zipFiles) {
+    if (!fileName.startsWith("word/") || !fileName.endsWith(".xml")) {
+      continue;
+    }
+
+    const file = zip.file(fileName);
+    if (!file) {
+      continue;
+    }
+
+    const content = file.asText();
+    if (!content.includes("{signatureImage}")) {
+      continue;
+    }
+
+    zip.file(
+      fileName,
+      content.replace(/\{signatureImage\}/g, "{%signatureImage}"),
+    );
+  }
+
+  return zip.generate({ type: "uint8array" });
 }
 
 async function renderTemplateDocument(
@@ -449,6 +519,37 @@ async function renderTemplateDocument(
   }) as Blob;
 }
 
+async function renderSignedTemplateDocument(
+  templateDocument: Blob | ArrayBuffer | Uint8Array,
+  data: DocxTemplateRenderData,
+  signatureImage: Uint8Array,
+): Promise<Blob> {
+  const imageModule = new ImageModule({
+    centered: false,
+    getImage: (tagValue: unknown) => {
+      if (tagValue instanceof Uint8Array) {
+        return tagValue;
+      }
+
+      throw new Error("signatureImage value is invalid");
+    },
+    getSize: () => [220, 72],
+  });
+
+  const preparedTemplate = await buildSigningTemplate(templateDocument);
+  const doc = await getTemplateDoc(preparedTemplate, [imageModule]);
+  doc.render({
+    ...data,
+    signatureImage,
+  });
+
+  return doc.getZip().generate({
+    type: "blob",
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  }) as Blob;
+}
+
 function getAllowedDocxTemplateFields(
   config: DocGeneratorStatementData["config"],
 ): Set<string> {
@@ -457,6 +558,7 @@ function getAllowedDocxTemplateFields(
     "incidentDate",
     "witnessName",
     "witnessEmail",
+    "signatureImage",
     "signatureDate",
   ]);
 

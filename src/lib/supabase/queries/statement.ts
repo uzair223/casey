@@ -416,9 +416,13 @@ export async function getFullStatementFromId(
 export async function SERVERONLY_getStatementSubmissionNotificationRecipients(
   statementId: string,
 ): Promise<{
+  tenantId: string;
+  caseId: string;
+  statementId: string;
   tenantName: string;
   statementTitle: string;
   witnessName: string;
+  recipientUserIds: string[];
   recipientEmails: string[];
 }> {
   const supabase = getServiceClient(
@@ -496,11 +500,15 @@ export async function SERVERONLY_getStatementSubmissionNotificationRecipients(
   );
 
   return {
+    tenantId: statement.tenant_id,
+    caseId: statement.case_id,
+    statementId: statement.id,
     tenantName,
     statementTitle:
       (statement as { cases?: { title?: string | null } | null }).cases
         ?.title ?? "",
     witnessName: statement.witness_name,
+    recipientUserIds,
     recipientEmails,
   };
 }

@@ -127,6 +127,8 @@ export type StatementStatus =
   | "draft"
   | "in_progress"
   | "submitted"
+  | "finalized"
+  | "completed"
   | "locked"
   | "demo"
   | "demo_published";
@@ -155,14 +157,18 @@ export type StatementReminderEvent = Tables<"statement_reminder_events">;
 export type TenantNotificationPreferences =
   Tables<"tenant_notification_preferences">;
 export type NotificationChannel = "email" | "in_app" | "both" | "off";
-export type NotificationType = "case_note_mention" | "statement_note_mention";
+export type NotificationType =
+  | "case_note_mention"
+  | "statement_note_mention"
+  | "statement_submitted_for_review"
+  | "statement_final_review_requested";
 export type UserNotification = {
   id: string;
   tenant_id: string;
   recipient_user_id: string;
   actor_user_id: string | null;
   notification_type: NotificationType;
-  entity_type: "case_note" | "statement_note";
+  entity_type: "case_note" | "statement_note" | "statement";
   entity_id: string;
   title: string;
   body: string;

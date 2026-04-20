@@ -5,6 +5,7 @@ import { getServiceClient } from "../supabase/server";
 import { logServerEvent } from "@/lib/observability/logger";
 import type {
   MentionNotificationPayload,
+  StatementFinalReviewRequestPayload,
   StatementReminderEmailPayload,
   StatementFollowUpRequestPayload,
   StatementEmailPayload,
@@ -12,6 +13,7 @@ import type {
 } from "@/types";
 import {
   buildStatementReminderEmailTemplate,
+  buildStatementFinalReviewRequestTemplate,
   buildStatementFollowUpRequestTemplate,
   buildInvitationEmailTemplate,
   buildSignInEmailTemplate,
@@ -222,6 +224,21 @@ export const sendStatementFollowUpRequestEmail = async (
   const from = `${payload.tenantName} | ${getResendFrom()}`;
 
   await sendEmailWithLogging("statement.follow_up_request", {
+    from,
+    to: payload.to,
+    subject: template.subject,
+    text: template.text,
+    react: template.react,
+  });
+};
+
+export const sendStatementFinalReviewRequestEmail = async (
+  payload: StatementFinalReviewRequestPayload,
+) => {
+  const template = buildStatementFinalReviewRequestTemplate(payload);
+  const from = `${payload.tenantName} | ${getResendFrom()}`;
+
+  await sendEmailWithLogging("statement.final_review_request", {
     from,
     to: payload.to,
     subject: template.subject,

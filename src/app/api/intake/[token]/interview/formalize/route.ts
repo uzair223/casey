@@ -247,10 +247,14 @@ export async function POST(
       return accessError;
     }
 
-    if (statement.status === "locked") {
+    if (
+      statement.status === "locked" ||
+      statement.status === "finalized" ||
+      statement.status === "completed"
+    ) {
       await logServerEvent("warn", "api.intake.formalize.precondition_failed", {
         requestId,
-        reason: "statement_locked",
+        reason: "statement_not_formalizable",
         statementId: statement.id,
       });
       return NextResponse.json(

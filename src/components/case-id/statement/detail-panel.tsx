@@ -318,6 +318,20 @@ export function StatementDetailPanel({
     }
   };
 
+  const onSendFinalReviewRequest = async () => {
+    if (!data) return;
+
+    await apiFetch(
+      `/api/tenant/statement/${data.statement.id}/send-final-review`,
+      {
+        method: "POST",
+      },
+    );
+
+    alert("Final review request sent to witness");
+    await Promise.all([refreshCase(), fetchStatement()]);
+  };
+
   const regenerateDocx = async (skipSectionPersist = false) => {
     if (!data) return;
 
@@ -467,6 +481,22 @@ export function StatementDetailPanel({
             <SendHorizonalIcon className="h-4 w-4" />
             Send link
           </AsyncButton>
+          {canModify ? (
+            <AsyncButton
+              variant="outline"
+              size="sm"
+              onClick={onSendFinalReviewRequest}
+              pendingText={
+                <>
+                  <SendHorizonalIcon className="h-4 w-4" />
+                  Sending final review...
+                </>
+              }
+            >
+              <SendHorizonalIcon className="h-4 w-4" />
+              Finalize and request signature
+            </AsyncButton>
+          ) : null}
           {data.statement.link ? (
             <Button asChild size="sm" variant="outline">
               <Link

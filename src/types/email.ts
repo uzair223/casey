@@ -23,6 +23,14 @@ export type StatementFollowUpRequestPayload = {
   message: string;
 };
 
+export type StatementFinalReviewRequestPayload = {
+  to: string;
+  tenantName: string;
+  caseTitle: string;
+  witnessName: string | null;
+  reviewUrl: string;
+};
+
 export type StatementReminderEmailPayload = {
   to: string;
   tenantName: string;

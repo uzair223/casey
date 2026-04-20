@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { SERVERONLY_getStatementSubmissionNotificationRecipients } from "@/lib/supabase/queries";
 import {
   SERVERONLY_submitStatement,
+  SERVERONLY_createUserNotifications,
   SERVERONLY_updateStatementByToken,
 } from "@/lib/supabase/mutations";
 import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { sendStatementSubmittedNotificationEmail } from "@/lib/email";
 import { StatementSubmission } from "@/types";
+import { getServiceClient } from "@/lib/supabase/server";
 
 export async function POST(
   request: Request,
@@ -33,6 +35,13 @@ export async function POST(
       );
     }
 
+    if (statement.status === "finalized" || statement.status === "completed") {
+      return NextResponse.json(
+        { error: "This statement has moved to final review." },
+        { status: 409 },
+      );
+    }
+
     const accessError = await getIntakeAccessError(
       request,
       statement.status,
@@ -50,12 +59,42 @@ export async function POST(
           statementId,
         );
 
-      await sendStatementSubmittedNotificationEmail({
-        to: recipients.recipientEmails,
-        tenantName: recipients.tenantName,
-        caseTitle: recipients.statementTitle,
-        witnessName: recipients.witnessName,
-      });
+      const supabase = getServiceClient(
+        "intake_submit_statement_notifications",
+      );
+      const { data: preferences } = await supabase
+        .from("tenant_notification_preferences")
+        .select("submissions_channel")
+        .eq("tenant_id", recipients.tenantId)
+        .maybeSingle();
+
+      const submissionsChannel = preferences?.submissions_channel ?? "email";
+
+      if (submissionsChannel === "in_app" || submissionsChannel === "both") {
+        await SERVERONLY_createUserNotifications({
+          tenantId: recipients.tenantId,
+          recipientUserIds: recipients.recipientUserIds,
+          notificationType: "statement_submitted_for_review",
+          entityType: "statement",
+          entityId: recipients.statementId,
+          title: "Statement submitted for review",
+          body: `${recipients.witnessName || "A witness"} submitted a statement for review in ${recipients.statementTitle}.`,
+          linkPath: `/cases/${recipients.caseId}?statement=${recipients.statementId}`,
+          metadata: {
+            witnessName: recipients.witnessName,
+            caseTitle: recipients.statementTitle,
+          },
+        });
+      }
+
+      if (submissionsChannel === "email" || submissionsChannel === "both") {
+        await sendStatementSubmittedNotificationEmail({
+          to: recipients.recipientEmails,
+          tenantName: recipients.tenantName,
+          caseTitle: recipients.statementTitle,
+          witnessName: recipients.witnessName,
+        });
+      }
     } catch (notifyError) {
       console.error(
         "Failed to send statement submission notification:",
@@ -91,6 +130,13 @@ export async function PUT(
       return NextResponse.json(
         { error: "Link not available" },
         { status: 404 },
+      );
+    }
+
+    if (statement.status === "finalized" || statement.status === "completed") {
+      return NextResponse.json(
+        { error: "This statement is read-only in final review." },
+        { status: 409 },
       );
     }
 

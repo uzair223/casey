@@ -53,7 +53,9 @@ export function StatementReminderSettingsCard({
   };
 
   const isClosed =
-    statementStatus === "submitted" || statementStatus === "locked";
+    statementStatus === "submitted" ||
+    statementStatus === "completed" ||
+    statementStatus === "locked";
 
   const saveRule = async () => {
     if (!user?.id) return;

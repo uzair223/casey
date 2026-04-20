@@ -232,7 +232,7 @@ export function buildSolicitorDashboardMetrics(
   }
 
   const completedWitnessCount =
-    (witnessStatusCounts.submitted || 0) + (witnessStatusCounts.locked || 0);
+    (witnessStatusCounts.completed || 0) + (witnessStatusCounts.locked || 0);
 
   return {
     caseStatusCounts,
@@ -282,7 +282,7 @@ export function buildParalegalDashboardMetrics(
     .flatMap((caseItem) => caseItem.statements || [])
     .filter(
       (witness) =>
-        witness.status === "submitted" ||
+        witness.status === "completed" ||
         witness.status === "demo_published" ||
         witness.status === "locked",
     ).length;

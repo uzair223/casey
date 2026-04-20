@@ -91,7 +91,14 @@ async function resolveCaseTitle(params: {
 
 const deriveCaseStatusFromWitnessStatuses = (
   statuses: Array<
-    "draft" | "in_progress" | "submitted" | "locked" | "demo" | "demo_published"
+    | "draft"
+    | "in_progress"
+    | "submitted"
+    | "finalized"
+    | "completed"
+    | "locked"
+    | "demo"
+    | "demo_published"
   >,
 ): "draft" | "in_progress" | "submitted" | "locked" => {
   if (!statuses.length) {
@@ -100,7 +107,11 @@ const deriveCaseStatusFromWitnessStatuses = (
 
   if (
     statuses.every(
-      (status) => status === "submitted" || status === "demo_published",
+      (status) =>
+        status === "submitted" ||
+        status === "finalized" ||
+        status === "completed" ||
+        status === "demo_published",
     )
   ) {
     return "submitted";
@@ -117,6 +128,8 @@ const deriveCaseStatusFromWitnessStatuses = (
         status === "demo_published" ||
         status === "in_progress" ||
         status === "submitted" ||
+        status === "finalized" ||
+        status === "completed" ||
         status === "locked",
     )
   ) {
@@ -132,6 +145,8 @@ const isStatementStatus = (
   | "draft"
   | "in_progress"
   | "submitted"
+  | "finalized"
+  | "completed"
   | "locked"
   | "demo"
   | "demo_published" =>
@@ -140,6 +155,8 @@ const isStatementStatus = (
   status === "demo_published" ||
   status === "in_progress" ||
   status === "submitted" ||
+  status === "finalized" ||
+  status === "completed" ||
   status === "locked";
 
 export const syncCaseStatusFromWitnesses = async (

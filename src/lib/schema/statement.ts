@@ -12,6 +12,8 @@ export const StatementSchema = z.object({
       "draft",
       "in_progress",
       "submitted",
+      "finalized",
+      "completed",
       "locked",
       "demo",
       "demo_published",

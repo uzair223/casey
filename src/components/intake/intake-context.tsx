@@ -490,7 +490,9 @@ export function IntakeProvider({
 
       if (
         data?.statement.status === "locked" ||
-        data?.statement.status === "demo_published"
+        data?.statement.status === "demo_published" ||
+        data?.statement.status === "finalized" ||
+        data?.statement.status === "completed"
       ) {
         throw Error(
           "This intake has been stopped and cannot be formalized. Please contact the law firm.",
@@ -607,7 +609,9 @@ export function IntakeProvider({
 
       if (
         data.statement.status === "locked" ||
-        data.statement.status === "demo_published"
+        data.statement.status === "demo_published" ||
+        data.statement.status === "finalized" ||
+        data.statement.status === "completed"
       ) {
         alert(
           "This intake has been stopped and cannot be submitted. Please contact the law firm.",
@@ -695,7 +699,10 @@ export function IntakeProvider({
     setAcknowledgePrivacyNoticeData(
       (p) => p || !!data.statement.gdpr_notice_acknowledgement,
     );
-    const hasSubmitted = data.statement.status === "submitted";
+    const hasSubmitted =
+      data.statement.status === "submitted" ||
+      data.statement.status === "finalized" ||
+      data.statement.status === "completed";
     setStatementFormalizationData(hasSubmitted);
     setStatementSubmissionData(hasSubmitted);
   }, [

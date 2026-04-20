@@ -251,7 +251,12 @@ export const SERVERONLY_submitStatement = async (
   const supabase = getServiceClient("SERVERONLY_submitStatement");
   const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
 
-  if (statement.status === "locked" || statement.status === "demo_published") {
+  if (
+    statement.status === "locked" ||
+    statement.status === "demo_published" ||
+    statement.status === "finalized" ||
+    statement.status === "completed"
+  ) {
     throw new Error(
       "This intake has been stopped and cannot be submitted. Please contact the law firm.",
     );
@@ -350,6 +355,8 @@ export const SERVERONLY_updateStatementStatus = async (
     | "draft"
     | "in_progress"
     | "submitted"
+    | "finalized"
+    | "completed"
     | "locked"
     | "demo"
     | "demo_published",

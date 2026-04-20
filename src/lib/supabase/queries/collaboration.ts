@@ -276,7 +276,7 @@ export async function getOutstandingWorkSummary(options?: {
       .select("id, case_id, title, witness_name, status, updated_at", {
         count: "exact",
       })
-      .in("status", ["draft", "in_progress"])
+      .in("status", ["draft", "in_progress", "finalized"])
       .order("updated_at", { ascending: true })
       .limit(limit),
     supabase
