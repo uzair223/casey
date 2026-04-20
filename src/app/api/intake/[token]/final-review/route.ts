@@ -183,43 +183,28 @@ export async function POST(
       path: signatureDocument.path,
     });
 
-    const templateSnapshot = data.statement.template_document_snapshot;
-    const templateDocument = templateSnapshot?.path
-      ? await downloadStorageDocument({
-          supabase,
-          bucketId: templateSnapshot.bucketId ?? data.tenant_id,
-          path: templateSnapshot.path,
-        })
-      : null;
+    const existingSignedDocument = data.statement.signed_document;
+    if (!existingSignedDocument?.path) {
+      return NextResponse.json(
+        {
+          error:
+            "Reviewed statement document is missing. Please regenerate or upload the statement before final signature.",
+        },
+        { status: 409 },
+      );
+    }
 
-    const nextWitnessMetadata = {
-      ...(data.statement.witness_metadata as Record<string, unknown>),
-      final_signature_name: signatureName,
-    };
-
-    const signedBlob = await signDoc({
-      data: {
-        caseTitle: data.case.title,
-        caseMetadata:
-          (data.case.case_metadata as Record<
-            string,
-            string | number | null | undefined
-          >) ?? {},
-        witnessName: signatureName,
-        witnessEmail: data.statement.witness_email,
-        witnessMetadata:
-          (nextWitnessMetadata as Record<
-            string,
-            string | number | null | undefined
-          >) ?? {},
-        sections: data.statement.sections,
-        config: data.statement.statement_config,
-      },
-      signatureImage,
-      templateDocument,
+    const templateDocument = await downloadStorageDocument({
+      supabase,
+      bucketId: existingSignedDocument.bucketId ?? data.tenant_id,
+      path: existingSignedDocument.path,
     });
 
-    const existingSignedDocument = data.statement.signed_document;
+    const signedBlob = await signDoc({
+      file: templateDocument,
+      signatureImage,
+    });
+
     const finalDocName =
       existingSignedDocument?.name ||
       `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;

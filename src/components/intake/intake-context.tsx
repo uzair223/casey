@@ -621,7 +621,6 @@ export function IntakeProvider({
 
       const blob = await generateDoc(
         {
-          caseTitle: data.case.title,
           caseMetadata:
             (data.case.case_metadata as Record<
               string,

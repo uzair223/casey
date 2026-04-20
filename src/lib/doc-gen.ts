@@ -8,16 +8,35 @@ import {
 } from "docx";
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
-import type { DocGeneratorStatementData } from "@/types";
 import expressionParser from "docxtemplater/expressions";
 import ImageModule from "docxtemplater-image-module-free";
+import type { StatementConfig } from "@/types";
 
 interface DocxtemplaterWithTags extends Docxtemplater {
   getTags(): { document: { tags: Record<string, unknown> } };
 }
 
+type DocxTemplateRenderData = {
+  caseMetadata: Record<string, string>;
+  witnessName: string;
+  witnessEmail: string;
+  witnessMetadata: Record<string, string>;
+  signatureImage: string;
+  signatureDate: string;
+  sections: Record<string, string>;
+};
+
+type DocxTemplateGenerationPayload = {
+  caseMetadata?: Record<string, string | number | null | undefined>;
+  witnessName: string;
+  witnessEmail: string;
+  witnessMetadata?: Record<string, string | number | null | undefined>;
+  sections: Record<string, string>;
+  config: StatementConfig;
+};
+
 export const generateDoc = async (
-  data: DocGeneratorStatementData,
+  data: DocxTemplateGenerationPayload,
   templateDocument?: Blob | ArrayBuffer | Uint8Array | null,
 ): Promise<Blob> => {
   const renderData = buildTemplateData(data);
@@ -41,29 +60,15 @@ export const generateDoc = async (
 };
 
 export const signDoc = async (params: {
-  data: DocGeneratorStatementData;
+  file: Blob | ArrayBuffer | Uint8Array;
   signatureImage: Blob | ArrayBuffer | Uint8Array;
-  templateDocument?: Blob | ArrayBuffer | Uint8Array | null;
 }): Promise<Blob> => {
-  const renderData = buildTemplateData(params.data);
   const signatureImage = await toUint8Array(params.signatureImage);
-
-  const sourceTemplate =
-    params.templateDocument ??
-    (await generateStarterDoc({
-      templateName: "Witness Statement Template",
-      config: params.data.config,
-    }));
-
-  return await renderSignedTemplateDocument(
-    sourceTemplate,
-    renderData,
-    signatureImage,
-  );
+  return await renderSignedTemplateDocument(params.file, signatureImage);
 };
 
 export const validateDocxTemplateDocument = async (params: {
-  config: DocGeneratorStatementData["config"];
+  config: StatementConfig;
   templateDocument: Blob | ArrayBuffer | Uint8Array;
   throw?: boolean;
 }): Promise<string[]> => {
@@ -82,8 +87,7 @@ export const validateDocxTemplateDocument = async (params: {
     witnessMetadata[field.id] = `sample_${field.id}`;
   }
 
-  const sampleData: DocGeneratorStatementData = {
-    caseTitle: "Validation Case",
+  const sampleData: DocxTemplateGenerationPayload = {
     caseMetadata,
     witnessName: "Validation Witness",
     witnessEmail: "validation@example.com",
@@ -103,7 +107,7 @@ export const validateDocxTemplateDocument = async (params: {
 };
 
 export const getDocxTemplateFieldWarnings = async (params: {
-  config: DocGeneratorStatementData["config"];
+  config: StatementConfig;
   templateDocument: Blob | ArrayBuffer | Uint8Array;
 }): Promise<{ unknown: string[]; unused: string[] }> => {
   const allowed = getAllowedDocxTemplateFields(params.config);
@@ -119,7 +123,7 @@ export const getDocxTemplateFieldWarnings = async (params: {
 
 export async function generateStarterDoc(params: {
   templateName: string;
-  config: DocGeneratorStatementData["config"];
+  config: StatementConfig;
 }): Promise<Blob> {
   const { config } = params;
 
@@ -371,19 +375,8 @@ export async function generateStarterDoc(params: {
   return await Packer.toBlob(doc);
 }
 
-type DocxTemplateRenderData = {
-  caseTitle: string;
-  caseMetadata: Record<string, string>;
-  witnessName: string;
-  witnessEmail: string;
-  witnessMetadata: Record<string, string>;
-  signatureImage: string;
-  signatureDate: string;
-  sections: Record<string, string>;
-};
-
 function buildTemplateData(
-  data: DocGeneratorStatementData,
+  data: DocxTemplateGenerationPayload,
 ): DocxTemplateRenderData {
   const sectionMap: Record<string, string> = {};
 
@@ -416,7 +409,6 @@ function buildTemplateData(
   }
 
   return {
-    caseTitle: data.caseTitle,
     caseMetadata: caseMetadataMap,
     witnessName: data.witnessName,
     witnessEmail: data.witnessEmail ?? "",
@@ -460,14 +452,14 @@ async function toUint8Array(
 
 async function getTemplateDoc(
   templateDocument: Blob | ArrayBuffer | Uint8Array,
-  modules?: any[],
+  modules?: unknown[],
 ) {
   const templateBuffer = await toArrayBuffer(templateDocument);
   const parser = expressionParser.configure({});
   const zip = new PizZip(templateBuffer);
   const doc = new Docxtemplater(zip, {
     parser,
-    modules: modules ?? [],
+    modules: (modules ?? []) as never[],
     paragraphLoop: true,
     linebreaks: true,
   });
@@ -521,7 +513,6 @@ async function renderTemplateDocument(
 
 async function renderSignedTemplateDocument(
   templateDocument: Blob | ArrayBuffer | Uint8Array,
-  data: DocxTemplateRenderData,
   signatureImage: Uint8Array,
 ): Promise<Blob> {
   const imageModule = new ImageModule({
@@ -538,10 +529,7 @@ async function renderSignedTemplateDocument(
 
   const preparedTemplate = await buildSigningTemplate(templateDocument);
   const doc = await getTemplateDoc(preparedTemplate, [imageModule]);
-  doc.render({
-    ...data,
-    signatureImage,
-  });
+  doc.render({ signatureImage });
 
   return doc.getZip().generate({
     type: "blob",
@@ -550,12 +538,8 @@ async function renderSignedTemplateDocument(
   }) as Blob;
 }
 
-function getAllowedDocxTemplateFields(
-  config: DocGeneratorStatementData["config"],
-): Set<string> {
+function getAllowedDocxTemplateFields(config: StatementConfig): Set<string> {
   const allowed = new Set<string>([
-    "caseTitle",
-    "incidentDate",
     "witnessName",
     "witnessEmail",
     "signatureImage",

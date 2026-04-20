@@ -1,6 +1,10 @@
 import { getSupabaseClient } from "../client";
 import { getServiceClient } from "../server";
 import type { NotificationType } from "@/types";
+import type { Database, Json } from "@/types/supabase.generated";
+
+type UserNotificationInsert =
+  Database["public"]["Tables"]["user_notifications"]["Insert"];
 
 export async function markNotificationRead(notificationId: string) {
   const supabase = getSupabaseClient();
@@ -47,18 +51,20 @@ export async function SERVERONLY_createUserNotifications(input: {
     return;
   }
 
-  const rows = recipientUserIds.map((recipientUserId) => ({
-    tenant_id: input.tenantId,
-    recipient_user_id: recipientUserId,
-    actor_user_id: input.actorUserId ?? null,
-    notification_type: input.notificationType,
-    entity_type: input.entityType,
-    entity_id: input.entityId,
-    title: input.title,
-    body: input.body,
-    link_path: input.linkPath,
-    metadata: input.metadata ?? {},
-  }));
+  const rows: UserNotificationInsert[] = recipientUserIds.map(
+    (recipientUserId) => ({
+      tenant_id: input.tenantId,
+      recipient_user_id: recipientUserId,
+      actor_user_id: input.actorUserId ?? null,
+      notification_type: input.notificationType,
+      entity_type: input.entityType,
+      entity_id: input.entityId,
+      title: input.title,
+      body: input.body,
+      link_path: input.linkPath,
+      metadata: (input.metadata ?? {}) as Json,
+    }),
+  );
 
   const { error } = await supabase.from("user_notifications").upsert(rows, {
     onConflict:

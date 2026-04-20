@@ -35,7 +35,6 @@ export function StatementView() {
 
   const docPayload = useMemo(
     () => ({
-      caseTitle: data.case.title,
       caseMetadata:
         (data.case.case_metadata as Record<
           string,
