@@ -145,7 +145,7 @@ export async function POST(
       );
 
       if (fileEntries.length > 0) {
-        const basePath = `statements/${statement.case_id}/${statement.id}/follow-up`;
+        const basePath = `cases/${statement.case_id}/${statement.id}/submitted/follow-up`;
 
         for (const [, fileData] of fileEntries) {
           if (fileData instanceof File) {

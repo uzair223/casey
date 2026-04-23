@@ -29,7 +29,7 @@ export function StatementInternalDocumentsCard({
       loadDocuments={() => getStatementInternalDocuments(statementId)}
       refreshDeps={[statementId]}
       buildUploadPath={(fileName) =>
-        `cases/${caseId}/statements/${statementId}/internal/${Date.now()}-${fileName}`
+        `cases/${caseId}/${statementId}/internal/${Date.now()}-${fileName}`
       }
       createDocumentRecord={({ uploadedByUserId, document }) =>
         createStatementInternalDocument({

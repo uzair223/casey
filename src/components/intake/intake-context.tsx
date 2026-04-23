@@ -639,7 +639,7 @@ export function IntakeProvider({
         templateDocument,
       );
 
-      const basePath = `statements/${data.case.id}/${data.statement.id}`;
+      const basePath = `cases/${data.case.id}/${data.statement.id}/submitted`;
       const name = `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;
       const path = `${basePath}/${new Date().toISOString()} ${name}`;
       // Upload to Supabase storage

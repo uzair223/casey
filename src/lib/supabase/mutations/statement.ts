@@ -434,6 +434,7 @@ export async function createStatement(payload: {
   try {
     const configSnapshotId = await createStatementConfigSnapshot({
       tenantId: payload.tenant_id,
+      caseId: payload.case_id,
       templateId: effectiveTemplateId,
       createdForStatementId: data.id,
     });

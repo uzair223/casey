@@ -20,6 +20,7 @@ import type { UploadedDocument } from "@/types";
 
 type FinalReviewData = {
   tenantId: string;
+  caseId: string;
   caseTitle: string;
   witnessName: string;
   statementId: string;
@@ -97,7 +98,7 @@ export default function FinalReviewPage({
     }
 
     const fileName = `${finalReview.data.statementId}-final-signature.png`;
-    const filePath = `statements/${finalReview.data.statementId}/final-review/${new Date().toISOString()}-${fileName}`;
+    const filePath = `cases/${finalReview.data.caseId}/${finalReview.data.statementId}/submitted/final-review/${new Date().toISOString()}-${fileName}`;
 
     const uploaded = await uploadFile({
       bucketId: finalReview.data.tenantId,

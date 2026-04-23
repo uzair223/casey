@@ -351,6 +351,7 @@ export async function deleteStatementTemplate(
 
 export async function createStatementConfigSnapshot(params: {
   tenantId: string;
+  caseId?: string | null;
   templateId?: string | null;
   createdForStatementId?: string | null;
 }): Promise<string> {
@@ -374,18 +375,16 @@ export async function createStatementConfigSnapshot(params: {
       template.draft_docx_template_document;
 
     if (sourceDoc) {
+      if (!params.caseId || !params.createdForStatementId) {
+        throw new Error(
+          "Statement snapshot template documents require caseId and createdForStatementId",
+        );
+      }
+
       const source = sourceDoc;
       const blob = await downloadUploadedDocument(source);
       const copiedName = source.name || `${template.name}.docx`;
-      const extension = copiedName.toLowerCase().endsWith(".docx")
-        ? ""
-        : ".docx";
-
-      const copiedPath = [
-        "statement-snapshots",
-        params.tenantId,
-        `${Date.now()}-${template.id}-${copiedName}${extension}`,
-      ].join("/");
+      const copiedPath = `cases/${params.caseId}/${params.createdForStatementId}/snapshot/template.docx`;
 
       templateDocument = await uploadFile({
         bucketId: params.tenantId,

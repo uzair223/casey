@@ -370,7 +370,7 @@ export function StatementDetailPanel({
       );
 
       const name = `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;
-      const path = `statements/${data.case.id}/${data.statement.id}/${new Date().toISOString()} ${name}`;
+      const path = `cases/${data.case.id}/${data.statement.id}/submitted/${new Date().toISOString()} ${name}`;
       const uploaded = await uploadFile({
         bucketId: data.tenant_id,
         name,

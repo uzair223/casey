@@ -108,6 +108,7 @@ export async function GET(
 
     return NextResponse.json({
       tenantId: data.tenant_id,
+      caseId: data.case.id,
       caseTitle: data.case.title,
       witnessName: data.statement.witness_name,
       statementId: data.statement.id,
@@ -210,7 +211,7 @@ export async function POST(
       `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;
     const finalDocPath =
       existingSignedDocument?.path ||
-      `statements/${data.case.id}/${data.statement.id}/${new Date().toISOString()} ${finalDocName}`;
+      `cases/${data.case.id}/${data.statement.id}/submitted/${new Date().toISOString()} ${finalDocName}`;
 
     const signedDocument = await uploadStorageDocument({
       supabase,
