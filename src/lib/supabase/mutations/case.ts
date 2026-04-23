@@ -1,5 +1,6 @@
 import { getSupabaseClient } from "../client";
 import { createCaseConfigSnapshot } from "./case-template";
+import { deleteStorageFolders } from "../storage-cleanup";
 
 const DEFAULT_CASE_TITLE_TEMPLATE = "Case {caseIndex}";
 
@@ -273,6 +274,20 @@ export async function updateCase(
 
 export async function deleteCase(id: string) {
   const supabase = getSupabaseClient();
+
+  const { data: caseRecord, error: caseError } = await supabase
+    .from("cases")
+    .select("tenant_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (caseError) {
+    throw caseError;
+  }
+
+  if (caseRecord?.tenant_id) {
+    await deleteStorageFolders(supabase, caseRecord.tenant_id, [`cases/${id}`]);
+  }
 
   const { error } = await supabase.from("cases").delete().eq("id", id);
 

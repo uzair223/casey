@@ -17,6 +17,7 @@ import {
   SERVERONLY_getStatementWithConfigFromToken,
 } from "../queries/statement";
 import { createStatementConfigSnapshot } from "./statement-template";
+import { deleteStorageFolders } from "../storage-cleanup";
 
 type WitnessMetadataRecord = Record<string, string | null>;
 
@@ -85,7 +86,7 @@ async function cleanupStatementStorageDocuments(
   const { data: statement, error } = await supabase
     .from("statements")
     .select(
-      "tenant_id, signed_document, supporting_documents, config_snapshot_id",
+      "tenant_id, case_id, signed_document, supporting_documents, config_snapshot_id",
     )
     .eq("id", statementId)
     .maybeSingle();
@@ -132,6 +133,10 @@ async function cleanupStatementStorageDocuments(
   }
 
   await removeStorageTargets(supabase, targets);
+
+  await deleteStorageFolders(supabase, fallbackBucketId, [
+    `cases/${statement.case_id}/${statementId}`,
+  ]);
 }
 
 function toWitnessMetadataRecord(value: unknown): WitnessMetadataRecord {
