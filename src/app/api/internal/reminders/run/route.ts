@@ -246,7 +246,7 @@ async function runReminderJob(request: NextRequest) {
       continue;
     }
 
-    const remindersChannel = preferenceMap.get(rule.tenant_id) ?? "email";
+    const remindersChannel = preferenceMap.get(rule.tenant_id) ?? "in_app";
     const maxReached =
       rule.max_reminders !== null &&
       rule.reminders_sent_count >= rule.max_reminders;

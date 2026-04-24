@@ -11,9 +11,9 @@ const DEFAULT_NOTIFICATION_PREFERENCES: Omit<
   TenantNotificationPreferences,
   "tenant_id" | "created_at" | "updated_at"
 > = {
-  reminders_channel: "email",
-  follow_up_requests_channel: "email",
-  submissions_channel: "email",
+  reminders_channel: "in_app",
+  follow_up_requests_channel: "in_app",
+  submissions_channel: "in_app",
   mention_channel: "in_app",
   digest_frequency: "daily",
   updated_by_user_id: null,

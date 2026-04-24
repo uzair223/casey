@@ -21,4 +21,24 @@ export const revokeTenantAccess = async (tenantId: string): Promise<void> => {
   if (membersError) {
     throw membersError;
   }
+
+  const { error: tenantError } = await supabase.rpc("soft_delete_tenant", {
+    tenant_id_param: tenantId,
+  });
+
+  if (tenantError) {
+    throw tenantError;
+  }
+};
+
+export const restoreTenantAccess = async (tenantId: string): Promise<void> => {
+  const supabase = getSupabaseClient();
+
+  const { error } = await supabase.rpc("restore_tenant", {
+    tenant_id_param: tenantId,
+  });
+
+  if (error) {
+    throw error;
+  }
 };

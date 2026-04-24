@@ -84,7 +84,7 @@ export async function POST(
 
     const reviewUrl = `${env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/intake/${statement.token}/final-review`;
 
-    const submissionsChannel = preferences?.submissions_channel ?? "email";
+    const submissionsChannel = preferences?.submissions_channel ?? "in_app";
     const inAppRecipients = memberRecipients.recipientUserIds.filter(
       (userId) => userId !== auth.userId,
     );

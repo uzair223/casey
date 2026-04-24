@@ -4,7 +4,7 @@ function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: "inherit",
-      shell: true,
+      shell: process.platform === "win32",
       ...options,
     });
 
@@ -26,7 +26,7 @@ function run(command, args, options = {}) {
 function runCapture(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
-      shell: true,
+      shell: process.platform === "win32",
       ...options,
     });
 
@@ -89,14 +89,33 @@ function parseEnvLines(stdout) {
 
 async function main() {
   let started = false;
+  const supabaseCommand = "npx";
+  const supabaseArgsPrefix = ["supabase"];
 
   try {
     console.log("\n[local-test-suite] Starting local Supabase...");
-    await run("supabase", ["start"]);
+    await run(supabaseCommand, [...supabaseArgsPrefix, "start"]);
     started = true;
 
+    console.log(
+      "\n[local-test-suite] Resetting local database from repo migrations...",
+    );
+    await run(supabaseCommand, [
+      ...supabaseArgsPrefix,
+      "db",
+      "reset",
+      "--local",
+      "--yes",
+      "--no-seed",
+    ]);
+
     console.log("\n[local-test-suite] Reading local Supabase environment...");
-    const { stdout } = await runCapture("supabase", ["status", "-o", "env"]);
+    const { stdout } = await runCapture(supabaseCommand, [
+      ...supabaseArgsPrefix,
+      "status",
+      "-o",
+      "env",
+    ]);
     const parsedEnv = parseEnvLines(stdout);
 
     const testEnv = {
@@ -106,13 +125,16 @@ async function main() {
         process.env.NEXT_PUBLIC_SUPABASE_URL ||
         "http://127.0.0.1:54321",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
+        parsedEnv.PUBLISHABLE_KEY ||
         parsedEnv.ANON_KEY ||
         process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       NEXT_PUBLIC_SUPABASE_ANON_KEY:
         parsedEnv.ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       SUPABASE_SECRET_KEY:
-        parsedEnv.SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY,
+        parsedEnv.SERVICE_ROLE_KEY ||
+        parsedEnv.SECRET_KEY ||
+        process.env.SUPABASE_SECRET_KEY,
       CRON_SECRET: process.env.CRON_SECRET || "test-secret",
     };
 
@@ -124,7 +146,7 @@ async function main() {
     if (started) {
       console.log("\n[local-test-suite] Stopping local Supabase...");
       try {
-        await run("supabase", ["stop"]);
+        await run(supabaseCommand, [...supabaseArgsPrefix, "stop"]);
       } catch (stopError) {
         console.error(
           "[local-test-suite] Failed to stop Supabase cleanly:",

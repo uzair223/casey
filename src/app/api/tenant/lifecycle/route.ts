@@ -58,7 +58,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabase
       .from("tenants")
-      .select("id, name, soft_deleted_at, purge_after")
+      .select("id, name, soft_deleted_at, soft_deleted_by_role, purge_after")
       .eq("id", auth.tenantId)
       .maybeSingle();
 
@@ -75,6 +75,7 @@ export async function GET(request: Request) {
     const canRestore =
       auth.role === "tenant_admin" &&
       !!data.soft_deleted_at &&
+      data.soft_deleted_by_role !== "app_admin" &&
       (!purgeAfterMs || purgeAfterMs > nowMs);
 
     return ok({
@@ -82,6 +83,7 @@ export async function GET(request: Request) {
       name: data.name,
       softDeleted: !!data.soft_deleted_at,
       softDeletedAt: data.soft_deleted_at,
+      softDeletedByRole: data.soft_deleted_by_role,
       purgeAfter: data.purge_after,
       canRestore,
     });
@@ -95,7 +97,9 @@ export async function POST(request: Request) {
   if (auth.error) return auth.error;
 
   if (auth.role !== "tenant_admin") {
-    return forbidden();
+    return forbidden(
+      "Tenant recovery is restricted to the tenant admin or app admins",
+    );
   }
 
   try {
@@ -103,7 +107,7 @@ export async function POST(request: Request) {
 
     const { data: tenant, error: tenantError } = await supabase
       .from("tenants")
-      .select("id, soft_deleted_at, purge_after")
+      .select("id, soft_deleted_at, soft_deleted_by_role, purge_after")
       .eq("id", auth.tenantId)
       .maybeSingle();
 
@@ -113,6 +117,10 @@ export async function POST(request: Request) {
 
     if (!tenant.soft_deleted_at) {
       return ok({ ok: true, alreadyActive: true });
+    }
+
+    if (tenant.soft_deleted_by_role === "app_admin") {
+      return forbidden("Tenant recovery is restricted to app admins");
     }
 
     const nowMs = Date.now();

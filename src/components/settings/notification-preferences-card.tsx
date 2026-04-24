@@ -25,13 +25,21 @@ import type { TenantNotificationPreferences } from "@/types";
 type NotificationChannel = TenantNotificationPreferences["reminders_channel"];
 type DigestFrequency = TenantNotificationPreferences["digest_frequency"];
 
-const CHANNEL_OPTIONS: NotificationChannel[] = [
-  "email",
-  "in_app",
-  "both",
-  "off",
+const CHANNEL_OPTIONS: Array<{
+  value: NotificationChannel;
+  label: string;
+}> = [
+  { value: "in_app", label: "In-app only" },
+  { value: "both", label: "Both" },
+  { value: "off", label: "Off" },
 ];
 const DIGEST_OPTIONS: DigestFrequency[] = ["off", "daily", "weekly"];
+
+function normalizeNotificationChannel(
+  value: NotificationChannel,
+): NotificationChannel {
+  return value === "email" ? "in_app" : value;
+}
 
 type NotificationPreferencesCardProps = {
   tenantId: string;
@@ -52,9 +60,9 @@ export function NotificationPreferencesCard({
     mentionChannel: NotificationChannel;
     digestFrequency: DigestFrequency;
   }>({
-    remindersChannel: "email",
-    followUpRequestsChannel: "email",
-    submissionsChannel: "email",
+    remindersChannel: "in_app",
+    followUpRequestsChannel: "in_app",
+    submissionsChannel: "in_app",
     mentionChannel: "in_app",
     digestFrequency: "daily",
   });
@@ -68,10 +76,16 @@ export function NotificationPreferencesCard({
         if (!mounted) return;
 
         setPrefs({
-          remindersChannel: data.reminders_channel,
-          followUpRequestsChannel: data.follow_up_requests_channel,
-          submissionsChannel: data.submissions_channel,
-          mentionChannel: data.mention_channel,
+          remindersChannel: normalizeNotificationChannel(
+            data.reminders_channel,
+          ),
+          followUpRequestsChannel: normalizeNotificationChannel(
+            data.follow_up_requests_channel,
+          ),
+          submissionsChannel: normalizeNotificationChannel(
+            data.submissions_channel,
+          ),
+          mentionChannel: normalizeNotificationChannel(data.mention_channel),
           digestFrequency: data.digest_frequency,
         });
       } catch (error) {
@@ -130,8 +144,8 @@ export function NotificationPreferencesCard({
             </SelectTrigger>
             <SelectContent>
               {CHANNEL_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -155,8 +169,8 @@ export function NotificationPreferencesCard({
             </SelectTrigger>
             <SelectContent>
               {CHANNEL_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -180,8 +194,8 @@ export function NotificationPreferencesCard({
             </SelectTrigger>
             <SelectContent>
               {CHANNEL_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -205,8 +219,8 @@ export function NotificationPreferencesCard({
             </SelectTrigger>
             <SelectContent>
               {CHANNEL_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>

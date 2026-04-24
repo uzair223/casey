@@ -5,7 +5,14 @@ import { BellIcon, CheckCheckIcon, ExternalLinkIcon } from "lucide-react";
 
 import { useAsync } from "@/hooks/useAsync";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUserNotifications } from "@/lib/supabase/queries";
 import {
@@ -99,46 +106,42 @@ export function NotificationFeed({
         <div className="space-y-3">
           {notifications.slice(0, limit).map((notification) => (
             <Card
+              size="md"
               key={notification.id}
               className={notification.read_at ? "bg-card" : "border-primary/40"}
             >
-              <CardContent className="space-y-3 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{notification.title}</p>
-                      {notification.read_at ? null : (
-                        <Badge variant="secondary">New</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {notification.body}
-                    </p>
-                  </div>
-                  <p className="shrink-0 text-xs text-muted-foreground">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <CardDescription className="text-xs">
                     {new Date(notification.created_at).toLocaleString()}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button type="button" variant="outline" size="sm" asChild>
-                    <Link href={notification.link_path}>
-                      Open
-                      <ExternalLinkIcon className="h-4 w-4" />
-                    </Link>
-                  </Button>
-                  {notification.read_at ? null : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleMarkRead(notification.id)}
-                    >
-                      Mark read
-                    </Button>
+                  </CardDescription>
+                  {!notification.read_at && (
+                    <Badge variant="secondary">New</Badge>
                   )}
                 </div>
+                <CardTitle>{notification.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm">{notification.body}</p>
               </CardContent>
+              <CardFooter>
+                <Button type="button" variant="outline" size="sm" asChild>
+                  <Link href={notification.link_path}>
+                    Open
+                    <ExternalLinkIcon className="h-4 w-4" />
+                  </Link>
+                </Button>
+                {notification.read_at ? null : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void handleMarkRead(notification.id)}
+                  >
+                    Mark read
+                  </Button>
+                )}
+              </CardFooter>
             </Card>
           ))}
           {compact && notifications.length > limit && showViewAll ? (

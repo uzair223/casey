@@ -21,6 +21,8 @@ export type TenantWithCounts = {
   id: string;
   name: string;
   createdAt: string;
+  softDeletedAt: string | null;
+  purgeAfter: string | null;
   userCount: number;
   statementCount: number;
 };

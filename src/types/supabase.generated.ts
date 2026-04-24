@@ -1180,6 +1180,7 @@ export type Database = {
           name: string
           purge_after: string | null
           soft_deleted_at: string | null
+          soft_deleted_by_role: string | null
         }
         Insert: {
           created_at?: string
@@ -1188,6 +1189,7 @@ export type Database = {
           name: string
           purge_after?: string | null
           soft_deleted_at?: string | null
+          soft_deleted_by_role?: string | null
         }
         Update: {
           created_at?: string
@@ -1196,6 +1198,7 @@ export type Database = {
           name?: string
           purge_after?: string | null
           soft_deleted_at?: string | null
+          soft_deleted_by_role?: string | null
         }
         Relationships: []
       }
@@ -1327,6 +1330,7 @@ export type Database = {
         Args: { tenant_id_param: string }
         Returns: boolean
       }
+      user_has_password: { Args: never; Returns: boolean }
       user_role: { Args: never; Returns: string }
       user_tenant_id: { Args: never; Returns: string }
       validate_magic_link: {

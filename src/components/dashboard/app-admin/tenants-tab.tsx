@@ -15,6 +15,7 @@ import { useAsync } from "@/hooks/useAsync";
 import {
   revokeInvite,
   revokeTenantAccess,
+  restoreTenantAccess,
   resendInvite,
 } from "@/lib/supabase/mutations";
 import {
@@ -71,7 +72,7 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
   ) => {
     if (
       !confirm(
-        `Revoke all access for ${tenantName}? This removes all tenant member access and pending invites.`,
+        `Revoke access for ${tenantName}? This will soft-delete the tenant, remove tenant member access, and block tenant-side recovery.`,
       )
     ) {
       return;
@@ -86,6 +87,27 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
         error instanceof Error
           ? error.message
           : "Failed to revoke tenant access",
+      );
+    }
+  };
+
+  const handleRestoreTenantAccess = async (
+    tenantId: string,
+    tenantName: string,
+  ) => {
+    if (!confirm(`Recover ${tenantName}? This restores tenant access.`)) {
+      return;
+    }
+
+    try {
+      await restoreTenantAccess(tenantId);
+      await tenants.handler();
+      await tenantInvites.handler();
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to recover tenant access",
       );
     }
   };
@@ -116,6 +138,7 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Users</TableHead>
                     <TableHead>Statements</TableHead>
                     <TableHead>Created</TableHead>
@@ -126,22 +149,38 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
                   {tenants.data.map((tenant) => (
                     <TableRow key={tenant.id}>
                       <TableCell>{tenant.name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {tenant.softDeletedAt ? "Archived" : "Active"}
+                      </TableCell>
                       <TableCell>{tenant.userCount}</TableCell>
                       <TableCell>{tenant.statementCount}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(tenant.createdAt).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        <AsyncButton
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            handleRevokeTenantAccess(tenant.id, tenant.name)
-                          }
-                          pendingText="Revoking..."
-                        >
-                          Revoke Access
-                        </AsyncButton>
+                        {tenant.softDeletedAt ? (
+                          <AsyncButton
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              handleRestoreTenantAccess(tenant.id, tenant.name)
+                            }
+                            pendingText="Recovering..."
+                          >
+                            Recover tenant
+                          </AsyncButton>
+                        ) : (
+                          <AsyncButton
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              handleRevokeTenantAccess(tenant.id, tenant.name)
+                            }
+                            pendingText="Revoking..."
+                          >
+                            Revoke access
+                          </AsyncButton>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

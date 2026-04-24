@@ -307,6 +307,8 @@ export const getTenantsWithCounts = async (): Promise<TenantWithCounts[]> => {
         id: tenant.id,
         name: tenant.name,
         createdAt: tenant.created_at,
+        softDeletedAt: tenant.soft_deleted_at,
+        purgeAfter: tenant.purge_after,
         userCount: userCount || 0,
         statementCount: statementCount || 0,
       };
