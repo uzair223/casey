@@ -1,5 +1,8 @@
 import { IntakeChatMessage, MetadataProgress, StatementConfig } from "@/types";
-import { ResponseMetadata } from "../schema/response-metadata";
+import {
+  ResponseMetadata,
+  ResponseMetadataSchema,
+} from "../schema/response-metadata";
 
 export const CHAT_METADATA_MARKER = "\n\n[[METADATA]]";
 
@@ -32,14 +35,36 @@ export const defaultMeta = (
   };
 };
 
+export const getResponseMetadata = (
+  value: unknown,
+  config: StatementConfig,
+): ResponseMetadata | null => {
+  const parsed = ResponseMetadataSchema(config).safeParse(value);
+  return parsed.success ? parsed.data : null;
+};
+
+export const getMessageResponseMeta = (
+  message: Pick<IntakeChatMessage, "meta"> | null | undefined,
+  config: StatementConfig,
+): ResponseMetadata | null => getResponseMetadata(message?.meta, config);
+
 export const getLastMeta = (
   history: IntakeChatMessage[],
   config: StatementConfig,
-): ResponseMetadata =>
-  history
-    .slice()
-    .reverse()
-    .find((m) => m.role === "assistant" && m.meta)?.meta ?? defaultMeta(config);
+): ResponseMetadata => {
+  for (const message of history.slice().reverse()) {
+    if (message.role !== "assistant") {
+      continue;
+    }
+
+    const metadata = getMessageResponseMeta(message, config);
+    if (metadata) {
+      return metadata;
+    }
+  }
+
+  return defaultMeta(config);
+};
 
 export const getLastProgress = (
   history: IntakeChatMessage[],
@@ -48,5 +73,7 @@ export const getLastProgress = (
   history
     .slice()
     .reverse()
-    .find((m) => m.role === "assistant" && m.meta?.progress)?.meta?.progress ??
+    .filter((message) => message.role === "assistant")
+    .map((message) => getMessageResponseMeta(message, config))
+    .find((metadata) => metadata?.progress)?.progress ??
   defaultProgress(config);

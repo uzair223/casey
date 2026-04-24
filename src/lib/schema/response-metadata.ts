@@ -83,6 +83,14 @@ export function ResponseMetadataSchema(statementConfig: StatementConfig) {
           flaggedDeviation: z
             .boolean()
             .describe("flag for whether conversation has started deviating"),
+          consecutiveDeviationCount: z
+            .number()
+            .int()
+            .min(1)
+            .default(1)
+            .describe(
+              "count of consecutive deviation attempts in the current run of off-topic or adversarial turns",
+            ),
           deviationReason: z.string(),
         })
         .strict()

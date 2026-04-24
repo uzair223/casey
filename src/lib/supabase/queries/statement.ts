@@ -221,9 +221,10 @@ export const SERVERONLY_getStatementWithConfigFromToken = (token: string) =>
 export const getStatementWithConfigFromToken = (token: string) =>
   _getStatementWithConfigFromToken(getSupabaseClient(), token);
 
-export const getConversationHistory = async (statementId: string) => {
-  const supabase = getSupabaseClient();
-
+const _getConversationHistory = async (
+  supabase: SupabaseClient,
+  statementId: string,
+) => {
   const { data, error } = await supabase
     .from("conversation_messages")
     .select("id, role, content, meta, created_at")
@@ -236,6 +237,15 @@ export const getConversationHistory = async (statementId: string) => {
 
   return data || [];
 };
+
+export const getConversationHistory = async (statementId: string) =>
+  _getConversationHistory(getSupabaseClient(), statementId);
+
+export const SERVERONLY_getConversationHistory = async (statementId: string) =>
+  _getConversationHistory(
+    getServiceClient("SERVERONLY_getConversationHistory"),
+    statementId,
+  );
 
 export const getConversationLatest = async (statementId: string) => {
   const supabase = getSupabaseClient();

@@ -61,7 +61,10 @@ import {
 } from "@/lib/schema/witness-statement";
 import { type UpdateStatementSchemaType } from "@/lib/schema/statement";
 import { generateDoc } from "@/lib/doc-gen";
-import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
+import {
+  EMPTY_STATEMENT_CONFIG,
+  getMessageResponseMeta,
+} from "@/lib/statement-utils";
 import type { FullStatementDataResponse, UploadedDocument } from "@/types";
 import {
   DocumentViewer,
@@ -81,6 +84,15 @@ type StatementDetailPanelProps = {
   statementId: string;
   refreshCase: () => Promise<unknown>;
 };
+
+const DEMO_ONLY_STATUSES = new Set<UpdateWitnessDetailsFormData["status"]>([
+  "demo",
+  "demo_published",
+]);
+
+function isDemoOnlyStatus(status: UpdateWitnessDetailsFormData["status"]) {
+  return DEMO_ONLY_STATUSES.has(status);
+}
 
 function normalizeSectionValues(value: unknown, sectionFields: string[]) {
   const next: Record<string, string> = {};
@@ -161,6 +173,7 @@ export function StatementDetailPanel({
   refreshCase,
 }: StatementDetailPanelProps) {
   const role = useUserRole();
+  const canSetDemoStatuses = role === "app_admin";
   const canModify = ["tenant_admin", "solicitor"].includes(role);
   const canPinNotes = ["tenant_admin", "solicitor"].includes(role);
   const [isEditing, setIsEditing] = useState(false);
@@ -238,7 +251,10 @@ export function StatementDetailPanel({
   }
 
   const statementConfig = data.statement.statement_config;
-  const latestMeta = data.latest?.meta;
+  const latestMeta = getMessageResponseMeta(data.latest ?? null, statementConfig);
+  const sectionsWithContent = statementConfig.sections.filter(
+    (section) => (sectionDrafts[section.id] ?? "").trim().length > 0,
+  );
 
   const witnessMetadataFields = statementConfig.witness_metadata_fields ?? [];
   const witnessMetadataValues = data.statement.witness_metadata;
@@ -255,21 +271,35 @@ export function StatementDetailPanel({
     await Promise.all([refreshCase(), fetchStatement()]);
   };
 
-  const onSave = async (data: UpdateWitnessDetailsFormData) => {
+  const onSave = async (formData: UpdateWitnessDetailsFormData) => {
     setIsSaving(true);
     try {
+      const currentStatus = data.statement
+        .status as UpdateWitnessDetailsFormData["status"];
+      if (
+        !canSetDemoStatuses &&
+        isDemoOnlyStatus(formData.status) &&
+        formData.status !== currentStatus
+      ) {
+        formMethods.setError("status", {
+          type: "validate",
+          message: "Only app admins can set Demo statuses.",
+        });
+        return;
+      }
+
       const metadataPatch = Object.fromEntries(
         witnessMetadataFields.map((field) => {
-          const raw = data.witness_metadata?.[field.id];
+          const raw = formData.witness_metadata?.[field.id];
           const value = typeof raw === "string" ? raw.trim() : "";
           return [field.id, value === "" ? null : value];
         }),
       );
 
       await persistStatement({
-        status: data.status,
-        witness_name: data.witness_name,
-        witness_email: data.witness_email,
+        status: formData.status,
+        witness_name: formData.witness_name,
+        witness_email: formData.witness_email,
         witness_metadata: metadataPatch,
       });
       setIsEditing(false);
@@ -436,8 +466,22 @@ export function StatementDetailPanel({
           <CardTitle className="text-base">Actions</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          <TranscriptDialog statementId={data.statement.id} />
-
+          {canModify && data.statement.status === "submitted" ? (
+            <AsyncButton
+              variant="outline"
+              size="sm"
+              onClick={onSendFinalReviewRequest}
+              pendingText={
+                <>
+                  <SendHorizonalIcon className="h-4 w-4" />
+                  Sending final review...
+                </>
+              }
+            >
+              <SendHorizonalIcon className="h-4 w-4" />
+              Finalize and request signature
+            </AsyncButton>
+          ) : null}
           {canModify ? (
             <>
               <AsyncButton
@@ -451,6 +495,7 @@ export function StatementDetailPanel({
               </AsyncButton>
             </>
           ) : null}
+          <span className="border-r" />
           <AsyncButton
             variant="outline"
             size="sm"
@@ -480,22 +525,6 @@ export function StatementDetailPanel({
             <SendHorizonalIcon className="h-4 w-4" />
             Send link
           </AsyncButton>
-          {canModify ? (
-            <AsyncButton
-              variant="outline"
-              size="sm"
-              onClick={onSendFinalReviewRequest}
-              pendingText={
-                <>
-                  <SendHorizonalIcon className="h-4 w-4" />
-                  Sending final review...
-                </>
-              }
-            >
-              <SendHorizonalIcon className="h-4 w-4" />
-              Finalize and request signature
-            </AsyncButton>
-          ) : null}
           {data.statement.link ? (
             <Button asChild size="sm" variant="outline">
               <Link
@@ -508,6 +537,8 @@ export function StatementDetailPanel({
               </Link>
             </Button>
           ) : null}
+          <span className="border-r" />
+          <TranscriptDialog statementId={data.statement.id} />
         </CardContent>
       </Card>
 
@@ -560,13 +591,36 @@ export function StatementDetailPanel({
                           <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(statementStatusLabel).map(
-                            ([key, label]) => (
-                              <SelectItem key={key} value={key}>
-                                {label}
-                              </SelectItem>
-                            ),
-                          )}
+                          {Object.entries(statementStatusLabel)
+                            .filter(([key]) => {
+                              const status =
+                                key as UpdateWitnessDetailsFormData["status"];
+                              if (
+                                canSetDemoStatuses ||
+                                !isDemoOnlyStatus(status)
+                              ) {
+                                return true;
+                              }
+
+                              return status === data.statement.status;
+                            })
+                            .map(([key, label]) => {
+                              const status =
+                                key as UpdateWitnessDetailsFormData["status"];
+
+                              return (
+                                <SelectItem
+                                  key={key}
+                                  value={key}
+                                  disabled={
+                                    !canSetDemoStatuses &&
+                                    isDemoOnlyStatus(status)
+                                  }
+                                >
+                                  {label}
+                                </SelectItem>
+                              );
+                            })}
                         </SelectContent>
                       </Select>
                     </>
@@ -720,37 +774,32 @@ export function StatementDetailPanel({
                 Phase breakdown
               </p>
               <div className="space-y-2">
-                {Object.entries(progress.phaseCompleteness).map(
-                  ([phaseId, completion]) => {
-                    const phase = statementConfig.phases.find(
-                      (item) => item.id === phaseId,
-                    );
-                    return (
-                      <div
-                        key={phaseId}
-                        className="flex items-center justify-between gap-3"
-                      >
-                        <p className="text-xs">{phase?.title || phaseId}</p>
-                        <div className="flex w-36 items-center gap-2">
-                          <div className="h-1.5 flex-1 rounded-full bg-secondary">
-                            <div
-                              className={cn(
-                                "h-1.5 rounded-full transition-all",
-                                completion >= 80
-                                  ? "bg-green-500"
-                                  : "bg-warning",
-                              )}
-                              style={{ width: `${completion}%` }}
-                            />
-                          </div>
-                          <p className="w-10 text-right text-xs font-medium">
-                            {Math.round(completion)}%
-                          </p>
+                {statementConfig.phases.map((phase) => {
+                  const completion = progress.phaseCompleteness[phase.id] ?? 0;
+
+                  return (
+                    <div
+                      key={phase.id}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <p className="text-xs">{phase.title || phase.id}</p>
+                      <div className="flex w-36 items-center gap-2">
+                        <div className="h-1.5 flex-1 rounded-full bg-secondary">
+                          <div
+                            className={cn(
+                              "h-1.5 rounded-full transition-all",
+                              completion >= 80 ? "bg-green-500" : "bg-warning",
+                            )}
+                            style={{ width: `${completion}%` }}
+                          />
                         </div>
+                        <p className="w-10 text-right text-xs font-medium">
+                          {Math.round(completion)}%
+                        </p>
                       </div>
-                    );
-                  },
-                )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </CardContent>
@@ -784,7 +833,10 @@ export function StatementDetailPanel({
           ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
-          {statementConfig.sections.map((section) => (
+          {(isEditingSections
+            ? statementConfig.sections
+            : sectionsWithContent
+          ).map((section) => (
             <div key={section.id} className="space-y-2 rounded-lg border p-3">
               <div>
                 <p className="text-sm font-medium">{section.title}</p>
@@ -805,7 +857,7 @@ export function StatementDetailPanel({
                 />
               ) : (
                 <p className="min-h-14 whitespace-pre-wrap rounded-md border bg-muted/20 px-3 py-2 text-sm">
-                  {sectionDrafts[section.id] || "—"}
+                  {sectionDrafts[section.id]}
                 </p>
               )}
             </div>

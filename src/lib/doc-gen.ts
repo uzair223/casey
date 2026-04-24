@@ -1,4 +1,7 @@
 import {
+  patchDocument,
+  PatchType,
+  ImageRun,
   Document,
   Packer,
   Paragraph,
@@ -6,10 +9,10 @@ import {
   AlignmentType,
   BorderStyle,
 } from "docx";
+
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import expressionParser from "docxtemplater/expressions";
-import ImageModule from "docxtemplater-image-module-free";
 import type { StatementConfig } from "@/types";
 
 interface DocxtemplaterWithTags extends Docxtemplater {
@@ -57,14 +60,6 @@ export const generateDoc = async (
   });
 
   return await renderTemplateDocument(generatedTemplate, renderData);
-};
-
-export const signDoc = async (params: {
-  file: Blob | ArrayBuffer | Uint8Array;
-  signatureImage: Blob | ArrayBuffer | Uint8Array;
-}): Promise<Blob> => {
-  const signatureImage = await toUint8Array(params.signatureImage);
-  return await renderSignedTemplateDocument(params.file, signatureImage);
 };
 
 export const validateDocxTemplateDocument = async (params: {
@@ -414,7 +409,7 @@ function buildTemplateData(
     witnessEmail: data.witnessEmail ?? "",
     witnessMetadata: witnessMetadataMap,
     signatureImage: "{signatureImage}",
-    signatureDate: new Date().toLocaleDateString("en-GB"),
+    signatureDate: "{signatureDate}",
     sections: sectionMap,
   };
 }
@@ -466,37 +461,6 @@ async function getTemplateDoc(
   return doc as unknown as DocxtemplaterWithTags;
 }
 
-async function buildSigningTemplate(
-  templateDocument: Blob | ArrayBuffer | Uint8Array,
-) {
-  const templateBuffer = await toArrayBuffer(templateDocument);
-  const zip = new PizZip(templateBuffer);
-
-  const zipFiles = Object.keys(zip.files);
-  for (const fileName of zipFiles) {
-    if (!fileName.startsWith("word/") || !fileName.endsWith(".xml")) {
-      continue;
-    }
-
-    const file = zip.file(fileName);
-    if (!file) {
-      continue;
-    }
-
-    const content = file.asText();
-    if (!content.includes("{signatureImage}")) {
-      continue;
-    }
-
-    zip.file(
-      fileName,
-      content.replace(/\{signatureImage\}/g, "{%signatureImage}"),
-    );
-  }
-
-  return zip.generate({ type: "uint8array" });
-}
-
 async function renderTemplateDocument(
   templateDocument: Blob | ArrayBuffer | Uint8Array,
   data: DocxTemplateRenderData,
@@ -511,32 +475,48 @@ async function renderTemplateDocument(
   }) as Blob;
 }
 
-async function renderSignedTemplateDocument(
-  templateDocument: Blob | ArrayBuffer | Uint8Array,
-  signatureImage: Uint8Array,
-): Promise<Blob> {
-  const imageModule = new ImageModule({
-    centered: false,
-    getImage: (tagValue: unknown) => {
-      if (tagValue instanceof Uint8Array) {
-        return tagValue;
-      }
+export const signDoc = async (params: {
+  file: Blob | ArrayBuffer | Uint8Array;
+  signatureImage: Blob | ArrayBuffer | Uint8Array;
+  signatureDate: string;
+}): Promise<Blob> => {
+  const signatureImage = await toUint8Array(params.signatureImage);
 
-      throw new Error("signatureImage value is invalid");
+  // Pre-pass: rewrite {signatureImage} -> {{signatureImage}} for patchDocument
+  const templateBuffer = await toArrayBuffer(params.file);
+  const zip = new PizZip(templateBuffer);
+  for (const fileName of Object.keys(zip.files)) {
+    if (!fileName.startsWith("word/") || !fileName.endsWith(".xml")) continue;
+    const file = zip.file(fileName);
+    if (!file) continue;
+    const content = file.asText();
+    if (!content.includes("{signatureImage}")) continue;
+    zip.file(
+      fileName,
+      content
+        .replace(/\{signatureImage\}/g, "{{signatureImage}}")
+        .replace(/\{signatureDate\}/g, params.signatureDate),
+    );
+  }
+  const rewritten = zip.generate({ type: "arraybuffer" });
+
+  return (await patchDocument({
+    outputType: "blob",
+    data: rewritten,
+    patches: {
+      signatureImage: {
+        type: PatchType.PARAGRAPH,
+        children: [
+          new ImageRun({
+            data: signatureImage,
+            transformation: { width: 220, height: 72 },
+            type: "png",
+          }),
+        ],
+      },
     },
-    getSize: () => [220, 72],
-  });
-
-  const preparedTemplate = await buildSigningTemplate(templateDocument);
-  const doc = await getTemplateDoc(preparedTemplate, [imageModule]);
-  doc.render({ signatureImage });
-
-  return doc.getZip().generate({
-    type: "blob",
-    mimeType:
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  }) as Blob;
-}
+  })) as Blob;
+};
 
 function getAllowedDocxTemplateFields(config: StatementConfig): Set<string> {
   const allowed = new Set<string>([

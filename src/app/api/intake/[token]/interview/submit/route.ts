@@ -10,7 +10,10 @@ import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { sendStatementSubmittedNotificationEmail } from "@/lib/email";
 import { StatementSubmission } from "@/types";
 import { getServiceClient } from "@/lib/supabase/server";
-import { createEvidenceExhibits, getEvidenceDocuments } from "@/lib/intake-evidence";
+import {
+  createEvidenceExhibits,
+  getEvidenceDocuments,
+} from "@/lib/intake-evidence";
 
 async function describeEvidenceExhibits(token: string) {
   const statement = await SERVERONLY_getStatementWithConfigFromToken(token);

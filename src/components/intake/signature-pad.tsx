@@ -2,23 +2,20 @@
 
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 type SignaturePadProps = {
-  onSignatureCapture: (canvas: HTMLCanvasElement, typedName: string) => void;
+  onSignatureCapture: (canvas: HTMLCanvasElement) => void;
   witnessName: string;
   isDisabled?: boolean;
 };
 
 export function SignaturePad({
   onSignatureCapture,
-  witnessName,
   isDisabled = false,
 }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [typedName, setTypedName] = useState(witnessName);
   const [hasSignature, setHasSignature] = useState(false);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
 
@@ -117,12 +114,12 @@ export function SignaturePad({
   };
 
   const handleCapture = () => {
-    if (canvasRef.current && typedName.trim()) {
-      onSignatureCapture(canvasRef.current, typedName.trim());
+    if (canvasRef.current && hasSignature) {
+      onSignatureCapture(canvasRef.current);
     }
   };
 
-  const isValid = hasSignature && typedName.trim().length > 0;
+  const isValid = hasSignature;
 
   return (
     <div className="space-y-4">
@@ -158,32 +155,12 @@ export function SignaturePad({
         </button>
       </div>
 
-      <div>
-        <Label
-          htmlFor="typed-name"
-          className="text-sm font-semibold mb-2 block"
-        >
-          Printed Name (Required)
-        </Label>
-        <Input
-          id="typed-name"
-          value={typedName}
-          onChange={(e) => setTypedName(e.target.value)}
-          placeholder="Enter your full name"
-          disabled={isDisabled}
-          className="font-serif"
-        />
-        <p className="text-xs text-muted-foreground mt-1">
-          Enter your full legal name to confirm the signature
-        </p>
-      </div>
-
       <Button
         onClick={handleCapture}
         disabled={!isValid || isDisabled}
         className="w-full"
       >
-        {isValid ? "Confirm Signature" : "Draw signature and enter name"}
+        {isValid ? "Confirm Signature" : "Draw signature"}
       </Button>
     </div>
   );
