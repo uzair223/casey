@@ -1,7 +1,6 @@
 "use client";
 
 import { useStatementTemplateSettings } from "./context";
-import { Textarea } from "@/components/ui/textarea";
 import {
   PROMPT_TEMPLATE_TOKEN_HELP,
   getDefaultPromptTemplates,

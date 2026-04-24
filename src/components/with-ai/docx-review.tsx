@@ -132,7 +132,6 @@ export function ReviewWithAIDialog({
   isOpen,
   onOpenChange,
   buffer,
-  documentName,
   onReviewComplete,
   textareaProps,
   className,

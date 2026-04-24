@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -232,12 +233,17 @@ function normalizeConfig(input: unknown): StatementConfig {
     input.prompts &&
     typeof input.prompts === "object" &&
     !Array.isArray(input.prompts)
-      ? {
-          ...(input as Record<string, unknown>),
-          prompts: (({ metadata_system_template: _legacy, ...rest }) => rest)(
-            input.prompts as Record<string, unknown>,
-          ),
-        }
+      ? (() => {
+          const prompts = {
+            ...(input.prompts as Record<string, unknown>),
+          };
+          delete prompts.metadata_system_template;
+
+          return {
+            ...(input as Record<string, unknown>),
+            prompts,
+          };
+        })()
       : input;
 
   const parsed = StatementConfigSchema.safeParse(sanitizedInput);
@@ -416,7 +422,7 @@ export function StatementTemplateSettingsProvider({
     }
   };
 
-  const prepareStarterPreview = async (
+  const prepareStarterPreview = useCallback(async (
     config: StatementConfig,
     name?: string,
   ) => {
@@ -436,7 +442,7 @@ export function StatementTemplateSettingsProvider({
       setPreviewDocxSource(null);
       setPreviewDocxLabel("Starter DOCX preview");
     }
-  };
+  }, []);
 
   const preparePreviewFromUploadedDocument = async (
     document: UploadedDocument,
@@ -557,6 +563,7 @@ export function StatementTemplateSettingsProvider({
     activeTemplate?.name,
     activeTemplate?.draft_docx_template_document,
     pendingTemplateDocx,
+    prepareStarterPreview,
   ]);
 
   const selectTemplate = async (template: StatementConfigTemplate) => {

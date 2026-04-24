@@ -10,7 +10,6 @@ import { useAsync } from "@/hooks/useAsync";
 import { apiFetch } from "@/lib/api-utils";
 import {
   MessageSquareText,
-  RotateCcw,
   SparklesIcon,
   Trash2,
   X,
@@ -195,7 +194,7 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
     setInput("");
     latestConfigRef.current = (seedData as z.output<T> | undefined) ?? null;
     setMessages([]);
-  }, [resetTrigger]);
+  }, [resetTrigger, seedData]);
 
   React.useEffect(() => {
     latestConfigRef.current = (seedData as z.output<T> | undefined) ?? null;

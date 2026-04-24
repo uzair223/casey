@@ -226,7 +226,7 @@ export async function updateStatementTemplate(
   if (payload.sourceTemplateId !== undefined)
     updatePayload.source_template_id = payload.sourceTemplateId;
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("statement_config_templates")
     .update(updatePayload)
     .eq("id", templateId)
@@ -266,7 +266,7 @@ export async function publishStatementTemplate(
   const docColumns = await getTemplateDocumentColumns(templateId);
   const draftDoc = docColumns.draftDoc ?? null;
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("statement_config_templates")
     .update({
       status: "published",
@@ -312,7 +312,7 @@ export async function restoreStatementTemplateDraftFromPublished(
   const docColumns = await getTemplateDocumentColumns(templateId);
   const publishedDoc = docColumns.publishedDoc ?? null;
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("statement_config_templates")
     .update({
       draft_config: (current as StatementConfigTemplate)

@@ -23,9 +23,11 @@ export function normalizeConfig(value: unknown): StatementConfig {
       };
     };
     const sanitizedPrompts = parsed.prompts
-      ? (({ metadata_system_template: _legacy, ...rest }) => rest)(
-          parsed.prompts,
-        )
+      ? (() => {
+          const nextPrompts = { ...parsed.prompts };
+          delete nextPrompts.metadata_system_template;
+          return nextPrompts;
+        })()
       : undefined;
     return {
       ...EMPTY_STATEMENT_CONFIG,

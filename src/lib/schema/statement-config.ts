@@ -183,11 +183,9 @@ export const StatementPromptTemplatesSchema = z
       return value;
     }
 
-    const { metadata_system_template: _legacy, ...rest } = value as Record<
-      string,
-      unknown
-    >;
-    return rest;
+    const next = { ...(value as Record<string, unknown>) };
+    delete next.metadata_system_template;
+    return next;
   }, z
     .object({
       chat_system_template: z.string().nullable(),

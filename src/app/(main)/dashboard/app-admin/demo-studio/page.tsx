@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+} from "react";
 import {
   FormProvider,
   SubmitHandler,
@@ -533,9 +539,13 @@ export default function DemoStudioPage() {
     }
   }, [bootstrapForm, options]);
 
+  const loadStatements = useCallback(async () => {
+    await loadStatementsAction.handler();
+  }, [loadStatementsAction]);
+
   useEffect(() => {
-    void loadStatementsAction.handler();
-  }, [loadStatementsAction.handler]);
+    void loadStatements();
+  }, [loadStatements]);
 
   useEffect(() => {
     if (!tenantCaseTemplates.length) {

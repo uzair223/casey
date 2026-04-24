@@ -8,7 +8,6 @@ import {
   createCaseInternalDocument,
   deleteCaseInternalDocument,
   renameCaseInternalDocument,
-  uploadFile,
 } from "@/lib/supabase/mutations";
 
 type CaseInternalDocumentsCardProps = React.ComponentProps<typeof Card> & {

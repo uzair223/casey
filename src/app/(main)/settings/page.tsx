@@ -77,11 +77,11 @@ export default function TenantSettingsPage() {
       setName(tenant.name);
       setDataRetentionDays(String(tenant.data_retention_days));
     }
-  }, [user]);
+  }, [refreshHasPassword, user]);
 
   useEffect(() => {
     if (!user) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     loadSettings()
       .catch((error) => {
         const message =
