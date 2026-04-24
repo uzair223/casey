@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useCaseTemplateSettings } from "./context";
 import { AsyncButton } from "@/components/ui/async-button";
-import { Textarea } from "@/components/ui/textarea";
+import { CodeEditor } from "@/components/ui/code-editor";
 
 export function CaseTemplateJsonView() {
   const { advancedJson, canEditActiveTemplate, applyAdvancedJson } =
@@ -17,11 +17,11 @@ export function CaseTemplateJsonView() {
 
   return (
     <div className="space-y-3">
-      <Textarea
+      <CodeEditor
+        mode="json"
+        className="h-[65vh]"
         value={draftValue}
-        onChange={(event) => setDraftValue(event.target.value)}
-        rows={24}
-        className="font-mono text-xs"
+        onChange={(val) => setDraftValue(val)}
       />
       <AsyncButton
         onClick={async () => {

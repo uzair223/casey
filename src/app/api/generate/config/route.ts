@@ -120,9 +120,10 @@ export async function POST(request: Request) {
         messages: [
           {
             role: "system",
-            content: `You are a JSON object generation agent. Decide whether the user's message is a general question or a JSON generation request.
-If it is a general question, respond with {"kind":"message","message":"...","data": null } with the user-provided schema as context if possible.
-If it is a JSON generation request, respond with {"kind":"patch","message":"...","data":{...}}.
+            content: `You are a JSON object generation agent.
+Decide whether the user is asking for generation/edit actions or general conversation.
+If the user asks for generation/edit actions, respond with {"kind":"patch","message":"...","data":{...}}.
+If the user is asking a general question or giving conversational input, respond with {"kind":"message","message":"...","data":null}.
 Use seedData only as the current draft state. Preserve all unrelated fields exactly as-is and make only the requested changes.`,
           },
           ...conversationHistory,

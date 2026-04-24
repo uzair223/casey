@@ -10,6 +10,9 @@ type DynamicFieldsEditorProps<T> = {
   fields: T[];
   disabled?: boolean;
   addLabel?: string;
+  headerActions?: ReactNode;
+  getItemClassName?: (item: T, index: number) => string | undefined;
+  getItemOpen?: (item: T, index: number) => boolean | undefined;
   renderSummary: (item: T, index: number) => ReactNode;
   renderDropdown: (item: T, index: number) => ReactNode;
   onAdd: () => void;
@@ -22,6 +25,9 @@ export function DynamicFieldsEditor<T>({
   fields,
   disabled,
   addLabel = "Add field",
+  headerActions,
+  getItemClassName,
+  getItemOpen,
   renderSummary,
   renderDropdown,
   onAdd,
@@ -29,14 +35,15 @@ export function DynamicFieldsEditor<T>({
 }: DynamicFieldsEditorProps<T>) {
   return (
     <div className="space-y-3 rounded-md border p-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-medium">{title}</p>
           {description ? (
             <p className="text-xs text-muted-foreground">{description}</p>
           ) : null}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {headerActions}
           <Badge variant="outline">{fields.length}</Badge>
           <Button
             type="button"
@@ -53,7 +60,10 @@ export function DynamicFieldsEditor<T>({
       {fields.map((field, index) => (
         <details
           key={`dynamic-field-${index}`}
-          className="rounded-md border bg-muted/10"
+          open={getItemOpen?.(field, index)}
+          className={`rounded-md border bg-muted/10 ${
+            getItemClassName?.(field, index) ?? ""
+          }`}
         >
           <summary className="cursor-pointer list-none px-3 py-2">
             {renderSummary(field, index)}

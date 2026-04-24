@@ -43,6 +43,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
         ref={ref}
         className={cardVariants({ className, variant, size })}
         {...props}
+        data-card="true"
       />
     );
   },
@@ -56,6 +57,7 @@ const CardHeader = React.forwardRef<
   <div
     ref={ref}
     className={cn("flex flex-col space-y-1.5 p-(--card-padding)", className)}
+    data-card-header="true"
     {...props}
   />
 ));
@@ -93,6 +95,7 @@ const CardContent = React.forwardRef<
     ref={ref}
     className={cn("p-(--card-padding) pt-0 space-y-1.5", className)}
     {...props}
+    data-card-content="true"
   />
 ));
 CardContent.displayName = "CardContent";
@@ -105,6 +108,7 @@ const CardFooter = React.forwardRef<
     ref={ref}
     className={cn("p-(--card-padding) pt-0 flex items-center gap-2", className)}
     {...props}
+    data-card-footer="true"
   />
 ));
 CardFooter.displayName = "CardFooter";

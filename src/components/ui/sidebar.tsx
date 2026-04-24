@@ -52,7 +52,7 @@ export function Sidebar<T>({
   onSelectItem,
   renderItem,
   emptyMessage = "No items available.",
-  scrollAreaHeightClassName = "h-[20vh] lg:h-[calc(100vh-10rem)]",
+  scrollAreaHeightClassName = "h-[20vh] lg:h-[calc(100vh-12rem)]",
   className,
 }: SidebarProps<T>) {
   const hasStructuredItems =

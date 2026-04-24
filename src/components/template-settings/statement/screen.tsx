@@ -30,12 +30,13 @@ import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
 import { SparklesIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useUser } from "@/contexts/user-context";
 
 export function StatementTemplateSettingsScreen() {
+  const { user } = useUser();
   const [templateSearch, setTemplateSearch] = useState("");
 
   const {
-    userTenantName,
     canForkGlobalTemplate,
     canEditActiveTemplate,
     canPublishTemplate,
@@ -51,7 +52,7 @@ export function StatementTemplateSettingsScreen() {
     isLoading,
     editorTab,
     setIsGenerating,
-    patchConfig,
+    stageAiPatch,
     setEditorTab,
     selectTemplate,
     createNewTemplate,
@@ -76,11 +77,18 @@ export function StatementTemplateSettingsScreen() {
 
   const filteredTemplates = useMemo(() => {
     const query = templateSearch.trim().toLowerCase();
+    const scopeOrder = { tenant: 0, global: 1 } as const;
 
     return [...templates]
-      .sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-      )
+      .sort((a, b) => {
+        const scopeDiff =
+          scopeOrder[a.template_scope] - scopeOrder[b.template_scope];
+        if (scopeDiff !== 0) {
+          return scopeDiff;
+        }
+
+        return Date.parse(b.updated_at) - Date.parse(a.updated_at);
+      })
       .filter((template) =>
         query.length === 0 ? true : template.name.toLowerCase().includes(query),
       );
@@ -122,9 +130,13 @@ export function StatementTemplateSettingsScreen() {
 
   const badges = (template: StatementConfigTemplate) => (
     <>
-      <Badge variant={templateStatusVariant[template.status]}>
-        {templateStatusLabel[template.status]}
-      </Badge>
+      {(user?.role === "tenant_admin"
+        ? template.template_scope === "tenant"
+        : template.template_scope === "global") && (
+        <Badge variant={templateStatusVariant[template.status]}>
+          {templateStatusLabel[template.status]}
+        </Badge>
+      )}
       <Badge className="capitalize">{template.template_scope}</Badge>
     </>
   );
@@ -132,7 +144,7 @@ export function StatementTemplateSettingsScreen() {
   return (
     <section className="space-y-4">
       <PageTitle
-        subtitle={userTenantName ?? "Template settings"}
+        subtitle={user?.tenant_name ?? "Global"}
         title="Statement Templates"
         description="Manage witness intake templates, advanced JSON configuration, and template DOCX files."
         actions={[
@@ -181,24 +193,26 @@ export function StatementTemplateSettingsScreen() {
           <Card>
             <CardHeader className="pb-2">
               <GenerateWithAI
-                rows={4}
-                placeholder="Generate a statement template for a workplace injury claim..."
+                textareaProps={{
+                  placeholder:
+                    "Generate a statement template for a workplace injury claim...",
+                }}
                 resetTrigger={activeTemplateId}
                 seedData={draftConfig}
                 schema={StatementConfigSchema.omit({
                   case_metadata_deps: true,
                   prompts: true,
-                })}
+                }).describe("statement config schema")}
                 onRequestSent={() => {
                   setIsGenerating(true);
                 }}
                 onPartial={({ kind, data }) => {
                   if (kind !== "patch" || !data) return;
-                  patchConfig(data);
+                  stageAiPatch(data);
                 }}
                 onComplete={({ kind, data }) => {
                   if (kind === "patch" && data) {
-                    patchConfig(data);
+                    stageAiPatch(data);
                   }
                   setIsGenerating(false);
                 }}

@@ -4,31 +4,41 @@ import React from "react";
 
 import { Button } from "@/components/ui/button";
 import {
-  DraggableDialog,
-  DraggableDialogContent,
-  DraggableDialogHeader,
-} from "@/components/ui/draggable-dialog";
+  DraggablePanel,
+  DraggablePanelContent,
+  DraggablePanelHeader,
+  DraggablePanelTrigger,
+} from "@/components/ui/draggable-panel";
 import { MessageCard } from "@/components/ui/message";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useAsync } from "@/hooks/useAsync";
 import { apiFetch } from "@/lib/api-utils";
+import { cn } from "@/lib/utils";
 import { Message } from "@/types";
 import { MessageSquareText, Sparkles, Trash2, X, Zap } from "lucide-react";
 
-type ReviewWithAIDialogProps = React.ComponentProps<typeof Textarea> & {
+type ReviewWithAIDialogContentProps = Omit<
+  React.ComponentProps<typeof DraggablePanelContent>,
+  "children"
+>;
+
+type ReviewWithAIDialogProps = ReviewWithAIDialogContentProps & {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   buffer: ArrayBuffer | null;
   documentName: string;
   onReviewComplete?: (buffer: ArrayBuffer) => void;
+  textareaProps?: React.ComponentProps<typeof Textarea>;
+  children?: React.ReactNode;
 };
 
-type ReviewWithAIProps = React.ComponentProps<typeof Textarea> & {
+type ReviewWithAIProps = ReviewWithAIDialogContentProps & {
   getBuffer: () => Promise<ArrayBuffer | null>;
   documentName: string;
   onReviewComplete?: (buffer: ArrayBuffer) => void;
   onOpenChange?: (open: boolean) => void;
+  textareaProps?: React.ComponentProps<typeof Textarea>;
   children?: React.ReactNode;
 };
 
@@ -58,16 +68,17 @@ export function ReviewWithAITrigger({
   onClick,
   type = "button",
   ...props
-}: React.ComponentProps<typeof Button>) {
+}: React.ComponentProps<typeof DraggablePanelTrigger>) {
   const { prepareAndOpen } = useReviewWithAIContext();
 
   return (
-    <Button
+    <DraggablePanelTrigger
       type={type}
       onClick={(event) => {
         void prepareAndOpen();
         onClick?.(event);
       }}
+      data-docx-review-trigger="true"
       {...props}
     >
       {children ?? (
@@ -75,7 +86,7 @@ export function ReviewWithAITrigger({
           <Zap /> Review with AI
         </>
       )}
-    </Button>
+    </DraggablePanelTrigger>
   );
 }
 
@@ -123,9 +134,10 @@ export function ReviewWithAIDialog({
   buffer,
   documentName,
   onReviewComplete,
+  textareaProps,
   className,
   children,
-  ...props
+  ...dialogContentProps
 }: ReviewWithAIDialogProps) {
   const [input, setInput] = React.useState("");
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
@@ -133,6 +145,15 @@ export function ReviewWithAIDialog({
   const transcriptEndRef = React.useRef<HTMLDivElement>(null);
   const activeAssistantMessageIdRef = React.useRef<string | null>(null);
   const lastBufferRef = React.useRef<ArrayBuffer | null>(null);
+
+  const {
+    className: textareaClassName,
+    placeholder: textareaPlaceholder,
+    disabled: textareaDisabled,
+    onChange: onTextareaChange,
+    onKeyDown: onTextareaKeyDown,
+    ...textareaRestProps
+  } = textareaProps ?? {};
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -262,13 +283,14 @@ export function ReviewWithAIDialog({
   };
 
   return (
-    <DraggableDialog open={isOpen} onOpenChange={onOpenChange}>
+    <DraggablePanel open={isOpen} onOpenChange={onOpenChange}>
       {children}
-      <DraggableDialogContent
+      <DraggablePanelContent
         className={className}
         data-docx-review-window="true"
+        {...dialogContentProps}
       >
-        <DraggableDialogHeader className="flex items-center justify-between border-b px-4 py-3">
+        <DraggablePanelHeader className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <MessageSquareText className="h-4 w-4" />
             <div>
@@ -299,23 +321,31 @@ export function ReviewWithAIDialog({
               <X />
             </Button>
           </div>
-        </DraggableDialogHeader>
+        </DraggablePanelHeader>
 
         <div className="border-b bg-muted/30 px-4 py-3">
           <form onSubmit={review.handler} className="space-y-3">
             <Textarea
+              {...textareaRestProps}
               value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" || event.shiftKey) return;
-                event.preventDefault();
-                if (!input.trim() || !buffer) return;
-                event.currentTarget.form?.requestSubmit();
+              onChange={(event) => {
+                setInput(event.target.value);
+                onTextareaChange?.(event);
               }}
-              className="min-h-24 resize-none"
-              placeholder="Ask for clarity edits, consistency fixes, or legal tone improvements..."
-              disabled={review.isLoading}
-              {...props}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  if (!input.trim() || !buffer) return;
+                  event.currentTarget.form?.requestSubmit();
+                }
+                onTextareaKeyDown?.(event);
+              }}
+              className={cn("min-h-24 resize-none", textareaClassName)}
+              placeholder={
+                textareaPlaceholder ??
+                "Ask for clarity edits, consistency fixes, or legal tone improvements..."
+              }
+              disabled={review.isLoading || textareaDisabled}
             />
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
@@ -361,7 +391,7 @@ export function ReviewWithAIDialog({
             <div ref={transcriptEndRef} />
           </div>
         </ScrollArea>
-      </DraggableDialogContent>
-    </DraggableDialog>
+      </DraggablePanelContent>
+    </DraggablePanel>
   );
 }

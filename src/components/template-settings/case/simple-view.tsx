@@ -46,13 +46,21 @@ export function CaseTemplateSimpleView() {
 
   const dynamicFields = draftConfig.dynamicFields ?? [];
 
-  const sortedStatementTemplates = useMemo(
-    () =>
-      [...statementTemplates].sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-      ),
-    [statementTemplates],
-  );
+  const sortedStatementTemplates = useMemo(() => {
+    const scopeOrder = { tenant: 0, global: 1 } as const;
+
+    return [...statementTemplates].sort((a, b) => {
+      const scopeDiff =
+        scopeOrder[a.template_scope] - scopeOrder[b.template_scope];
+      if (scopeDiff !== 0) {
+        return scopeDiff;
+      }
+
+      return a.name.localeCompare(b.name, undefined, {
+        sensitivity: "base",
+      });
+    });
+  }, [statementTemplates]);
 
   const filteredStatementTemplates = useMemo(() => {
     const query = templateSearch.trim().toLowerCase();

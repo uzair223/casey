@@ -2,59 +2,62 @@
 
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
+import * as DismissableLayerPrimitive from "@radix-ui/react-dismissable-layer";
 import { createPortal } from "react-dom";
+import { FocusScope } from "@radix-ui/react-focus-scope";
 
 import { cn } from "@/lib/utils";
+import { Button } from "./button";
 
-type DraggableDialogContextValue = {
+type DraggablePanelContextValue = {
   open: boolean;
   setOpen: (open: boolean) => void;
 };
 
-type DraggableDialogDragContextValue = {
+type DraggablePanelDragContextValue = {
   isDragging: boolean;
   onDragStart: (event: React.PointerEvent<HTMLDivElement>) => void;
 };
 
-const DraggableDialogContext =
-  React.createContext<DraggableDialogContextValue | null>(null);
+const DraggablePanelContext =
+  React.createContext<DraggablePanelContextValue | null>(null);
 
-const DraggableDialogDragContext =
-  React.createContext<DraggableDialogDragContextValue | null>(null);
+const DraggablePanelDragContext =
+  React.createContext<DraggablePanelDragContextValue | null>(null);
 
-function useDraggableDialogContext() {
-  const context = React.useContext(DraggableDialogContext);
+function useDraggablePanelContext() {
+  const context = React.useContext(DraggablePanelContext);
   if (!context) {
     throw new Error(
-      "DraggableDialog components must be used within DraggableDialog.",
+      "DraggablePanel components must be used within DraggablePanel.",
     );
   }
   return context;
 }
 
-function useDraggableDialogDragContext() {
-  const context = React.useContext(DraggableDialogDragContext);
+function useDraggablePanelDragContext() {
+  const context = React.useContext(DraggablePanelDragContext);
   if (!context) {
     throw new Error(
-      "DraggableDialogHeader must be used within DraggableDialogContent.",
+      "DraggablePanelHeader must be used within DraggablePanelContent.",
     );
   }
   return context;
 }
 
-type DraggableDialogProps = {
+type DraggablePanelProps = {
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 };
 
-export function DraggableDialog({
+export function DraggablePanel({
   open: openProp,
   defaultOpen = false,
   onOpenChange,
   children,
-}: DraggableDialogProps) {
+}: DraggablePanelProps) {
   const isControlled = openProp !== undefined;
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
 
@@ -71,46 +74,52 @@ export function DraggableDialog({
   );
 
   return (
-    <DraggableDialogContext.Provider value={{ open, setOpen }}>
+    <DraggablePanelContext.Provider value={{ open, setOpen }}>
       {children}
-    </DraggableDialogContext.Provider>
+    </DraggablePanelContext.Provider>
   );
 }
 
-type DraggableDialogTriggerProps = React.ComponentPropsWithoutRef<"button"> & {
+type DraggablePanelTriggerProps = React.ComponentPropsWithoutRef<
+  typeof Button
+> & {
   asChild?: boolean;
 };
 
-export const DraggableDialogTrigger = React.forwardRef<
+export const DraggablePanelTrigger = React.forwardRef<
   HTMLButtonElement,
-  DraggableDialogTriggerProps
->(({ asChild = false, onClick, ...props }, ref) => {
-  const { setOpen } = useDraggableDialogContext();
-  const Comp = asChild ? Slot : "button";
+  DraggablePanelTriggerProps
+>(({ asChild = false, onClick, className, ...props }, ref) => {
+  const { setOpen } = useDraggablePanelContext();
+  const Comp = asChild ? Slot : Button;
 
   return (
     <Comp
       ref={ref}
+      className={cn("pointer-events-auto", className)}
       onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
         setOpen(true);
         onClick?.(event);
       }}
+      data-draggable-panel-trigger="true"
       {...props}
     />
   );
 });
-DraggableDialogTrigger.displayName = "DraggableDialogTrigger";
+DraggablePanelTrigger.displayName = "DraggablePanelTrigger";
 
-type DraggableDialogCloseProps = React.ComponentPropsWithoutRef<"button"> & {
+type DraggablePanelCloseProps = React.ComponentPropsWithoutRef<
+  typeof Button
+> & {
   asChild?: boolean;
 };
 
-export const DraggableDialogClose = React.forwardRef<
+export const DraggablePanelClose = React.forwardRef<
   HTMLButtonElement,
-  DraggableDialogCloseProps
+  DraggablePanelCloseProps
 >(({ asChild = false, onClick, ...props }, ref) => {
-  const { setOpen } = useDraggableDialogContext();
-  const Comp = asChild ? Slot : "button";
+  const { setOpen } = useDraggablePanelContext();
+  const Comp = asChild ? Slot : Button;
 
   return (
     <Comp
@@ -123,17 +132,17 @@ export const DraggableDialogClose = React.forwardRef<
     />
   );
 });
-DraggableDialogClose.displayName = "DraggableDialogClose";
+DraggablePanelClose.displayName = "DraggablePanelClose";
 
-type DraggableDialogContentProps = React.ComponentPropsWithoutRef<"div"> & {
+type DraggablePanelContentProps = React.ComponentPropsWithoutRef<"div"> & {
   initialTop?: number;
 };
 
-export const DraggableDialogContent = React.forwardRef<
+export const DraggablePanelContent = React.forwardRef<
   HTMLDivElement,
-  DraggableDialogContentProps
+  DraggablePanelContentProps
 >(({ className, style, initialTop = 96, children, ...props }, forwardedRef) => {
-  const { open } = useDraggableDialogContext();
+  const { open } = useDraggablePanelContext();
   const [mounted, setMounted] = React.useState(false);
   const [position, setPosition] = React.useState({ x: 0, y: initialTop });
   const [isDragging, setIsDragging] = React.useState(false);
@@ -219,40 +228,55 @@ export const DraggableDialogContent = React.forwardRef<
   }
 
   return createPortal(
-    <div
-      ref={setRefs}
-      className={cn(
-        "fixed z-50 w-[min(92vw,520px)] overflow-hidden rounded-xl border bg-background shadow-lg",
-        className,
-      )}
-      style={{ left: position.x, top: position.y, ...style }}
-      data-dragging={isDragging ? "true" : "false"}
-      {...props}
-    >
-      <DraggableDialogDragContext.Provider
-        value={{ isDragging, onDragStart: handleDragStart }}
+    <DismissableLayerPrimitive.Branch asChild>
+      <div
+        ref={setRefs}
+        className={cn(
+          "fixed w-[min(92vw,520px)] overflow-hidden rounded-xl border bg-background shadow-lg",
+          "pointer-events-auto",
+          className,
+        )}
+        style={{
+          left: position.x,
+          top: position.y,
+          ...style,
+        }}
+        data-dragging={isDragging ? "true" : "false"}
+        data-draggable-panel="true"
+        onFocus={(e) => e.stopPropagation()}
+        onBlur={(e) => e.stopPropagation()}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+        }}
+        {...props}
       >
-        {children}
-      </DraggableDialogDragContext.Provider>
-    </div>,
+        <FocusScope asChild trapped={false}>
+          <DraggablePanelDragContext.Provider
+            value={{ isDragging, onDragStart: handleDragStart }}
+          >
+            <div className="select-auto">{children}</div>
+          </DraggablePanelDragContext.Provider>
+        </FocusScope>
+      </div>
+    </DismissableLayerPrimitive.Branch>,
     document.body,
   );
 });
-DraggableDialogContent.displayName = "DraggableDialogContent";
+DraggablePanelContent.displayName = "DraggablePanelContent";
 
-type DraggableDialogHeaderProps = React.ComponentProps<"div">;
+type DraggablePanelHeaderProps = React.ComponentProps<"div">;
 
-export function DraggableDialogHeader({
+export function DraggablePanelHeader({
   className,
   onPointerDown,
   ...props
-}: DraggableDialogHeaderProps) {
-  const { isDragging, onDragStart } = useDraggableDialogDragContext();
+}: DraggablePanelHeaderProps) {
+  const { isDragging, onDragStart } = useDraggablePanelDragContext();
 
   return (
     <div
       className={cn(
-        "cursor-grab select-none",
+        "border-b px-4 py-3 cursor-grab select-none",
         isDragging ? "cursor-grabbing" : "cursor-grab",
         className,
       )}
@@ -265,12 +289,12 @@ export function DraggableDialogHeader({
   );
 }
 
-type DraggableDialogFooterProps = React.ComponentProps<"div">;
+type DraggablePanelFooterProps = React.ComponentProps<"div">;
 
-export function DraggableDialogFooter({
+export function DraggablePanelFooter({
   className,
   ...props
-}: DraggableDialogFooterProps) {
+}: DraggablePanelFooterProps) {
   return (
     <div
       className={cn(
@@ -282,12 +306,12 @@ export function DraggableDialogFooter({
   );
 }
 
-type DraggableDialogTitleProps = React.ComponentProps<"h2">;
+type DraggablePanelTitleProps = React.ComponentProps<"h2">;
 
-export function DraggableDialogTitle({
+export function DraggablePanelTitle({
   className,
   ...props
-}: DraggableDialogTitleProps) {
+}: DraggablePanelTitleProps) {
   return (
     <h2
       className={cn(
@@ -299,12 +323,12 @@ export function DraggableDialogTitle({
   );
 }
 
-type DraggableDialogDescriptionProps = React.ComponentProps<"p">;
+type DraggablePanelDescriptionProps = React.ComponentProps<"p">;
 
-export function DraggableDialogDescription({
+export function DraggablePanelDescription({
   className,
   ...props
-}: DraggableDialogDescriptionProps) {
+}: DraggablePanelDescriptionProps) {
   return (
     <p className={cn("text-sm text-muted-foreground", className)} {...props} />
   );

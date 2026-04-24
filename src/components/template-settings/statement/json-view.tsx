@@ -14,8 +14,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AsyncButton } from "@/components/ui/async-button";
+
+import { CodeDiffEditor, CodeEditor } from "@/components/ui/code-editor";
 
 export function StatementTemplateJsonView() {
   const {
@@ -24,6 +26,10 @@ export function StatementTemplateJsonView() {
     applyAdvancedJson,
     draftConfig,
     setDraftConfig,
+    pendingAiPatch,
+    pendingAiPatchPaths,
+    applyPendingAiPatch,
+    discardPendingAiPatch,
   } = useStatementTemplateSettings();
 
   const [draftValue, setDraftValue] = useState(advancedJson);
@@ -33,19 +39,42 @@ export function StatementTemplateJsonView() {
     setDraftValue(advancedJson);
   }, [advancedJson]);
 
-  const promptTemplates = draftConfig.prompts ?? getDefaultPromptTemplates();
+  const currentJson = useMemo(
+    () => JSON.stringify(draftConfig, null, 2),
+    [draftConfig],
+  );
+
+  const proposedJson = useMemo(() => {
+    if (!pendingAiPatch) return null;
+    return JSON.stringify(
+      {
+        ...draftConfig,
+        ...pendingAiPatch,
+      },
+      null,
+      2,
+    );
+  }, [draftConfig, pendingAiPatch]);
+
+  const promptTemplates = {
+    chat_system_template:
+      draftConfig.prompts?.chat_system_template ??
+      getDefaultPromptTemplates().chat_system_template,
+    formalize_system_template:
+      draftConfig.prompts?.formalize_system_template ??
+      getDefaultPromptTemplates().formalize_system_template,
+  };
 
   const setPromptTemplate = (
-    key:
-      | "chat_system_template"
-      | "metadata_system_template"
-      | "formalize_system_template",
+    key: "chat_system_template" | "formalize_system_template",
     value: string,
   ) => {
     setDraftConfig((prev) => ({
       ...prev,
       prompts: {
-        ...(prev.prompts ?? getDefaultPromptTemplates()),
+        chat_system_template: prev.prompts?.chat_system_template ?? null,
+        formalize_system_template:
+          prev.prompts?.formalize_system_template ?? null,
         [key]: value,
       },
     }));
@@ -54,7 +83,10 @@ export function StatementTemplateJsonView() {
   const resetPromptTemplatesToDefault = () => {
     setDraftConfig((prev) => ({
       ...prev,
-      prompts: getDefaultPromptTemplates(),
+      prompts: {
+        chat_system_template: null,
+        formalize_system_template: null,
+      },
     }));
   };
 
@@ -71,110 +103,114 @@ export function StatementTemplateJsonView() {
 
   return (
     <div className="space-y-4">
-      <Textarea
-        value={draftValue}
-        onChange={(event) => setDraftValue(event.target.value)}
-        rows={24}
-        className="font-mono text-xs"
-      />
-      {!showPromptEditor && applyButton}
+      {pendingAiPatchPaths.length > 0 && pendingAiPatch ? (
+        <CodeDiffEditor
+          mode="json"
+          className="h-[65vh]"
+          original={currentJson}
+          modified={proposedJson ?? undefined}
+        />
+      ) : (
+        <CodeEditor
+          mode="json"
+          className="h-[65vh]"
+          value={draftValue}
+          onChange={(val) => setDraftValue(val)}
+        />
+      )}
 
-      <Card
-        size="md"
-        variant="warning"
-        className="cursor-pointer hover:[--card-opacity:60%]"
-        onClick={() => setShowPromptEditor((prev) => !prev)}
-      >
-        <CardHeader>
-          <CardTitle className="text-sm">Advanced Prompt Editor</CardTitle>
-          <CardDescription className="text-xs">
-            Changes directly affect runtime AI instructions. Use with care.
-            Prefer token placeholders over hardcoded structure text so prompts
-            stay aligned with template changes.
-          </CardDescription>
-        </CardHeader>
-        {showPromptEditor && (
-          <CardContent>
-            <CardTitle className="text-sm">Advanced Prompt Editor</CardTitle>
-            <CardDescription className="space-y-1 text-xs">
-              <ul className="list-disc pl-5">
-                {PROMPT_TEMPLATE_TOKEN_HELP.map(
-                  (item: { token: string; description: string }) => (
-                    <li key={item.token}>
-                      {`{{${item.token}}}`} - {item.description}
-                    </li>
-                  ),
-                )}
-              </ul>
-            </CardDescription>
-          </CardContent>
-        )}
-      </Card>
-
-      {showPromptEditor && (
+      {pendingAiPatchPaths.length > 0 ? (
+        <div className="flex gap-2">
+          <Button onClick={applyPendingAiPatch}>Apply changes</Button>
+          <Button variant="destructive" onClick={discardPendingAiPatch}>
+            Discard changes
+          </Button>
+        </div>
+      ) : (
         <>
-          <div className="flex items-center justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={resetPromptTemplatesToDefault}
-              disabled={!canEditActiveTemplate}
+          {!showPromptEditor && applyButton}
+
+          <Card
+            size="md"
+            variant="warning"
+            className="hover:[--card-opacity:60%]"
+          >
+            <CardHeader
+              className="cursor-pointer"
+              onClick={() => setShowPromptEditor((prev) => !prev)}
             >
-              Reset Prompts To Default
-            </Button>
-          </div>
+              <CardTitle className="text-sm">Advanced Prompt Editor</CardTitle>
+              <CardDescription className="text-xs">
+                Changes directly affect runtime AI instructions. Use with care.
+                Prefer token placeholders over hardcoded structure text so
+                prompts stay aligned with template changes.
+              </CardDescription>
+            </CardHeader>
+            {showPromptEditor && (
+              <CardContent>
+                <CardTitle className="text-sm">
+                  Advanced Prompt Editor
+                </CardTitle>
+                <CardDescription className="space-y-1 text-xs">
+                  <ul className="list-disc pl-5">
+                    {PROMPT_TEMPLATE_TOKEN_HELP.map(
+                      (item: { token: string; description: string }) => (
+                        <li key={item.token}>
+                          {`{{${item.token}}}`} - {item.description}
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                </CardDescription>
+              </CardContent>
+            )}
+          </Card>
 
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Chat system prompt template</p>
-            <Textarea
-              value={promptTemplates.chat_system_template}
-              onChange={(event) =>
-                setPromptTemplate("chat_system_template", event.target.value)
-              }
-              disabled={!canEditActiveTemplate}
-              rows={10}
-              className="font-mono text-xs"
-            />
-          </div>
+          {showPromptEditor && (
+            <>
+              <div className="flex items-center justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={resetPromptTemplatesToDefault}
+                  disabled={!canEditActiveTemplate}
+                >
+                  Reset Prompts To Default
+                </Button>
+              </div>
 
-          <div className="space-y-2">
-            <p className="text-sm font-medium">
-              Metadata system prompt template
-            </p>
-            <Textarea
-              value={promptTemplates.metadata_system_template}
-              onChange={(event) =>
-                setPromptTemplate(
-                  "metadata_system_template",
-                  event.target.value,
-                )
-              }
-              disabled={!canEditActiveTemplate}
-              rows={12}
-              className="font-mono text-xs"
-            />
-          </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">
+                  Chat system prompt template
+                </p>
+                <CodeEditor
+                  className="h-48"
+                  value={promptTemplates.chat_system_template}
+                  onChange={(value) =>
+                    canEditActiveTemplate &&
+                    setPromptTemplate("chat_system_template", value)
+                  }
+                />
+              </div>
 
-          <div className="space-y-2">
-            <p className="text-sm font-medium">
-              Formalize system prompt template
-            </p>
-            <Textarea
-              value={promptTemplates.formalize_system_template}
-              onChange={(event) =>
-                setPromptTemplate(
-                  "formalize_system_template",
-                  event.target.value,
-                )
-              }
-              disabled={!canEditActiveTemplate}
-              rows={10}
-              className="font-mono text-xs"
-            />
-          </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">
+                  Formalize system prompt template
+                </p>
+                <CodeEditor
+                  className="h-48"
+                  value={promptTemplates.formalize_system_template}
+                  onChange={(value) =>
+                    canEditActiveTemplate &&
+                    setPromptTemplate("formalize_system_template", value)
+                  }
+                />
+              </div>
 
-          {applyButton}
+              {applyButton}
+            </>
+          )}
         </>
       )}
     </div>

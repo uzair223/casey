@@ -42,6 +42,15 @@ import {
   uploadFile,
 } from "@/lib/supabase/mutations";
 import { slugify, uniqueSlug } from "@/lib/utils";
+import {
+  deletePathFromObject,
+  getValueAtPath,
+  materializePendingPatch,
+  mergeDeep,
+  resolvePatchDiffs,
+  resolvePatchPaths,
+  setValueAtPath,
+} from "@/lib/diff-utils";
 import type {
   StatementConfig,
   StatementConfigTemplate,
@@ -102,6 +111,22 @@ type StatementTemplateSettingsContextValue = {
   resetConfig: () => void;
   applyAdvancedJson: (value: string) => Promise<void>;
   patchConfig: (patch: Partial<StatementConfig>) => void;
+  pendingAiPatch: Partial<StatementConfig> | null;
+  pendingAiPatchPaths: string[];
+  pendingAiPatchDiffs: Array<{
+    path: string;
+    current: unknown;
+    proposed: unknown;
+    status: "added" | "removed" | "modified";
+  }>;
+  stageAiPatch: (patch: Partial<StatementConfig>) => void;
+  applyPendingAiPatch: () => void;
+  discardPendingAiPatch: () => void;
+  applyPendingAiPatchPath: (
+    path: string,
+    status?: "added" | "removed" | "modified",
+  ) => void;
+  discardPendingAiPatchPath: (path: string) => void;
   downloadStarterDocx: () => Promise<void>;
   downloadUploadedDocx: () => Promise<void>;
   deleteUploadedDocx: () => Promise<void>;
@@ -130,8 +155,37 @@ function createEmptyConfig(): StatementConfig {
       },
     ],
     case_metadata_deps: ["court", "claimNumber", "claimant", "defendant"],
-    prompts: getDefaultPromptTemplates(),
+    prompts: {
+      chat_system_template: null,
+      formalize_system_template: null,
+    },
   });
+}
+
+function createNullPromptTemplates(): NonNullable<StatementConfig["prompts"]> {
+  return {
+    chat_system_template: null,
+    formalize_system_template: null,
+  };
+}
+
+function normalizePromptsForStorage(config: StatementConfig): StatementConfig {
+  const defaults = getDefaultPromptTemplates();
+  const prompts = config.prompts ?? createNullPromptTemplates();
+
+  return {
+    ...config,
+    prompts: {
+      chat_system_template:
+        prompts.chat_system_template === defaults.chat_system_template
+          ? null
+          : prompts.chat_system_template,
+      formalize_system_template:
+        prompts.formalize_system_template === defaults.formalize_system_template
+          ? null
+          : prompts.formalize_system_template,
+    },
+  };
 }
 
 function withGeneratedPhaseIds(config: StatementConfig) {
@@ -170,15 +224,35 @@ function withGeneratedConfigIds(config: StatementConfig) {
 }
 
 function normalizeConfig(input: unknown): StatementConfig {
-  const parsed = StatementConfigSchema.safeParse(input);
-  const base = parsed.success ? parsed.data : createEmptyConfig();
+  const sanitizedInput =
+    input &&
+    typeof input === "object" &&
+    !Array.isArray(input) &&
+    "prompts" in input &&
+    input.prompts &&
+    typeof input.prompts === "object" &&
+    !Array.isArray(input.prompts)
+      ? {
+          ...(input as Record<string, unknown>),
+          prompts: (({ metadata_system_template: _legacy, ...rest }) => rest)(
+            input.prompts as Record<string, unknown>,
+          ),
+        }
+      : input;
 
-  return base.prompts
-    ? base
+  const parsed = StatementConfigSchema.safeParse(sanitizedInput);
+  if (!parsed.success) {
+    return createEmptyConfig();
+  }
+
+  const withPromptObject = parsed.data.prompts
+    ? parsed.data
     : {
-        ...base,
-        prompts: getDefaultPromptTemplates(),
+        ...parsed.data,
+        prompts: createNullPromptTemplates(),
       };
+
+  return normalizePromptsForStorage(withPromptObject);
 }
 
 function validateMainTemplateConfig(config: StatementConfig): string[] {
@@ -219,6 +293,8 @@ export function StatementTemplateSettingsProvider({
   const [advancedJson, setAdvancedJson] = useState(
     JSON.stringify(createEmptyConfig(), null, 2),
   );
+  const [pendingAiPatch, setPendingAiPatch] =
+    useState<Partial<StatementConfig> | null>(null);
 
   const formMethods = useForm<StatementConfig>({
     defaultValues: createEmptyConfig(),
@@ -273,6 +349,26 @@ export function StatementTemplateSettingsProvider({
     isMainTemplateValid &&
     docxErrors.errors.length === 0 &&
     !draftNameValidationError;
+  const pendingAiPatchPaths = useMemo(
+    () =>
+      pendingAiPatch
+        ? resolvePatchPaths(
+            formMethods.getValues(),
+            materializePendingPatch(formMethods.getValues(), pendingAiPatch),
+          )
+        : [],
+    [formMethods, pendingAiPatch],
+  );
+  const pendingAiPatchDiffs = useMemo(
+    () =>
+      pendingAiPatch
+        ? resolvePatchDiffs(
+            formMethods.getValues(),
+            materializePendingPatch(formMethods.getValues(), pendingAiPatch),
+          )
+        : [],
+    [formMethods, pendingAiPatch],
+  );
 
   const setDraftConfig = (
     value: StatementConfig | ((prev: StatementConfig) => StatementConfig),
@@ -363,6 +459,7 @@ export function StatementTemplateSettingsProvider({
         unknown: [],
         unused: [],
       });
+      setPendingAiPatch(null);
       return;
     }
 
@@ -371,6 +468,7 @@ export function StatementTemplateSettingsProvider({
     setCurrentStatus(template.status);
     formMethods.reset(config);
     setPendingTemplateDocx(null);
+    setPendingAiPatch(null);
   };
 
   const refreshData = async () => {
@@ -517,6 +615,7 @@ export function StatementTemplateSettingsProvider({
 
     const scope: "global" | "tenant" = isAppAdmin ? "global" : "tenant";
     const normalizedConfig = normalizeConfig(draftConfig);
+    const persistedConfig = normalizePromptsForStorage(normalizedConfig);
 
     let docxTemplateDocument =
       activeTemplate?.draft_docx_template_document ?? null;
@@ -558,7 +657,7 @@ export function StatementTemplateSettingsProvider({
       name: draftName,
       templateScope: scope,
       status: targetStatus,
-      draftConfig: normalizedConfig,
+      draftConfig: persistedConfig,
       docxTemplateDocument,
     };
 
@@ -756,6 +855,7 @@ export function StatementTemplateSettingsProvider({
 
   const resetConfig = () => {
     formMethods.reset(withGeneratedConfigIds(createEmptyConfig()));
+    setPendingAiPatch(null);
     setMessage("Template config reset");
   };
 
@@ -763,6 +863,7 @@ export function StatementTemplateSettingsProvider({
     try {
       const parsed = normalizeConfig(JSON.parse(value));
       formMethods.reset(parsed);
+      setPendingAiPatch(null);
       setMessage("Applied JSON changes to editor");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Invalid JSON");
@@ -772,11 +873,71 @@ export function StatementTemplateSettingsProvider({
 
   const patchConfig = (patch: Partial<StatementConfig>) => {
     const current = formMethods.getValues();
-    const next = withGeneratedConfigIds({
-      ...current,
-      ...patch,
-    });
+    const next = withGeneratedConfigIds(mergeDeep(current, patch));
     formMethods.reset(next);
+  };
+
+  const stageAiPatch = (patch: Partial<StatementConfig>) => {
+    setPendingAiPatch((prev) => mergeDeep(prev ?? {}, patch));
+  };
+
+  const applyPendingAiPatch = () => {
+    if (!pendingAiPatch) {
+      return;
+    }
+
+    patchConfig(pendingAiPatch);
+    setPendingAiPatch(null);
+    setMessage("Applied AI draft changes to template config");
+  };
+
+  const discardPendingAiPatch = () => {
+    setPendingAiPatch(null);
+    setMessage("Discarded AI draft changes");
+  };
+
+  const applyPendingAiPatchPath = (
+    path: string,
+    status?: "added" | "removed" | "modified",
+  ) => {
+    if (!pendingAiPatch) {
+      return;
+    }
+
+    const currentConfig = formMethods.getValues();
+    const pendingConfig = materializePendingPatch(
+      currentConfig,
+      pendingAiPatch,
+    );
+
+    const nextConfig =
+      status === "removed"
+        ? withGeneratedConfigIds(
+            deletePathFromObject(currentConfig, path) ?? currentConfig,
+          )
+        : (() => {
+            const patchValue = getValueAtPath(pendingConfig, path);
+            if (patchValue === undefined) {
+              return null;
+            }
+
+            return withGeneratedConfigIds(
+              setValueAtPath(currentConfig, path, patchValue),
+            );
+          })();
+
+    if (!nextConfig) {
+      return;
+    }
+
+    formMethods.reset(nextConfig);
+    setPendingAiPatch((prev) => deletePathFromObject(prev, path));
+    setMessage(`Applied AI change for ${path}`);
+  };
+
+  const discardPendingAiPatchPath = (path: string) => {
+    setPendingAiPatch((prev) => deletePathFromObject(prev, path));
+    setMessage(`Discarded AI change for ${path}`);
   };
 
   const downloadStarterDocx = async () => {
@@ -927,6 +1088,14 @@ export function StatementTemplateSettingsProvider({
     resetConfig,
     applyAdvancedJson,
     patchConfig,
+    pendingAiPatch,
+    pendingAiPatchPaths,
+    pendingAiPatchDiffs,
+    stageAiPatch,
+    applyPendingAiPatch,
+    discardPendingAiPatch,
+    applyPendingAiPatchPath,
+    discardPendingAiPatchPath,
     downloadStarterDocx,
     downloadUploadedDocx,
     deleteUploadedDocx,

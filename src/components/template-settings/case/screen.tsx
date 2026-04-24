@@ -21,12 +21,12 @@ import {
   templateStatusVariant,
 } from "@/lib/status-styles";
 import { Input } from "@/components/ui/input";
+import { useUser } from "@/contexts/user-context";
 
 export function CaseTemplateSettingsScreen() {
   const [templateSearch, setTemplateSearch] = useState("");
-
+  const { user } = useUser();
   const {
-    userTenantName,
     canForkGlobalTemplate,
     canEditActiveTemplate,
     isTenantAdmin,
@@ -52,11 +52,20 @@ export function CaseTemplateSettingsScreen() {
 
   const filteredCaseTemplates = useMemo(() => {
     const query = templateSearch.trim().toLowerCase();
+    const scopeOrder = { tenant: 0, global: 1 } as const;
 
     return [...caseTemplates]
-      .sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-      )
+      .sort((a, b) => {
+        const scopeDiff =
+          scopeOrder[a.template_scope] - scopeOrder[b.template_scope];
+        if (scopeDiff !== 0) {
+          return scopeDiff;
+        }
+
+        return a.name.localeCompare(b.name, undefined, {
+          sensitivity: "base",
+        });
+      })
       .filter((template) =>
         query.length === 0 ? true : template.name.toLowerCase().includes(query),
       );
@@ -93,9 +102,14 @@ export function CaseTemplateSettingsScreen() {
 
   const badges = (template: CaseTemplate) => (
     <>
-      <Badge variant={templateStatusVariant[template.status]}>
-        {templateStatusLabel[template.status]}
-      </Badge>
+      {user &&
+        (user.role === "tenant_admin"
+          ? template.template_scope === "tenant"
+          : template.template_scope === "global") && (
+          <Badge variant={templateStatusVariant[template.status]}>
+            {templateStatusLabel[template.status]}
+          </Badge>
+        )}
       <Badge className="capitalize">{template.template_scope}</Badge>
       {template.id === defaultTemplateId ? <Badge>Default</Badge> : null}
       {template.id !== defaultTemplateId &&
@@ -108,7 +122,7 @@ export function CaseTemplateSettingsScreen() {
   return (
     <section className="space-y-4">
       <PageTitle
-        subtitle={userTenantName ?? "Case template settings"}
+        subtitle={user?.tenant_name ?? "Global"}
         title="Case Templates"
         description="Manage case templates, mapping to statement templates, and JSON configuration."
         actions={[

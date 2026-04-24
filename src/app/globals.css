@@ -110,6 +110,14 @@ body {
 }
 
 @layer utilities {
+  html.docx-editor-fullscreen [data-radix-popper-content-wrapper],
+  html.docx-editor-fullscreen [data-radix-select-content],
+  html.docx-editor-fullscreen .docx-table-options-dropdown {
+    z-index: 2000 !important;
+  }
+}
+
+@layer utilities {
   @keyframes fadeIn {
     from {
       opacity: 0;

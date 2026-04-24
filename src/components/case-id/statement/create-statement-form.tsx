@@ -69,7 +69,10 @@ export function CreateStatementForm({
         sections: [],
         witness_metadata_fields: [],
         case_metadata_deps: [],
-        prompts: null,
+        prompts: {
+          chat_system_template: null,
+          formalize_system_template: null,
+        },
       },
     [selectedTemplate],
   );

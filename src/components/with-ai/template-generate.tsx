@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
 import {
-  DraggableDialog,
-  DraggableDialogContent,
-  DraggableDialogHeader,
-} from "@/components/ui/draggable-dialog";
+  DraggablePanel,
+  DraggablePanelContent,
+  DraggablePanelHeader,
+} from "@/components/ui/draggable-panel";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useAsync } from "@/hooks/useAsync";
@@ -21,6 +21,7 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import { MessageCard } from "@/components/ui/message";
 import { Message } from "@/types";
 import { buildGenerateConfigResponseSchema } from "@/lib/schema/generate-config-response-format";
+import { cn } from "@/lib/utils";
 
 type GeneratedPayload<T extends z.ZodObject> = z.output<
   ReturnType<typeof buildGenerateConfigResponseSchema<T>>
@@ -29,19 +30,24 @@ type PartialGeneratedPayload<T extends z.ZodObject> = Partial<
   GeneratedPayload<T>
 >;
 
-type GenerateWithAIDialogProps<T extends z.ZodObject> = React.ComponentProps<
-  typeof Textarea
-> & {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  resetTrigger: unknown;
-  schema: T;
-  seedData?: Partial<z.output<T>>;
-  onRequestSent?: () => void;
-  onPartial?: (partial: PartialGeneratedPayload<T>) => void;
-  onComplete?: (result: GeneratedPayload<T>) => void;
-  onError?: (error: Error) => void;
-};
+type GenerateWithAIDialogContentProps = Omit<
+  React.ComponentProps<typeof DraggablePanelContent>,
+  "children"
+>;
+
+type GenerateWithAIDialogProps<T extends z.ZodObject> =
+  GenerateWithAIDialogContentProps & {
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    resetTrigger: unknown;
+    schema: T;
+    seedData?: Partial<z.output<T>>;
+    onRequestSent?: () => void;
+    onPartial?: (partial: PartialGeneratedPayload<T>) => void;
+    onComplete?: (result: GeneratedPayload<T>) => void;
+    onError?: (error: Error) => void;
+    textareaProps?: React.ComponentProps<typeof Textarea>;
+  };
 
 type GenerateWithAIProps<T extends z.ZodObject> = Omit<
   GenerateWithAIDialogProps<T>,
@@ -137,10 +143,11 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
   onPartial,
   onComplete,
   onError,
+  textareaProps,
   schema: _schema,
   seedData,
   resetTrigger,
-  ...props
+  ...dialogContentProps
 }: GenerateWithAIDialogProps<T>) {
   type ChatMessage = Message & {
     createdAt?: number;
@@ -155,6 +162,15 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
   const latestConfigRef = React.useRef<z.output<T> | null>(
     (seedData as z.output<T> | undefined) ?? null,
   );
+
+  const {
+    className: textareaClassName,
+    placeholder: textareaPlaceholder,
+    disabled: textareaDisabled,
+    onChange: onTextareaChange,
+    onKeyDown: onTextareaKeyDown,
+    ...textareaRestProps
+  } = textareaProps ?? {};
 
   const schema = React.useMemo(
     () => buildGenerateConfigResponseSchema(_schema),
@@ -291,12 +307,14 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
       ]);
       setInput("");
 
+      const requestSeedData = latestConfigRef.current ?? seedData ?? null;
+
       const response = await apiFetch(`/api/generate/config`, {
         method: "POST",
         body: JSON.stringify({
           input: userMessage.content,
           conversationHistory,
-          seedData,
+          seedData: requestSeedData,
           responseFormat: zodResponseFormat(schema, "template_response"),
         }),
         returnType: "response",
@@ -385,6 +403,7 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
             const partialParsed = partialSchema.safeParse(parsedTrailing);
             if (partialParsed.success) {
               const nextPartial: PartialGeneratedPayload<T> = {
+                kind: parsedTrailing.kind,
                 data: parsedTrailing.data,
                 message: parsedTrailing.message,
               };
@@ -516,9 +535,12 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
   }, [messages]);
 
   return (
-    <DraggableDialog open={isOpen} onOpenChange={onOpenChange}>
-      <DraggableDialogContent className={className}>
-        <DraggableDialogHeader className="flex items-center justify-between border-b px-4 py-3">
+    <DraggablePanel open={isOpen} onOpenChange={onOpenChange}>
+      <DraggablePanelContent
+        className={cn("z-150", className)}
+        {...dialogContentProps}
+      >
+        <DraggablePanelHeader className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <MessageSquareText className="h-4 w-4" />
             <div>
@@ -549,22 +571,32 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
               <X />
             </Button>
           </div>
-        </DraggableDialogHeader>
+        </DraggablePanelHeader>
 
         <div className="border-b bg-muted/30 px-4 py-3">
           <form onSubmit={generate.handler} className="space-y-3">
             <Textarea
+              {...textareaRestProps}
               value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" || event.shiftKey) return;
-                event.preventDefault();
-                if (!input.trim()) return;
-                event.currentTarget.form?.requestSubmit();
+              onChange={(event) => {
+                setInput(event.target.value);
+                onTextareaChange?.(event);
               }}
-              className="min-h-24 resize-none"
-              placeholder="Ask for changes, refinements, or a new template direction..."
-              {...props}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  if (input.trim()) {
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }
+                onTextareaKeyDown?.(event);
+              }}
+              className={cn("min-h-24 resize-none", textareaClassName)}
+              placeholder={
+                textareaPlaceholder ??
+                "Ask for changes, refinements, or a new template direction..."
+              }
+              disabled={generate.isLoading || textareaDisabled}
             />
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
@@ -629,7 +661,7 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
             <div ref={transcriptEndRef} />
           </div>
         </ScrollArea>
-      </DraggableDialogContent>
-    </DraggableDialog>
+      </DraggablePanelContent>
+    </DraggablePanel>
   );
 }

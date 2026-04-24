@@ -23,12 +23,10 @@ import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogPortal,
   DialogTitle,
 } from "@radix-ui/react-dialog";
-
-const DOCX_REVIEW_INTERACTIVE_SELECTOR =
-  "[data-docx-review-trigger='true'], [data-docx-review-window='true']";
 
 const COMMENT_NODE_TYPES = new Set([
   "commentRangeStart",
@@ -73,18 +71,18 @@ function stripCommentNodes(value: unknown): unknown {
 type SharedDocxEditorProps = {
   source: Blob | ArrayBuffer | Uint8Array | null;
   documentName: string;
-  canEdit: boolean;
-  isSaving: boolean;
-  onSave: (buffer: ArrayBuffer) => Promise<void>;
+  canEdit?: boolean;
+  isSaving?: boolean;
+  onSave?: (buffer: ArrayBuffer) => Promise<void>;
 };
 
-type DocxEditorProps = SharedDocxEditorProps & {
-  children?: React.ReactNode;
-  defaultFullscreen?: boolean;
-  onFullscreenChange?: (isFullscreen: boolean) => void;
-  fullscreenModal?: boolean;
-  className?: string;
-};
+type DocxEditorProps = SharedDocxEditorProps &
+  React.ComponentProps<typeof DialogContent> & {
+    children?: React.ReactNode;
+    defaultFullscreen?: boolean;
+    onFullscreenChange?: (isFullscreen: boolean) => void;
+    fullscreenModal?: boolean;
+  };
 
 export type DocxEditorRef = {
   getBuffer: () => Promise<ArrayBuffer | null>;
@@ -134,6 +132,7 @@ export function DocxEditor({
   defaultFullscreen = false,
   onFullscreenChange,
   fullscreenModal = true,
+  ...props
 }: DocxEditorProps) {
   const dialogContentRef = useRef<HTMLDivElement>(null);
   const panelRegistryRef = useRef<
@@ -240,29 +239,23 @@ export function DocxEditor({
               className,
             )}
             onInteractOutside={(event) => {
-              const target = event.target as HTMLElement | null;
-              if (target?.closest(DOCX_REVIEW_INTERACTIVE_SELECTOR)) {
-                event.preventDefault();
-                return;
-              }
-
-              if (!fullscreenModal) {
-                event.preventDefault();
-              }
-            }}
-            onFocusOutside={(event) => {
-              const target = event.target as HTMLElement | null;
-              if (target?.closest(DOCX_REVIEW_INTERACTIVE_SELECTOR)) {
-                event.preventDefault();
-                return;
-              }
-
-              if (!fullscreenModal) {
+              const target = (event as CustomEvent).detail?.originalEvent
+                ?.target as HTMLElement | null;
+              if (
+                target?.closest(
+                  '[data-docx-review-window="true"], [data-docx-review-trigger="true"]',
+                )
+              ) {
                 event.preventDefault();
               }
             }}
+            data-docx-fullscreen-window="true"
+            {...props}
           >
             <DialogTitle className="sr-only">Document editor</DialogTitle>
+            <DialogDescription className="sr-only">
+              Edit your document.
+            </DialogDescription>
             <DocxEditorPanel
               mode="full"
               showFullscreenToggle
@@ -392,7 +385,7 @@ export const DocxEditorPanel = forwardRef<DocxEditorRef, DocxEditorPanelProps>(
       }
 
       try {
-        await onSave(buffer);
+        await onSave?.(buffer);
         setIsDirty(false);
       } catch (saveError) {
         setError(
@@ -431,17 +424,19 @@ export const DocxEditorPanel = forwardRef<DocxEditorRef, DocxEditorPanelProps>(
         <CardHeader>
           {children}
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                void handleSave();
-              }}
-              disabled={!canEdit || isSaving || !source}
-            >
-              <SaveIcon className="h-4 w-4" />
-              {isSaving ? "Saving..." : "Save changes"}
-            </Button>
+            {canEdit && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  void handleSave();
+                }}
+                disabled={!canEdit || isSaving || !source}
+              >
+                <SaveIcon className="h-4 w-4" />
+                {isSaving ? "Saving..." : "Save changes"}
+              </Button>
+            )}
 
             {showFullscreenToggle ? (
               <Button
@@ -452,6 +447,7 @@ export const DocxEditorPanel = forwardRef<DocxEditorRef, DocxEditorPanelProps>(
                 onClick={() => {
                   toggleFullscreen();
                 }}
+                title={isFullscreen ? "Exit fullscreen" : "Open fullscreen"}
               >
                 {isFullscreen ? (
                   <MinimizeIcon className="h-4 w-4" />
@@ -459,7 +455,7 @@ export const DocxEditorPanel = forwardRef<DocxEditorRef, DocxEditorPanelProps>(
                   <ExpandIcon className="h-4 w-4" />
                 )}
                 <span className="sr-only">
-                  {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                  {isFullscreen ? "Exit fullscreen" : "Open fullscreen"}
                 </span>
               </Button>
             ) : null}

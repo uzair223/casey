@@ -98,14 +98,14 @@ export const StatementPhaseConfigSchema = z
       .array(z.string())
       .nullable()
       .describe(
-        "Optional list of topics that are relevant within this phase. Should define the boundaries of acceptable discussion within the evidential domain.",
+        "List of topics that are relevant within this phase. Should define the boundaries of acceptable discussion within the evidential domain.",
       ),
 
     forbiddenTopics: z
       .array(z.string())
       .nullable()
       .describe(
-        "Optional list of topics that must not be covered in this phase. Used to prevent overlap with other phases or irrelevant diversion.",
+        "List of topics that must not be covered in this phase. Used to prevent overlap with other phases or irrelevant diversion.",
       ),
 
     completionCriteria: z
@@ -178,12 +178,22 @@ export const StatementMetadataFieldConfigSchema = z
   })
   .strict();
 export const StatementPromptTemplatesSchema = z
-  .object({
-    chat_system_template: z.string(),
-    metadata_system_template: z.string(),
-    formalize_system_template: z.string(),
-  })
-  .strict();
+  .preprocess((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return value;
+    }
+
+    const { metadata_system_template: _legacy, ...rest } = value as Record<
+      string,
+      unknown
+    >;
+    return rest;
+  }, z
+    .object({
+      chat_system_template: z.string().nullable(),
+      formalize_system_template: z.string().nullable(),
+    })
+    .strict());
 
 export const StatementConfigSchema = z
   .object({
