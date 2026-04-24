@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -26,7 +27,6 @@ import {
   ExternalLinkIcon,
   FileTextIcon,
   UploadIcon,
-  ZapIcon,
 } from "lucide-react";
 import Image from "next/image";
 import type { ImageLoaderProps } from "next/image";
@@ -53,6 +53,7 @@ function supabaseImageLoader({ src, width, quality }: ImageLoaderProps) {
 type DocumentViewerProps = {
   document: UploadedDocument;
   bucketId: string;
+  sourceUrl?: string;
   editable?: boolean;
   onReplace?: (file: File) => Promise<void>;
   triggerLabel?: string;
@@ -113,8 +114,9 @@ function inferPreviewKind(document: UploadedDocument) {
 }
 
 export function DocumentViewer({
-  document,
+  document: uploaded,
   bucketId,
+  sourceUrl,
   editable = false,
   onReplace,
   triggerLabel,
@@ -133,10 +135,19 @@ export function DocumentViewer({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const standaloneDocxEditorRef = useRef<DocxEditorRef>(null);
 
-  const previewKind = useMemo(() => inferPreviewKind(document), [document]);
+  const previewKind = useMemo(() => inferPreviewKind(uploaded), [uploaded]);
   const canReplace = editable && !!onReplace;
   const isDocxInteractionLocked =
     previewKind === "docx" && (isDocxFullscreen || isDocxReviewOpen);
+
+  useEffect(() => {
+    if (open && previewKind === "docx") {
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = "";
+      };
+    }
+  }, [open, previewKind]);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,9 +160,33 @@ export function DocumentViewer({
       setSignedUrl(null);
       setDocxSource(null);
 
+      if (sourceUrl) {
+        if (previewKind === "docx") {
+          const docxResponse = await fetch(sourceUrl);
+
+          if (cancelled) return;
+
+          if (!docxResponse.ok) {
+            setError("Failed to load DOCX preview");
+            setIsLoading(false);
+            return;
+          }
+
+          const blob = await docxResponse.blob();
+
+          if (cancelled) return;
+
+          setDocxSource(blob);
+        }
+
+        setSignedUrl(sourceUrl);
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error: signedUrlError } = await supabase.storage
         .from(bucketId)
-        .createSignedUrl(document.path, 60 * 10);
+        .createSignedUrl(uploaded.path, 60 * 10);
 
       if (cancelled) return;
 
@@ -188,7 +223,7 @@ export function DocumentViewer({
     return () => {
       cancelled = true;
     };
-  }, [bucketId, document.path, open, previewKind, supabase.storage]);
+  }, [bucketId, uploaded.path, open, previewKind, sourceUrl, supabase.storage]);
 
   const handleReplaceFile = async (file: File | null) => {
     if (!file || !onReplace) return;
@@ -215,7 +250,7 @@ export function DocumentViewer({
   };
 
   const handleDocxReviewComplete = (reviewedBuffer: ArrayBuffer) => {
-    setDocxSource(new Blob([reviewedBuffer], { type: document.type }));
+    setDocxSource(new Blob([reviewedBuffer], { type: uploaded.type }));
   };
 
   const handleDocxSave = async (buffer: ArrayBuffer) => {
@@ -223,9 +258,9 @@ export function DocumentViewer({
       throw new Error("Replace handler is not available.");
     }
 
-    const file = new File([buffer], document.name, {
+    const file = new File([buffer], uploaded.name, {
       type:
-        document.type ||
+        uploaded.type ||
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
 
@@ -255,7 +290,7 @@ export function DocumentViewer({
         <Image
           loader={supabaseImageLoader}
           src={signedUrl}
-          alt={document.name}
+          alt={uploaded.name}
           width={PREVIEW_IMAGE_MAX_WIDTH}
           height={900}
           quality={PREVIEW_IMAGE_DEFAULT_QUALITY}
@@ -268,7 +303,7 @@ export function DocumentViewer({
     if (previewKind === "pdf" || previewKind === "text") {
       return (
         <iframe
-          title={document.name}
+          title={uploaded.name}
           src={signedUrl}
           className="h-[65vh] w-full rounded-lg border bg-white"
         />
@@ -302,7 +337,7 @@ export function DocumentViewer({
               </a>
             </Button>
             <Button asChild variant="outline" size="sm">
-              <a href={signedUrl} download={document.name}>
+              <a href={signedUrl} download={uploaded.name}>
                 <DownloadIcon className="h-4 w-4" />
                 Download
               </a>
@@ -315,136 +350,143 @@ export function DocumentViewer({
 
   return (
     <DocumentViewerContext.Provider value={{ open, setOpen }}>
+      {open && canReplace && previewKind === "docx" ? (
+        <ReviewWithAI
+          className="z-150"
+          documentName={uploaded.name}
+          getBuffer={getCurrentStandaloneDocxBuffer}
+          onReviewComplete={handleDocxReviewComplete}
+          onOpenChange={setIsDocxReviewOpen}
+        >
+          <ReviewWithAITrigger className="fixed bottom-6 right-6 z-120 rounded-full" />
+        </ReviewWithAI>
+      ) : null}
+
       <DocxEditor
         source={docxSource}
-        documentName={document.name}
+        documentName={uploaded.name}
         canEdit={canReplace}
         isSaving={isReplacing}
         onSave={handleDocxSave}
         onFullscreenChange={setIsDocxFullscreen}
-        fullscreenModal={false}
         className="z-100"
       >
-        <ReviewWithAI
-          getBuffer={getCurrentStandaloneDocxBuffer}
-          documentName={document.name}
-          onReviewComplete={handleDocxReviewComplete}
-          onOpenChange={setIsDocxReviewOpen}
-          className="z-150"
+        <Dialog
+          open={open}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen && isDocxInteractionLocked) {
+              return;
+            }
+            setOpen(nextOpen);
+          }}
+          modal={previewKind !== "docx" || !isDocxFullscreen}
         >
-          <Dialog
-            open={open}
-            onOpenChange={(nextOpen) => {
-              if (!nextOpen && isDocxInteractionLocked) {
-                return;
+          {triggerLabel ? (
+            <DocumentViewerTrigger asChild>
+              <Button variant={triggerVariant} size="sm">
+                <FileTextIcon className="h-4 w-4" />
+                {triggerLabel}
+              </Button>
+            </DocumentViewerTrigger>
+          ) : null}
+
+          {children}
+
+          <DialogContent
+            className="max-w-4xl overflow-x-hidden"
+            aria-describedby="Document viewer"
+            onInteractOutside={(event) => {
+              const target = event.target as HTMLElement | null;
+              if (
+                target?.closest(
+                  '[data-docx-review-window="true"], [data-docx-review-trigger="true"]',
+                )
+              ) {
+                event.preventDefault();
               }
-              setOpen(nextOpen);
             }}
-            modal={previewKind !== "docx"}
+            onPointerDownOutside={(event) => {
+              const target = event.target as HTMLElement | null;
+              if (
+                target?.closest(
+                  '[data-docx-review-window="true"], [data-docx-review-trigger="true"]',
+                )
+              ) {
+                event.preventDefault();
+              }
+            }}
           >
-            {open && previewKind === "docx" ? (
-              <div className="fixed inset-0 z-50 bg-black/50 pointer-events-none" />
-            ) : null}
+            <DialogHeader className="space-y-2 pr-6 text-left">
+              <DialogTitle className="flex flex-wrap items-center gap-2 text-left">
+                {uploaded.name}
+                <Badge variant="outline" className="capitalize">
+                  {uploaded.type || previewKind}
+                </Badge>
+              </DialogTitle>
+              <DialogDescription>
+                View and manage your document.
+              </DialogDescription>
+            </DialogHeader>
 
-            {triggerLabel ? (
-              <DocumentViewerTrigger asChild>
-                <Button variant={triggerVariant} size="sm">
-                  <FileTextIcon className="h-4 w-4" />
-                  {triggerLabel}
-                </Button>
-              </DocumentViewerTrigger>
-            ) : null}
+            <div className="space-y-4 min-w-0 overflow-x-hidden">
+              {error ? (
+                <Card variant="destructive" size="sm">
+                  <CardHeader>
+                    <CardTitle className="text-sm">{error}</CardTitle>
+                  </CardHeader>
+                </Card>
+              ) : null}
 
-            {children}
+              {preview}
 
-            <DialogContent
-              className="max-w-4xl overflow-x-hidden"
-              aria-describedby="Document viewer"
-              onInteractOutside={(event) => {
-                const target = event.target as HTMLElement | null;
-                if (target?.closest("[data-docx-review-trigger='true']")) {
-                  event.preventDefault();
-                }
-              }}
-            >
-              <DialogHeader className="space-y-2 pr-6 text-left">
-                <DialogTitle className="flex flex-wrap items-center gap-2 text-left">
-                  {document.name}
-                  <Badge variant="outline" className="capitalize">
-                    {document.type || previewKind}
-                  </Badge>
-                </DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-4 min-w-0 overflow-x-hidden">
-                {error ? (
-                  <Card variant="destructive" size="sm">
-                    <CardHeader>
-                      <CardTitle className="text-sm">{error}</CardTitle>
-                    </CardHeader>
-                  </Card>
-                ) : null}
-
-                {preview}
-
-                {signedUrl && previewKind !== "unsupported" ? (
-                  <div className="flex flex-wrap gap-2">
-                    {canReplace ? (
-                      <>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          className="hidden"
-                          onChange={(event) => {
-                            void handleReplaceFile(
-                              event.target.files?.[0] ?? null,
-                            );
-                            event.currentTarget.value = "";
-                          }}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={isReplacing}
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          <UploadIcon className="h-4 w-4" />
-                          {isReplacing ? "Replacing..." : "Replace file"}
-                        </Button>
-                      </>
-                    ) : null}
-                    <Button asChild variant="outline" size="sm">
-                      <a
-                        href={signedUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
+              {signedUrl && previewKind !== "unsupported" ? (
+                <div className="flex flex-wrap gap-2">
+                  {canReplace ? (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={(event) => {
+                          void handleReplaceFile(
+                            event.target.files?.[0] ?? null,
+                          );
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isReplacing}
+                        onClick={() => fileInputRef.current?.click()}
                       >
-                        <ExternalLinkIcon className="h-4 w-4" />
-                        Open in new tab
-                      </a>
-                    </Button>
-                    <Button asChild variant="outline" size="sm">
-                      <a href={signedUrl} download={document.name}>
-                        <DownloadIcon className="h-4 w-4" />
-                        Download
-                      </a>
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            </DialogContent>
-
-            {open && canReplace && previewKind === "docx" ? (
-              <div
-                data-docx-review-trigger="true"
-                className="fixed bottom-6 right-6 z-120 pointer-events-auto"
-              >
-                <ReviewWithAITrigger className="rounded-full" />
-              </div>
-            ) : null}
-          </Dialog>
-        </ReviewWithAI>
+                        <UploadIcon className="h-4 w-4" />
+                        {isReplacing ? "Replacing..." : "Replace file"}
+                      </Button>
+                    </>
+                  ) : null}
+                  <Button asChild variant="outline" size="sm">
+                    <a
+                      href={signedUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      <ExternalLinkIcon className="h-4 w-4" />
+                      Open in new tab
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" size="sm">
+                    <a href={signedUrl} download={uploaded.name}>
+                      <DownloadIcon className="h-4 w-4" />
+                      Download
+                    </a>
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          </DialogContent>
+        </Dialog>
       </DocxEditor>
     </DocumentViewerContext.Provider>
   );

@@ -1,14 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 import { useWitnessStatement } from "@/components/intake/intake-context";
-import { Loader2 } from "lucide-react";
+import { BellIcon, Loader2 } from "lucide-react";
 import { PageTitle } from "../page-title";
 import { generateDoc } from "@/lib/doc-gen";
 import { useAsync } from "@/hooks/useAsync";
+import { Card, CardHeader } from "../ui/card";
 
 const DocxEditor = dynamic(
   async () => (await import("@eigenpal/docx-js-editor")).DocxEditor,
@@ -23,7 +25,10 @@ const DocxEditor = dynamic(
 );
 
 export function StatementView() {
+  const router = useRouter();
   const {
+    token,
+    isDemo,
     data,
     statementSections,
     templateDocument,
@@ -94,6 +99,22 @@ export function StatementView() {
     return () => clearTimeout(followUp);
   }, [statementSubmission.data]);
 
+  const [showDemoReviewedNotice, setShowDemoReviewedNotice] = useState(false);
+
+  useEffect(() => {
+    if (!isDemo || !statementSubmission.data || showDemoReviewedNotice) {
+      return;
+    }
+
+    const notifyTimeout = setTimeout(() => {
+      setShowDemoReviewedNotice(true);
+    }, 2000);
+
+    return () => {
+      clearTimeout(notifyTimeout);
+    };
+  }, [isDemo, showDemoReviewedNotice, statementSubmission.data]);
+
   if (statementFormalization.isLoading) {
     return (
       <div className="px-8 py-12">
@@ -157,37 +178,55 @@ export function StatementView() {
 
   return (
     <div className="px-8 space-y-4">
-      <div className="flex justify-between items-center gap-4">
-        <div>
-          <p className="text-sm uppercase tracking-[0.2em] text-accent-foreground">
-            Statement {statementSubmission.data ? "submitted" : "prepared"}
-          </p>
-          <h2 className="text-2xl font-semibold text-primary mt-2">
-            {statementSubmission.data
-              ? "Thank you for your statement"
-              : "Review your statement"}
-          </h2>
-          <p className="text-muted-foreground mt-2">
-            {statementSubmission.data
-              ? "Your statement has been saved. The legal team will review it shortly."
-              : "Please review your statement below and submit when ready."}
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 shrink-0">
-          {!statementSubmission.data && (
-            <Button
-              onClick={statementSubmission.handler}
-              disabled={
-                statementSubmission.data || statementSubmission.isLoading
-              }
-            >
-              {statementSubmission.isLoading
-                ? "Submitting..."
-                : "Submit Statement"}
-            </Button>
-          )}
-        </div>
-      </div>
+      {statementSubmission.data ? (
+        <PageTitle
+          subtitle="Statement submitted"
+          title="Thank you for your statement"
+          description="Your statement has been saved. The legal team will review it shortly."
+        />
+      ) : (
+        <PageTitle
+          subtitle="Statement prepared"
+          title="Review your statement"
+          description="Please review your statement below and submit when ready."
+          actions={
+            !statementSubmission.data
+              ? [
+                  {
+                    label: statementSubmission.isLoading
+                      ? "Submitting..."
+                      : "Submit Statement",
+                    action: () => void statementSubmission.handler(),
+                    disabled:
+                      statementSubmission.data || statementSubmission.isLoading,
+                  },
+                ]
+              : undefined
+          }
+        />
+      )}
+
+      {showDemoReviewedNotice ? (
+        <Card
+          size="md"
+          variant="secondary"
+          className="fixed right-4 top-4 z-50 w-[min(92vw,420px)] shadow-lg fade-in slide-in-from-right [--card-opacity:100%]"
+        >
+          <CardHeader className="flex-row items-start gap-2">
+            <BellIcon className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="text-sm space-y-2">
+              <p>Your statement has been reviewed by the legal team.</p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => router.push(`/intake/${token}/final-review`)}
+              >
+                Sign off on your statement
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+      ) : null}
       {doc ? (
         <div className="overflow-hidden rounded-md border bg-white">
           <DocxEditor

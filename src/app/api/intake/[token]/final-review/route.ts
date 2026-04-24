@@ -10,32 +10,6 @@ import type { UploadedDocument } from "@/types";
 import { getServiceClient } from "@/lib/supabase/server";
 import { signDoc } from "@/lib/doc-gen";
 
-function ensureUploadedDocument(value: unknown): UploadedDocument | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-
-  const doc = value as Partial<UploadedDocument>;
-  if (
-    typeof doc.name !== "string" ||
-    typeof doc.path !== "string" ||
-    typeof doc.type !== "string" ||
-    typeof doc.uploadedAt !== "string"
-  ) {
-    return null;
-  }
-
-  return {
-    bucketId: typeof doc.bucketId === "string" ? doc.bucketId : undefined,
-    name: doc.name,
-    description:
-      typeof doc.description === "string" ? doc.description : undefined,
-    path: doc.path,
-    type: doc.type,
-    uploadedAt: doc.uploadedAt,
-  };
-}
-
 async function downloadStorageDocument(params: {
   supabase: ReturnType<typeof getServiceClient>;
   bucketId: string;
@@ -116,7 +90,9 @@ export async function GET(
       sections: data.statement.sections,
       signedDocument: data.statement.signed_document,
       supportingDocuments: data.statement.supporting_documents,
-      canSign: data.statement.status === "finalized",
+      canSign:
+        data.statement.status === "finalized" ||
+        data.statement.status === "demo_published",
       alreadyCompleted: data.statement.status === "completed",
     });
   } catch (error) {
@@ -145,13 +121,13 @@ export async function POST(
     const accessError = await getIntakeAccessError(
       request,
       data.statement.status,
-      "interact",
+      "view",
     );
     if (accessError) {
       return accessError;
     }
 
-    if (data.statement.status === "completed") {
+    if (["completed", "demo_published"].includes(data.statement.status)) {
       return NextResponse.json({ ok: true });
     }
 
@@ -163,84 +139,68 @@ export async function POST(
     }
 
     const body = (await request.json()) as {
-      signatureDocument?: unknown;
+      signatureImageDataUrl?: unknown;
       signatureName?: string;
     };
 
-    const signatureDocument = ensureUploadedDocument(body.signatureDocument);
+    const signatureImageDataUrl =
+      typeof body.signatureImageDataUrl === "string"
+        ? body.signatureImageDataUrl.trim()
+        : "";
     const signatureName =
       typeof body.signatureName === "string" ? body.signatureName.trim() : "";
 
-    if (!signatureDocument || !signatureName) {
+    if (!signatureImageDataUrl || !signatureName) {
       return NextResponse.json(
-        { error: "signatureDocument and signatureName are required" },
+        { error: "signatureImageDataUrl and signatureName are required" },
         { status: 400 },
       );
     }
 
-    const signatureImage = await downloadStorageDocument({
-      supabase,
-      bucketId: signatureDocument.bucketId ?? data.tenant_id,
-      path: signatureDocument.path,
-    });
+    const signatureImage = Uint8Array.from(
+      Buffer.from(
+        signatureImageDataUrl.replace(/^data:image\/png;base64,/, ""),
+        "base64",
+      ),
+    );
 
     const existingSignedDocument = data.statement.signed_document;
-    if (!existingSignedDocument?.path) {
-      return NextResponse.json(
-        {
-          error:
-            "Reviewed statement document is missing. Please regenerate or upload the statement before final signature.",
-        },
-        { status: 409 },
-      );
+    let signedDocument = existingSignedDocument;
+
+    if (existingSignedDocument?.path) {
+      const templateDocument = await downloadStorageDocument({
+        supabase,
+        bucketId: existingSignedDocument.bucketId ?? data.tenant_id,
+        path: existingSignedDocument.path,
+      });
+
+      const signedBlob = await signDoc({
+        file: templateDocument,
+        signatureImage,
+        signatureDate: new Date().toLocaleDateString("en-GB"),
+      });
+
+      const finalDocName =
+        existingSignedDocument.name ||
+        `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;
+      const finalDocPath =
+        existingSignedDocument.path ||
+        `cases/${data.case.id}/${data.statement.id}/submitted/${new Date().toISOString()} ${finalDocName}`;
+
+      signedDocument = await uploadStorageDocument({
+        supabase,
+        bucketId: existingSignedDocument.bucketId ?? data.tenant_id,
+        path: finalDocPath,
+        file: signedBlob,
+        name: finalDocName,
+        description: `Final signed witness statement by ${signatureName}`,
+        contentType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
     }
-
-    const templateDocument = await downloadStorageDocument({
-      supabase,
-      bucketId: existingSignedDocument.bucketId ?? data.tenant_id,
-      path: existingSignedDocument.path,
-    });
-
-    const signedBlob = await signDoc({
-      file: templateDocument,
-      signatureImage,
-    });
-
-    const finalDocName =
-      existingSignedDocument?.name ||
-      `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;
-    const finalDocPath =
-      existingSignedDocument?.path ||
-      `cases/${data.case.id}/${data.statement.id}/submitted/${new Date().toISOString()} ${finalDocName}`;
-
-    const signedDocument = await uploadStorageDocument({
-      supabase,
-      bucketId: existingSignedDocument?.bucketId ?? data.tenant_id,
-      path: finalDocPath,
-      file: signedBlob,
-      name: finalDocName,
-      description: `Final signed witness statement by ${signatureName}`,
-      contentType:
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    });
-
-    const existingSupporting = Array.isArray(
-      data.statement.supporting_documents,
-    )
-      ? (data.statement.supporting_documents as UploadedDocument[])
-      : [];
-
-    const nextSupporting = [
-      ...existingSupporting,
-      {
-        ...signatureDocument,
-        description: `Final witness signature by ${signatureName}`,
-      },
-    ];
 
     await SERVERONLY_updateStatementByToken(token, {
       signed_document: signedDocument,
-      supporting_documents: nextSupporting,
       witness_metadata: {
         final_signature_name: signatureName,
       },

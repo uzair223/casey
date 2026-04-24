@@ -5,8 +5,27 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageCard } from "../ui/message";
 import { ProgressIndicator } from "./progress-indicator";
+import {
+  FileInput,
+  FileInputList,
+  FileInputTrigger,
+} from "@/components/ui/file-input";
+import { AttachmentPreviewCard } from "@/components/ui/attachment-preview-card";
+import { getMessageResponseMeta } from "@/lib/statement-utils";
 import { useWitnessStatement } from "@/components/intake/intake-context";
 import { CheckIcon, PaperclipIcon, SkipForwardIcon } from "lucide-react";
+import type { EvidenceDocument } from "@/lib/intake-evidence";
+
+function getAttachedFiles(message: { meta?: Record<string, unknown> | null }) {
+  if (!message.meta || typeof message.meta !== "object") {
+    return [];
+  }
+
+  const attachedFiles = (message.meta as Record<string, unknown>).attachedFiles;
+  return Array.isArray(attachedFiles)
+    ? (attachedFiles as EvidenceDocument[])
+    : [];
+}
 
 export function ChatAreaContent() {
   const {
@@ -18,6 +37,7 @@ export function ChatAreaContent() {
     setEvidence,
     setTab,
     isDemo,
+    data,
     statementFormalization,
     unlockDemoTabs,
   } = useWitnessStatement();
@@ -39,74 +59,93 @@ export function ChatAreaContent() {
   return (
     <>
       <div className="space-y-2">
-        {messages.map((message, idx) => (
-          <React.Fragment key={idx}>
-            <div
-              className={`space-y-1 ${
-                message.role === "user"
-                  ? "animate-slide-in-user"
-                  : "animate-slide-in-assistant"
-              }`}
-            >
-              <MessageCard message={message}>
-                {message.role === "assistant" ? (
-                  <>
-                    {message.meta?.evidence?.requestedEvidence && (
-                      <Button
-                        className="bg-card/20"
-                        size="sm"
-                        variant="outline"
-                        asChild
-                      >
-                        <label className="cursor-pointer">
-                          <input
-                            type="file"
-                            multiple
-                            accept={
-                              message.meta?.evidence.requestedEvidence.type
-                            }
-                            onChange={(e) =>
-                              setEvidence(
-                                e.target.files,
-                                message.meta?.evidence.requestedEvidence?.name,
-                              )
-                            }
-                          />
-                          <PaperclipIcon />
-                        </label>
-                      </Button>
-                    )}
-                    {message.meta?.progress && (
-                      <ProgressIndicator progress={message.meta?.progress} />
-                    )}
-                  </>
-                ) : null}
-              </MessageCard>
-            </div>
-            {message.role === "assistant" &&
-              idx === messages.length - 1 &&
-              message.meta?.progress?.readyToPrepare &&
-              !hasIntakeStopped &&
-              !hasConvoEnded && (
-                <div className="flex justify-center pt-2">
-                  <Button
-                    className="pl-3"
-                    variant="outline"
-                    onClick={() => {
-                      if (isDemo) {
-                        unlockDemoTabs();
-                        void statementFormalization.handler();
-                      }
-                      setTab("statement");
-                    }}
-                  >
-                    <CheckIcon />
-                    Review
-                  </Button>
-                </div>
-              )}
-          </React.Fragment>
-        ))}
+        {messages.map((message, idx) => {
+          const responseMeta = getMessageResponseMeta(
+            message,
+            data.statement.statement_config,
+          );
+          const requestedEvidence = responseMeta?.evidence.requestedEvidence;
+          const attachedFiles =
+            message.role === "user" ? getAttachedFiles(message) : [];
+
+          return (
+            <React.Fragment key={idx}>
+              <div
+                className={`space-y-1 ${
+                  message.role === "user"
+                    ? "animate-slide-in-user"
+                    : "animate-slide-in-assistant"
+                }`}
+              >
+                <MessageCard message={message}>
+                  {message.role === "assistant" ? (
+                    <>
+                      {requestedEvidence && (
+                        <Button
+                          className="bg-card/20"
+                          size="sm"
+                          variant="outline"
+                          asChild
+                        >
+                          <label className="cursor-pointer">
+                            <input
+                              type="file"
+                              multiple
+                              accept={requestedEvidence.type}
+                              onChange={(e) => {
+                                void setEvidence(
+                                  e.target.files,
+                                  requestedEvidence.name,
+                                );
+                              }}
+                            />
+                            <PaperclipIcon />
+                          </label>
+                        </Button>
+                      )}
+                      {responseMeta?.progress && (
+                        <ProgressIndicator progress={responseMeta.progress} />
+                      )}
+                    </>
+                  ) : null}
+
+                  {attachedFiles.length > 0 ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      {attachedFiles.map((file) => (
+                        <AttachmentPreviewCard
+                          key={file.path}
+                          document={file}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </MessageCard>
+              </div>
+              {message.role === "assistant" &&
+                idx === messages.length - 1 &&
+                responseMeta?.progress.readyToPrepare &&
+                !hasIntakeStopped &&
+                !hasConvoEnded && (
+                  <div className="flex justify-center pt-2">
+                    <Button
+                      className="pl-3"
+                      variant="outline"
+                      onClick={() => {
+                        if (isDemo) {
+                          unlockDemoTabs();
+                          void statementFormalization.handler();
+                        }
+                        setTab("statement");
+                      }}
+                    >
+                      <CheckIcon />
+                      Review
+                    </Button>
+                  </div>
+                )}
+            </React.Fragment>
+          );
+        })}
         {sendMessage.isLoading && !hasPendingAssistantMessage && (
           <MessageCard
             message={{ role: "assistant", content: "", status: "pending" }}
@@ -127,6 +166,7 @@ export function ChatAreaContent() {
 
 export function ChatAreaFooter() {
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
 
   const {
     isDemo,
@@ -135,10 +175,24 @@ export function ChatAreaFooter() {
     hasConvoEnded,
     isDemoPlaybackActive,
     skipDemoPlayback,
+    data,
+    messages,
     sendMessage,
   } = useWitnessStatement();
 
   const isInputDisabled = isBusy || hasIntakeStopped || hasConvoEnded;
+
+  const latestRequestedEvidence = [...messages]
+    .reverse()
+    .map((message) =>
+      getMessageResponseMeta(message, data.statement.statement_config),
+    )
+    .find((metadata) => metadata?.evidence.requestedEvidence)
+    ?.evidence.requestedEvidence;
+
+  const attachmentAccept =
+    latestRequestedEvidence?.type ||
+    "application/pdf,image/*,video/*,audio/*,.doc,.docx,.txt";
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -169,32 +223,74 @@ export function ChatAreaFooter() {
           ref={formRef}
           onSubmit={(e) => {
             e.preventDefault();
-            void sendMessage.handler(input);
+            void sendMessage.handler(
+              input,
+              attachments,
+              latestRequestedEvidence?.name,
+            );
             setInput("");
+            setAttachments([]);
           }}
-          className="w-full flex gap-2"
+          className="w-full space-y-2"
         >
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter" || e.shiftKey) return;
-              e.preventDefault();
-              if (isInputDisabled || !input.trim()) return;
-              formRef.current?.requestSubmit();
-            }}
-            placeholder={
-              hasConvoEnded ? "Conversation ended" : "Type your response..."
-            }
+          {latestRequestedEvidence && (
+            <p className="text-xs text-muted-foreground">
+              Requested evidence: {latestRequestedEvidence.name} (
+              {latestRequestedEvidence.type})
+            </p>
+          )}
+          <FileInput
+            multiple
+            accept={attachmentAccept}
             disabled={isInputDisabled}
-            className="flex-1 min-h-0 resize-none overflow-hidden"
-            rows={1}
-            autoFocus
-          />
-          <Button type="submit" disabled={!input.trim() || isInputDisabled}>
-            Send
-          </Button>
+            value={attachments}
+            onChange={setAttachments}
+          >
+            <FileInputTrigger variant="outline">
+              {latestRequestedEvidence
+                ? "Attach requested evidence"
+                : "Attach files"}
+            </FileInputTrigger>
+            <div className="mt-2 space-y-1.5">
+              <FileInputList />
+            </div>
+          </FileInput>
+
+          <div className="w-full flex gap-2">
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || e.shiftKey) return;
+                e.preventDefault();
+                if (
+                  isInputDisabled ||
+                  (!input.trim() && attachments.length === 0)
+                ) {
+                  return;
+                }
+                formRef.current?.requestSubmit();
+              }}
+              placeholder={
+                hasConvoEnded
+                  ? "Conversation ended"
+                  : "Type your response, attach files, or both..."
+              }
+              disabled={isInputDisabled}
+              className="flex-1 min-h-0 resize-none overflow-hidden"
+              rows={1}
+              autoFocus
+            />
+            <Button
+              type="submit"
+              disabled={
+                (!input.trim() && attachments.length === 0) || isInputDisabled
+              }
+            >
+              Send
+            </Button>
+          </div>
         </form>
       )}
     </div>

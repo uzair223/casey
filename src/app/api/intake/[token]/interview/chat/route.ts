@@ -12,7 +12,7 @@ import {
 } from "@/lib/supabase/mutations";
 import {
   generateChatSystemPrompt,
-  generateMetadataSystemPrompt,
+  generateIntakeStatePrompt,
 } from "@/lib/statement-utils/prompts";
 
 import { randomUUID } from "crypto";
@@ -25,6 +25,11 @@ import { z } from "zod";
 import { logServerEvent } from "@/lib/observability/logger";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { getOpenRouterClientOptions } from "@/lib/utils";
+import {
+  buildIntakeChatFileParts,
+  type IntakeChatContentPart,
+} from "@/lib/intake-chat-file-parts";
+import type { EvidenceDocument } from "@/lib/intake-evidence";
 
 const client = new OpenAI(getOpenRouterClientOptions());
 
@@ -66,34 +71,6 @@ function previewText(value: string, maxLength = 800): string {
   return `${value.slice(0, maxLength)}...[truncated]`;
 }
 
-function normalizeEvidenceKey(item: { name: string; type: string }) {
-  return `${item.name.trim().toLowerCase()}::${item.type.trim().toLowerCase()}`;
-}
-
-function inferRequestedEvidenceFromRecordDiff(
-  previousRecord: Array<{ name: string; type: string }> | undefined,
-  currentRecord: Array<{ name: string; type: string }> | undefined,
-) {
-  const prev = previousRecord ?? [];
-  const curr = currentRecord ?? [];
-
-  if (curr.length === 0) {
-    return null;
-  }
-
-  const previousKeys = new Set(prev.map((item) => normalizeEvidenceKey(item)));
-  const newlyAdded = curr.filter(
-    (item) => !previousKeys.has(normalizeEvidenceKey(item)),
-  );
-
-  if (newlyAdded.length === 0) {
-    return null;
-  }
-
-  // If several new items appear in one turn, prefer the latest one.
-  return newlyAdded[newlyAdded.length - 1];
-}
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -117,18 +94,86 @@ export async function POST(
 
   try {
     const { token } = await params;
-    const body = await request.json();
-    const { userMessage, conversationHistory } = body as {
-      userMessage?: string;
-      conversationHistory?: IntakeChatMessage[];
-    };
+    const contentType = request.headers.get("content-type") || "";
 
-    if (!userMessage || typeof userMessage !== "string") {
-      await logServerEvent("warn", "api.intake.chat.bad_request", {
-        requestId,
-        reason: "missing_user_message",
+    let userMessage = "";
+    let conversationHistory: IntakeChatMessage[] = [];
+    const pendingUploads: File[] = [];
+    let persistedAttachments: EvidenceDocument[] = [];
+
+    if (
+      contentType.includes("application/x-www-form-urlencoded") ||
+      contentType.includes("multipart/form-data")
+    ) {
+      const formData = await request.formData();
+      const parsedUserMessage = formData.get("userMessage");
+      const parsedConversationHistory = formData.get("conversationHistory");
+      const parsedPersistedAttachments = formData.get("persistedAttachments");
+
+      userMessage =
+        typeof parsedUserMessage === "string" ? parsedUserMessage.trim() : "";
+
+      if (
+        typeof parsedConversationHistory !== "string" ||
+        !parsedConversationHistory
+      ) {
+        await logServerEvent("warn", "api.intake.chat.bad_request", {
+          requestId,
+          reason: "invalid_conversation_history_formdata",
+        });
+        return NextResponse.json("conversationHistory must be provided.", {
+          status: 400,
+        });
+      }
+
+      try {
+        const parsed = JSON.parse(parsedConversationHistory) as unknown;
+        if (!Array.isArray(parsed)) {
+          throw new Error("conversationHistory must be an array.");
+        }
+        conversationHistory = parsed as IntakeChatMessage[];
+      } catch {
+        await logServerEvent("warn", "api.intake.chat.bad_request", {
+          requestId,
+          reason: "conversation_history_json_parse_failed",
+        });
+        return NextResponse.json("conversationHistory must be valid JSON.", {
+          status: 400,
+        });
+      }
+
+      if (typeof parsedPersistedAttachments === "string") {
+        try {
+          const parsed = JSON.parse(parsedPersistedAttachments) as unknown;
+          if (Array.isArray(parsed)) {
+            persistedAttachments = parsed as EvidenceDocument[];
+          }
+        } catch {
+          persistedAttachments = [];
+        }
+      }
+
+      const fileEntries = Array.from(formData.entries()).filter(([key]) =>
+        key.startsWith("file_"),
+      );
+
+      fileEntries.forEach(([, fileData]) => {
+        if (fileData instanceof File) {
+          pendingUploads.push(fileData);
+        }
       });
-      return NextResponse.json("userMessage is required.", { status: 400 });
+    } else {
+      const body = await request.json();
+      const parsedBody = body as {
+        userMessage?: string;
+        conversationHistory?: IntakeChatMessage[];
+      };
+
+      userMessage =
+        typeof parsedBody.userMessage === "string"
+          ? parsedBody.userMessage.trim()
+          : "";
+      conversationHistory = parsedBody.conversationHistory ?? [];
     }
 
     if (!Array.isArray(conversationHistory)) {
@@ -140,15 +185,6 @@ export async function POST(
         status: 400,
       });
     }
-
-    await logServerEvent("info", "api.intake.chat.request", {
-      requestId,
-      path: "/api/intake/[token]/interview/chat",
-      tokenSuffix: token.slice(-6),
-      userMessagePreview: previewText(userMessage),
-      userMessageLength: userMessage.length,
-      conversationHistoryLength: conversationHistory.length,
-    });
 
     const rate = enforceRateLimit({
       key: getRateLimitKey(request, `intake-chat:${token}`),
@@ -214,21 +250,62 @@ export async function POST(
       );
     }
 
+    if (!userMessage && pendingUploads.length === 0) {
+      await logServerEvent("warn", "api.intake.chat.bad_request", {
+        requestId,
+        reason: "missing_user_message_and_uploads",
+      });
+      return NextResponse.json(
+        "Please provide a message or attach at least one file.",
+        { status: 400 },
+      );
+    }
+
+    const userInput = await buildIntakeChatFileParts({
+      userMessage,
+      files: pendingUploads,
+    });
+    const attachedFiles = userInput.attachedFiles;
+    const userMessageForLogging =
+      typeof userInput.content === "string"
+        ? userInput.content
+        : userInput.content
+            .filter((part) => part.type === "text")
+            .map((part) => part.text)
+            .join("\n\n");
+
+    await logServerEvent("info", "api.intake.chat.request", {
+      requestId,
+      path: "/api/intake/[token]/interview/chat",
+      tokenSuffix: token.slice(-6),
+      userMessagePreview: previewText(userMessageForLogging),
+      userMessageLength: userMessageForLogging.length,
+      conversationHistoryLength: conversationHistory.length,
+      uploadedDocumentCount: attachedFiles.length,
+      uploadedDocumentModes: attachedFiles.map((file) => file.handledAs),
+    });
+
     const statementConfig = statement.statement_config;
 
     const lastMetadata = getLastMeta(conversationHistory, statementConfig);
     const modelMessages: Array<{
-      role: "user" | "assistant";
-      content: string;
+      role: "system" | "user" | "assistant";
+      content: string | IntakeChatContentPart[];
     }> = [
       ...conversationHistory.map((message) => ({
         role: message.role,
         content: message.content,
       })),
-      { role: "user", content: userMessage },
+      { role: "user", content: userInput.content },
     ];
     const contextCharLength = modelMessages.reduce(
-      (total, message) => total + message.content.length,
+      (total, message) =>
+        total +
+        (typeof message.content === "string"
+          ? message.content.length
+          : message.content
+              .filter((part) => part.type === "text")
+              .reduce((sum, part) => sum + part.text.length, 0)),
       0,
     );
 
@@ -262,65 +339,27 @@ export async function POST(
         ),
 
         messages: [
-          // 1. GLOBAL PRIORITY (very short, very strict)
-          {
-            role: "system",
-            content: `
-HIGHEST PRIORITY RULE:
-You are a stateful intake system producing BOTH chat + metadata.
-
-Metadata correctness and phase tracking are the source of truth.
-Chat output must not violate metadata state rules.
-`,
-          },
-
-          // 2. METADATA ENGINE (isolated logic block)
-          {
-            role: "system",
-            content: generateMetadataSystemPrompt(statementConfig),
-          },
-
-          // 3. CHAT BEHAVIOR (isolated logic block)
           {
             role: "system",
             content: generateChatSystemPrompt(statementConfig),
           },
-
-          // 4. HARD COUPLING CONTRACT (VERY IMPORTANT — KEEP SEPARATE)
           {
             role: "system",
-            content: `
-COUPLING CONTRACT (STRICT):
-
-- metadata.progress.currentPhase defines the ONLY active phase.
-- Chat must ask ONLY about metadata.progress.currentPhase.
-- Chat must NOT introduce or imply a new phase unless metadata already advanced it.
-- metadata.phaseCompleteness must reflect ONLY verified progression from:
-  (assistant questions + user factual responses + evidence checks)
-- evidence.requestedEvidence is turn-local and tied only to the latest assistant message:
-  set it when that message asks for/alludes to specific evidence;
-  otherwise set it to null.
-
-- If chat and metadata conflict:
-  → metadata is authoritative
-  → chat must be interpreted as invalid progression attempt
-
-- Phase advancement requires BOTH:
-  (1) assistant explicitly shifting domain
-  AND
-  (2) metadata validation consistency
-`,
+            content: generateIntakeStatePrompt(lastMetadata),
           },
-
-          // 5. STATE INPUT (unchanged state only)
-          {
-            role: "system",
-            content: `PREVIOUS METADATA:\n${JSON.stringify(lastMetadata)}`,
-          },
-
-          // 6. CONVERSATION
+          // @ts-expect-error OpenRouter accepts multimodal message content here.
           ...modelMessages,
         ],
+        plugins: userInput.requiresPdfPlugin
+          ? [
+              {
+                id: "file-parser",
+                pdf: {
+                  engine: "pdf-text",
+                },
+              },
+            ]
+          : undefined,
 
         stream: true,
       });
@@ -397,24 +436,6 @@ COUPLING CONTRACT (STRICT):
             const parsed = responseSchema.parse(JSON.parse(rawResponse));
             metadata = parsed.metadata;
 
-            if (!metadata.evidence.requestedEvidence) {
-              const inferredRequestedEvidence =
-                inferRequestedEvidenceFromRecordDiff(
-                  lastMetadata.evidence.record,
-                  metadata.evidence.record,
-                );
-
-              if (inferredRequestedEvidence) {
-                metadata = {
-                  ...metadata,
-                  evidence: {
-                    ...metadata.evidence,
-                    requestedEvidence: inferredRequestedEvidence,
-                  },
-                };
-              }
-            }
-
             // Ensure persisted content exactly matches parsed schema content.
             if (parsed.content.startsWith(streamedContent)) {
               const remainder = parsed.content.slice(streamedContent.length);
@@ -467,10 +488,23 @@ COUPLING CONTRACT (STRICT):
           }
 
           try {
+            const persistedUserMessage =
+              userMessage ||
+              (attachedFiles.length > 0 ? "Uploaded supporting files." : "");
+
             await SERVERONLY_saveConversationMessage(
               statement.id,
               "user",
-              userMessage,
+              persistedUserMessage,
+              {
+                attachedFiles:
+                  persistedAttachments.length > 0
+                    ? persistedAttachments
+                    : attachedFiles.length > 0
+                      ? attachedFiles
+                      : undefined,
+                submittedAt: new Date().toISOString(),
+              },
             );
             await SERVERONLY_saveConversationMessage(
               statement.id,

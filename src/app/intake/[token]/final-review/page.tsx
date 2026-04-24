@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import confetti from "canvas-confetti";
 
 import { useAsync } from "@/hooks/useAsync";
 import { apiFetch } from "@/lib/api-utils";
-import { uploadFile } from "@/lib/supabase/mutations";
+import { signDoc } from "@/lib/doc-gen";
 import { SignaturePad } from "@/components/intake/signature-pad";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { UploadedDocument } from "@/types";
+import { DocxEditor, DocxEditorPanel } from "@/components/ui/docx-editor";
+import { PageTitle } from "@/components/page-title";
+import { AttachmentPreviewCard } from "@/components/ui/attachment-preview-card";
 
 type FinalReviewData = {
   tenantId: string;
@@ -38,9 +42,10 @@ export default function FinalReviewPage({
   params: React.Usable<{ token: string }>;
 }) {
   const { token } = React.use(params);
-  const [typedName, setTypedName] = useState<string | null>(null);
-  const [signatureDocument, setSignatureDocument] =
-    useState<UploadedDocument | null>(null);
+  const [signatureImageDataUrl, setSignatureImageDataUrl] = useState<
+    string | null
+  >(null);
+  const [documentBlob, setDocumentBlob] = useState<Blob | null>(null);
 
   const finalReview = useAsync<FinalReviewData>(
     async () =>
@@ -57,23 +62,25 @@ export default function FinalReviewPage({
 
   const submitFinalReview = useAsync(
     async () => {
-      if (!finalReview.data || !signatureDocument || !typedName) {
+      if (!finalReview.data || !signatureImageDataUrl) {
         return false;
+      }
+      if (finalReview.data.status === "demo_published") {
+        return true;
       }
 
       await apiFetch(`/api/intake/${token}/final-review`, {
         method: "POST",
         requireAuth: false,
         body: JSON.stringify({
-          signatureDocument,
-          signatureName: typedName,
+          signatureImageDataUrl,
+          signatureName: finalReview.data.witnessName,
         }),
       });
-
       await finalReview.handler();
       return true;
     },
-    [token, signatureDocument, typedName, finalReview.data],
+    [token, signatureImageDataUrl, finalReview.data],
     {
       withUseEffect: false,
       onlyFirstLoad: false,
@@ -81,10 +88,82 @@ export default function FinalReviewPage({
     },
   );
 
-  const onCaptureSignature = async (
-    canvas: HTMLCanvasElement,
-    signatureName: string,
-  ) => {
+  // Load document blob whenever signed document changes
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDocumentBlob() {
+      if (!finalReview.data?.signedDocument) {
+        setDocumentBlob(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/intake/${token}/shared/final-review-file?kind=signed`,
+        );
+
+        if (cancelled) return;
+
+        if (!response.ok) {
+          console.error("Failed to load document", response.status);
+          setDocumentBlob(null);
+          return;
+        }
+
+        const data = await response.blob();
+
+        setDocumentBlob(data);
+      } catch (err) {
+        console.error("Error loading document", err);
+        setDocumentBlob(null);
+      }
+    }
+
+    loadDocumentBlob();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, finalReview.data?.signedDocument, finalReview.data?.tenantId]);
+
+  // Confetti effect when submission is complete
+  useEffect(() => {
+    if (!submitFinalReview.data) return;
+
+    const defaults = {
+      spread: 65,
+      startVelocity: 45,
+      gravity: 0.9,
+      ticks: 220,
+      scalar: 0.95,
+      zIndex: 2000,
+      colors: ["#22c55e", "#0ea5e9", "#f59e0b", "#ef4444", "#8b5cf6"],
+    };
+
+    confetti({
+      ...defaults,
+      particleCount: 120,
+      origin: { x: 0.5, y: 0.2 },
+    });
+
+    const followUp = setTimeout(() => {
+      confetti({
+        ...defaults,
+        particleCount: 70,
+        origin: { x: 0.25, y: 0.25 },
+      });
+      confetti({
+        ...defaults,
+        particleCount: 70,
+        origin: { x: 0.75, y: 0.25 },
+      });
+    }, 350);
+
+    return () => clearTimeout(followUp);
+  }, [submitFinalReview.data]);
+
+  const onCaptureSignature = async (canvas: HTMLCanvasElement) => {
     if (!finalReview.data) {
       return;
     }
@@ -97,20 +176,20 @@ export default function FinalReviewPage({
       throw new Error("Failed to capture signature");
     }
 
-    const fileName = `${finalReview.data.statementId}-final-signature.png`;
-    const filePath = `cases/${finalReview.data.caseId}/${finalReview.data.statementId}/submitted/final-review/${new Date().toISOString()}-${fileName}`;
+    setSignatureImageDataUrl(canvas.toDataURL("image/png"));
 
-    const uploaded = await uploadFile({
-      bucketId: finalReview.data.tenantId,
-      name: fileName,
-      path: filePath,
-      file: blob,
-      contentType: "image/png",
-      description: `Final witness signature by ${signatureName}`,
-    });
-
-    setTypedName(signatureName);
-    setSignatureDocument(uploaded);
+    if (documentBlob && finalReview.data.signedDocument) {
+      try {
+        const signedBlob = await signDoc({
+          file: documentBlob,
+          signatureImage: blob,
+          signatureDate: new Date().toLocaleDateString("en-GB"),
+        });
+        setDocumentBlob(signedBlob);
+      } catch (error) {
+        console.error("Failed to sign document", error);
+      }
+    }
   };
 
   if (finalReview.isLoading) {
@@ -151,32 +230,66 @@ export default function FinalReviewPage({
   }
 
   return (
-    <section className="container py-8 space-y-4">
-      <Card className="mx-auto max-w-4xl">
+    <div className="container py-8">
+      <Card className="mx-auto w-full max-w-4xl">
         <CardHeader>
-          <CardTitle>Final Statement Review</CardTitle>
-          <CardDescription>
-            {finalReview.data.witnessName}, please review the finalized
-            statement and supporting evidence for {finalReview.data.caseTitle}.
-          </CardDescription>
+          {finalReview.data.alreadyCompleted || submitFinalReview.data ? (
+            <PageTitle
+              subtitle="Submission complete"
+              title="Thank you for signing your statement"
+              description="Your signed submission has been received and will be reviewed by the legal team."
+            />
+          ) : (
+            <PageTitle
+              subtitle="Final signature required"
+              title="Review and sign your statement"
+              description={`${finalReview.data.witnessName}, please review the finalized statement and supporting evidence for ${finalReview.data.caseTitle}.`}
+              actions={[
+                {
+                  label: submitFinalReview.isLoading
+                    ? "Submitting..."
+                    : "Submit Final Signed Statement",
+                  action: () => void submitFinalReview.handler(),
+                  disabled:
+                    !finalReview.data?.canSign ||
+                    finalReview.data.alreadyCompleted ||
+                    !signatureImageDataUrl ||
+                    submitFinalReview.isLoading,
+                },
+                {
+                  label: "Open interview page",
+                  href: `/intake/${token}/interview`,
+                  variant: "outline",
+                },
+              ]}
+            />
+          )}
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="rounded-md border p-3 bg-muted/20">
-            <p className="text-sm font-medium">Finalized statement file</p>
-            <p className="text-sm text-muted-foreground">
-              {finalReview.data.signedDocument?.name ||
-                "No statement file attached"}
-            </p>
-          </div>
+          {finalReview.data.signedDocument ? (
+            <DocxEditor
+              source={documentBlob}
+              documentName={finalReview.data.signedDocument.name}
+              canEdit={false}
+            >
+              <DocxEditorPanel className="h-[65vh] max-h-[65vh]" />
+            </DocxEditor>
+          ) : (
+            <div className="rounded-md border p-3 bg-muted/20">
+              <p className="text-sm text-muted-foreground">
+                No statement file attached
+              </p>
+            </div>
+          )}
 
-          <div className="rounded-md border p-3 bg-muted/20">
+          <div className="space-y-2">
             <p className="text-sm font-medium">Supporting evidence</p>
             {finalReview.data.supportingDocuments.length ? (
-              <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                {finalReview.data.supportingDocuments.map((doc, index) => (
-                  <li key={`${doc.path}-${index}`}>{doc.name}</li>
+              <div className="flex flex-wrap items-center gap-2">
+                {finalReview.data.supportingDocuments.map((document, index) => (
+                  <AttachmentPreviewCard document={document} key={index} />
                 ))}
-              </ul>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">
                 No supporting evidence files attached.
@@ -184,23 +297,21 @@ export default function FinalReviewPage({
             )}
           </div>
 
-          {finalReview.data.alreadyCompleted ? (
-            <div className="rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-800">
-              Thank you. Your final signed submission has already been received.
-            </div>
-          ) : finalReview.data.canSign ? (
+          {finalReview.data.alreadyCompleted ||
+          submitFinalReview.data ? null : finalReview.data.canSign ? (
             <div className="space-y-3 rounded-md border p-3">
               <p className="text-sm font-medium">Witness signature</p>
               <SignaturePad
                 witnessName={finalReview.data.witnessName}
-                onSignatureCapture={(canvas, name) => {
-                  void onCaptureSignature(canvas, name);
+                onSignatureCapture={(canvas) => {
+                  void onCaptureSignature(canvas);
                 }}
                 isDisabled={submitFinalReview.isLoading}
               />
-              {signatureDocument ? (
+              {signatureImageDataUrl ? (
                 <p className="text-xs text-green-700">
-                  Signature captured for {typedName}. Ready to submit.
+                  Signature captured for {finalReview.data.witnessName}. Ready
+                  to submit.
                 </p>
               ) : null}
             </div>
@@ -210,25 +321,7 @@ export default function FinalReviewPage({
             </div>
           )}
         </CardContent>
-        <CardFooter className="gap-2">
-          <Button
-            onClick={() => void submitFinalReview.handler()}
-            disabled={
-              !finalReview.data.canSign ||
-              finalReview.data.alreadyCompleted ||
-              !signatureDocument ||
-              submitFinalReview.isLoading
-            }
-          >
-            {submitFinalReview.isLoading
-              ? "Submitting..."
-              : "Submit Final Signed Statement"}
-          </Button>
-          <Button asChild variant="outline">
-            <Link href={`/intake/${token}/interview`}>Open interview page</Link>
-          </Button>
-        </CardFooter>
       </Card>
-    </section>
+    </div>
   );
 }

@@ -11,7 +11,17 @@ import {
 } from "react";
 import { IntakeChatMessage, StatementDataResponse } from "@/types";
 import { generateDoc } from "@/lib/doc-gen";
-import { CHAT_METADATA_MARKER } from "@/lib/statement-utils";
+import {
+  getEvidenceDocuments,
+  groupEvidenceDocuments,
+  inferEvidenceGroupFromFiles,
+  normalizeEvidenceGroup,
+  TempUploadedDocument,
+} from "@/lib/intake-evidence";
+import {
+  CHAT_METADATA_MARKER,
+  getMessageResponseMeta,
+} from "@/lib/statement-utils";
 import { uploadFile } from "@/lib/supabase/mutations";
 import { useAsync, UseAsyncReturn } from "@/hooks/useAsync";
 import Loading from "@/components/loading";
@@ -28,27 +38,6 @@ type IntakeContextData = Omit<
 
 export type IntakeTabs = "chat" | "evidence" | "statement";
 
-type Exhibit = {
-  exhibit: string;
-  description: string; // same as category
-  files: File[];
-};
-
-function createExhibits(data: Record<string, File[]>, name: string): Exhibit[] {
-  let counter = 1;
-
-  const initials = name
-    .split(" ")
-    .map((part) => part[0])
-    .join("");
-
-  return Object.entries(data).map(([category, files]) => ({
-    exhibit: `${initials}${counter++}`,
-    description: category,
-    files,
-  }));
-}
-
 export type IntakeContextValue = {
   token: string;
   tab: IntakeTabs;
@@ -57,17 +46,18 @@ export type IntakeContextValue = {
   data: IntakeContextData;
   messages: IntakeChatMessage[];
   suggestedEvidence: { name: string; type: string }[] | null;
-  evidenceFiles: Record<string, File[]>;
+  evidenceFiles: Record<string, TempUploadedDocument[]>;
   statementSections: Record<string, string>;
   templateDocument: Blob | null;
   hasAcknowledgedPrivacyNotice: boolean;
 
   acknowledgePrivacyNotice: UseAsyncReturn<boolean, boolean, boolean>;
-  sendMessage: UseAsyncReturn<void, null, void, [string]>;
+  sendMessage: UseAsyncReturn<void, null, void, [string, File[], string?]>;
   statementFormalization: UseAsyncReturn<boolean>;
   statementSubmission: UseAsyncReturn<boolean>;
 
-  setEvidence: (files: Iterable<File> | null, group?: string) => void;
+  setEvidence: (files: Iterable<File> | null, group?: string) => Promise<void>;
+  removeEvidence: (path: string) => Promise<void>;
   setStatementSection: (key: string, value: string) => void;
 
   isBusy: boolean;
@@ -166,6 +156,7 @@ export function IntakeProvider({
   const isDemo = useMemo(() => {
     return data?.statement.status === "demo_published";
   }, [data?.statement.status]);
+  const statementConfig = data?.statement.statement_config ?? null;
 
   const { data: templateDocument } = useAsync(async () => {
     const templateDocumentSnapshot = data?.statement.template_document_snapshot;
@@ -293,54 +284,195 @@ export function IntakeProvider({
     };
   }, []);
 
-  // Evidence file handlers
-
-  const [evidenceFiles, setEvidenceRecord] = useState<Record<string, File[]>>(
-    {},
-  );
-  const exhibits = useMemo(
-    () =>
-      createExhibits(evidenceFiles, data?.statement.witness_name || "Witness"),
-    [evidenceFiles, data?.statement.witness_name],
-  );
-
   const suggestedEvidence = useMemo(() => {
-    return (
-      reversed.find((msg) => msg.meta?.evidence.record.length)?.meta?.evidence
-        .record || []
-    );
-  }, [reversed]);
+    if (!statementConfig) {
+      return [];
+    }
 
-  const setEvidence = (
+    return (
+      reversed
+        .map((message) => getMessageResponseMeta(message, statementConfig))
+        .find((metadata) => (metadata?.evidence.record.length ?? 0) > 0)
+        ?.evidence.record || []
+    );
+  }, [reversed, statementConfig]);
+
+  const persistedEvidenceDocuments = useMemo(
+    () =>
+      getEvidenceDocuments(data?.statement.supporting_documents).sort(
+        (left, right) =>
+          new Date(right.uploadedAt).getTime() -
+          new Date(left.uploadedAt).getTime(),
+      ),
+    [data?.statement.supporting_documents],
+  );
+
+  const evidenceFiles = useMemo(() => {
+    const grouped = groupEvidenceDocuments(persistedEvidenceDocuments);
+    return Object.fromEntries(
+      grouped.map(({ group, documents }) => [group, documents]),
+    );
+  }, [persistedEvidenceDocuments]);
+
+  const appendEvidenceDocuments = (documents: TempUploadedDocument[]) => {
+    if (!documents.length) {
+      return;
+    }
+
+    setStatementData((prev) =>
+      prev
+        ? {
+            ...prev,
+            statement: {
+              ...prev.statement,
+              supporting_documents: [
+                ...(prev.statement.supporting_documents ?? []),
+                ...documents,
+              ],
+            },
+          }
+        : prev,
+    );
+  };
+
+  const removeEvidenceDocument = (path: string) => {
+    setStatementData((prev) =>
+      prev
+        ? {
+            ...prev,
+            statement: {
+              ...prev.statement,
+              supporting_documents: (
+                prev.statement.supporting_documents ?? []
+              ).filter((document) => document.path !== path),
+            },
+          }
+        : prev,
+    );
+  };
+
+  const uploadEvidenceFiles = async (
     files: Iterable<File> | null,
-    group: string = "default",
+    group?: string,
   ) => {
     const fileArray = files ? Array.from(files) : [];
-    setEvidenceRecord((prev) => ({
-      ...prev,
-      [group]: fileArray,
-    }));
+    if (!fileArray.length) {
+      return;
+    }
+
+    const normalizedGroup = normalizeEvidenceGroup(
+      group || inferEvidenceGroupFromFiles(fileArray),
+    );
+    const formData = new FormData();
+    formData.append("group", normalizedGroup);
+    fileArray.forEach((file, index) => {
+      formData.append(`file_${index}`, file);
+    });
+
+    const response = await apiFetch<{ documents: TempUploadedDocument[] }>(
+      `/api/intake/${token}/shared/evidence`,
+      {
+        method: "POST",
+        body: formData,
+        requireAuth: requiresDemoAuth,
+      },
+    );
+
+    appendEvidenceDocuments(response.documents);
+    return response.documents;
+  };
+
+  const inferChatEvidenceGroup = (
+    attachments: File[],
+    suggestedGroup?: string,
+  ) => {
+    if (suggestedGroup?.trim()) {
+      return suggestedGroup.trim();
+    }
+
+    if (!statementConfig) {
+      return inferEvidenceGroupFromFiles(attachments);
+    }
+
+    const latestEvidenceRecord = reversed
+      .map((message) => getMessageResponseMeta(message, statementConfig))
+      .find((metadata) => (metadata?.evidence.record.length ?? 0) > 0)
+      ?.evidence.record;
+
+    if (latestEvidenceRecord?.length === 1) {
+      return latestEvidenceRecord[0].name;
+    }
+
+    return inferEvidenceGroupFromFiles(attachments);
+  };
+
+  const removeEvidence = async (path: string) => {
+    await apiFetch(`/api/intake/${token}/shared/evidence`, {
+      method: "DELETE",
+      body: JSON.stringify({ path }),
+      requireAuth: requiresDemoAuth,
+    });
+
+    removeEvidenceDocument(path);
   };
 
   const sendMessage = useAsync(
-    async (input: string) => {
+    async (input: string, attachments: File[] = [], evidenceGroup?: string) => {
       if (!hasAcknowledgedPrivacyNotice) return;
-      if (!input.trim()) return;
+
+      const trimmedInput = input.trim();
+      const hasAttachments = attachments.length > 0;
+
+      if (!trimmedInput && !hasAttachments) return;
+
+      const uploadedDocuments =
+        (hasAttachments
+          ? await uploadEvidenceFiles(
+              attachments,
+              inferChatEvidenceGroup(attachments, evidenceGroup),
+            )
+          : []) ?? [];
+
+      const userDisplayContent =
+        trimmedInput || (hasAttachments ? "Uploaded supporting files." : "");
 
       const userMessage: IntakeChatMessage = {
         role: "user",
-        content: input,
+        content: userDisplayContent,
         id: `user-${Date.now()}`,
         status: "complete",
+        meta:
+          uploadedDocuments.length > 0
+            ? {
+                attachedFiles: uploadedDocuments,
+                submittedAt: new Date().toISOString(),
+              }
+            : undefined,
       };
       setMessages((prev) => [...prev, userMessage]);
 
+      const requestBody = hasAttachments
+        ? (() => {
+            const formData = new FormData();
+            formData.append("conversationHistory", JSON.stringify(messages));
+            formData.append("userMessage", trimmedInput);
+            formData.append(
+              "persistedAttachments",
+              JSON.stringify(uploadedDocuments),
+            );
+            attachments.forEach((file, index) => {
+              formData.append(`file_${index}`, file);
+            });
+            return formData;
+          })()
+        : JSON.stringify({
+            conversationHistory: messages,
+            userMessage: trimmedInput,
+          });
+
       const response = await apiFetch(`/api/intake/${token}/interview/chat`, {
         method: "POST",
-        body: JSON.stringify({
-          conversationHistory: messages,
-          userMessage: userMessage.content,
-        }),
+        body: requestBody,
         requireAuth: requiresDemoAuth,
         returnType: "response",
       });
@@ -459,7 +591,14 @@ export function IntakeProvider({
         );
       }
     },
-    [token, messages, hasAcknowledgedPrivacyNotice, requiresDemoAuth],
+    [
+      token,
+      messages,
+      hasAcknowledgedPrivacyNotice,
+      requiresDemoAuth,
+      reversed,
+      statementConfig,
+    ],
     {
       onlyFirstLoad: false,
       initialLoading: false,
@@ -512,8 +651,11 @@ export function IntakeProvider({
             } & typeof data)
           | null
       )?.witness_metadata ?? {}) as Record<string, string | null>;
-      const patchDetails = reversed.find((msg) => {
-        const nextWitnessDetails = msg.meta?.witnessDetails;
+      const messageWithPatchDetails = reversed.find((msg) => {
+        const nextWitnessDetails = getMessageResponseMeta(
+          msg,
+          data.statement.statement_config,
+        )?.witnessDetails;
         if (!nextWitnessDetails) {
           return false;
         }
@@ -522,7 +664,13 @@ export function IntakeProvider({
           const currentValue = currentWitnessMetadata[key] ?? null;
           return currentValue !== (value ?? null);
         });
-      })?.meta?.witnessDetails;
+      });
+      const patchDetails = messageWithPatchDetails
+        ? getMessageResponseMeta(
+            messageWithPatchDetails,
+            data.statement.statement_config,
+          )?.witnessDetails
+        : undefined;
 
       if (patchDetails && Object.keys(patchDetails).length > 0) {
         // yield "Updating witness details...";
@@ -562,13 +710,6 @@ export function IntakeProvider({
         `/api/intake/${token}/interview/formalize`,
         {
           method: "POST",
-          body: JSON.stringify({
-            responses,
-            evidence: exhibits.map((e) => ({
-              exhibit: e.exhibit,
-              description: e.description,
-            })),
-          }),
           signal: controller.signal,
           requireAuth: requiresDemoAuth,
         },
@@ -583,7 +724,7 @@ export function IntakeProvider({
 
       return true;
     },
-    [token, messages, exhibits, requiresDemoAuth],
+    [token, messages, requiresDemoAuth],
     {
       onlyFirstLoad: false,
       initialLoading: false,
@@ -597,7 +738,7 @@ export function IntakeProvider({
       if (!data || !templateDocument) return false;
 
       if (
-        !Object.values(evidenceFiles).some((files) => files.length > 0) &&
+        persistedEvidenceDocuments.length === 0 &&
         suggestedEvidence?.length &&
         !confirm(
           "You have not uploaded any evidence. Are you sure you want to submit without uploading?",
@@ -653,34 +794,17 @@ export function IntakeProvider({
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
 
-      const supportingDocuments = await Promise.all(
-        exhibits.flatMap((e) => {
-          return e.files.map((file, idx) => {
-            const path = `${basePath}/${e.exhibit}/${new Date().toLocaleDateString()} ${file.name}`;
-            return uploadFile({
-              bucketId: data.tenant_id,
-              name: `${e.exhibit}${e.files.length > 0 ? ` (${idx + 1})` : ""}`,
-              description: `${e.exhibit}. ${e.description}`,
-              path,
-              file,
-              contentType: file.type,
-            });
-          });
-        }),
-      );
-
       await apiFetch(`/api/intake/${token}/interview/submit`, {
         method: "POST",
         body: JSON.stringify({
           sections: statementSections,
           signedDocument,
-          supportingDocuments,
         }),
         requireAuth: requiresDemoAuth,
       });
       return true;
     },
-    [token, statementSections, evidenceFiles, requiresDemoAuth],
+    [token, statementSections, persistedEvidenceDocuments, requiresDemoAuth],
     {
       initialLoading: false,
       onlyFirstLoad: false,
@@ -713,21 +837,35 @@ export function IntakeProvider({
 
   // States
 
-  const isReadyToPrepare = useMemo(
-    () => !!reversed.find((msg) => msg.meta?.progress.readyToPrepare),
-    [reversed],
-  );
+  const isReadyToPrepare = useMemo(() => {
+    if (!statementConfig) {
+      return false;
+    }
+
+    return !!reversed.find(
+      (message) =>
+        getMessageResponseMeta(message, statementConfig)?.progress
+          .readyToPrepare,
+    );
+  }, [reversed, statementConfig]);
 
   const [intakeStopReason, hasIntakeStopped] = useMemo(() => {
+    if (!statementConfig) {
+      return ["This conversation has been flagged as out of scope.", false];
+    }
+
     const stopMessage = reversed.find(
       (message) =>
-        message.role === "assistant" && message.meta?.deviation?.stopIntake,
+        getMessageResponseMeta(message, statementConfig)?.deviation?.stopIntake,
     );
+    const stopMeta = stopMessage
+      ? getMessageResponseMeta(stopMessage, statementConfig)
+      : null;
     const stopReason =
-      stopMessage?.meta?.deviation?.deviationReason ||
+      stopMeta?.deviation?.deviationReason ||
       "This conversation has been flagged as out of scope.";
     return [stopReason, !!stopMessage];
-  }, [reversed]);
+  }, [reversed, statementConfig]);
 
   const hasConvoEnded = useMemo(() => {
     return !!statementSubmission.data;
@@ -865,7 +1003,10 @@ export function IntakeProvider({
     sendMessage,
     statementFormalization,
     statementSubmission,
-    setEvidence,
+    setEvidence: async (files, group) => {
+      await uploadEvidenceFiles(files, group);
+    },
+    removeEvidence,
     setStatementSection,
 
     // State

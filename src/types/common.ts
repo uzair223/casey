@@ -10,6 +10,8 @@ export type UploadedDocument = {
   path: string;
   type: string;
   uploadedAt: string;
+  temp?: boolean;
+  group?: string;
 };
 
 export type AccountDeletionRequestStatus =
@@ -38,9 +40,11 @@ export type Message = {
   content: string;
 };
 
+export type ConversationMessageMeta = ResponseMetadata | Record<string, unknown>;
+
 export type IntakeChatMessage = Message & {
   status?: "pending" | "complete" | "error";
-  meta?: ResponseMetadata;
+  meta?: ConversationMessageMeta | null;
 };
 
 export type ConversationMessage = Tables<"conversation_messages">;
@@ -48,22 +52,6 @@ export type MetadataProgress = ResponseMetadata["progress"];
 export type MetadataMissingDetails = ResponseMetadata["ignoredMissingDetails"];
 export type MetadataEvidence = ResponseMetadata["evidence"];
 export type MetadataDeviation = ResponseMetadata["deviation"];
-export type MetadataDelta = {
-  witnessDetails?: Partial<NonNullable<ResponseMetadata["witnessDetails"]>>;
-  progress?: {
-    currentPhase?: ResponseMetadata["progress"]["currentPhase"];
-    readyToPrepare?: ResponseMetadata["progress"]["readyToPrepare"];
-    phaseCompleteness?: Partial<
-      ResponseMetadata["progress"]["phaseCompleteness"]
-    >;
-  };
-  ignoredMissingDetails?: ResponseMetadata["ignoredMissingDetails"];
-  evidence?: {
-    record?: ResponseMetadata["evidence"]["record"];
-    requestedEvidence?: ResponseMetadata["evidence"]["requestedEvidence"];
-  };
-  deviation?: ResponseMetadata["deviation"];
-};
 //#endregion
 
 export type Invite = Tables<"invites">;

@@ -10,6 +10,41 @@ import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { sendStatementSubmittedNotificationEmail } from "@/lib/email";
 import { StatementSubmission } from "@/types";
 import { getServiceClient } from "@/lib/supabase/server";
+import { createEvidenceExhibits, getEvidenceDocuments } from "@/lib/intake-evidence";
+
+async function describeEvidenceExhibits(token: string) {
+  const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
+  if (!statement) {
+    throw new Error("Link not available");
+  }
+
+  const existing = getEvidenceDocuments(statement.supporting_documents);
+
+  if (existing.length === 0) {
+    return [];
+  }
+
+  const exhibits = createEvidenceExhibits(
+    existing,
+    statement.witness_name || "Witness",
+  );
+  const nextDocuments = [];
+
+  for (const exhibit of exhibits) {
+    for (const document of exhibit.documents) {
+      nextDocuments.push({
+        ...document,
+        description: `${exhibit.exhibit}. ${exhibit.description}`,
+      });
+    }
+  }
+
+  await SERVERONLY_updateStatementByToken(token, {
+    supporting_documents: nextDocuments,
+  });
+
+  return nextDocuments;
+}
 
 export async function POST(
   request: Request,
@@ -51,7 +86,15 @@ export async function POST(
       return accessError;
     }
 
-    const statementId = await SERVERONLY_submitStatement(token, body);
+    const supportingDocuments =
+      body.supportingDocuments && body.supportingDocuments.length > 0
+        ? body.supportingDocuments
+        : await describeEvidenceExhibits(token);
+
+    const statementId = await SERVERONLY_submitStatement(token, {
+      ...body,
+      supportingDocuments,
+    });
 
     try {
       const recipients =
@@ -68,24 +111,22 @@ export async function POST(
         .eq("tenant_id", recipients.tenantId)
         .maybeSingle();
 
-      const submissionsChannel = preferences?.submissions_channel ?? "email";
+      const submissionsChannel = preferences?.submissions_channel ?? "in_app";
 
-      if (submissionsChannel === "in_app" || submissionsChannel === "both") {
-        await SERVERONLY_createUserNotifications({
-          tenantId: recipients.tenantId,
-          recipientUserIds: recipients.recipientUserIds,
-          notificationType: "statement_submitted_for_review",
-          entityType: "statement",
-          entityId: recipients.statementId,
-          title: "Statement submitted for review",
-          body: `${recipients.witnessName || "A witness"} submitted a statement for review in ${recipients.statementTitle}.`,
-          linkPath: `/cases/${recipients.caseId}?statement=${recipients.statementId}`,
-          metadata: {
-            witnessName: recipients.witnessName,
-            caseTitle: recipients.statementTitle,
-          },
-        });
-      }
+      await SERVERONLY_createUserNotifications({
+        tenantId: recipients.tenantId,
+        recipientUserIds: recipients.recipientUserIds,
+        notificationType: "statement_submitted_for_review",
+        entityType: "statement",
+        entityId: recipients.statementId,
+        title: "Statement submitted for review",
+        body: `${recipients.witnessName || "A witness"} submitted a statement for review in ${recipients.statementTitle}.`,
+        linkPath: `/cases/${recipients.caseId}?statement=${recipients.statementId}`,
+        metadata: {
+          witnessName: recipients.witnessName,
+          caseTitle: recipients.statementTitle,
+        },
+      });
 
       if (submissionsChannel === "email" || submissionsChannel === "both") {
         await sendStatementSubmittedNotificationEmail({

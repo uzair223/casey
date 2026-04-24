@@ -1,5 +1,9 @@
 import OpenAI from "openai";
-import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
+import {
+  downloadUploadedDocument,
+  SERVERONLY_getConversationHistory,
+  SERVERONLY_getStatementWithConfigFromToken,
+} from "@/lib/supabase/queries";
 import { generateFormalizeSystemPrompt } from "@/lib/statement-utils/prompts";
 import { NextResponse } from "next/server";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
@@ -9,6 +13,11 @@ import { logServerEvent } from "@/lib/observability/logger";
 
 import { env } from "@/lib/env";
 import { getOpenRouterClientOptions } from "@/lib/utils";
+import {
+  createEvidenceExhibits,
+  getEvidenceDocuments,
+} from "@/lib/intake-evidence";
+import { buildIntakeChatFileParts } from "@/lib/intake-chat-file-parts";
 
 function previewText(value: string, maxLength = 800): string {
   if (value.length <= maxLength) {
@@ -54,163 +63,6 @@ function parseFormalizeContent(
       throw strictError;
     }
   }
-}
-
-function buildEvidenceList(
-  evidence: { exhibit: string; description: string }[],
-) {
-  if (!evidence.length) {
-    return "No confirmed evidence provided.";
-  }
-
-  return evidence
-    .map((item, index) => {
-      const exhibit = item.exhibit.trim();
-      const description = item.description.trim();
-      const label = exhibit ? `- ${exhibit}` : `- Evidence ${index + 1}`;
-
-      if (!description) {
-        return label;
-      }
-
-      return `${label}: ${description}`;
-    })
-    .join("\n");
-}
-
-function getEvidenceSectionIds(
-  sections: Array<{ id: string; title: string; description?: string | null }>,
-) {
-  const primaryKeywords = [
-    "evidence",
-    "supporting evidence",
-    "supporting",
-    "exhibit",
-    "exhibits",
-    "documents",
-    "document",
-    "attachments",
-    "attachment",
-    "records",
-    "record",
-    "proof",
-    "materials",
-  ];
-  const secondaryKeywords = [
-    "witness",
-    "corroboration",
-    "files",
-    "file",
-    "photos",
-    "images",
-    "receipts",
-    "invoices",
-    "reports",
-    "medical",
-    "support",
-  ];
-
-  return sections
-    .map((section) => {
-      const haystack =
-        `${section.id} ${section.title} ${section.description ?? ""}`.toLowerCase();
-      let score = 0;
-
-      for (const keyword of primaryKeywords) {
-        if (haystack.includes(keyword)) {
-          score += 3;
-        }
-      }
-
-      for (const keyword of secondaryKeywords) {
-        if (haystack.includes(keyword)) {
-          score += 1;
-        }
-      }
-
-      return {
-        id: section.id,
-        score,
-      };
-    })
-    .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map((entry) => entry.id);
-}
-
-function normalizeEvidence(
-  evidence: { exhibit: string; description: string }[],
-) {
-  return evidence
-    .map((item) => ({
-      exhibit: item.exhibit.trim(),
-      description: item.description.trim(),
-    }))
-    .filter((item) => item.exhibit || item.description);
-}
-
-function includesEvidenceItem(
-  text: string,
-  item: { exhibit: string; description: string },
-) {
-  const haystack = text.toLowerCase();
-
-  if (item.exhibit) {
-    return haystack.includes(item.exhibit.toLowerCase());
-  }
-
-  if (item.description) {
-    return haystack.includes(item.description.toLowerCase());
-  }
-
-  return true;
-}
-
-function mergeMissingEvidenceIntoOutput(
-  parsed: Record<string, string>,
-  sections: Array<{ id: string; title: string; description?: string | null }>,
-  evidence: { exhibit: string; description: string }[],
-) {
-  const normalizedEvidence = normalizeEvidence(evidence);
-  if (!normalizedEvidence.length) {
-    return parsed;
-  }
-
-  const evidenceSectionIds = getEvidenceSectionIds(sections);
-  if (!evidenceSectionIds.length) {
-    return parsed;
-  }
-
-  const combinedEvidenceText = evidenceSectionIds
-    .map((id) => parsed[id] ?? "")
-    .join("\n")
-    .toLowerCase();
-
-  const missing = normalizedEvidence.filter(
-    (item) => !includesEvidenceItem(combinedEvidenceText, item),
-  );
-
-  if (!missing.length) {
-    return parsed;
-  }
-
-  const missingLines = missing.map((item, index) => {
-    const exhibitLabel = item.exhibit || `Evidence ${index + 1}`;
-    if (!item.description) {
-      return `- ${exhibitLabel}`;
-    }
-    return `- ${exhibitLabel}: ${item.description}`;
-  });
-
-  const targetSectionId = evidenceSectionIds[0];
-  const existing = (parsed[targetSectionId] ?? "").trim();
-  const injectedBlock = `Confirmed exhibits:\n${missingLines.join("\n")}`;
-
-  parsed[targetSectionId] = existing
-    ? `${existing}\n\n${injectedBlock}`
-    : injectedBlock;
-
-  return parsed;
 }
 
 export async function POST(
@@ -270,13 +122,62 @@ export async function POST(
       sections: [],
       witness_metadata_fields: [],
       case_metadata_deps: [],
-      prompts: null,
+      prompts: {
+        chat_system_template: null,
+        formalize_system_template: null,
+      },
     };
 
-    const { responses, evidence } = (await request.json()) as {
-      responses: { role: "user" | "assistant"; content: string }[];
-      evidence: { exhibit: string; description: string }[];
-    };
+    const responses = await SERVERONLY_getConversationHistory(statement.id);
+
+    const evidence = getEvidenceDocuments(statement.supporting_documents);
+    const exhibits = createEvidenceExhibits(evidence, statement.witness_name);
+
+    const evidenceFiles = await Promise.all(
+      exhibits.flatMap((exhibit) =>
+        exhibit.documents.map(async (document, index) => {
+          const blob = await downloadUploadedDocument(document);
+
+          const originalName =
+            "name" in document && typeof document.name === "string"
+              ? document.name
+              : `document-${index + 1}`;
+
+          return new File(
+            [blob],
+            `Exhibit ${exhibit.exhibit}.${index + 1} - ${originalName}`,
+            {
+              type: blob.type || "application/pdf",
+            },
+          );
+        }),
+      ),
+    );
+
+    const evidenceList = exhibits.length
+      ? exhibits
+          .map(
+            (exhibit) => `Exhibit ${exhibit.exhibit}: ${exhibit.description}`,
+          )
+          .join("\n")
+      : undefined;
+
+    const evidenceInput = await buildIntakeChatFileParts({
+      userMessage: "EVIDENCE EXHIBITS",
+      files: evidenceFiles,
+    });
+
+    await logServerEvent("info", "api.intake.formalize.evidence_input", {
+      requestId,
+      attachedFiles: evidenceInput.attachedFiles,
+      contentPreview:
+        typeof evidenceInput.content === "string"
+          ? previewText(evidenceInput.content)
+          : evidenceInput.content
+              .filter((part) => part.type === "text")
+              .map((part) => previewText(part.text))
+              .join("\n\n"),
+    });
 
     await logServerEvent("info", "api.intake.formalize.request", {
       requestId,
@@ -286,21 +187,22 @@ export async function POST(
       evidenceCount: (evidence ?? []).length,
     });
 
-    const normalizedUserResponses = responses
-      .filter((response) => response.role === "user")
-      .map((response) => response.content.trim())
-      .filter(Boolean)
+    const normalizedResponses = responses
+      .map((response) => ({
+        role: response.role,
+        content: response.content.trim(),
+      }))
+      .filter((response) => !!response.content)
       .slice(-env.FORMALIZE_MAX_USER_TURNS)
-      .map((content, index) => {
-        const normalized = content.replace(/\s+/g, " ").trim();
+      .map((response, index) => {
+        const normalized = response.content.replace(/\s+/g, " ").trim();
         const bounded = normalized.slice(0, env.FORMALIZE_MAX_CHARS_PER_TURN);
-        return `${index + 1}. ${bounded}`;
+        return `${index + 1}. ${response.role.toLocaleUpperCase()}:\n${bounded}\n\n`;
       });
 
-    const transcriptText = normalizedUserResponses.length
-      ? normalizedUserResponses.join("\n")
-      : "No user transcript available.";
-    const evidenceList = buildEvidenceList(evidence ?? []);
+    const transcriptText = normalizedResponses.length
+      ? normalizedResponses.join("\n")
+      : "No transcript available.";
 
     // Build strict structured output schema from configured section ids.
     const sectionEntries = Object.fromEntries(
@@ -350,9 +252,24 @@ export async function POST(
               },
               {
                 role: "user",
-                content: `Witness responses (user-only transcript):\n${transcriptText}`,
+                // @ts-expect-error OpenRouter accepts multimodal message content here.
+                content: evidenceInput.content,
+              },
+              {
+                role: "user",
+                content: `TRANSCRIPT:\n\n${transcriptText}`,
               },
             ],
+            plugins: evidenceInput.requiresPdfPlugin
+              ? [
+                  {
+                    id: "file-parser",
+                    pdf: {
+                      engine: "pdf-text",
+                    },
+                  },
+                ]
+              : undefined,
             response_format: {
               type: "json_schema",
               json_schema: {
@@ -422,19 +339,13 @@ export async function POST(
       throw lastError ?? new Error("Failed to formalize statement");
     }
 
-    const parsedWithEvidence = mergeMissingEvidenceIntoOutput(
-      parsed,
-      statementConfig.sections,
-      evidence ?? [],
-    );
-
     await logServerEvent("info", "api.intake.formalize.response", {
       requestId,
-      sectionCount: Object.keys(parsedWithEvidence).length,
-      parsedWithEvidence,
+      sectionCount: Object.keys(parsed).length,
+      parsed,
     });
 
-    return NextResponse.json(parsedWithEvidence);
+    return NextResponse.json(parsed);
   } catch (error) {
     await logServerEvent("error", "api.intake.formalize.failed", {
       requestId,
