@@ -17,25 +17,14 @@ export const EMPTY_STATEMENT_CONFIG: StatementConfig = {
 
 export function normalizeConfig(value: unknown): StatementConfig {
   if (value && typeof value === "object" && !Array.isArray(value)) {
-    const parsed = value as Partial<StatementConfig> & {
-      prompts?: Partial<StatementConfig["prompts"]> & {
-        metadata_system_template?: unknown;
-      };
-    };
-    const sanitizedPrompts = parsed.prompts
-      ? (() => {
-          const nextPrompts = { ...parsed.prompts };
-          delete nextPrompts.metadata_system_template;
-          return nextPrompts;
-        })()
-      : undefined;
+    const parsed = value as Partial<StatementConfig>;
     return {
       ...EMPTY_STATEMENT_CONFIG,
       ...parsed,
-      prompts: sanitizedPrompts
+      prompts: parsed.prompts
         ? {
             ...EMPTY_STATEMENT_CONFIG.prompts,
-            ...sanitizedPrompts,
+            ...parsed.prompts,
           }
         : EMPTY_STATEMENT_CONFIG.prompts,
     };

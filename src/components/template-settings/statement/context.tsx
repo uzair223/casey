@@ -225,28 +225,7 @@ function withGeneratedConfigIds(config: StatementConfig) {
 }
 
 function normalizeConfig(input: unknown): StatementConfig {
-  const sanitizedInput =
-    input &&
-    typeof input === "object" &&
-    !Array.isArray(input) &&
-    "prompts" in input &&
-    input.prompts &&
-    typeof input.prompts === "object" &&
-    !Array.isArray(input.prompts)
-      ? (() => {
-          const prompts = {
-            ...(input.prompts as Record<string, unknown>),
-          };
-          delete prompts.metadata_system_template;
-
-          return {
-            ...(input as Record<string, unknown>),
-            prompts,
-          };
-        })()
-      : input;
-
-  const parsed = StatementConfigSchema.safeParse(sanitizedInput);
+  const parsed = StatementConfigSchema.safeParse(input);
   if (!parsed.success) {
     return createEmptyConfig();
   }

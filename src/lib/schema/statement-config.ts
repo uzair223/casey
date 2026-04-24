@@ -178,20 +178,11 @@ export const StatementMetadataFieldConfigSchema = z
   })
   .strict();
 export const StatementPromptTemplatesSchema = z
-  .preprocess((value) => {
-    if (!value || typeof value !== "object" || Array.isArray(value)) {
-      return value;
-    }
-
-    const next = { ...(value as Record<string, unknown>) };
-    delete next.metadata_system_template;
-    return next;
-  }, z
-    .object({
-      chat_system_template: z.string().nullable(),
-      formalize_system_template: z.string().nullable(),
-    })
-    .strict());
+  .object({
+    chat_system_template: z.string().nullable(),
+    formalize_system_template: z.string().nullable(),
+  })
+  .strict();
 
 export const StatementConfigSchema = z
   .object({
