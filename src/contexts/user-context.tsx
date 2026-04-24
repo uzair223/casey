@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  ReactNode,
+  useEffect,
+  useState,
+} from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUserProfile } from "@/lib/supabase/queries";
 import { apiFetch } from "@/lib/api-utils";
@@ -8,9 +14,11 @@ import { useRouter } from "next/navigation";
 import { useAsync } from "@/hooks/useAsync";
 
 import type { User, UserRole } from "@/types";
+import { AuthChangeEvent } from "@supabase/supabase-js";
 
 export type UserContextValue = {
   user?: User | null;
+  authEvent: AuthChangeEvent | null;
   isLoading: boolean;
   signOut: () => Promise<unknown>;
   refreshUser: () => Promise<unknown>;
@@ -21,6 +29,7 @@ const UserContext = createContext<UserContextValue | null>(null);
 export function UserProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const supabase = getSupabaseClient();
+  const [authEvent, setAuthEvent] = useState<AuthChangeEvent | null>(null);
 
   const {
     data: user,
@@ -54,6 +63,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      setAuthEvent(event);
       if (event === "SIGNED_OUT") {
         void handler();
       } else if (session?.user) {
@@ -79,7 +89,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   return (
     <UserContext.Provider
-      value={{ user, isLoading, signOut, refreshUser: handler }}
+      value={{ user, isLoading, authEvent, signOut, refreshUser: handler }}
     >
       {children}
     </UserContext.Provider>
@@ -95,7 +105,7 @@ export function useUser() {
 }
 
 export function useUserProtected(
-  role: UserRole | UserRole[],
+  role: UserRole | UserRole[] | null,
   options: { redirectTo: string } = { redirectTo: "/auth" },
 ) {
   const router = useRouter();
@@ -111,7 +121,7 @@ export function useUserProtected(
       }
 
       const requiredRoles = Array.isArray(role) ? role : [role];
-      if (!user || !requiredRoles.includes(user.role)) {
+      if (!user || (role && !requiredRoles.includes(user.role))) {
         router.replace(options.redirectTo);
         return;
       }

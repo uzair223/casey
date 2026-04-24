@@ -1,6 +1,6 @@
 import { env } from "../env";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { Database } from "../../types/supabase.generated";
+import { Database } from "@/types/supabase.generated";
 import { createSupabaseLoggedFetch } from "./logging-fetch";
 
 const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;

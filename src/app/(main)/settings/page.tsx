@@ -14,6 +14,7 @@ import {
   updateTenantSettings,
 } from "@/lib/supabase/mutations";
 import { AsyncButton } from "@/components/ui/async-button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -28,6 +29,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { NotificationPreferencesCard } from "@/components/settings/notification-preferences-card";
+import { getURL } from "@/lib/utils";
 
 export default function TenantSettingsPage() {
   const { user, refreshUser } = useUserProtected([
@@ -38,11 +40,25 @@ export default function TenantSettingsPage() {
   ]);
   const [isLoading, setIsLoading] = useState(true);
   const [displayName, setDisplayName] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [hasPassword, setHasPassword] = useState(false);
   const [name, setName] = useState("");
   const [dataRetentionDays, setDataRetentionDays] = useState("365");
   const [status, setStatus] = useState<string | null>(null);
   const [pendingDeletionRequest, setPendingDeletionRequest] =
     useState<boolean>(false);
+
+  const refreshHasPassword = useCallback(async () => {
+    const supabase = getSupabaseClient();
+    const { data: hasPassword, error: rpcError } =
+      await supabase.rpc("user_has_password");
+    if (rpcError) {
+      throw new Error(rpcError.message || "Failed to verify password status");
+    }
+    setHasPassword(!!hasPassword);
+  }, []);
 
   const loadSettings = useCallback(async () => {
     if (!user) return;
@@ -54,7 +70,9 @@ export default function TenantSettingsPage() {
       requests.some((request) => request.status === "pending"),
     );
 
-    if (user?.role === "tenant_admin" && user.tenant_id) {
+    await refreshHasPassword();
+
+    if (user.role === "tenant_admin" && user.tenant_id) {
       const tenant = await getTenantSettings(user.tenant_id);
       setName(tenant.name);
       setDataRetentionDays(String(tenant.data_retention_days));
@@ -73,22 +91,95 @@ export default function TenantSettingsPage() {
       .finally(() => setIsLoading(false));
   }, [user, loadSettings]);
 
-  if (isLoading) {
+  if (isLoading || !user) {
     return <Loading />;
   }
 
-  const canManageTenant = user?.role === "tenant_admin";
+  const canManageTenant = user.role === "tenant_admin";
   const canManageNotifications =
-    user?.role === "tenant_admin" || user?.role === "solicitor";
+    user.role === "tenant_admin" || user.role === "solicitor";
   const canDirectDelete =
-    user?.role === "tenant_admin" || user?.role === "app_admin";
+    user.role === "tenant_admin" || user.role === "app_admin";
 
   const handleSaveProfile = async () => {
     setStatus(null);
 
-    await updateCurrentUserProfile(user!.id, displayName);
+    await updateCurrentUserProfile(user.id, displayName);
     await refreshUser();
     setStatus("Profile updated");
+  };
+
+  const handleForgotPassword = async () => {
+    setStatus(null);
+
+    try {
+      const email = user?.email;
+      if (!email) {
+        throw new Error("Could not send reset email for this account");
+      }
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${getURL()}/auth/reset-password`,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to send reset email";
+      throw new Error(errorMessage);
+    }
+  };
+
+  const handleSavePassword = async () => {
+    setStatus(null);
+    const supabase = getSupabaseClient();
+    await refreshHasPassword();
+
+    if (hasPassword) {
+      if (!currentPassword.trim()) {
+        throw new Error("Current password is required");
+      }
+
+      const email = user?.email;
+      if (!email) {
+        throw new Error("Could not verify current password for this account");
+      }
+
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email,
+        password: currentPassword,
+      });
+
+      if (verifyError) {
+        throw new Error("Current password is incorrect");
+      }
+    }
+
+    if (newPassword.length < 8) {
+      throw new Error("Password must be at least 8 characters long");
+    }
+
+    if (newPassword !== confirmPassword) {
+      throw new Error("Passwords do not match");
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setHasPassword(true);
+    setStatus(
+      "Password updated. You can now use optional password sign-in from the auth page.",
+    );
   };
 
   const handleSaveTenant = async () => {
@@ -100,7 +191,7 @@ export default function TenantSettingsPage() {
       throw new Error("Data retention must be between 30 and 3650 days");
     }
 
-    await updateTenantSettings(user!.tenant_id!, {
+    await updateTenantSettings(user.tenant_id!, {
       name,
       dataRetentionDays: retention,
     });
@@ -117,7 +208,7 @@ export default function TenantSettingsPage() {
     );
     if (!ok) return;
 
-    await softDeleteTenant(user!.tenant_id!);
+    await softDeleteTenant(user.tenant_id!);
 
     const supabase = getSupabaseClient();
     await supabase.auth.signOut();
@@ -149,8 +240,8 @@ export default function TenantSettingsPage() {
   const handleRequestAccountDeletion = async () => {
     setStatus(null);
     await createOwnAccountDeletionRequest(
-      user!.id,
-      user!.tenant_id ?? null,
+      user.id,
+      user.tenant_id ?? null,
       null,
     );
     setPendingDeletionRequest(true);
@@ -251,10 +342,78 @@ export default function TenantSettingsPage() {
           </CardFooter>
         </Card>
 
+        <Card size="md" className="col-span-2">
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle>Authentication</CardTitle>
+              <Badge variant={hasPassword ? "accent" : "secondary"}>
+                {hasPassword ? "Password set" : "Password not set"}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            {hasPassword ? (
+              <div className="space-y-1 md:col-span-2">
+                <p className="text-sm font-medium">Current password</p>
+                <Input
+                  type="password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  placeholder="Enter your current password"
+                />
+                <AsyncButton
+                  type="button"
+                  variant="ghost"
+                  className="h-auto px-0 py-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
+                  onClick={handleForgotPassword}
+                  pendingText="Sending reset email..."
+                >
+                  Forgot password?
+                </AsyncButton>
+              </div>
+            ) : null}
+
+            <div className="space-y-1">
+              <p className="text-sm font-medium">New password</p>
+              <Input
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="At least 8 characters"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Confirm new password</p>
+              <Input
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="Re-enter new password"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground md:col-span-2">
+              Magic links are the recommended sign-in method. Password login is
+              optional.
+            </p>
+          </CardContent>
+          <CardFooter>
+            <AsyncButton
+              onClick={handleSavePassword}
+              pendingText="Updating password..."
+            >
+              {hasPassword ? "Update password" : "Set password"}
+            </AsyncButton>
+          </CardFooter>
+        </Card>
+
         {canManageNotifications && (
           <NotificationPreferencesCard
-            tenantId={user!.tenant_id!}
-            userId={user!.id}
+            tenantId={user.tenant_id!}
+            userId={user.id}
             onStatusChange={setStatus}
           />
         )}

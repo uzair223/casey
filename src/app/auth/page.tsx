@@ -17,13 +17,15 @@ import {
 } from "@/components/ui/card";
 import type { InviteWithTenantName } from "@/types";
 import { apiFetch } from "@/lib/api-utils";
-import { getRoleLabel } from "@/lib/utils";
+import { getRoleLabel, getURL } from "@/lib/utils";
 import { WaitlistSignupForm } from "@/components/waitlist/waitlist-form";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import {
   BadgeCheck,
   Building2,
+  ChevronDown,
+  ChevronUp,
   ChevronLeft,
   MailCheck,
   ShieldCheck,
@@ -45,6 +47,7 @@ function AuthPageContent() {
     softDeleted: boolean;
     name?: string;
     softDeletedAt?: string | null;
+    softDeletedByRole?: string | null;
     purgeAfter?: string | null;
     canRestore?: boolean;
   } | null>(null);
@@ -75,7 +78,11 @@ function AuthPageContent() {
     setStatus({ type: "success", message });
   };
 
-  const authForm = useForm<{ email: string }>({ defaultValues: { email: "" } });
+  const [isPasswordDropdownOpen, setIsPasswordDropdownOpen] = useState(false);
+
+  const authForm = useForm<{ email: string; password: string }>({
+    defaultValues: { email: "", password: "" },
+  });
   const lookupInviteForm = useForm<{ inviteCode: string }>({
     defaultValues: { inviteCode: "" },
   });
@@ -95,6 +102,7 @@ function AuthPageContent() {
       softDeleted: boolean;
       name?: string;
       softDeletedAt?: string | null;
+      softDeletedByRole?: string | null;
       purgeAfter?: string | null;
       canRestore?: boolean;
     }>("/api/tenant/lifecycle", { method: "GET" })
@@ -140,14 +148,23 @@ function AuthPageContent() {
     }
   }, [searchParams, lookupInviteForm]);
 
-  if (isUserLoading) {
+  const willRedirect =
+    !isUserLoading &&
+    !isCheckingLifecycle &&
+    user &&
+    user.role !== "user" &&
+    !tenantLifecycle?.softDeleted &&
+    (user.tenant_id || user.role === "app_admin");
+
+  if (
+    isUserLoading ||
+    (user?.tenant_id && isCheckingLifecycle) ||
+    willRedirect
+  ) {
     return <Loading />;
   }
 
-  const handleMagicLink: SubmitHandler<{ email: string }> = async ({
-    email,
-  }) => {
-    setStatus(null);
+  const sendMagicLink = async (email: string) => {
     try {
       const response = await fetch("/api/auth/magic-link", {
         method: "POST",
@@ -166,9 +183,76 @@ function AuthPageContent() {
       setSuccessStatus(
         "Check your email for the magic link. It may take a minute to arrive. Be sure to check your spam folder!",
       );
-    } catch (err) {
+    } catch (error) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to send magic link";
+        error instanceof Error ? error.message : "Failed to send magic link";
+      setErrorStatus(errorMessage);
+      throw new Error(errorMessage);
+    }
+  };
+
+  const handleMagicLink: SubmitHandler<{
+    email: string;
+    password: string;
+  }> = async ({ email, password }) => {
+    setStatus(null);
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    try {
+      if (isPasswordDropdownOpen) {
+        if (!password.trim()) {
+          throw new Error("Password is required to login");
+        }
+
+        const supabase = getSupabaseClient();
+        const { error } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        await refreshUser();
+        setSuccessStatus("Signed in successfully.");
+        return;
+      }
+
+      await sendMagicLink(normalizedEmail);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to sign in";
+      setErrorStatus(errorMessage);
+      throw new Error(errorMessage);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setStatus(null);
+
+    try {
+      const email = authForm.getValues("email").trim().toLowerCase();
+      if (!email) {
+        throw new Error("Enter your email first to reset your password");
+      }
+
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${getURL()}/auth/reset-password`,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setSuccessStatus(
+        "If a password login exists for this account, a reset email has been sent.",
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to send reset email";
       setErrorStatus(errorMessage);
       throw new Error(errorMessage);
     }
@@ -177,16 +261,13 @@ function AuthPageContent() {
   const handleLookupInvite: SubmitHandler<{ inviteCode: string }> = async ({
     inviteCode,
   }) => {
-    if (!inviteCode.trim()) {
-      const error = "Invite code is required.";
-      setErrorStatus(error);
-      throw new Error(error);
-    }
-
-    const token = inviteCode.trim();
     setStatus(null);
-
     try {
+      if (!inviteCode.trim()) {
+        throw new Error("Invite code is required.");
+      }
+      const token = inviteCode.trim();
+
       const { invite } = await apiFetch<{ invite: InviteWithTenantName }>(
         `/api/invites/accept/${token}`,
         { method: "GET" },
@@ -205,27 +286,21 @@ function AuthPageContent() {
     displayName: string;
     firmName: string;
   }> = async ({ displayName, firmName }) => {
-    if (!inviteInfo) {
-      const error = "No invite information available.";
-      setErrorStatus(error);
-      throw new Error(error);
-    }
-
-    if (!displayName.trim()) {
-      const error = "Display name is required";
-      setErrorStatus(error);
-      throw new Error(error);
-    }
-
-    const needsFirmName =
-      inviteInfo.role === "tenant_admin" && !inviteInfo.tenant_id;
-    if (needsFirmName && !firmName.trim()) {
-      const error = "Firm name is required";
-      setErrorStatus(error);
-      throw new Error(error);
-    }
-
+    setStatus(null);
     try {
+      if (!inviteInfo) {
+        throw new Error("No invite information available.");
+      }
+
+      if (!displayName.trim()) {
+        throw new Error("Display name is required");
+      }
+
+      const needsFirmName =
+        inviteInfo.role === "tenant_admin" && !inviteInfo.tenant_id;
+      if (needsFirmName && !firmName.trim()) {
+        throw new Error("Firm name is required");
+      }
       const res = await apiFetch<{ success: boolean; error?: string }>(
         `/api/invites/accept/${inviteInfo.token}`,
         {
@@ -262,6 +337,7 @@ function AuthPageContent() {
               softDeleted: false,
               canRestore: false,
               softDeletedAt: null,
+              softDeletedByRole: null,
               purgeAfter: null,
             }
           : prev,
@@ -295,8 +371,8 @@ function AuthPageContent() {
               {[
                 {
                   icon: MailCheck,
-                  title: "Magic link login",
-                  body: "No passwords to manage. Use your work email.",
+                  title: "Magic link first",
+                  body: "Use your work email for one-click sign-in. Password is optional.",
                 },
                 {
                   icon: Building2,
@@ -352,13 +428,13 @@ function AuthPageContent() {
                 </span>
                 <h2 className="text-2xl font-display">Secure sign-in</h2>
                 <p className="text-sm text-muted-foreground">
-                  Enter your work email and we&apos;ll send a one-time magic
-                  link.
+                  Magic links are recommended. Open the password dropdown if you
+                  prefer password login.
                 </p>
               </CardHeader>
               <FormProvider {...authForm}>
                 <form onSubmit={authForm.handleSubmit(handleMagicLink)}>
-                  <CardContent>
+                  <CardContent className="space-y-4">
                     <RhfField
                       form={authForm}
                       name="email"
@@ -375,14 +451,67 @@ function AuthPageContent() {
                         />
                       )}
                     />
+
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground"
+                      onClick={() => {
+                        setIsPasswordDropdownOpen((prev) => !prev);
+                        authForm.setValue("password", "");
+                      }}
+                      aria-expanded={isPasswordDropdownOpen}
+                      aria-controls="auth-password-dropdown"
+                    >
+                      <span className="h-px flex-1 bg-border" />
+                      <span>Password</span>
+                      {isPasswordDropdownOpen ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                      <span className="h-px flex-1 bg-border" />
+                    </button>
+
+                    {isPasswordDropdownOpen ? (
+                      <div id="auth-password-dropdown" className="space-y-2">
+                        <RhfField
+                          form={authForm}
+                          name="password"
+                          controlId="auth-password"
+                          label="Password"
+                          registerOptions={{ required: true }}
+                          renderControl={(registration, required) => (
+                            <Input
+                              id="auth-password"
+                              type="password"
+                              autoComplete="current-password"
+                              placeholder="********"
+                              required={required}
+                              {...registration}
+                            />
+                          )}
+                        />
+                        <AsyncButton
+                          type="button"
+                          variant="ghost"
+                          className="h-auto px-0 py-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
+                          onClick={handleForgotPassword}
+                          pendingText="Sending reset email..."
+                        >
+                          Forgot password?
+                        </AsyncButton>
+                      </div>
+                    ) : null}
                   </CardContent>
                   <CardFooter>
                     <AsyncButton
                       className="w-full"
                       type="submit"
-                      pendingText="Sending..."
+                      pendingText={
+                        isPasswordDropdownOpen ? "Logging in..." : "Sending..."
+                      }
                     >
-                      Send magic link
+                      {isPasswordDropdownOpen ? "Login" : "Send magic link"}
                     </AsyncButton>
                   </CardFooter>
                 </form>
@@ -418,7 +547,7 @@ function AuthPageContent() {
               ) : (
                 <CardFooter>
                   <p className="text-sm text-muted-foreground">
-                    Contact your tenant admin to restore access.
+                    Contact your app admin to restore access.
                   </p>
                 </CardFooter>
               )}

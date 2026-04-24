@@ -34,8 +34,11 @@ export async function apiFetch(
   url: string,
   { requireAuth = true, returnType = "json", ...options }: ApiFetchOptions = {},
 ) {
+  const isFormDataBody =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
+
   const headers = {
-    "Content-Type": "application/json",
+    ...(isFormDataBody ? {} : { "Content-Type": "application/json" }),
     ...(options?.headers ?? {}),
     ...(requireAuth
       ? { Authorization: `Bearer ${await getAccessToken()}` }
