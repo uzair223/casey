@@ -103,7 +103,7 @@ export default function FollowUpPage({
 
   if (followUpData.isLoading) {
     return (
-      <section className="container py-8">
+      <section className="container py-4 sm:py-8">
         <Card className="max-w-3xl mx-auto">
           <CardHeader>
             <CardTitle>Loading follow-up</CardTitle>
@@ -118,7 +118,7 @@ export default function FollowUpPage({
 
   if (followUpData.error || !followUpData.data) {
     return (
-      <section className="container py-8">
+      <section className="container py-4 sm:py-8">
         <Card className="max-w-3xl mx-auto">
           <CardHeader>
             <CardTitle>Link Not Available</CardTitle>
@@ -139,7 +139,7 @@ export default function FollowUpPage({
   }
 
   return (
-    <section className="container py-8 space-y-4">
+    <section className="container py-4 space-y-4 sm:py-8">
       <Card className="max-w-3xl mx-auto">
         <CardHeader>
           <CardTitle>Follow-up Request</CardTitle>
@@ -196,8 +196,9 @@ export default function FollowUpPage({
               placeholder="Type your response to the legal team's follow-up request"
               disabled={!hasActiveFollowUp || submitResponse.isLoading}
             />
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button
+                className="w-full sm:w-auto"
                 onClick={() => void submitResponse.handler()}
                 disabled={
                   !hasActiveFollowUp ||
@@ -207,7 +208,7 @@ export default function FollowUpPage({
               >
                 {submitResponse.isLoading ? "Sending..." : "Send response"}
               </Button>
-              <Button asChild variant="outline">
+              <Button className="w-full sm:w-auto" asChild variant="outline">
                 <Link href={`/intake/${token}/interview`}>
                   Open interview page
                 </Link>

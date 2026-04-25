@@ -1,6 +1,7 @@
 "use client";
 import { env } from "@/lib/env";
 import React, { useEffect } from "react";
+import type { ReactNode } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +37,16 @@ function StatementContent() {
   } = useWitnessStatement();
   const [consentChecked, setConsentChecked] = React.useState(false);
 
+  const responsiveTabLabel = (
+    mobileLabel: string,
+    desktopLabel: string,
+  ): ReactNode => (
+    <>
+      <span className="sm:hidden">{mobileLabel}</span>
+      <span className="hidden sm:inline">{desktopLabel}</span>
+    </>
+  );
+
   useEffect(() => {
     if (isDemo && !isDemoTabsUnlocked && tab !== "chat") {
       setTab("chat");
@@ -45,21 +56,21 @@ function StatementContent() {
   const tabs = [
     {
       id: "chat" as IntakeTabs,
-      label: "Chat",
+      label: responsiveTabLabel("Chat", "Chat"),
       main: <ChatAreaContent />,
       footer: <ChatAreaFooter />,
     },
     {
       id: "evidence" as IntakeTabs,
-      label: "Evidence Confirmation",
+      label: responsiveTabLabel("Evidence", "Evidence Confirmation"),
       disabled: (isDemo && !isDemoTabsUnlocked) || !isReadyToPrepare,
       main: <SupportingDocumentsView />,
     },
     {
       id: "statement" as IntakeTabs,
       label: statementSubmission.data
-        ? "Statement Submitted"
-        : "Statement Preview",
+        ? responsiveTabLabel("Review", "Statement Submitted")
+        : responsiveTabLabel("Review", "Statement Preview"),
       disabled: (isDemo && !isDemoTabsUnlocked) || !isReadyToPrepare,
       main: <StatementView />,
     },
@@ -86,7 +97,7 @@ function StatementContent() {
               Data is handled with access controls and audit logging and is used
               only for legal service delivery and compliance obligations.
             </p>
-            <div className="flex items-center gap-3 rounded-md border p-3">
+            <div className="flex items-start gap-3 rounded-md border p-3">
               <input
                 id="privacy-consent"
                 type="checkbox"
@@ -112,7 +123,7 @@ function StatementContent() {
   }
 
   return (
-    <section className="container flex min-h-svh max-h-svh overflow-hidden flex-col gap-4 py-6">
+    <section className="container flex min-h-svh max-h-svh overflow-hidden flex-col gap-3 py-4 sm:gap-4 sm:py-6">
       <PageHeader />
       <SecurityNotice />
 
@@ -125,9 +136,10 @@ function StatementContent() {
         <ScrollAreaPrimitive.ScrollArea asChild>
           <Card size="md" className="flex min-h-0 flex-1 flex-col">
             <CardHeader className="py-0">
-              <TabsList>
+              <TabsList className="grid w-full grid-cols-3 gap-0 overflow-visible">
                 {tabs.map((tab) => (
                   <TabsTrigger
+                    className="min-w-0 whitespace-normal px-2 py-3 text-center leading-tight sm:px-4"
                     key={tab.id}
                     value={tab.id}
                     disabled={tab.disabled}
@@ -144,12 +156,12 @@ function StatementContent() {
                 value={tab.id}
               >
                 <ScrollAreaPrimitive.ScrollAreaViewport className="flex-1 overflow-y-auto overflow-x-hidden">
-                  <CardContent className="pt-4">
+                  <CardContent className="px-4 pt-4 sm:px-6">
                     {tab.main}
                     <ScrollBar />
                   </CardContent>
                 </ScrollAreaPrimitive.ScrollAreaViewport>
-                <CardFooter>{tab.footer}</CardFooter>
+                <CardFooter className="px-4 pb-4 sm:px-6">{tab.footer}</CardFooter>
               </TabsContent>
             ))}
           </Card>

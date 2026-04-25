@@ -117,7 +117,7 @@ export function StatementView() {
 
   if (statementFormalization.isLoading) {
     return (
-      <div className="px-8 py-12">
+      <div className="px-4 py-12 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-center gap-3 text-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
@@ -130,7 +130,7 @@ export function StatementView() {
 
   if (statementFormalization.error) {
     return (
-      <div className="px-8 space-y-8">
+      <div className="space-y-8 px-4 sm:px-6 lg:px-8">
         <PageTitle
           subtitle="Error"
           title="There was an issue preparing your statement"
@@ -155,7 +155,7 @@ export function StatementView() {
     !statementSubmission.data
   ) {
     return (
-      <div className="px-8 space-y-8">
+      <div className="space-y-8 px-4 sm:px-6 lg:px-8">
         <div>
           <p className="text-sm uppercase tracking-[0.2em] text-accent-foreground">
             Conversation complete
@@ -177,7 +177,7 @@ export function StatementView() {
   }
 
   return (
-    <div className="px-8 space-y-4">
+    <div className="space-y-4 px-4 sm:px-6 lg:px-8">
       {statementSubmission.data ? (
         <PageTitle
           subtitle="Statement submitted"
@@ -228,7 +228,7 @@ export function StatementView() {
         </Card>
       ) : null}
       {doc ? (
-        <div className="overflow-hidden rounded-md border bg-white">
+        <div className="overflow-auto rounded-md border bg-white">
           <DocxEditor
             documentBuffer={doc}
             documentName="Witness Statement"

@@ -194,7 +194,7 @@ export default function FinalReviewPage({
 
   if (finalReview.isLoading) {
     return (
-      <section className="container py-8">
+      <section className="container py-4 sm:py-8">
         <Card className="mx-auto max-w-4xl">
           <CardHeader>
             <CardTitle>Loading final statement review</CardTitle>
@@ -209,7 +209,7 @@ export default function FinalReviewPage({
 
   if (finalReview.error || !finalReview.data) {
     return (
-      <section className="container py-8">
+      <section className="container py-4 sm:py-8">
         <Card className="mx-auto max-w-4xl">
           <CardHeader>
             <CardTitle>Link Not Available</CardTitle>
@@ -230,7 +230,7 @@ export default function FinalReviewPage({
   }
 
   return (
-    <div className="container py-8">
+    <div className="container py-4 sm:py-8">
       <Card className="mx-auto w-full max-w-4xl">
         <CardHeader>
           {finalReview.data.alreadyCompleted || submitFinalReview.data ? (
@@ -272,7 +272,7 @@ export default function FinalReviewPage({
               documentName={finalReview.data.signedDocument.name}
               canEdit={false}
             >
-              <DocxEditorPanel className="h-[65vh] max-h-[65vh]" />
+              <DocxEditorPanel className="h-[50vh] max-h-[50vh] sm:h-[65vh] sm:max-h-[65vh]" />
             </DocxEditor>
           ) : (
             <div className="rounded-md border p-3 bg-muted/20">
@@ -299,7 +299,7 @@ export default function FinalReviewPage({
 
           {finalReview.data.alreadyCompleted ||
           submitFinalReview.data ? null : finalReview.data.canSign ? (
-            <div className="space-y-3 rounded-md border p-3">
+            <div className="space-y-3 rounded-md border p-3 sm:p-4">
               <p className="text-sm font-medium">Witness signature</p>
               <SignaturePad
                 witnessName={finalReview.data.witnessName}

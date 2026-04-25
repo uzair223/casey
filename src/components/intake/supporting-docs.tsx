@@ -54,7 +54,7 @@ export function SupportingDocumentsView() {
   }, [evidenceFiles, suggestedGroups]);
 
   return (
-    <div className="px-8 space-y-4">
+    <div className="space-y-4 px-4 sm:px-6 lg:px-8">
       <PageTitle
         subtitle="Evidence"
         title="Supporting Documents"
@@ -75,7 +75,7 @@ export function SupportingDocumentsView() {
         {knownGroups.map((group) => (
           <Card key={group.name} size="md">
             <CardHeader className="pb-2">
-              <CardTitle className="ml-1 flex items-center justify-between gap-3">
+              <CardTitle className="flex flex-col items-start gap-3 sm:ml-1 sm:flex-row sm:items-center sm:justify-between">
                 <span>{group.name}</span>
                 <FileInput
                   multiple
@@ -100,7 +100,7 @@ export function SupportingDocumentsView() {
                     key={file.path}
                     className="rounded-md border px-3 py-2 text-sm"
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="space-y-1">
                         <p className="font-medium">{file.name}</p>
                         <p className="text-muted-foreground">{file.type}</p>
@@ -112,6 +112,7 @@ export function SupportingDocumentsView() {
                         type="button"
                         variant="ghost"
                         size="sm"
+                        className="self-start"
                         disabled={isBusy || hasConvoEnded}
                         onClick={() => void removeEvidence(file.path)}
                       >

@@ -206,14 +206,19 @@ export function ChatAreaFooter() {
   return (
     <div className="w-full pt-3 border-t border-border">
       {isDemo ? (
-        <div className="w-full flex items-center justify-between gap-3 text-sm">
+        <div className="w-full flex flex-col items-start gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
           <p className="text-muted-foreground">
             {isDemoPlaybackActive
               ? "Playing demo conversation..."
               : "This is a demo. Responses are simulated."}
           </p>
           {isDemoPlaybackActive && (
-            <Button size="sm" variant="outline" onClick={skipDemoPlayback}>
+            <Button
+              className="w-full sm:w-auto"
+              size="sm"
+              variant="outline"
+              onClick={skipDemoPlayback}
+            >
               Skip to end <SkipForwardIcon />
             </Button>
           )}
@@ -256,7 +261,7 @@ export function ChatAreaFooter() {
             </div>
           </FileInput>
 
-          <div className="w-full flex gap-2">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-end">
             <Textarea
               ref={textareaRef}
               value={input}
@@ -278,11 +283,12 @@ export function ChatAreaFooter() {
                   : "Type your response, attach files, or both..."
               }
               disabled={isInputDisabled}
-              className="flex-1 min-h-0 resize-none overflow-hidden"
+              className="min-h-0 flex-1 resize-none overflow-hidden"
               rows={1}
               autoFocus
             />
             <Button
+              className="w-full sm:w-auto"
               type="submit"
               disabled={
                 (!input.trim() && attachments.length === 0) || isInputDisabled
