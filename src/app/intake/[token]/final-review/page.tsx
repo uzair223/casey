@@ -21,6 +21,7 @@ import type { UploadedDocument } from "@/types";
 import { DocxEditor, DocxEditorPanel } from "@/components/ui/docx-editor";
 import { PageTitle } from "@/components/page-title";
 import { AttachmentPreviewCard } from "@/components/ui/attachment-preview-card";
+import { toast } from "@/lib/toast";
 
 type FinalReviewData = {
   tenantId: string;
@@ -164,31 +165,34 @@ export default function FinalReviewPage({
   }, [submitFinalReview.data]);
 
   const onCaptureSignature = async (canvas: HTMLCanvasElement) => {
-    if (!finalReview.data) {
-      return;
-    }
+    try {
+      if (!finalReview.data) {
+        return;
+      }
 
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/png"),
-    );
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/png"),
+      );
 
-    if (!blob) {
-      throw new Error("Failed to capture signature");
-    }
+      if (!blob) {
+        throw new Error("Failed to capture signature");
+      }
 
-    setSignatureImageDataUrl(canvas.toDataURL("image/png"));
+      setSignatureImageDataUrl(canvas.toDataURL("image/png"));
 
-    if (documentBlob && finalReview.data.signedDocument) {
-      try {
+      if (documentBlob && finalReview.data.signedDocument) {
         const signedBlob = await signDoc({
           file: documentBlob,
           signatureImage: blob,
           signatureDate: new Date().toLocaleDateString("en-GB"),
         });
         setDocumentBlob(signedBlob);
-      } catch (error) {
-        console.error("Failed to sign document", error);
       }
+    } catch (error) {
+      toast.errorFromUnknown(
+        error,
+        "Failed to capture signature. Please try again.",
+      );
     }
   };
 

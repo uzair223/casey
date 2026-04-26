@@ -20,7 +20,6 @@ import { ChatAreaContent, ChatAreaFooter } from "@/components/intake/chat-area";
 import { SupportingDocumentsView } from "@/components/intake/supporting-docs";
 import { StatementView } from "@/components/intake/statement-view";
 import { PageHeader } from "@/components/intake/page-header";
-import { SecurityNotice } from "@/components/intake/security-notice";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import { ScrollBar } from "@/components/ui/scroll-area";
 
@@ -59,12 +58,14 @@ function StatementContent() {
       label: responsiveTabLabel("Chat", "Chat"),
       main: <ChatAreaContent />,
       footer: <ChatAreaFooter />,
+      scroll: true,
     },
     {
       id: "evidence" as IntakeTabs,
       label: responsiveTabLabel("Evidence", "Evidence Confirmation"),
       disabled: (isDemo && !isDemoTabsUnlocked) || !isReadyToPrepare,
       main: <SupportingDocumentsView />,
+      scroll: true,
     },
     {
       id: "statement" as IntakeTabs,
@@ -73,6 +74,7 @@ function StatementContent() {
         : responsiveTabLabel("Review", "Statement Preview"),
       disabled: (isDemo && !isDemoTabsUnlocked) || !isReadyToPrepare,
       main: <StatementView />,
+      scroll: false,
     },
   ];
 
@@ -125,7 +127,6 @@ function StatementContent() {
   return (
     <section className="container flex min-h-svh max-h-svh overflow-hidden flex-col gap-3 py-4 sm:gap-4 sm:py-6">
       <PageHeader />
-      <SecurityNotice />
 
       <Tabs
         asChild
@@ -155,13 +156,24 @@ function StatementContent() {
                 key={tab.id}
                 value={tab.id}
               >
-                <ScrollAreaPrimitive.ScrollAreaViewport className="flex-1 overflow-y-auto overflow-x-hidden">
-                  <CardContent className="px-4 pt-4 sm:px-6">
+                {tab.scroll ? (
+                  <ScrollAreaPrimitive.ScrollAreaViewport className="flex-1">
+                    <CardContent className="px-4 pt-4 sm:px-6">
+                      {tab.main}
+                      <ScrollBar />
+                    </CardContent>
+                  </ScrollAreaPrimitive.ScrollAreaViewport>
+                ) : (
+                  <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-4 sm:px-6">
                     {tab.main}
-                    <ScrollBar />
                   </CardContent>
-                </ScrollAreaPrimitive.ScrollAreaViewport>
-                <CardFooter className="px-4 pb-4 sm:px-6">{tab.footer}</CardFooter>
+                )}
+
+                {tab.footer ? (
+                  <CardFooter className="px-4 pb-4 sm:px-6">
+                    {tab.footer}
+                  </CardFooter>
+                ) : null}
               </TabsContent>
             ))}
           </Card>

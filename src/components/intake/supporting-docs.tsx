@@ -7,12 +7,14 @@ import { FileInput, FileInputTrigger } from "../ui/file-input";
 import { PageTitle } from "../page-title";
 import { Button } from "../ui/button";
 import { normalizeEvidenceGroup } from "@/lib/intake-evidence";
+import { AttachmentPreviewCard } from "../ui/attachment-preview-card";
 
 export function SupportingDocumentsView() {
   const {
     suggestedEvidence,
     evidenceFiles,
     statementFormalization,
+    isDemo,
     isBusy,
     hasConvoEnded,
     setTab,
@@ -38,12 +40,18 @@ export function SupportingDocumentsView() {
 
     for (const group of Object.keys(evidenceFiles)) {
       if (!groupMap.has(group)) {
-        groupMap.set(group, "application/pdf,image/*,video/*,audio/*,.doc,.docx,.txt");
+        groupMap.set(
+          group,
+          "application/pdf,image/*,video/*,audio/*,.doc,.docx,.txt",
+        );
       }
     }
 
     if (!groupMap.has("other")) {
-      groupMap.set("other", "application/pdf,image/*,video/*,audio/*,.doc,.docx,.txt");
+      groupMap.set(
+        "other",
+        "application/pdf,image/*,video/*,audio/*,.doc,.docx,.txt",
+      );
     }
 
     return Array.from(groupMap.entries()).map(([name, type]) => ({
@@ -80,8 +88,12 @@ export function SupportingDocumentsView() {
                 <FileInput
                   multiple
                   accept={group.type}
-                  disabled={isBusy || hasConvoEnded}
-                  onChange={(files) => void setEvidence(files, group.name)}
+                  disabled={isDemo || isBusy || hasConvoEnded}
+                  onChange={
+                    isDemo
+                      ? undefined
+                      : (files) => void setEvidence(files, group.name)
+                  }
                 >
                   <FileInputTrigger variant="outline">
                     Add files
@@ -100,24 +112,37 @@ export function SupportingDocumentsView() {
                     key={file.path}
                     className="rounded-md border px-3 py-2 text-sm"
                   >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="space-y-1">
-                        <p className="font-medium">{file.name}</p>
-                        <p className="text-muted-foreground">{file.type}</p>
-                        <p className="text-muted-foreground">
-                          Added {new Date(file.uploadedAt).toLocaleString()}
-                        </p>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <AttachmentPreviewCard
+                          document={file}
+                          hideLabel="all"
+                          thumbnailSize="lg"
+                        />
+                        <div className="min-w-0 space-y-1">
+                          <p className="truncate font-medium">{file.name}</p>
+                          <p className="truncate text-muted-foreground">
+                            {file.type}
+                          </p>
+                          <p className="text-muted-foreground">
+                            Added {new Date(file.uploadedAt).toLocaleString()}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="self-start"
+                            disabled={isDemo || isBusy || hasConvoEnded}
+                            onClick={
+                              isDemo
+                                ? undefined
+                                : () => void removeEvidence(file.path)
+                            }
+                          >
+                            Remove
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="self-start"
-                        disabled={isBusy || hasConvoEnded}
-                        onClick={() => void removeEvidence(file.path)}
-                      >
-                        Remove
-                      </Button>
                     </div>
                   </div>
                 ))

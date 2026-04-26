@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
@@ -11,18 +10,7 @@ import { PageTitle } from "../page-title";
 import { generateDoc } from "@/lib/doc-gen";
 import { useAsync } from "@/hooks/useAsync";
 import { Card, CardHeader } from "../ui/card";
-
-const DocxEditor = dynamic(
-  async () => (await import("@eigenpal/docx-js-editor")).DocxEditor,
-  {
-    ssr: false,
-    loading: () => (
-      <p className="text-sm text-muted-foreground">
-        Loading statement preview...
-      </p>
-    ),
-  },
-);
+import { DocxEditor, DocxEditorPanel } from "../ui/docx-editor";
 
 export function StatementView() {
   const router = useRouter();
@@ -156,19 +144,12 @@ export function StatementView() {
   ) {
     return (
       <div className="space-y-8 px-4 sm:px-6 lg:px-8">
-        <div>
-          <p className="text-sm uppercase tracking-[0.2em] text-accent-foreground">
-            Conversation complete
-          </p>
-          <h2 className="text-2xl font-semibold text-primary mt-2">
-            Thank you for providing the details of the incident
-          </h2>
-          <p className="text-muted-foreground mt-2 max-w-3xl">
-            Before generation, you will review the evidence list that will be
-            included in your statement. Once confirmed, we will prepare your
-            draft statement.
-          </p>
-        </div>
+        <PageTitle
+          subtitle="Conversation complete"
+          title="Thank you for providing the details of the incident"
+          description="Before generation, you will review the evidence list that will be included in your statement. Once confirmed, we will prepare your draft statement."
+          titleTag="h2"
+        />
         <div className="flex flex-col items-center justify-center gap-3 text-center">
           <Button onClick={() => setTab("evidence")}>Review Evidence</Button>
         </div>
@@ -177,34 +158,45 @@ export function StatementView() {
   }
 
   return (
-    <div className="space-y-4 px-4 sm:px-6 lg:px-8">
-      {statementSubmission.data ? (
-        <PageTitle
-          subtitle="Statement submitted"
-          title="Thank you for your statement"
-          description="Your statement has been saved. The legal team will review it shortly."
-        />
-      ) : (
-        <PageTitle
-          subtitle="Statement prepared"
-          title="Review your statement"
-          description="Please review your statement below and submit when ready."
-          actions={
-            !statementSubmission.data
-              ? [
-                  {
-                    label: statementSubmission.isLoading
-                      ? "Submitting..."
-                      : "Submit Statement",
-                    action: () => void statementSubmission.handler(),
-                    disabled:
-                      statementSubmission.data || statementSubmission.isLoading,
-                  },
-                ]
-              : undefined
-          }
-        />
-      )}
+    <DocxEditor documentName="Witness Statement" source={doc} canEdit={false}>
+      <div className="flex h-full max-h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden px-4 sm:px-6 lg:px-8">
+        {statementSubmission.data ? (
+          <PageTitle
+            subtitle="Statement submitted"
+            title="Thank you for your statement"
+            description="Your statement has been saved. The legal team will review it shortly."
+          />
+        ) : (
+          <PageTitle
+            subtitle="Statement prepared"
+            title="Review your statement"
+            description="Please review your statement below and submit when ready."
+            actions={
+              !statementSubmission.data
+                ? [
+                    {
+                      label: statementSubmission.isLoading
+                        ? "Submitting..."
+                        : "Submit Statement",
+                      action: () => void statementSubmission.handler(),
+
+                      disabled:
+                        statementSubmission.data ||
+                        statementSubmission.isLoading,
+                    },
+                  ]
+                : undefined
+            }
+          />
+        )}
+
+        {doc ? (
+          <DocxEditorPanel
+            className="min-h-0 flex-1 basis-0 overflow-hidden"
+            mode="bare"
+          />
+        ) : null}
+      </div>
 
       {showDemoReviewedNotice ? (
         <Card
@@ -227,18 +219,6 @@ export function StatementView() {
           </CardHeader>
         </Card>
       ) : null}
-      {doc ? (
-        <div className="overflow-auto rounded-md border bg-white">
-          <DocxEditor
-            documentBuffer={doc}
-            documentName="Witness Statement"
-            readOnly
-            mode="viewing"
-            showToolbar={false}
-            showOutlineButton={false}
-          />
-        </div>
-      ) : null}
-    </div>
+    </DocxEditor>
   );
 }

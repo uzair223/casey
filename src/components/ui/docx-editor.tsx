@@ -90,7 +90,7 @@ export type DocxEditorRef = {
   save: () => Promise<void>;
 };
 
-type PanelMode = "minimal" | "full";
+type PanelMode = "bare" | "minimal" | "full";
 
 type DocxEditorPanelProps = React.ComponentProps<typeof Card> & {
   mode?: PanelMode;
@@ -417,65 +417,71 @@ export const DocxEditorPanel = forwardRef<DocxEditorRef, DocxEditorPanelProps>(
     return (
       <Card
         ref={panelRef}
-        size="sm"
-        className={cn("flex min-w-0 flex-col overflow-hidden", className)}
+        size={mode === "bare" ? null : "sm"}
+        className={cn(
+          "flex min-w-0 flex-col overflow-hidden",
+          mode === "bare" && "[--card-padding:0px]",
+          className,
+        )}
         {...props}
       >
-        <CardHeader>
-          {children}
-          <div className="flex flex-wrap gap-2">
-            {canEdit && (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => {
-                  void handleSave();
-                }}
-                disabled={!canEdit || isSaving || !source}
-              >
-                <SaveIcon className="h-4 w-4" />
-                {isSaving ? "Saving..." : "Save changes"}
-              </Button>
-            )}
+        {mode !== "bare" && (
+          <CardHeader>
+            {children}
+            <div className="flex flex-wrap gap-2">
+              {canEdit && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    void handleSave();
+                  }}
+                  disabled={!canEdit || isSaving || !source}
+                >
+                  <SaveIcon className="h-4 w-4" />
+                  {isSaving ? "Saving..." : "Save changes"}
+                </Button>
+              )}
 
-            {showFullscreenToggle ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={!source}
-                onClick={() => {
-                  toggleFullscreen();
-                }}
-                title={isFullscreen ? "Exit fullscreen" : "Open fullscreen"}
-              >
-                {isFullscreen ? (
-                  <MinimizeIcon className="h-4 w-4" />
-                ) : (
-                  <ExpandIcon className="h-4 w-4" />
-                )}
-                <span className="sr-only">
-                  {isFullscreen ? "Exit fullscreen" : "Open fullscreen"}
-                </span>
-              </Button>
-            ) : null}
-
-            <div className="ml-auto flex flex-wrap items-center gap-1">
-              {isDirty ? (
-                <Badge variant="outline">Unsaved changes</Badge>
+              {showFullscreenToggle ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!source}
+                  onClick={() => {
+                    toggleFullscreen();
+                  }}
+                  title={isFullscreen ? "Exit fullscreen" : "Open fullscreen"}
+                >
+                  {isFullscreen ? (
+                    <MinimizeIcon className="h-4 w-4" />
+                  ) : (
+                    <ExpandIcon className="h-4 w-4" />
+                  )}
+                  <span className="sr-only">
+                    {isFullscreen ? "Exit fullscreen" : "Open fullscreen"}
+                  </span>
+                </Button>
               ) : null}
-              {source ? <Badge variant="secondary">Loaded</Badge> : null}
-            </div>
-          </div>
 
-          {showError && error && (
-            <Card variant="destructive" size="sm">
-              <CardHeader>
-                <CardTitle className="text-sm">{error}</CardTitle>
-              </CardHeader>
-            </Card>
-          )}
-        </CardHeader>
+              <div className="ml-auto flex flex-wrap items-center gap-1">
+                {isDirty ? (
+                  <Badge variant="outline">Unsaved changes</Badge>
+                ) : null}
+                {source ? <Badge variant="secondary">Loaded</Badge> : null}
+              </div>
+            </div>
+
+            {showError && error && (
+              <Card variant="destructive" size="sm">
+                <CardHeader>
+                  <CardTitle className="text-sm">{error}</CardTitle>
+                </CardHeader>
+              </Card>
+            )}
+          </CardHeader>
+        )}
         <CardContent className="flex-1 min-h-0 min-w-0 overflow-hidden">
           {source ? (
             <DocxEditorComponent

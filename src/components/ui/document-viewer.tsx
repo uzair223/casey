@@ -29,26 +29,10 @@ import {
   UploadIcon,
 } from "lucide-react";
 import Image from "next/image";
-import type { ImageLoaderProps } from "next/image";
 import { DocxEditor, DocxEditorPanel, type DocxEditorRef } from "./docx-editor";
 
 const PREVIEW_IMAGE_MAX_WIDTH = 1600;
 const PREVIEW_IMAGE_DEFAULT_QUALITY = 80;
-
-function supabaseImageLoader({ src, width, quality }: ImageLoaderProps) {
-  const targetWidth = Math.min(width, PREVIEW_IMAGE_MAX_WIDTH);
-  const targetQuality = quality ?? PREVIEW_IMAGE_DEFAULT_QUALITY;
-
-  try {
-    const url = new URL(src);
-    url.searchParams.set("width", String(targetWidth));
-    url.searchParams.set("quality", String(targetQuality));
-    return url.toString();
-  } catch {
-    const separator = src.includes("?") ? "&" : "?";
-    return `${src}${separator}width=${targetWidth}&quality=${targetQuality}`;
-  }
-}
 
 type DocumentViewerProps = {
   document: UploadedDocument;
@@ -64,6 +48,7 @@ type DocumentViewerProps = {
 type DocumentViewerContextValue = {
   open: boolean;
   setOpen: (open: boolean) => void;
+  preload: () => void;
 };
 
 const DocumentViewerContext = createContext<DocumentViewerContextValue | null>(
@@ -113,6 +98,17 @@ function inferPreviewKind(document: UploadedDocument) {
   return "unsupported";
 }
 
+function canTransformImagePreview(document: UploadedDocument) {
+  const lowerName = document.name.toLowerCase();
+
+  return (
+    document.type.startsWith("image/") &&
+    !document.type.includes("svg") &&
+    !lowerName.endsWith(".svg") &&
+    !lowerName.endsWith(".gif")
+  );
+}
+
 export function DocumentViewer({
   document: uploaded,
   bucketId,
@@ -125,7 +121,9 @@ export function DocumentViewer({
 }: DocumentViewerProps) {
   const supabase = getSupabaseClient();
   const [open, setOpen] = useState(false);
+  const [preloadRequested, setPreloadRequested] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [docxSource, setDocxSource] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -136,9 +134,14 @@ export function DocumentViewer({
   const standaloneDocxEditorRef = useRef<DocxEditorRef>(null);
 
   const previewKind = useMemo(() => inferPreviewKind(uploaded), [uploaded]);
+  const canTransformPreview = useMemo(
+    () => canTransformImagePreview(uploaded),
+    [uploaded],
+  );
   const canReplace = editable && !!onReplace;
   const isDocxInteractionLocked =
     previewKind === "docx" && (isDocxFullscreen || isDocxReviewOpen);
+  const shouldLoadPreview = open || preloadRequested;
 
   useEffect(() => {
     if (open && previewKind === "docx") {
@@ -150,15 +153,31 @@ export function DocumentViewer({
   }, [open, previewKind]);
 
   useEffect(() => {
+    setSignedUrl(null);
+    setImagePreviewUrl(null);
+    setDocxSource(null);
+    setError(null);
+    setIsLoading(false);
+  }, [bucketId, sourceUrl, uploaded.path]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadUrl() {
-      if (!open) return;
+      if (!shouldLoadPreview) return;
+
+      if (signedUrl && (previewKind !== "docx" || docxSource)) {
+        setIsLoading(false);
+        return;
+      }
 
       setIsLoading(true);
       setError(null);
-      setSignedUrl(null);
-      setDocxSource(null);
+      if (!signedUrl) {
+        setSignedUrl(null);
+        setImagePreviewUrl(null);
+        setDocxSource(null);
+      }
 
       if (sourceUrl) {
         if (previewKind === "docx") {
@@ -180,6 +199,9 @@ export function DocumentViewer({
         }
 
         setSignedUrl(sourceUrl);
+        if (previewKind === "image") {
+          setImagePreviewUrl(sourceUrl);
+        }
         setIsLoading(false);
         return;
       }
@@ -194,6 +216,34 @@ export function DocumentViewer({
         setError(signedUrlError?.message || "Failed to load file preview");
         setIsLoading(false);
         return;
+      }
+
+      setSignedUrl(data.signedUrl);
+
+      if (previewKind === "image") {
+        setImagePreviewUrl(data.signedUrl);
+        setIsLoading(false);
+      }
+
+      if (previewKind === "image" && canTransformPreview) {
+        const { data: previewData, error: previewError } =
+          await supabase.storage.from(bucketId).createSignedUrl(
+            uploaded.path,
+            60 * 10,
+            {
+              transform: {
+                width: PREVIEW_IMAGE_MAX_WIDTH,
+                resize: "contain",
+                quality: PREVIEW_IMAGE_DEFAULT_QUALITY,
+              },
+            },
+          );
+
+        if (cancelled) return;
+
+        if (previewData?.signedUrl && !previewError) {
+          setImagePreviewUrl(previewData.signedUrl);
+        }
       }
 
       if (previewKind === "docx") {
@@ -214,7 +264,6 @@ export function DocumentViewer({
         setDocxSource(blob);
       }
 
-      setSignedUrl(data.signedUrl);
       setIsLoading(false);
     }
 
@@ -223,7 +272,19 @@ export function DocumentViewer({
     return () => {
       cancelled = true;
     };
-  }, [bucketId, uploaded.path, open, previewKind, sourceUrl, supabase.storage]);
+  }, [
+    bucketId,
+    docxSource,
+    uploaded.path,
+    canTransformPreview,
+    open,
+    preloadRequested,
+    previewKind,
+    sourceUrl,
+    shouldLoadPreview,
+    signedUrl,
+    supabase.storage,
+  ]);
 
   const handleReplaceFile = async (file: File | null) => {
     if (!file || !onReplace) return;
@@ -287,16 +348,18 @@ export function DocumentViewer({
 
     if (previewKind === "image") {
       return (
-        <Image
-          loader={supabaseImageLoader}
-          src={signedUrl}
-          alt={uploaded.name}
-          width={PREVIEW_IMAGE_MAX_WIDTH}
-          height={900}
-          quality={PREVIEW_IMAGE_DEFAULT_QUALITY}
-          sizes="(max-width: 1024px) 100vw, 1024px"
-          className="max-h-[65vh] w-full rounded-lg border object-contain bg-muted"
-        />
+        <div className="relative flex max-h-[65vh] w-full items-center justify-center overflow-hidden rounded-lg border bg-background">
+          <Image
+            src={imagePreviewUrl ?? signedUrl}
+            alt={uploaded.name}
+            width={PREVIEW_IMAGE_MAX_WIDTH}
+            height={900}
+            quality={PREVIEW_IMAGE_DEFAULT_QUALITY}
+            sizes="(max-width: 1024px) 100vw, 1024px"
+            unoptimized
+            className="relative z-10 max-h-[65vh] w-full object-contain"
+          />
+        </div>
       );
     }
 
@@ -349,7 +412,13 @@ export function DocumentViewer({
   })();
 
   return (
-    <DocumentViewerContext.Provider value={{ open, setOpen }}>
+    <DocumentViewerContext.Provider
+      value={{
+        open,
+        setOpen,
+        preload: () => setPreloadRequested(true),
+      }}
+    >
       {open && canReplace && previewKind === "docx" ? (
         <ReviewWithAI
           className="z-150"
@@ -497,14 +566,29 @@ export function DocumentViewerTrigger({
   asChild = true,
   type = "button",
   onClick,
+  onFocus,
+  onPointerEnter,
+  onTouchStart,
   ...props
 }: React.ComponentProps<typeof Button>) {
-  const { setOpen } = useDocumentViewerContext();
+  const { preload, setOpen } = useDocumentViewerContext();
   const Comp = asChild ? Slot : "button";
 
   return (
     <Comp
       type={type}
+      onFocus={(event: React.FocusEvent<HTMLButtonElement>) => {
+        preload();
+        onFocus?.(event);
+      }}
+      onPointerEnter={(event: React.PointerEvent<HTMLButtonElement>) => {
+        preload();
+        onPointerEnter?.(event);
+      }}
+      onTouchStart={(event: React.TouchEvent<HTMLButtonElement>) => {
+        preload();
+        onTouchStart?.(event);
+      }}
       onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
         setOpen(true);
         onClick?.(event);

@@ -27,6 +27,7 @@ import Loading from "@/components/loading";
 import { apiFetch } from "@/lib/api-utils";
 import { Button } from "../ui/button";
 import { Link } from "lucide-react";
+import { toast } from "@/lib/toast";
 
 type IntakeContextData = Omit<
   StatementDataResponse<true>,
@@ -739,9 +740,11 @@ export function IntakeProvider({
       if (
         persistedEvidenceDocuments.length === 0 &&
         suggestedEvidence?.length &&
-        !confirm(
-          "You have not uploaded any evidence. Are you sure you want to submit without uploading?",
-        )
+        !(await toast.confirm("Submit without uploading evidence?", {
+          description:
+            "You have suggested evidence but have not uploaded any files.",
+          confirmLabel: "Submit anyway",
+        }))
       ) {
         setTab("evidence");
         return false;
@@ -753,7 +756,7 @@ export function IntakeProvider({
         data.statement.status === "finalized" ||
         data.statement.status === "completed"
       ) {
-        alert(
+        toast.error(
           "This intake has been stopped and cannot be submitted. Please contact the law firm.",
         );
         return false;
