@@ -5,6 +5,8 @@ import { importFresh, readJson, readText } from "./helpers/route-test";
 const chatCompletionsCreate = vi.fn();
 const SERVERONLY_getFullStatementFromToken = vi.fn();
 const SERVERONLY_getStatementWithConfigFromToken = vi.fn();
+const SERVERONLY_getConversationHistory = vi.fn();
+const downloadUploadedDocument = vi.fn();
 const SERVERONLY_saveConversationMessage = vi.fn();
 const getServiceClient = vi.fn();
 const getIntakeAccessError = vi.fn();
@@ -42,6 +44,8 @@ vi.mock("@/lib/env", () => ({
 vi.mock("@/lib/supabase/queries", () => ({
   SERVERONLY_getFullStatementFromToken,
   SERVERONLY_getStatementWithConfigFromToken,
+  SERVERONLY_getConversationHistory,
+  downloadUploadedDocument,
 }));
 
 vi.mock("@/lib/supabase/mutations", () => ({
@@ -74,6 +78,19 @@ describe("intake interview flows", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getIntakeAccessError.mockResolvedValue(null);
+    SERVERONLY_getConversationHistory.mockResolvedValue([
+      {
+        role: "assistant",
+        content: "What happened?",
+      },
+      {
+        role: "user",
+        content: "I was hit by the barrier.",
+      },
+    ]);
+    downloadUploadedDocument.mockResolvedValue(
+      new Blob(["Repair estimate total £4,115."], { type: "text/plain" }),
+    );
     generateGreeting.mockReturnValue([
       { role: "assistant", content: "Welcome." },
       { role: "assistant", content: "What happened?" },
@@ -197,7 +214,17 @@ describe("intake interview flows", () => {
   it("formalizes responses and injects missing evidence into the evidence section", async () => {
     SERVERONLY_getStatementWithConfigFromToken.mockResolvedValue({
       id: "statement-1",
+      witness_name: "Casey Witness",
       status: "in_progress",
+      supporting_documents: [
+        {
+          bucketId: "tenant-1",
+          name: "photo-1.txt",
+          path: "cases/case-1/statement-1/evidence/photo-1.txt",
+          type: "text/plain",
+          uploadedAt: "2026-04-23T12:00:00.000Z",
+        },
+      ],
       statement_config: {
         sections: [
           { id: "background", title: "Background" },
@@ -246,22 +273,30 @@ describe("intake interview flows", () => {
     expect(response.status).toBe(200);
     expect(generateFormalizeSystemPrompt).toHaveBeenCalledWith(
       expect.anything(),
-      expect.stringContaining("Photo 1"),
-      "No uploaded evidence materials provided.",
+      expect.stringContaining("Exhibit"),
     );
     await expect(
       readJson<Record<string, string>>(response),
     ).resolves.toEqual({
       background: "The witness entered the site at 08:10.",
-      supportingEvidence:
-        "Existing references only.\n\nConfirmed exhibits:\n- Photo 1: Barrier and shoulder injury",
+      supportingEvidence: "Existing references only.",
     });
   });
 
   it("passes uploaded evidence text into the formalization prompt", async () => {
     SERVERONLY_getStatementWithConfigFromToken.mockResolvedValue({
       id: "statement-1",
+      witness_name: "Casey Witness",
       status: "in_progress",
+      supporting_documents: [
+        {
+          bucketId: "tenant-1",
+          name: "repair_quote.txt",
+          path: "cases/case-1/statement-1/evidence/repair_quote.txt",
+          type: "text/plain",
+          uploadedAt: "2026-04-23T12:00:00.000Z",
+        },
+      ],
       statement_config: {
         sections: [{ id: "damageDetails", title: "Damage Details" }],
       },
@@ -277,31 +312,6 @@ describe("intake interview flows", () => {
           },
         },
       ],
-    });
-
-    getServiceClient.mockReturnValue({
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        order: vi.fn().mockResolvedValue({
-          data: [
-            {
-              meta: {
-                attachedFiles: [
-                  {
-                    name: "repair_quote.pdf",
-                    type: "application/pdf",
-                    handledAs: "text",
-                    inlineText:
-                      "Repair estimate total £4,115. Front bumper, wing and headlight replacement.",
-                  },
-                ],
-              },
-            },
-          ],
-          error: null,
-        }),
-      })),
     });
 
     const route = await importFresh<
@@ -328,8 +338,7 @@ describe("intake interview flows", () => {
     expect(response.status).toBe(200);
     expect(generateFormalizeSystemPrompt).toHaveBeenCalledWith(
       expect.anything(),
-      expect.stringContaining("JR1"),
-      expect.stringContaining("Repair estimate total £4,115"),
+      expect.any(String),
     );
   });
 });

@@ -14,6 +14,7 @@ const sendStatementFollowUpRequestEmail = vi.fn();
 const sendStatementFinalReviewRequestEmail = vi.fn();
 const sendStatementReminderEmail = vi.fn();
 const logAuditEvent = vi.fn();
+const enforcePersistentRateLimit = vi.fn();
 
 vi.mock("@/lib/env", () => ({
   env: {
@@ -52,6 +53,16 @@ vi.mock("@/lib/observability/audit", () => ({
   logAuditEvent,
 }));
 
+vi.mock("@/lib/api-utils", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api-utils")>(
+    "@/lib/api-utils",
+  );
+  return {
+    ...actual,
+    enforcePersistentRateLimit,
+  };
+});
+
 function createAwaitableBuilder(result: unknown) {
   const builder = {
     select: vi.fn().mockReturnThis(),
@@ -77,6 +88,7 @@ function createAwaitableBuilder(result: unknown) {
 describe("statement operation flows", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    enforcePersistentRateLimit.mockResolvedValue(null);
     requireTenantUser.mockResolvedValue({
       userId: "user-1",
       email: "solicitor@firm.co.uk",

@@ -4,6 +4,7 @@ import { importFresh, readJson } from "./helpers/route-test";
 
 const enforceRateLimit = vi.fn();
 const getRateLimitKey = vi.fn();
+const enforcePersistentRateLimit = vi.fn();
 const sendInvitationEmail = vi.fn();
 const getServiceClient = vi.fn();
 const SERVERONLY_acceptInvite = vi.fn();
@@ -15,6 +16,16 @@ vi.mock("@/lib/api-utils/rate-limit", () => ({
   enforceRateLimit,
   getRateLimitKey,
 }));
+
+vi.mock("@/lib/api-utils", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api-utils")>(
+    "@/lib/api-utils",
+  );
+  return {
+    ...actual,
+    enforcePersistentRateLimit,
+  };
+});
 
 vi.mock("@/lib/email", () => ({
   sendInvitationEmail,
@@ -135,6 +146,7 @@ describe("authentication and tenant flows", () => {
     vi.clearAllMocks();
     enforceRateLimit.mockReturnValue({ ok: true });
     getRateLimitKey.mockReturnValue("rate-key");
+    enforcePersistentRateLimit.mockResolvedValue(null);
   });
 
   it("accepts waitlist signups", async () => {
@@ -176,6 +188,25 @@ describe("authentication and tenant flows", () => {
   });
 
   it("sends a magic link when the request is valid", async () => {
+    const invites = createQueryBuilder({
+      maybeSingle: {
+        data: {
+          email: "witness@firm.co.uk",
+          accepted_at: null,
+          expires_at: "2099-01-01T00:00:00.000Z",
+        },
+        error: null,
+      },
+    });
+
+    getServiceClient.mockReturnValue(
+      createSupabaseMock({
+        fromHandlers: {
+          invites,
+        },
+      }),
+    );
+
     const route = await importFresh<
       typeof import("@/app/api/auth/magic-link/route")
     >("@/app/api/auth/magic-link/route");

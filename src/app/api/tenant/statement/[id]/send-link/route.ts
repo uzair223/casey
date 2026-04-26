@@ -5,6 +5,8 @@ import { SERVERONLY_getStatementForSendLink } from "@/lib/supabase/queries";
 import { sendStatementLinkEmail } from "@/lib/email";
 import {
   badRequest,
+  enforcePersistentRateLimit,
+  forbidden,
   notFound,
   ok,
   serverError,
@@ -22,6 +24,17 @@ export async function POST(
 ) {
   try {
     const { id: statementId } = await params;
+    const rateLimitResponse = await enforcePersistentRateLimit({
+      request,
+      scope: "tenant:statement:send-link",
+      identifier: statementId,
+      limit: 20,
+      windowSeconds: 60,
+    });
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const supabase = getServiceClient();
     const authHeader = request.headers.get("authorization") || "";
     const token = authHeader.toLowerCase().startsWith("bearer ")
@@ -47,6 +60,14 @@ export async function POST(
 
     if (profileError || !profile?.tenant_id) {
       return notFound("User profile not found");
+    }
+
+    const canSendLinks =
+      profile.role === "tenant_admin" || profile.role === "solicitor";
+    if (!canSendLinks) {
+      return forbidden(
+        "Only firm admins and solicitors can send witness links",
+      );
     }
 
     const { data: tenant, error: tenantError } = await supabase

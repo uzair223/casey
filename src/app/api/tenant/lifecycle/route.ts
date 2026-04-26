@@ -39,7 +39,7 @@ const requireTenantUser = async (request: Request) => {
 
   if (!profile || !profile.tenant_id) {
     return {
-      error: forbidden("No tenant associated"),
+        error: forbidden("No organisation associated"),
     };
   }
 
@@ -97,9 +97,9 @@ export async function POST(request: Request) {
   if (auth.error) return auth.error;
 
   if (auth.role !== "tenant_admin") {
-    return forbidden(
-      "Tenant recovery is restricted to the tenant admin or app admins",
-    );
+      return forbidden(
+        "Organisation recovery is restricted to firm admins or app admins",
+      );
   }
 
   try {
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (tenantError || !tenant) {
-      return notFound("Tenant not found");
+      return notFound("Organisation not found");
     }
 
     if (!tenant.soft_deleted_at) {
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
     }
 
     if (tenant.soft_deleted_by_role === "app_admin") {
-      return forbidden("Tenant recovery is restricted to app admins");
+      return forbidden("Organisation recovery is restricted to app admins");
     }
 
     const nowMs = Date.now();
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
       : null;
 
     if (purgeAfterMs && purgeAfterMs <= nowMs) {
-      return gone("Tenant can no longer be restored");
+      return gone("Organisation can no longer be restored");
     }
 
     await supabase.rpc("restore_tenant", { tenant_id_param: auth.tenantId });

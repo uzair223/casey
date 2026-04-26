@@ -519,7 +519,7 @@ const suite = describe.skipIf(!hasLocalSupabaseEnv())("local Supabase RLS", () =
     expect(otherTenantDeletionRequests.data).toEqual([]);
   });
 
-  it("enforces authenticated and anonymous storage policies for tenant buckets", async () => {
+  it("enforces authenticated storage policies and blocks anonymous tenant bucket access", async () => {
     const solicitorA = await signInAs(seed.emails.solicitorA, seed.passwords.solicitorA);
     const solicitorB = await signInAs(seed.emails.solicitorB, seed.passwords.solicitorB);
     const anon = createAnonClient();
@@ -540,7 +540,7 @@ const suite = describe.skipIf(!hasLocalSupabaseEnv())("local Supabase RLS", () =
     const anonRead = await anon.storage
       .from(seed.tenantAId)
       .download(`rls/${seed.runId}/service.txt`);
-    expect(anonRead.error).toBeNull();
+    expect(anonRead.error).not.toBeNull();
 
     const anonUpload = await anon.storage
       .from(seed.tenantAId)
@@ -548,24 +548,10 @@ const suite = describe.skipIf(!hasLocalSupabaseEnv())("local Supabase RLS", () =
         contentType: "text/plain",
         upsert: true,
       });
-    expect(anonUpload.error).toBeNull();
-
-    await service.from("magic_links").update({
-      expires_at: "2000-01-01T00:00:00.000Z",
-    }).eq("tenant_id", seed.tenantAId);
-
-    const anonReadAfterExpiry = await anon.storage
-      .from(seed.tenantAId)
-      .download(`rls/${seed.runId}/service.txt`);
-    expect(anonReadAfterExpiry.error).not.toBeNull();
-
-    await service.from("magic_links").update({
-      expires_at: "2099-01-01T00:00:00.000Z",
-    }).eq("tenant_id", seed.tenantAId);
+    expect(anonUpload.error).not.toBeNull();
 
     await service.storage.from(seed.tenantAId).remove([
       `rls/${seed.runId}/member.txt`,
-      `rls/${seed.runId}/anon.txt`,
     ]);
   });
 });

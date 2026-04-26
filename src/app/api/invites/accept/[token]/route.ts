@@ -3,6 +3,7 @@ import { SERVERONLY_acceptInvite } from "@/lib/supabase/mutations";
 import type { InviteReadProfile, InviteRow } from "@/types";
 import {
   badRequest,
+  enforcePersistentRateLimit,
   forbidden,
   notFound,
   ok,
@@ -119,6 +120,17 @@ export async function GET(
     if (auth.error) return auth.error;
 
     const { token } = await params;
+    const rateLimitResponse = await enforcePersistentRateLimit({
+      request,
+      scope: "invites:accept:get",
+      identifier: token,
+      limit: 20,
+      windowSeconds: 60,
+    });
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const invite = await fetchInviteWithTenantName(auth.supabase, token);
     if (!invite) {
       return notFound("Invite not found");
@@ -143,6 +155,17 @@ export async function POST(
     if (auth.error) return auth.error;
 
     const { token: inviteToken } = await params;
+    const rateLimitResponse = await enforcePersistentRateLimit({
+      request,
+      scope: "invites:accept:post",
+      identifier: inviteToken,
+      limit: 12,
+      windowSeconds: 60,
+    });
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const body = await request.json();
     const { displayName, firmName } = body;
 

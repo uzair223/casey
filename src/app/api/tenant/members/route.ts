@@ -52,7 +52,7 @@ const requireTeamAccess = async (request: Request) => {
 
   if (!profile || !profile.tenant_id) {
     return {
-      error: forbidden("No tenant associated"),
+        error: forbidden("No organisation associated"),
     };
   }
 
@@ -93,7 +93,7 @@ export async function PUT(request: Request) {
 
     const { userId, role } = parsed.data;
     if (userId === auth.user_id) {
-      return conflict("Use a different tenant admin to change your role");
+      return conflict("Use a different firm admin to change your role");
     }
 
     const supabase = getServiceClient();
@@ -109,7 +109,7 @@ export async function PUT(request: Request) {
     }
 
     if (targetProfile.tenant_id !== auth.tenant_id) {
-      return forbidden("User not in your tenant");
+      return forbidden("User is not in your organisation");
     }
 
     if (targetProfile.role === "tenant_admin" && role !== "tenant_admin") {
@@ -124,7 +124,7 @@ export async function PUT(request: Request) {
       }
 
       if ((count ?? 0) <= 1) {
-        return conflict("Cannot demote the final tenant admin");
+          return conflict("Cannot demote the final firm admin");
       }
     }
 
@@ -174,7 +174,7 @@ export async function DELETE(request: Request) {
     const { userId } = parsed.data;
 
     if (userId === auth.user_id) {
-      return conflict("Cannot remove yourself from tenant members");
+      return conflict("Cannot remove yourself from organisation members");
     }
 
     const supabase = getServiceClient();
@@ -190,11 +190,11 @@ export async function DELETE(request: Request) {
     }
 
     if (targetProfile.tenant_id !== auth.tenant_id) {
-      return forbidden("User not in your tenant");
+      return forbidden("User is not in your organisation");
     }
 
     if (targetProfile.role === "tenant_admin") {
-      return conflict("Cannot remove another tenant admin");
+      return conflict("Cannot remove another firm admin");
     }
 
     const { error: deleteError } = await supabase

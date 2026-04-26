@@ -52,6 +52,11 @@ describe("intake submission and final review flows", () => {
   it("submits a witness statement and notifies the legal team", async () => {
     SERVERONLY_getStatementWithConfigFromToken.mockResolvedValue({
       id: "statement-1",
+      case_id: "case-1",
+      tenant_id: "tenant-1",
+      title: "Accident claim",
+      witness_name: "Casey Witness",
+      supporting_documents: [],
       status: "in_progress",
     });
     SERVERONLY_submitStatement.mockResolvedValue("statement-1");
@@ -87,7 +92,8 @@ describe("intake submission and final review flows", () => {
         body: JSON.stringify({
           signedDocument: {
             name: "statement.docx",
-            path: "docs/statement.docx",
+            path: "cases/case-1/statement-1/submitted/statement.docx",
+            bucketId: "tenant-1",
             type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             uploadedAt: "2026-04-23T12:00:00.000Z",
           },
@@ -151,7 +157,7 @@ describe("intake submission and final review flows", () => {
         signed_document: {
           bucketId: "tenant-1",
           name: "statement.docx",
-          path: "docs/statement.docx",
+          path: "cases/case-1/statement-1/submitted/statement.docx",
           type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           uploadedAt: "2026-04-23T12:00:00.000Z",
         },
@@ -167,10 +173,6 @@ describe("intake submission and final review flows", () => {
     const storageBucket = {
       download: vi
         .fn()
-        .mockResolvedValueOnce({
-          data: new Blob(["signature"], { type: "image/png" }),
-          error: null,
-        })
         .mockResolvedValueOnce({
           data: new Blob(["document"], {
             type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -198,14 +200,9 @@ describe("intake submission and final review flows", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          signatureImageDataUrl:
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/w8AAgMBgN4XvGkAAAAASUVORK5CYII=",
           signatureName: "Casey Witness",
-          signatureDocument: {
-            bucketId: "tenant-1",
-            name: "signature.png",
-            path: "signatures/sig.png",
-            type: "image/png",
-            uploadedAt: "2026-04-23T13:00:00.000Z",
-          },
         }),
       }),
       { params: Promise.resolve({ token: "token-1" }) },

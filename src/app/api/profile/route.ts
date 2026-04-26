@@ -46,7 +46,7 @@ export async function DELETE(request: Request) {
 
       if ((count ?? 0) <= 1) {
         return conflict(
-          "You are the last tenant admin. Assign another tenant admin or close the organisation first.",
+            "You are the last firm admin. Assign another firm admin or close the organisation first.",
         );
       }
     }

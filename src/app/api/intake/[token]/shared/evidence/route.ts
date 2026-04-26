@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { enforcePersistentRateLimit, handleApiError } from "@/lib/api-utils";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
 import { SERVERONLY_updateStatementByToken } from "@/lib/supabase/mutations";
@@ -45,6 +46,17 @@ export async function POST(
 ) {
   try {
     const { token } = await params;
+    const rateLimitResponse = await enforcePersistentRateLimit({
+      request,
+      scope: "intake:evidence:upload",
+      identifier: token,
+      limit: 20,
+      windowSeconds: 60 * 60,
+    });
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
 
     if (!statement) {
@@ -134,9 +146,7 @@ export async function POST(
 
     return NextResponse.json({ documents: uploadedDocuments });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to upload evidence";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return handleApiError(error);
   }
 }
 
@@ -146,6 +156,17 @@ export async function DELETE(
 ) {
   try {
     const { token } = await params;
+    const rateLimitResponse = await enforcePersistentRateLimit({
+      request,
+      scope: "intake:evidence:delete",
+      identifier: token,
+      limit: 30,
+      windowSeconds: 60 * 60,
+    });
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
 
     if (!statement) {
@@ -198,8 +219,6 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to remove evidence";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return handleApiError(error);
   }
 }

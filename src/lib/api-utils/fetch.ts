@@ -50,7 +50,14 @@ export async function apiFetch(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch((err) => err);
+    const error = await response.json().catch(() => null);
+    if (error && typeof error === "object" && "error" in error) {
+      const message = (error as { error?: unknown }).error;
+      if (typeof message === "string" && message.trim()) {
+        throw new Error(message);
+      }
+    }
+
     const message =
       process.env.NODE_ENV === "development"
         ? JSON.stringify(error, null, 2)

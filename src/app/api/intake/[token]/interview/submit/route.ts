@@ -6,6 +6,7 @@ import {
   SERVERONLY_updateStatementByToken,
 } from "@/lib/supabase/mutations";
 import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
+import { handleApiError, userError, validationError } from "@/lib/api-utils";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { sendStatementSubmittedNotificationEmail } from "@/lib/email";
 import { StatementSubmission, UploadedDocument } from "@/types";
@@ -55,7 +56,7 @@ function getValidatedSupportingDocuments(
   for (const document of submitted) {
     const existing = existingByPath.get(document.path);
     if (!existing || !documentBelongsToStatement(existing, statement)) {
-      throw new Error("Invalid supporting document reference.");
+      throw validationError("Invalid supporting document reference.");
     }
 
     validated.push(existing);
@@ -69,7 +70,7 @@ async function uploadSignedDocument(params: {
   file: File;
 }) {
   if (params.file.size > MAX_SIGNED_DOCUMENT_SIZE_BYTES) {
-    throw new Error("Signed statement exceeds the 25MB file size limit.");
+    throw validationError("Signed statement exceeds the 25MB file size limit.");
   }
 
   const supabase = getServiceClient("intake_submit_signed_document_upload");
@@ -86,7 +87,9 @@ async function uploadSignedDocument(params: {
   });
 
   if (error || !data) {
-    throw error ?? new Error("Failed to upload signed statement.");
+    throw userError("Failed to upload signed statement.", 400, {
+      cause: error,
+    });
   }
 
   return {
@@ -174,7 +177,13 @@ export async function POST(
       const signedDocumentFile = formData.get("signedDocument");
 
       if (typeof sectionsRaw === "string" && sectionsRaw.trim()) {
-        sections = JSON.parse(sectionsRaw) as StatementSubmission["sections"];
+        try {
+          sections = JSON.parse(sectionsRaw) as StatementSubmission["sections"];
+        } catch (error) {
+          throw validationError("sections must be valid JSON.", {
+            cause: error,
+          });
+        }
       }
 
       if (!(signedDocumentFile instanceof File)) {
@@ -278,10 +287,7 @@ export async function POST(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to submit statement";
-
-    return NextResponse.json({ error: message }, { status: 500 });
+    return handleApiError(error);
   }
 }
 
@@ -328,7 +334,6 @@ export async function PUT(
     });
     return NextResponse.json("ok");
   } catch (error) {
-    console.error("Patch error:", error);
-    return NextResponse.json("Failed to patch", { status: 500 });
+    return handleApiError(error);
   }
 }

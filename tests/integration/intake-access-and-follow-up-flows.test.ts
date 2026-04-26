@@ -7,8 +7,9 @@ const SERVERONLY_getStatementWithConfigFromToken = vi.fn();
 const SERVERONLY_acknowledgeStatementNoticeByToken = vi.fn();
 const SERVERONLY_saveConversationMessage = vi.fn();
 const getConversationHistory = vi.fn();
-const uploadFile = vi.fn();
 const getIntakeAccessError = vi.fn();
+const enforcePersistentRateLimit = vi.fn();
+const getServiceClient = vi.fn();
 
 vi.mock("@/lib/supabase/queries", () => ({
   SERVERONLY_getFullStatementFromToken,
@@ -19,8 +20,21 @@ vi.mock("@/lib/supabase/queries", () => ({
 vi.mock("@/lib/supabase/mutations", () => ({
   SERVERONLY_acknowledgeStatementNoticeByToken,
   SERVERONLY_saveConversationMessage,
-  uploadFile,
 }));
+
+vi.mock("@/lib/supabase/server", () => ({
+  getServiceClient,
+}));
+
+vi.mock("@/lib/api-utils", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api-utils")>(
+    "@/lib/api-utils",
+  );
+  return {
+    ...actual,
+    enforcePersistentRateLimit,
+  };
+});
 
 vi.mock("@/lib/api-utils/intake-access", () => ({
   getIntakeAccessError,
@@ -30,6 +44,19 @@ describe("intake access and follow-up flows", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getIntakeAccessError.mockResolvedValue(null);
+    enforcePersistentRateLimit.mockResolvedValue(null);
+    getServiceClient.mockReturnValue({
+      storage: {
+        from: vi.fn(() => ({
+          upload: vi.fn().mockResolvedValue({
+            data: {
+              path: "cases/case-1/statement-1/submitted/follow-up/file-photo.jpg",
+            },
+            error: null,
+          }),
+        })),
+      },
+    });
   });
 
   it("loads a witness intake payload for a valid token", async () => {
@@ -159,12 +186,6 @@ describe("intake access and follow-up flows", () => {
       tenant_id: "tenant-1",
       status: "in_progress",
     });
-    uploadFile.mockResolvedValue({
-      name: "photo.jpg",
-      path: "statements/case-1/statement-1/follow-up/file-photo.jpg",
-      type: "image/jpeg",
-    });
-
     const route = await importFresh<
       typeof import("@/app/api/intake/[token]/follow-up/route")
     >("@/app/api/intake/[token]/follow-up/route");
@@ -185,7 +206,6 @@ describe("intake access and follow-up flows", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(uploadFile).toHaveBeenCalledTimes(1);
     expect(SERVERONLY_saveConversationMessage).toHaveBeenCalledWith(
       "statement-1",
       "user",
@@ -195,7 +215,7 @@ describe("intake access and follow-up flows", () => {
         uploadedDocuments: [
           expect.objectContaining({
             name: "photo.jpg",
-            path: "statements/case-1/statement-1/follow-up/file-photo.jpg",
+            path: "cases/case-1/statement-1/submitted/follow-up/file-photo.jpg",
             bucketId: "tenant-1",
             type: "image/jpeg",
           }),

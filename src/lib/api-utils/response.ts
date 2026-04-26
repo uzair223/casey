@@ -1,4 +1,10 @@
 import { NextResponse } from "next/server";
+import {
+  apiErrorResponse,
+  handleApiError,
+  userError,
+  validationError,
+} from "./errors";
 
 type ErrorStatusMap = Record<string, number>;
 
@@ -6,31 +12,27 @@ export const ok = <T>(body: T, status = 200) =>
   NextResponse.json(body, { status });
 
 export const badRequest = (message: string) =>
-  NextResponse.json({ error: message }, { status: 400 });
+  apiErrorResponse(validationError(message, { code: "bad_request" }));
 
 export const unauthorized = (message = "Unauthorized") =>
-  NextResponse.json({ error: message }, { status: 401 });
+  apiErrorResponse(userError(message, 401, { code: "unauthorized" }));
 
 export const forbidden = (message = "Forbidden") =>
-  NextResponse.json({ error: message }, { status: 403 });
+  apiErrorResponse(userError(message, 403, { code: "forbidden" }));
 
 export const notFound = (message: string) =>
-  NextResponse.json({ error: message }, { status: 404 });
+  apiErrorResponse(userError(message, 404, { code: "not_found" }));
 
 export const conflict = (message: string) =>
-  NextResponse.json({ error: message }, { status: 409 });
+  apiErrorResponse(userError(message, 409, { code: "conflict" }));
 
 export const gone = (message: string) =>
-  NextResponse.json({ error: message }, { status: 410 });
+  apiErrorResponse(userError(message, 410, { code: "gone" }));
 
 export const tooManyRequests = (message: string) =>
-  NextResponse.json({ error: message }, { status: 429 });
+  apiErrorResponse(userError(message, 429, { code: "too_many_requests" }));
 
 export const serverError = (
   error: unknown,
   knownStatuses: ErrorStatusMap = {},
-) => {
-  const message = error instanceof Error ? error.message : "Unknown error";
-  const status = knownStatuses[message] ?? 500;
-  return NextResponse.json({ error: message }, { status });
-};
+) => handleApiError(error, { knownStatuses });

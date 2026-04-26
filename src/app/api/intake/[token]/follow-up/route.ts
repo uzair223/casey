@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  enforcePersistentRateLimit,
+  handleApiError,
+  userError,
+} from "@/lib/api-utils";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import {
   SERVERONLY_getStatementWithConfigFromToken,
@@ -40,6 +45,17 @@ export async function GET(
 ) {
   try {
     const { token } = await params;
+    const rateLimitResponse = await enforcePersistentRateLimit({
+      request,
+      scope: "intake:follow-up:submit",
+      identifier: token,
+      limit: 20,
+      windowSeconds: 60 * 60,
+    });
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
 
     if (!statement) {
@@ -99,9 +115,7 @@ export async function GET(
       })),
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to load follow-up";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return handleApiError(error);
   }
 }
 
@@ -182,7 +196,9 @@ export async function POST(
               });
 
             if (uploadError || !uploadedDoc) {
-              throw uploadError ?? new Error("Failed to upload follow-up file");
+              throw userError("Failed to upload follow-up file", 400, {
+                cause: uploadError,
+              });
             }
 
             uploadedDocuments.push({
@@ -230,8 +246,6 @@ export async function POST(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to save follow-up";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return handleApiError(error);
   }
 }
