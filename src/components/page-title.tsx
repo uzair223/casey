@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import React from "react";
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 type PageTitleAction = {
   label: ReactNode;
@@ -17,6 +18,10 @@ type PageTitleProps = {
   description?: ReactNode;
   actions?: PageTitleAction[];
   titleTag?: React.ElementType;
+  className?: string;
+  subtitleClassName?: string;
+  titleClassName?: string;
+  descriptionClassName?: string;
 };
 
 export function PageTitle({
@@ -25,20 +30,44 @@ export function PageTitle({
   description,
   actions = [],
   titleTag: TitleTag = "h1",
+  className,
+  subtitleClassName,
+  titleClassName,
+  descriptionClassName,
 }: PageTitleProps) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div
+      className={cn(
+        "flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
+        className,
+      )}
+    >
       <div className="min-w-0">
         {subtitle && (
-          <p className="text-sm uppercase tracking-[0.2em] text-accent-foreground">
+          <p
+            className={cn(
+              "text-sm uppercase tracking-[0.2em] text-accent-foreground",
+              subtitleClassName,
+            )}
+          >
             {subtitle}
           </p>
         )}
-        <TitleTag className="text-2xl leading-tight font-display font-medium text-primary sm:text-3xl">
+        <TitleTag
+          className={cn(
+            "text-2xl leading-tight font-display font-medium text-primary sm:text-3xl",
+            titleClassName,
+          )}
+        >
           {title}
         </TitleTag>
         {description && (
-          <p className="mt-2 text-muted-foreground sm:max-w-3xl">
+          <p
+            className={cn(
+              "mt-2 text-muted-foreground sm:max-w-3xl",
+              descriptionClassName,
+            )}
+          >
             {description}
           </p>
         )}

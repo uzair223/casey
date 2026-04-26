@@ -43,6 +43,7 @@ import {
 import Link from "next/link";
 import Loading from "@/components/loading";
 import { useTenant } from "@/contexts/tenant-context";
+import { toast } from "@/lib/toast";
 
 export default function CaseDetailPage() {
   const params = useParams<{ id: string }>();
@@ -63,8 +64,6 @@ export default function CaseDetailPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [saveStatus, setSaveStatus] = useState<string | null>(null);
-  const [newWitnessStatus, setNewWitnessStatus] = useState<string | null>(null);
   const [timelineRefreshTrigger, setTimelineRefreshTrigger] = useState(0);
 
   const [isEditingCase, setIsEditingCase] = useState(false);
@@ -122,25 +121,26 @@ export default function CaseDetailPage() {
   };
 
   const handleCaseSaved = async () => {
-    setSaveStatus("Case updated");
+    toast.success("Case updated");
     setIsEditingCase(false);
     setTimelineRefreshTrigger((prev) => prev + 1);
     await refreshCase();
   };
 
   const handleWitnessCreated = async () => {
-    setNewWitnessStatus("Witness statement created and link sent");
+    toast.success("Witness statement created and link sent");
     setTimelineRefreshTrigger((prev) => prev + 1);
     await refreshCase();
   };
 
   const handleDeleteCase = async () => {
     if (!data) return;
-    if (
-      !confirm(
-        "Are you sure you want to delete this case? This will remove all witness statements and cannot be undone.",
-      )
-    ) {
+    const confirmed = await toast.confirm("Delete this case?", {
+      description:
+        "This will remove all witness statements and cannot be undone.",
+      confirmLabel: "Delete case",
+    });
+    if (!confirmed) {
       return;
     }
     try {
@@ -171,7 +171,6 @@ export default function CaseDetailPage() {
               variant="outline"
               size="sm"
               onClick={() => {
-                setSaveStatus(null);
                 setIsEditingCase((prev) => !prev);
               }}
             >
@@ -193,11 +192,7 @@ export default function CaseDetailPage() {
 
             <Dialog open={isAddWitnessOpen} onOpenChange={setIsAddWitnessOpen}>
               <DialogTrigger asChild>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => setNewWitnessStatus(null)}
-                >
+                <Button variant="default" size="sm">
                   <PlusIcon className="h-4 w-4" />
                   Add witness
                 </Button>
@@ -250,16 +245,6 @@ export default function CaseDetailPage() {
                     {data.status?.replace("_", " ") || "draft"}
                   </Badge>
                 </div>
-                {saveStatus ? (
-                  <p className="text-sm text-muted-foreground md:col-span-2">
-                    {saveStatus}
-                  </p>
-                ) : null}
-                {newWitnessStatus ? (
-                  <p className="text-sm text-muted-foreground md:col-span-2">
-                    {newWitnessStatus}
-                  </p>
-                ) : null}
               </div>
               {/* Case metadata fields */}
               {caseTemplate?.published_config?.dynamicFields?.length ? (
