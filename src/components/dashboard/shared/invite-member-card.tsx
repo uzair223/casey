@@ -262,8 +262,8 @@ export function InviteMemberCard({
 
       <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Bulk Invite Tenant and App Admins</DialogTitle>
+            <DialogHeader>
+              <DialogTitle>Bulk Invite Firm and App Admins</DialogTitle>
             <DialogDescription>
               Paste CSV data or upload a CSV file with columns email,role.
             </DialogDescription>
@@ -281,9 +281,9 @@ export function InviteMemberCard({
                   setBulkResult(null);
                 }}
                 rows={10}
-                placeholder={
-                  "email,role\ntenantadmin@example.com,tenant_admin\nops@example.com,app_admin"
-                }
+                  placeholder={
+                    "email,role\nfirmadmin@example.com,tenant_admin\nops@example.com,app_admin"
+                  }
               />
             </div>
 

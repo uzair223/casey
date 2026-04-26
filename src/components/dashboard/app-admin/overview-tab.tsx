@@ -21,7 +21,7 @@ export function AppAdminOverviewTab() {
       <Card size="md">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Tenants
+            Organisations
           </CardTitle>
         </CardHeader>
         <CardContent>

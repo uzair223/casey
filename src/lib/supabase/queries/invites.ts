@@ -1,6 +1,8 @@
 import { InviteWithTenantName } from "@/types";
 import { getSupabaseClient } from "../client";
 
+const TEAM_INVITE_ROLE = "paralegal";
+
 /**
  * Get and validate an invite by token
  */
@@ -47,5 +49,25 @@ export const getInvites = async () => {
     .select("*")
     .order("created_at", { ascending: false });
   if (error) throw error;
+  return data;
+};
+
+export const getTenantParalegalInviteCode = async (tenantId: string) => {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("invites")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .is("email", null)
+    .eq("role", TEAM_INVITE_ROLE)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
   return data;
 };

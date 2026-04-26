@@ -29,6 +29,7 @@ import {
   CreateCaseForm,
 } from "@/components/dashboard/shared/cases";
 import { deleteCase } from "@/lib/supabase/mutations";
+import { toast } from "@/lib/toast";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -62,12 +63,17 @@ export function TenantRoleCasesTab() {
   }, [filtered, clampedCurrentPage]);
 
   const handleDeleteCase = async (caseId: string) => {
-    if (!confirm("Are you sure you want to delete this case?")) {
+    const confirmed = await toast.confirm("Delete this case?", {
+      description: "This action cannot be undone.",
+      confirmLabel: "Delete case",
+    });
+    if (!confirmed) {
       return;
     }
 
     await deleteCase(caseId);
     await cases.handler();
+    toast.success("Case deleted");
   };
 
   if (cases.isLoading) {

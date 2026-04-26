@@ -1,6 +1,7 @@
 import { getServiceClient } from "../server";
 import { getSupabaseClient } from "../client";
 import { generateAlphanumericCode } from "@/lib/security";
+import { getTenantParalegalInviteCode } from "../queries";
 
 const ALLOWED_INVITE_ROLES = [
   "tenant_admin",
@@ -8,6 +9,9 @@ const ALLOWED_INVITE_ROLES = [
   "paralegal",
   "app_admin",
 ];
+
+const TEAM_INVITE_ROLE = "paralegal";
+const INVITE_TOKEN_LENGTH = 12;
 
 async function getInviteByIdOrThrow(inviteId: string) {
   const supabase = getSupabaseClient();
@@ -67,7 +71,7 @@ export const createInvite = async (
     }
   }
 
-  const token = generateAlphanumericCode(8);
+  const token = generateAlphanumericCode(INVITE_TOKEN_LENGTH);
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + daysTillExpiry);
 
@@ -127,6 +131,83 @@ export const revokeInvite = async (inviteId: string): Promise<void> => {
   if (deleteError) {
     throw deleteError;
   }
+};
+
+async function createTenantParalegalInviteCode(
+  tenantId: string,
+  createdBy: string,
+) {
+  const supabase = getSupabaseClient();
+  const token = generateAlphanumericCode(INVITE_TOKEN_LENGTH);
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  const { data, error } = await supabase
+    .from("invites")
+    .insert({
+      tenant_id: tenantId,
+      email: null,
+      role: TEAM_INVITE_ROLE,
+      token,
+      created_by: createdBy,
+      expires_at: expiresAt.toISOString(),
+    })
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw error ?? new Error("Failed to create team invite code");
+  }
+
+  return data;
+}
+
+export const getOrCreateTenantParalegalInviteCode = async (
+  tenantId: string,
+  createdBy: string,
+) => {
+  const existing = await getTenantParalegalInviteCode(tenantId);
+  if (existing) {
+    return existing;
+  }
+
+  return createTenantParalegalInviteCode(tenantId, createdBy);
+};
+
+export const regenerateTenantParalegalInviteCode = async (
+  tenantId: string,
+  createdBy: string,
+) => {
+  const supabase = getSupabaseClient();
+  const existing = await getTenantParalegalInviteCode(tenantId);
+
+  if (!existing) {
+    return createTenantParalegalInviteCode(tenantId, createdBy);
+  }
+
+  const token = generateAlphanumericCode(INVITE_TOKEN_LENGTH);
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  const { data, error } = await supabase
+    .from("invites")
+    .update({
+      token,
+      expires_at: expiresAt.toISOString(),
+      created_by: createdBy,
+      email: null,
+      role: TEAM_INVITE_ROLE,
+      accepted_at: null,
+    })
+    .eq("id", existing.id)
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    throw error ?? new Error("Failed to regenerate team invite code");
+  }
+
+  return data;
 };
 
 export const SERVERONLY_acceptInvite = async (

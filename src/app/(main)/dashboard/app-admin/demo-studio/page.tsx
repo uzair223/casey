@@ -863,8 +863,8 @@ export default function DemoStudioPage() {
                   form={bootstrapForm}
                   name="demoTenantName"
                   controlId="demo-tenant-name"
-                  label="Tenant Name"
-                  registerOptions={{ required: "Demo tenant is required" }}
+                  label="Organisation Name"
+                  registerOptions={{ required: "Demo organisation is required" }}
                   renderControl={(
                     registration: RhfControlRegistration,
                     required: boolean,
@@ -875,7 +875,7 @@ export default function DemoStudioPage() {
                       <Input
                         id="demo-tenant-name"
                         required={required}
-                        placeholder="Type tenant name"
+                        placeholder="Type organisation name"
                         {...rest}
                         onChange={(event: ChangeEvent<HTMLInputElement>) =>
                           onChange(event)

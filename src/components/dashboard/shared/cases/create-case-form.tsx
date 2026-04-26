@@ -39,6 +39,7 @@ type CreateCaseFormProps = {
 export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
   const { user } = useUserProtected(["tenant_admin", "solicitor", "paralegal"]);
   const { team } = useTenant();
+  const isParalegal = user?.role === "paralegal";
 
   const [availableCaseTemplates, setAvailableCaseTemplates] = useState<
     CaseTemplate[]
@@ -111,6 +112,17 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
   }, [formMethods, user?.tenant_id]);
 
   useEffect(() => {
+    if (!user?.id || !isParalegal) {
+      return;
+    }
+
+    formMethods.setValue("assigned_to_ids", [user.id], {
+      shouldDirty: false,
+      shouldValidate: true,
+    });
+  }, [formMethods, isParalegal, user?.id]);
+
+  useEffect(() => {
     const templateFields = new Set(
       (selectedCaseTemplateConfig.dynamicFields ?? []).map((field) => field.id),
     );
@@ -136,6 +148,12 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
   if (!user?.tenant_id) return null;
 
   const onSubmit: SubmitHandler<CaseSchema> = async (data) => {
+    const assignedToIds = isParalegal
+      ? user?.id
+        ? [user.id]
+        : []
+      : (data.assigned_to_ids ?? []);
+
     await createCase({
       tenant_id: user.tenant_id!,
       title: data.title,
@@ -147,7 +165,7 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
             value == null || String(value).trim() === "" ? null : value,
           ]),
         ) ?? {},
-      assigned_to_ids: data.assigned_to_ids ?? [],
+      assigned_to_ids: assignedToIds,
       status: data.status,
     });
     await onCreated();
@@ -286,47 +304,62 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
           </div>
         ) : null}
 
-        <div className="space-y-2 rounded-md border p-3">
-          <Label>
-            Assigned Team Members{" "}
-            <span className="text-xs text-muted-foreground">(optional)</span>
-          </Label>
-          <p className="text-xs text-muted-foreground">
-            Select one or more team members to own this case.
-          </p>
-          <ScrollArea>
-            <div className="grid max-h-48 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {team.data.members.map((member) => (
-                <label
-                  key={member.user_id}
-                  className="flex items-center gap-2 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedAssignees.includes(member.user_id)}
-                    onChange={() => toggleAssignee(member.user_id)}
-                  />
-                  <span>
-                    {member.display_name ? (
-                      <>
-                        {member.display_name}{" "}
-                        <span className="text-muted-foreground">
-                          {member.email}
-                        </span>
-                      </>
-                    ) : (
-                      member.email
-                    )}
-                    &emsp;
-                    <span className="text-xs">
-                      {member.role ? ` (${getRoleLabel(member.role)})` : ""}
+        {isParalegal ? (
+          <div className="space-y-2 rounded-md border p-3">
+            <Label>Assigned Team Members</Label>
+            <p className="text-xs text-muted-foreground">
+              Paralegal-created cases are assigned to you automatically.
+            </p>
+            <p className="text-sm">
+              {user.display_name || user.email}
+              <span className="text-xs text-muted-foreground">
+                {user.role ? ` (${getRoleLabel(user.role)})` : ""}
+              </span>
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2 rounded-md border p-3">
+            <Label>
+              Assigned Team Members{" "}
+              <span className="text-xs text-muted-foreground">(optional)</span>
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Select one or more team members to own this case.
+            </p>
+            <ScrollArea>
+              <div className="grid max-h-48 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {team.data.members.map((member) => (
+                  <label
+                    key={member.user_id}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedAssignees.includes(member.user_id)}
+                      onChange={() => toggleAssignee(member.user_id)}
+                    />
+                    <span>
+                      {member.display_name ? (
+                        <>
+                          {member.display_name}{" "}
+                          <span className="text-muted-foreground">
+                            {member.email}
+                          </span>
+                        </>
+                      ) : (
+                        member.email
+                      )}
+                      &emsp;
+                      <span className="text-xs">
+                        {member.role ? ` (${getRoleLabel(member.role)})` : ""}
+                      </span>
                     </span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
+                  </label>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
 
         <div className="flex gap-2">
           <AsyncButton type="submit" pendingText="Creating...">

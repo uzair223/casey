@@ -50,7 +50,7 @@ export function assertServerOnly(source: string = "function") {
 export function getRoleLabel(role?: string) {
   const map: Record<string, string> = {
     app_admin: "App Admin",
-    tenant_admin: "Tenant Admin",
+    tenant_admin: "Firm Admin",
     solicitor: "Solicitor",
     paralegal: "Paralegal",
     user: "User",

@@ -22,7 +22,7 @@ export default function AppAdminDashboard() {
       <PageTitle
         subtitle={getRoleLabel(user?.role)}
         title="Admin Dashboard"
-        description="View platform statistics and manage tenants and app admins."
+        description="View platform statistics and manage organisations and app admins."
         actions={[
           {
             label: "Demo Studio",
@@ -50,7 +50,7 @@ export default function AppAdminDashboard() {
       <Tabs className="space-y-2" defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="tenants">Tenants</TabsTrigger>
+          <TabsTrigger value="tenants">Organisations</TabsTrigger>
           <TabsTrigger value="app_admin">App Admin</TabsTrigger>
           <TabsTrigger value="waitlist">Waitlist</TabsTrigger>
         </TabsList>
