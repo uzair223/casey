@@ -18,6 +18,19 @@ function toUrl(input: string | URL | Request): URL | null {
   }
 }
 
+function redactSupabaseQuery(search: string) {
+  if (!search) {
+    return "";
+  }
+
+  const decoded = decodeURIComponent(search);
+  if (/token|access_token|refresh_token|apikey|authorization/i.test(decoded)) {
+    return "?[REDACTED]";
+  }
+
+  return search;
+}
+
 export function createSupabaseLoggedFetch(
   source: SupabaseFetchSource,
   sourceName?: string,
@@ -37,7 +50,7 @@ export function createSupabaseLoggedFetch(
         sourceName: sourceName ?? null,
         method,
         path: requestUrl?.pathname ?? "unknown",
-        query: requestUrl?.search ?? "",
+        query: requestUrl ? redactSupabaseQuery(requestUrl.search) : "",
         status: response.status,
         ok: response.ok,
         durationMs,
@@ -49,7 +62,7 @@ export function createSupabaseLoggedFetch(
           sourceName: sourceName ?? null,
           method,
           path: requestUrl?.pathname ?? "unknown",
-          query: requestUrl?.search ?? "",
+          query: requestUrl ? redactSupabaseQuery(requestUrl.search) : "",
           status: response.status,
           statusText: response.statusText,
           durationMs,
@@ -64,7 +77,7 @@ export function createSupabaseLoggedFetch(
         sourceName: sourceName ?? null,
         method,
         path: requestUrl?.pathname ?? "unknown",
-        query: requestUrl?.search ?? "",
+        query: requestUrl ? redactSupabaseQuery(requestUrl.search) : "",
         durationMs,
         error,
       });

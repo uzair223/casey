@@ -10,8 +10,33 @@ import {
   sanitizeEvidenceGroupForPath,
 } from "@/lib/intake-evidence";
 
+const MAX_EVIDENCE_FILES = 10;
+const MAX_EVIDENCE_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const ALLOWED_EVIDENCE_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/",
+  "audio/",
+  "video/",
+] as const;
+
 function sanitizeFilename(name: string) {
   return name.replace(/[^\w.\- ]+/g, "_").trim() || "file";
+}
+
+function isAllowedEvidenceType(file: File) {
+  const type = file.type || "application/octet-stream";
+  return ALLOWED_EVIDENCE_TYPES.some((allowed) =>
+    allowed.endsWith("/") ? type.startsWith(allowed) : type === allowed,
+  );
+}
+
+function getEvidencePathPrefix(statement: {
+  case_id: string;
+  id: string;
+}) {
+  return `cases/${statement.case_id}/${statement.id}/evidence/`;
 }
 
 export async function POST(
@@ -46,6 +71,29 @@ export async function POST(
 
     if (files.length === 0) {
       return NextResponse.json({ error: "No files provided" }, { status: 400 });
+    }
+
+    if (files.length > MAX_EVIDENCE_FILES) {
+      return NextResponse.json(
+        { error: `Upload up to ${MAX_EVIDENCE_FILES} files at a time.` },
+        { status: 400 },
+      );
+    }
+
+    for (const file of files) {
+      if (file.size > MAX_EVIDENCE_FILE_SIZE_BYTES) {
+        return NextResponse.json(
+          { error: `${file.name} exceeds the 25MB file size limit.` },
+          { status: 400 },
+        );
+      }
+
+      if (!isAllowedEvidenceType(file)) {
+        return NextResponse.json(
+          { error: `${file.name} is not an allowed evidence file type.` },
+          { status: 400 },
+        );
+      }
     }
 
     const supabase = getServiceClient("api.intake.shared.evidence");
@@ -121,6 +169,22 @@ export async function DELETE(
     }
 
     const existing = getEvidenceDocuments(statement.supporting_documents);
+    const targetDocument = existing.find(
+      (document) => document.path === targetPath,
+    );
+
+    if (
+      !targetDocument ||
+      (targetDocument.bucketId ?? statement.tenant_id) !==
+        statement.tenant_id ||
+      !targetPath.startsWith(getEvidencePathPrefix(statement))
+    ) {
+      return NextResponse.json(
+        { error: "Requested evidence document not found" },
+        { status: 404 },
+      );
+    }
+
     const nextDocuments = existing.filter(
       (document) => document.path !== targetPath,
     );

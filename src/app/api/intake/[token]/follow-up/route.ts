@@ -6,8 +6,15 @@ import {
 } from "@/lib/supabase/queries";
 import {
   SERVERONLY_saveConversationMessage,
-  uploadFile,
 } from "@/lib/supabase/mutations";
+import { getServiceClient } from "@/lib/supabase/server";
+
+const MAX_FOLLOW_UP_FILES = 5;
+const MAX_FOLLOW_UP_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+
+function sanitizeFilename(name: string) {
+  return name.replace(/[^\w.\- ]+/g, "_").trim() || "file";
+}
 
 function getLatestFollowUpRequest(
   messages: Array<{
@@ -145,23 +152,44 @@ export async function POST(
       );
 
       if (fileEntries.length > 0) {
+        if (fileEntries.length > MAX_FOLLOW_UP_FILES) {
+          return NextResponse.json(
+            { error: `Upload up to ${MAX_FOLLOW_UP_FILES} files at a time.` },
+            { status: 400 },
+          );
+        }
+
         const basePath = `cases/${statement.case_id}/${statement.id}/submitted/follow-up`;
+        const supabase = getServiceClient("api.intake.follow_up.upload");
+        const storage = supabase.storage.from(statement.tenant_id);
 
         for (const [, fileData] of fileEntries) {
           if (fileData instanceof File) {
-            const uploadedDoc = await uploadFile({
-              bucketId: statement.tenant_id,
-              name: fileData.name,
-              path: `${basePath}/${new Date().toISOString()} ${fileData.name}`,
-              file: fileData,
-              contentType: fileData.type || "application/octet-stream",
-            });
+            if (fileData.size > MAX_FOLLOW_UP_FILE_SIZE_BYTES) {
+              return NextResponse.json(
+                { error: `${fileData.name} exceeds the 25MB file size limit.` },
+                { status: 400 },
+              );
+            }
+
+            const safeName = sanitizeFilename(fileData.name);
+            const path = `${basePath}/${new Date().toISOString()} ${safeName}`;
+            const contentType = fileData.type || "application/octet-stream";
+            const { data: uploadedDoc, error: uploadError } =
+              await storage.upload(path, fileData, {
+                contentType,
+                upsert: false,
+              });
+
+            if (uploadError || !uploadedDoc) {
+              throw uploadError ?? new Error("Failed to upload follow-up file");
+            }
 
             uploadedDocuments.push({
-              name: uploadedDoc.name,
+              name: fileData.name,
               path: uploadedDoc.path,
               bucketId: statement.tenant_id,
-              type: uploadedDoc.type,
+              type: contentType,
             });
           }
         }

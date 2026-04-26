@@ -22,7 +22,6 @@ import {
   CHAT_METADATA_MARKER,
   getMessageResponseMeta,
 } from "@/lib/statement-utils";
-import { uploadFile } from "@/lib/supabase/mutations";
 import { useAsync, UseAsyncReturn } from "@/hooks/useAsync";
 import Loading from "@/components/loading";
 import { apiFetch } from "@/lib/api-utils";
@@ -780,26 +779,14 @@ export function IntakeProvider({
         templateDocument,
       );
 
-      const basePath = `cases/${data.case.id}/${data.statement.id}/submitted`;
       const name = `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;
-      const path = `${basePath}/${new Date().toISOString()} ${name}`;
-      // Upload to Supabase storage
-      const signedDocument = await uploadFile({
-        bucketId: data.tenant_id,
-        name,
-        description: `${data.statement.witness_name}'s signed statement on ${new Date().toLocaleDateString()}`,
-        path,
-        file: blob,
-        contentType:
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      });
+      const formData = new FormData();
+      formData.append("sections", JSON.stringify(statementSections));
+      formData.append("signedDocument", blob, name);
 
       await apiFetch(`/api/intake/${token}/interview/submit`, {
         method: "POST",
-        body: JSON.stringify({
-          sections: statementSections,
-          signedDocument,
-        }),
+        body: formData,
         requireAuth: requiresDemoAuth,
       });
       return true;

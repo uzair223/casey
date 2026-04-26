@@ -51,11 +51,11 @@ export async function apiFetch(
 
   if (!response.ok) {
     const error = await response.json().catch((err) => err);
-    throw new Error(
-      error.error || error.message || process.env.NODE_ENV === "development"
+    const message =
+      process.env.NODE_ENV === "development"
         ? JSON.stringify(error, null, 2)
-        : "Request failed",
-    );
+        : "Request failed";
+    throw new Error(message);
   }
 
   if (returnType === "json") {
