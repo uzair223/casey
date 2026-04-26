@@ -43,6 +43,7 @@ import {
   uploadFile,
 } from "@/lib/supabase/mutations";
 import { slugify, uniqueSlug } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 import {
   deletePathFromObject,
   getValueAtPath,
@@ -401,27 +402,27 @@ export function StatementTemplateSettingsProvider({
     }
   };
 
-  const prepareStarterPreview = useCallback(async (
-    config: StatementConfig,
-    name?: string,
-  ) => {
-    try {
-      const blob = await generateStarterDoc({
-        templateName: name?.trim() || "Witness Statement Template",
-        config,
-      });
-      await setDocxErrorsFromDocument(blob, config);
-      setPreviewState(blob, "Starter DOCX preview");
-    } catch (error) {
-      setDocxErrors({
-        errors: [String(error)],
-        unknown: [],
-        unused: [],
-      });
-      setPreviewDocxSource(null);
-      setPreviewDocxLabel("Starter DOCX preview");
-    }
-  }, []);
+  const prepareStarterPreview = useCallback(
+    async (config: StatementConfig, name?: string) => {
+      try {
+        const blob = await generateStarterDoc({
+          templateName: name?.trim() || "Witness Statement Template",
+          config,
+        });
+        await setDocxErrorsFromDocument(blob, config);
+        setPreviewState(blob, "Starter DOCX preview");
+      } catch (error) {
+        setDocxErrors({
+          errors: [String(error)],
+          unknown: [],
+          unused: [],
+        });
+        setPreviewDocxSource(null);
+        setPreviewDocxLabel("Starter DOCX preview");
+      }
+    },
+    [],
+  );
 
   const preparePreviewFromUploadedDocument = async (
     document: UploadedDocument,
@@ -703,7 +704,11 @@ export function StatementTemplateSettingsProvider({
 
   const deleteTemplate = async () => {
     if (!activeTemplateId) return;
-    if (!confirm("Delete this template? This cannot be undone.")) {
+    const confirmed = await toast.confirm("Delete this template?", {
+      description: "This cannot be undone.",
+      confirmLabel: "Delete template",
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -783,7 +788,7 @@ export function StatementTemplateSettingsProvider({
 
     const created = await createStatementTemplate({
       tenantId: user.tenant_id,
-      name: `${activeTemplate.name} (Tenant)`,
+      name: `${activeTemplate.name} (Firm)`,
       templateScope: "tenant",
       status: "draft",
       draftConfig: config,
@@ -807,7 +812,7 @@ export function StatementTemplateSettingsProvider({
       await prepareStarterPreview(config, tenantCopy.name);
     }
 
-    setMessage("Template forked to tenant scope");
+    setMessage("Template forked to firm scope");
   };
 
   const restorePreviousVersion = async () => {
@@ -955,11 +960,11 @@ export function StatementTemplateSettingsProvider({
       return;
     }
 
-    if (
-      !confirm(
-        "Delete the uploaded DOCX? This will revert to using the generated starter template.",
-      )
-    ) {
+    const confirmed = await toast.confirm("Delete the uploaded DOCX?", {
+      description: "This will revert to using the generated starter template.",
+      confirmLabel: "Delete DOCX",
+    });
+    if (!confirmed) {
       return;
     }
 

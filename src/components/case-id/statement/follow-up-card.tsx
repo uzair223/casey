@@ -6,6 +6,7 @@ import { AsyncButton } from "@/components/ui/async-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { apiFetch } from "@/lib/api-utils";
+import { toast } from "@/lib/toast";
 
 type StatementFollowUpCardProps = {
   statementId: string;
@@ -34,7 +35,7 @@ export function StatementFollowUpCard({
     });
 
     setMessage("");
-    alert("Follow-up request sent to witness");
+    toast.success("Follow-up request sent to witness");
   };
 
   return (

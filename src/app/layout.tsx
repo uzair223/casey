@@ -4,6 +4,7 @@ import { Fraunces, Manrope } from "next/font/google";
 
 import { UserProvider } from "@/contexts/user-context";
 import { TenantProvider } from "@/contexts/tenant-context";
+import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
 
@@ -36,6 +37,7 @@ export default function RootLayout({
         <UserProvider>
           <TenantProvider>{children}</TenantProvider>
         </UserProvider>
+        <Toaster richColors closeButton />
       </body>
     </html>
   );

@@ -33,6 +33,7 @@ import {
   updateCaseTemplate,
 } from "@/lib/supabase/mutations";
 import { slugify, uniqueSlug } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 import type {
   CaseConfig,
   CaseTemplate,
@@ -447,7 +448,7 @@ export function CaseTemplateSettingsProvider({
 
     const created = await createCaseTemplate({
       tenantId: user.tenant_id,
-      name: `${activeTemplate.name} (Tenant)`,
+      name: `${activeTemplate.name} (Firm)`,
       titleTemplate: activeTemplate.title_template,
       templateScope: "tenant",
       status: "draft",
@@ -468,7 +469,7 @@ export function CaseTemplateSettingsProvider({
     setActiveTemplateId(tenantCopy.id);
     syncEditorFromTemplate(tenantCopy);
     await loadTemplateStatementLinks(tenantCopy.id);
-    setMessage("Case template forked to tenant scope");
+    setMessage("Case template forked to firm scope");
   };
 
   const duplicateTemplate = async () => {
@@ -509,7 +510,11 @@ export function CaseTemplateSettingsProvider({
 
   const deleteTemplate = async () => {
     if (!activeTemplateId) return;
-    if (!confirm("Delete this case template? This cannot be undone.")) {
+    const confirmed = await toast.confirm("Delete this case template?", {
+      description: "This cannot be undone.",
+      confirmLabel: "Delete template",
+    });
+    if (!confirmed) {
       return;
     }
 

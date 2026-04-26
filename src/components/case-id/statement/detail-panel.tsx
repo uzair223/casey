@@ -79,6 +79,7 @@ import {
   statementStatusVariant,
   statementStatusLabel,
 } from "@/lib/status-styles";
+import { toast } from "@/lib/toast";
 
 type StatementDetailPanelProps = {
   statementId: string;
@@ -251,7 +252,10 @@ export function StatementDetailPanel({
   }
 
   const statementConfig = data.statement.statement_config;
-  const latestMeta = getMessageResponseMeta(data.latest ?? null, statementConfig);
+  const latestMeta = getMessageResponseMeta(
+    data.latest ?? null,
+    statementConfig,
+  );
   const sectionsWithContent = statementConfig.sections.filter(
     (section) => (sectionDrafts[section.id] ?? "").trim().length > 0,
   );
@@ -311,17 +315,18 @@ export function StatementDetailPanel({
   const onDelete = async () => {
     if (!data) return;
 
-    if (
-      !confirm(
-        "Are you sure you want to delete this statement? This action cannot be undone.",
-      )
-    ) {
+    const confirmed = await toast.confirm("Delete this statement?", {
+      description: "This action cannot be undone.",
+      confirmLabel: "Delete statement",
+    });
+    if (!confirmed) {
       return;
     }
 
     await deleteStatement(data.statement.id);
     reset();
     await refreshCase();
+    toast.success("Statement deleted");
   };
 
   const onSendStatementLink = async () => {
@@ -330,7 +335,7 @@ export function StatementDetailPanel({
     await apiFetch(`/api/tenant/statement/${data.statement.id}/send-link`, {
       method: "POST",
     });
-    alert("Statement link sent to witness email");
+    toast.success("Statement link sent to witness email");
   };
 
   const onRegenerateLink = async () => {
@@ -339,12 +344,14 @@ export function StatementDetailPanel({
     const link = await regenerateMagicLink(data.statement.id);
     setData((prev) => (prev ? { ...prev, link } : prev));
 
-    if (
-      confirm(
-        "Magic link has been regenerated. Do you want to email it to the witness?",
-      )
-    ) {
+    const shouldEmail = await toast.confirm("Magic link regenerated", {
+      description: "Do you want to email it to the witness?",
+      confirmLabel: "Email witness",
+    });
+    if (shouldEmail) {
       await onSendStatementLink();
+    } else {
+      toast.success("Magic link regenerated");
     }
   };
 
@@ -358,7 +365,7 @@ export function StatementDetailPanel({
       },
     );
 
-    alert("Final review request sent to witness");
+    toast.success("Final review request sent to witness");
     await Promise.all([refreshCase(), fetchStatement()]);
   };
 
@@ -418,7 +425,7 @@ export function StatementDetailPanel({
       });
 
       await Promise.all([refreshCase(), fetchStatement()]);
-      alert("DOCX regenerated and saved");
+      toast.success("DOCX regenerated and saved");
     } finally {
       setIsRegenerating(false);
     }
@@ -435,8 +442,14 @@ export function StatementDetailPanel({
       await Promise.all([refreshCase(), fetchStatement()]);
       setIsEditingSections(false);
 
-      if (confirm("Sections saved. Do you want to regenerate the DOCX now?")) {
+      const shouldRegenerate = await toast.confirm("Sections saved", {
+        description: "Do you want to regenerate the DOCX now?",
+        confirmLabel: "Regenerate DOCX",
+      });
+      if (shouldRegenerate) {
         await regenerateDocx(true);
+      } else {
+        toast.success("Sections saved");
       }
     } finally {
       setIsSavingSections(false);

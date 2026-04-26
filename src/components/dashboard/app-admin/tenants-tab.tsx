@@ -24,6 +24,7 @@ import {
 } from "@/lib/supabase/queries";
 import { InviteMemberCard } from "../shared/invite-member-card";
 import { CardSkeleton } from "../shared/skeleton";
+import { toast } from "@/lib/toast";
 
 type AppAdminTenantsTabProps = {
   userId: string;
@@ -38,13 +39,17 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
   };
 
   const handleRevokeInvite = async (inviteId: string) => {
-    if (!confirm("Are you sure you want to revoke this invite?")) return;
+    const confirmed = await toast.confirm("Revoke this invite?", {
+      confirmLabel: "Revoke invite",
+    });
+    if (!confirmed) return;
 
     try {
       await revokeInvite(inviteId);
       await tenantInvites.handler();
+      toast.success("Invite revoked");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to revoke invite");
+      toast.errorFromUnknown(error, "Failed to revoke invite");
     }
   };
 
@@ -61,8 +66,9 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
         });
       }
       await tenantInvites.handler();
+      toast.success("Invite resent");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to resend invite");
+      toast.errorFromUnknown(error, "Failed to resend invite");
     }
   };
 
@@ -70,11 +76,12 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
     tenantId: string,
     tenantName: string,
   ) => {
-    if (
-      !confirm(
-        `Revoke access for ${tenantName}? This will soft-delete the tenant, remove tenant member access, and block tenant-side recovery.`,
-      )
-    ) {
+    const confirmed = await toast.confirm(`Revoke access for ${tenantName}?`, {
+      description:
+        "This will archive the organisation, remove member access, and block organisation-side recovery.",
+      confirmLabel: "Revoke access",
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -82,12 +89,9 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
       await revokeTenantAccess(tenantId);
       await tenants.handler();
       await tenantInvites.handler();
+      toast.success("Organisation access revoked");
     } catch (error) {
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to revoke tenant access",
-      );
+      toast.errorFromUnknown(error, "Failed to revoke organisation access");
     }
   };
 
@@ -95,7 +99,11 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
     tenantId: string,
     tenantName: string,
   ) => {
-    if (!confirm(`Recover ${tenantName}? This restores tenant access.`)) {
+    const confirmed = await toast.confirm(`Recover ${tenantName}?`, {
+      description: "This restores organisation access.",
+      confirmLabel: "Recover organisation",
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -103,12 +111,9 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
       await restoreTenantAccess(tenantId);
       await tenants.handler();
       await tenantInvites.handler();
+      toast.success("Organisation access restored");
     } catch (error) {
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to recover tenant access",
-      );
+      toast.errorFromUnknown(error, "Failed to recover organisation access");
     }
   };
 
@@ -124,15 +129,17 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
       />
 
       {!tenants.data || tenants.isLoading ? (
-        <CardSkeleton title="Existing Tenants" />
+        <CardSkeleton title="Existing Organisations" />
       ) : (
         <Card size="md">
           <CardHeader>
-            <CardTitle>Existing Tenants</CardTitle>
+            <CardTitle>Existing Organisations</CardTitle>
           </CardHeader>
           <CardContent>
             {tenants.data.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No tenants found.</p>
+              <p className="text-sm text-muted-foreground">
+                No organisations found.
+              </p>
             ) : (
               <Table>
                 <TableHeader>
@@ -167,7 +174,7 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
                             }
                             pendingText="Recovering..."
                           >
-                            Recover tenant
+                            Recover organisation
                           </AsyncButton>
                         ) : (
                           <AsyncButton
@@ -192,16 +199,16 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
       )}
 
       {!tenantInvites.data || tenantInvites.isLoading ? (
-        <CardSkeleton title="Tenant Invites" />
+        <CardSkeleton title="Organisation Invites" />
       ) : (
         <Card size="md">
           <CardHeader>
-            <CardTitle>Tenant Invites</CardTitle>
+            <CardTitle>Organisation Invites</CardTitle>
           </CardHeader>
           <CardContent>
             {tenantInvites.data.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No tenant invites created yet.
+                No organisation invites created yet.
               </p>
             ) : (
               <InvitesTable

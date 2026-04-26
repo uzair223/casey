@@ -16,6 +16,7 @@ import { useAsync } from "@/hooks/useAsync";
 import { revokeInvite, resendInvite } from "@/lib/supabase/mutations";
 import { getAppAdminInvites, getAppAdminMembers } from "@/lib/supabase/queries";
 import { CardSkeleton } from "../shared/skeleton";
+import { toast } from "@/lib/toast";
 
 type AppAdminTabProps = {
   userId: string;
@@ -30,13 +31,17 @@ export function AppAdminMembersTab({ userId }: AppAdminTabProps) {
   };
 
   const handleRevokeInvite = async (inviteId: string) => {
-    if (!confirm("Are you sure you want to revoke this invite?")) return;
+    const confirmed = await toast.confirm("Revoke this invite?", {
+      confirmLabel: "Revoke invite",
+    });
+    if (!confirmed) return;
 
     try {
       await revokeInvite(inviteId);
       await appAdminInvites.handler();
+      toast.success("Invite revoked");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to revoke invite");
+      toast.errorFromUnknown(error, "Failed to revoke invite");
     }
   };
 
@@ -53,8 +58,9 @@ export function AppAdminMembersTab({ userId }: AppAdminTabProps) {
         });
       }
       await appAdminInvites.handler();
+      toast.success("Invite resent");
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to resend invite");
+      toast.errorFromUnknown(error, "Failed to resend invite");
     }
   };
 

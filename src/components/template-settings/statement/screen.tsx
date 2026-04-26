@@ -243,8 +243,8 @@ export function StatementTemplateSettingsScreen() {
                         variant="outline"
                         onClick={forkTemplate}
                         pendingText="Forking..."
-                      >
-                        Fork to tenant
+                        >
+                         Fork to firm
                       </AsyncButton>
                     ) : null}
                     {canEditActiveTemplate && activeTemplate && (

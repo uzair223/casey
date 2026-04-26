@@ -30,6 +30,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { NotificationPreferencesCard } from "@/components/settings/notification-preferences-card";
 import { getURL } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 
 export default function TenantSettingsPage() {
   const { user, refreshUser } = useUserProtected([
@@ -46,7 +47,6 @@ export default function TenantSettingsPage() {
   const [hasPassword, setHasPassword] = useState(false);
   const [name, setName] = useState("");
   const [dataRetentionDays, setDataRetentionDays] = useState("365");
-  const [status, setStatus] = useState<string | null>(null);
   const [pendingDeletionRequest, setPendingDeletionRequest] =
     useState<boolean>(false);
 
@@ -86,7 +86,7 @@ export default function TenantSettingsPage() {
       .catch((error) => {
         const message =
           error instanceof Error ? error.message : "Failed to load settings";
-        setStatus(message);
+        toast.error(message);
       })
       .finally(() => setIsLoading(false));
   }, [user, loadSettings]);
@@ -102,16 +102,17 @@ export default function TenantSettingsPage() {
     user.role === "tenant_admin" || user.role === "app_admin";
 
   const handleSaveProfile = async () => {
-    setStatus(null);
-
-    await updateCurrentUserProfile(user.id, displayName);
-    await refreshUser();
-    setStatus("Profile updated");
+    try {
+      await updateCurrentUserProfile(user.id, displayName);
+      await refreshUser();
+      toast.success("Profile updated");
+    } catch (error) {
+      toast.errorFromUnknown(error, "Failed to update profile");
+      throw error;
+    }
   };
 
   const handleForgotPassword = async () => {
-    setStatus(null);
-
     try {
       const email = user?.email;
       if (!email) {
@@ -125,87 +126,98 @@ export default function TenantSettingsPage() {
       if (error) {
         throw new Error(error.message);
       }
+      toast.success("Password reset email sent");
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to send reset email";
+      toast.error(errorMessage);
       throw new Error(errorMessage);
     }
   };
 
   const handleSavePassword = async () => {
-    setStatus(null);
-    const supabase = getSupabaseClient();
-    await refreshHasPassword();
+    try {
+      const supabase = getSupabaseClient();
+      await refreshHasPassword();
 
-    if (hasPassword) {
-      if (!currentPassword.trim()) {
-        throw new Error("Current password is required");
+      if (hasPassword) {
+        if (!currentPassword.trim()) {
+          throw new Error("Current password is required");
+        }
+
+        const email = user?.email;
+        if (!email) {
+          throw new Error("Could not verify current password for this account");
+        }
+
+        const { error: verifyError } = await supabase.auth.signInWithPassword({
+          email,
+          password: currentPassword,
+        });
+
+        if (verifyError) {
+          throw new Error("Current password is incorrect");
+        }
       }
 
-      const email = user?.email;
-      if (!email) {
-        throw new Error("Could not verify current password for this account");
+      if (newPassword.length < 8) {
+        throw new Error("Password must be at least 8 characters long");
       }
 
-      const { error: verifyError } = await supabase.auth.signInWithPassword({
-        email,
-        password: currentPassword,
+      if (newPassword !== confirmPassword) {
+        throw new Error("Passwords do not match");
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
       });
 
-      if (verifyError) {
-        throw new Error("Current password is incorrect");
+      if (error) {
+        throw new Error(error.message);
       }
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setHasPassword(true);
+      toast.success(
+        "Password updated. You can now use optional password sign-in from the auth page.",
+      );
+    } catch (error) {
+      toast.errorFromUnknown(error, "Failed to update password");
+      throw error;
     }
-
-    if (newPassword.length < 8) {
-      throw new Error("Password must be at least 8 characters long");
-    }
-
-    if (newPassword !== confirmPassword) {
-      throw new Error("Passwords do not match");
-    }
-
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setHasPassword(true);
-    setStatus(
-      "Password updated. You can now use optional password sign-in from the auth page.",
-    );
   };
 
   const handleSaveTenant = async () => {
     if (!canManageTenant) return;
-    setStatus(null);
 
-    const retention = Number(dataRetentionDays);
-    if (!Number.isInteger(retention) || retention < 30 || retention > 3650) {
-      throw new Error("Data retention must be between 30 and 3650 days");
+    try {
+      const retention = Number(dataRetentionDays);
+      if (!Number.isInteger(retention) || retention < 30 || retention > 3650) {
+        throw new Error("Data retention must be between 30 and 3650 days");
+      }
+
+      await updateTenantSettings(user.tenant_id!, {
+        name,
+        dataRetentionDays: retention,
+      });
+      refreshUser();
+
+      toast.success("Settings saved");
+    } catch (error) {
+      toast.errorFromUnknown(error, "Failed to save organisation settings");
+      throw error;
     }
-
-    await updateTenantSettings(user.tenant_id!, {
-      name,
-      dataRetentionDays: retention,
-    });
-    refreshUser();
-
-    setStatus("Settings saved");
   };
 
   const handleSoftDelete = async () => {
     if (!canManageTenant) return;
-    setStatus(null);
-    const ok = confirm(
-      "Soft-delete tenant? Data access will be blocked immediately and permanent deletion happens after 90 days unless restored.",
-    );
+    const ok = await toast.confirm("Close this organisation?", {
+      description:
+        "Data access will be blocked immediately and permanent deletion happens after 90 days unless restored.",
+      confirmLabel: "Close organisation",
+    });
     if (!ok) return;
 
     await softDeleteTenant(user.tenant_id!);
@@ -216,7 +228,6 @@ export default function TenantSettingsPage() {
   };
 
   const handleExportDsar = async (scope: "user" | "tenant") => {
-    setStatus(null);
     // Kept as API route: server assembles export payload and records DSAR audit event.
     const data = await apiFetch<Record<string, unknown>>(
       `/api/dsar/export?scope=${scope}`,
@@ -234,25 +245,24 @@ export default function TenantSettingsPage() {
     anchor.download = `dsar-${scope}-${Date.now()}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-    setStatus("DSAR export generated");
+    toast.success("DSAR export generated");
   };
 
   const handleRequestAccountDeletion = async () => {
-    setStatus(null);
     await createOwnAccountDeletionRequest(
       user.id,
       user.tenant_id ?? null,
       null,
     );
     setPendingDeletionRequest(true);
-    setStatus("Account deletion request submitted to tenant admins");
+    toast.success("Account deletion request submitted to firm admins");
   };
 
   const handleDeleteOwnAccount = async () => {
-    setStatus(null);
-    const confirmed = confirm(
-      "Delete your own account now? This action is irreversible.",
-    );
+    const confirmed = await toast.confirm("Delete your own account now?", {
+      description: "This action is irreversible.",
+      confirmLabel: "Delete account",
+    });
     if (!confirmed) return;
 
     // Kept as API route: direct account deletion uses auth.admin.deleteUser.
@@ -270,7 +280,7 @@ export default function TenantSettingsPage() {
       <PageTitle
         subtitle={user?.tenant_name ?? undefined}
         title="Settings"
-        description="Manage profile, organization controls, and compliance exports."
+        description="Manage profile, organisation controls, and compliance exports."
       />
       <div className="grid grid-cols-2 gap-4">
         {(user?.role === "app_admin" ||
@@ -414,7 +424,6 @@ export default function TenantSettingsPage() {
           <NotificationPreferencesCard
             tenantId={user.tenant_id!}
             userId={user.id}
-            onStatusChange={setStatus}
           />
         )}
 
@@ -425,11 +434,11 @@ export default function TenantSettingsPage() {
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1">
-                <p className="text-sm font-medium">Tenant name</p>
+                <p className="text-sm font-medium">Organisation name</p>
                 <Input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  placeholder="Tenant name"
+                  placeholder="Organisation name"
                 />
               </div>
 
@@ -443,7 +452,7 @@ export default function TenantSettingsPage() {
                   onChange={(event) => setDataRetentionDays(event.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Configure how long data is retained for your tenant.
+                  Configure how long data is retained for your organisation.
                 </p>
               </div>
             </CardContent>
@@ -478,7 +487,7 @@ export default function TenantSettingsPage() {
                 onClick={async () => handleExportDsar("tenant")}
                 pendingText="Generating..."
               >
-                Export tenant data
+                Export organisation data
               </AsyncButton>
             )}
           </CardFooter>
@@ -504,7 +513,7 @@ export default function TenantSettingsPage() {
               <>
                 <p>Request deletion of your account from this organisation.</p>
                 <p>
-                  Your tenant admin will review and process this request on the
+                  Your firm admin will review and process this request on the
                   Team page.
                 </p>
               </>
@@ -541,12 +550,6 @@ export default function TenantSettingsPage() {
             )}
           </CardFooter>
         </Card>
-
-        {status ? (
-          <Card size="md" className="col-span-2">
-            <CardContent className="py-4 text-sm">{status}</CardContent>
-          </Card>
-        ) : null}
       </div>
     </section>
   );

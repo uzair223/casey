@@ -21,6 +21,7 @@ import {
 import { getTenantNotificationPreferences } from "@/lib/supabase/queries";
 import { upsertTenantNotificationPreferences } from "@/lib/supabase/mutations";
 import type { TenantNotificationPreferences } from "@/types";
+import { toast } from "@/lib/toast";
 
 type NotificationChannel = TenantNotificationPreferences["reminders_channel"];
 type DigestFrequency = TenantNotificationPreferences["digest_frequency"];
@@ -44,13 +45,11 @@ function normalizeNotificationChannel(
 type NotificationPreferencesCardProps = {
   tenantId: string;
   userId: string;
-  onStatusChange?: (message: string) => void;
 };
 
 export function NotificationPreferencesCard({
   tenantId,
   userId,
-  onStatusChange,
 }: NotificationPreferencesCardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [prefs, setPrefs] = useState<{
@@ -94,7 +93,7 @@ export function NotificationPreferencesCard({
           error instanceof Error
             ? error.message
             : "Failed to load notification preferences";
-        onStatusChange?.(message);
+        toast.error(message);
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -105,7 +104,7 @@ export function NotificationPreferencesCard({
     return () => {
       mounted = false;
     };
-  }, [tenantId, onStatusChange]);
+  }, [tenantId]);
 
   const save = async () => {
     await upsertTenantNotificationPreferences({
@@ -118,7 +117,7 @@ export function NotificationPreferencesCard({
       digestFrequency: prefs.digestFrequency,
     });
 
-    onStatusChange?.("Notification preferences saved");
+    toast.success("Notification preferences saved");
   };
 
   return (

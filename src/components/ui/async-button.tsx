@@ -3,6 +3,7 @@
 import React from "react";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { useFormContext, useFormState } from "react-hook-form";
+import { hasToastBeenShown, toast } from "@/lib/toast";
 
 export type AsyncButtonProps = Omit<ButtonProps, "onClick"> & {
   pendingText?: React.ReactNode;
@@ -37,6 +38,10 @@ const AsyncButtonBase = React.forwardRef<
         setInternalLoading(true);
         try {
           await onClick(event);
+        } catch (error) {
+          if (!hasToastBeenShown(error)) {
+            toast.errorFromUnknown(error, "Something went wrong");
+          }
         } finally {
           setInternalLoading(false);
         }

@@ -17,6 +17,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { createInvite } from "@/lib/supabase/mutations";
 import { getWaitlistSignups } from "@/lib/supabase/queries";
 import { CardSkeleton } from "../shared/skeleton";
+import { toast } from "@/lib/toast";
 
 type AppAdminWaitlistTabProps = {
   userId: string;
@@ -52,12 +53,9 @@ export function AppAdminWaitlistTab({ userId }: AppAdminWaitlistTabProps) {
       }
 
       await waitlist.handler();
+      toast.success("Invite sent");
     } catch (error) {
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to send invite to waitlist signup",
-      );
+      toast.errorFromUnknown(error, "Failed to send invite to waitlist signup");
     }
   };
 

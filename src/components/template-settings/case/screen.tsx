@@ -182,8 +182,8 @@ export function CaseTemplateSettingsScreen() {
                         variant="outline"
                         onClick={forkTemplate}
                         pendingText="Forking..."
-                      >
-                        Fork to tenant
+                        >
+                         Fork to firm
                       </AsyncButton>
                     ) : null}
                     {isTenantAdmin && activeTemplate ? (

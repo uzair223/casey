@@ -20,6 +20,7 @@ import {
   setStatementNotePinned,
   updateStatementNote,
 } from "@/lib/supabase/mutations";
+import { toast } from "@/lib/toast";
 
 type StatementNotesCardProps = {
   statementId: string;
@@ -140,7 +141,11 @@ export function StatementNotesCard({
   };
 
   const onDeleteNote = async (note: CollaborationNoteView) => {
-    if (!confirm("Delete this note? This action cannot be undone.")) {
+    const confirmed = await toast.confirm("Delete this note?", {
+      description: "This action cannot be undone.",
+      confirmLabel: "Delete note",
+    });
+    if (!confirmed) {
       return;
     }
 

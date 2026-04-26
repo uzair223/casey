@@ -15,6 +15,7 @@ import {
 import { uploadFile } from "@/lib/supabase/mutations";
 import type { UploadedDocument } from "@/types";
 import { UploadIcon } from "lucide-react";
+import { toast } from "@/lib/toast";
 
 type Document = {
   id: string;
@@ -125,9 +126,11 @@ export function DocumentsCardBase({
   };
 
   const handleDelete = async (entry: Document) => {
-    if (
-      !confirm("Delete this internal document? This action cannot be undone.")
-    ) {
+    const confirmed = await toast.confirm("Delete this internal document?", {
+      description: "This action cannot be undone.",
+      confirmLabel: "Delete document",
+    });
+    if (!confirmed) {
       return;
     }
 
