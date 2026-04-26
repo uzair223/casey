@@ -54,7 +54,7 @@ const pillars = [
   {
     icon: Fingerprint,
     title: "Security and compliance",
-    body: "Support adoption with scoped access, audit-event coverage, lifecycle hooks, DSAR export support, and tenant boundaries.",
+    body: "Support adoption with scoped access, audit-event coverage, lifecycle hooks, DSAR export support, and firm boundaries.",
   },
 ] as const;
 
@@ -86,15 +86,13 @@ export default function PlatformPage() {
     <main className="pb-20 pt-6 sm:pt-10">
       <section className="rounded-4xl border border-border/70 bg-background px-6 py-12 sm:px-10 sm:py-16 lg:px-14">
         <div className="max-w-4xl">
-          <p className="text-sm uppercase text-accent-foreground">Platform</p>
-          <h1 className="mt-4 font-display text-4xl leading-tight text-primary sm:text-5xl">
-            A governed workspace for witness statement work.
-          </h1>
-          <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-            {env.NEXT_PUBLIC_APP_NAME} connects witness intake, AI-assisted
-            drafting, template controls, collaboration, and compliance support
-            so firms can manage statement preparation as one workflow.
-          </p>
+          <PageTitle
+            subtitle="Platform"
+            title="A governed workspace for witness statement work."
+            description={`${env.NEXT_PUBLIC_APP_NAME} connects witness intake, AI-assisted drafting, template controls, collaboration, and compliance support so firms can manage statement preparation as one workflow.`}
+            titleClassName="mt-4 text-4xl sm:text-5xl"
+            descriptionClassName="mt-5 max-w-3xl text-base leading-7 sm:text-lg"
+          />
           <div className="mt-8 flex flex-wrap gap-3">
             <Button size="lg" asChild className="rounded-full px-7">
               <Link

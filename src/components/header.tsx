@@ -31,7 +31,7 @@ export default function Header() {
       case "app_admin":
         return "App Admin";
       case "tenant_admin":
-        return "Admin";
+        return "Firm Admin";
       case "solicitor":
         return "Solicitor";
       case "paralegal":

@@ -16,7 +16,6 @@ import {
   MailCheck,
   MessageSquareText,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -54,7 +53,7 @@ const proofPoints = [
   "Guided witness intake",
   "AI-assisted drafting",
   "Inline document review",
-  "Tenant-scoped governance",
+  "Firm-scoped governance",
 ] as const;
 
 const workflow = [
@@ -121,21 +120,13 @@ export default function Home() {
       <section className="relative overflow-hidden rounded-4xl border border-border/70 bg-background px-6 py-12 sm:px-10 sm:py-16 lg:px-14">
         <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div className="max-w-3xl">
-            <p className="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 bg-card/70 px-4 py-2 text-xs font-semibold uppercase text-muted-foreground">
-              <Sparkles className="h-4 w-4 text-accent-foreground" />
-              Witness evidence intake for UK legal teams
-            </p>
-
-            <h1 className="mt-8 font-display text-4xl leading-[1.02] text-primary sm:text-5xl lg:text-6xl">
-              Turn witness interviews into stronger statements, faster.
-            </h1>
-
-            <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-              {env.NEXT_PUBLIC_APP_NAME} gives claimant firms a secure intake,
-              drafting, and review workflow for witness statements. Capture the
-              facts once, keep evidence organised, and move from first account
-              to solicitor-ready draft with less manual rework.
-            </p>
+            <PageTitle
+              subtitle="Witness evidence intake for UK legal teams"
+              title="Turn witness interviews into stronger statements, faster."
+              description={`${env.NEXT_PUBLIC_APP_NAME} gives claimant firms a secure intake, drafting, and review workflow for witness statements. Capture the facts once, keep evidence organised, and move from first account to solicitor-ready draft with less manual rework.`}
+              titleClassName="mt-8 text-4xl leading-[1.02] sm:text-5xl lg:text-6xl"
+              descriptionClassName="mt-5 max-w-2xl text-base leading-7 sm:text-lg"
+            />
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Button size="lg" asChild className="rounded-full px-7">
@@ -348,7 +339,7 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <CardDescription className="text-sm leading-6">
-                Tokenised intake, tenant-scoped access, audit-event coverage,
+                Tokenised intake, firm-scoped access, audit-event coverage,
                 privacy notices, and DSAR tooling help firms introduce AI into
                 witness work with a governance story they can explain.
               </CardDescription>
@@ -367,17 +358,14 @@ export default function Home() {
         <Card className="overflow-hidden rounded-3xl border-border/70 bg-card/85">
           <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="border-b border-border/70 bg-background/60 p-8 lg:border-b-0 lg:border-r">
-              <p className="text-sm uppercase text-accent-foreground">
-                Early access
-              </p>
-              <h2 className="mt-3 max-w-xl font-display text-3xl text-primary sm:text-4xl">
-                Bring a real intake workflow to the demo.
-              </h2>
-              <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
-                We will walk through how Casey would handle your templates,
-                witness journey, review steps, and governance requirements
-                before you roll it out to a team.
-              </p>
+              <PageTitle
+                subtitle="Early access"
+                title="Bring a real intake workflow to the demo."
+                description="We will walk through how Casey would handle your templates, witness journey, review steps, and governance requirements before you roll it out to a team."
+                titleTag="h2"
+                titleClassName="mt-3 max-w-xl text-3xl sm:text-4xl"
+                descriptionClassName="mt-4 max-w-xl text-sm leading-6 sm:text-base"
+              />
 
               <div className="mt-8 grid gap-3 text-sm text-muted-foreground">
                 {[

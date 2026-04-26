@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { PageTitle } from "@/components/page-title";
 import {
   Card,
   CardContent,
@@ -38,8 +39,8 @@ const securityPrinciples = [
   },
   {
     icon: LockKeyhole,
-    title: "Tenant-scoped by default",
-    body: "Users, cases, statements, templates, and operational activity are scoped to the relevant legal practice wherever platform access is granted.",
+    title: "Firm-scoped at the database layer",
+    body: "Casey uses Supabase row-level security policies so firm boundaries and role checks are enforced in the database, not only in the user interface.",
   },
   {
     icon: Fingerprint,
@@ -51,8 +52,8 @@ const securityPrinciples = [
 const controls = [
   {
     icon: UserCheck,
-    title: "Role-based access",
-    body: "Firm users are assigned roles so access can reflect their responsibility, such as admin, solicitor, or paralegal workflows.",
+    title: "Role-based write controls",
+    body: "Firm users are assigned roles such as firm admin, solicitor, or paralegal. Sensitive case, statement, magic-link, and storage writes are restricted by database policies to appropriate roles.",
   },
   {
     icon: Link2,
@@ -62,17 +63,17 @@ const controls = [
   {
     icon: ServerCog,
     title: "Server-side enforcement",
-    body: "Sensitive operations are checked on the server, including tenant boundaries, statement state, token validity, and permission-sensitive workflows.",
+    body: "Public witness operations go through server-side routes that validate token scope, statement state, expected document paths, upload limits, and rate limits before privileged storage actions run.",
   },
   {
     icon: Database,
     title: "Scoped data access",
-    body: "Application queries and storage operations are designed to limit access to the correct tenant, matter, statement, and document context.",
+    body: "Application queries, RLS policies, and storage policies are designed to limit access to the correct firm, matter, statement, and document context.",
   },
   {
     icon: Eye,
     title: "Operational monitoring",
-    body: "Request logging and audit-style event records help identify unexpected access patterns and reconstruct important workflow activity.",
+    body: "Request logging is sanitized to avoid bearer-token leakage, and audit-style event records help identify unexpected access patterns and reconstruct important workflow activity.",
   },
   {
     icon: FileCheck2,
@@ -84,10 +85,20 @@ const controls = [
 const witnessSafeguards = [
   "Privacy notice acknowledgement before the witness intake flow continues",
   "Token checks before interview, follow-up, evidence, and final-review actions",
+  "Direct anonymous storage access removed from public witness flows",
+  "Statement-specific storage path validation for evidence and signed documents",
+  "Upload count, size, file-type, and persistent rate-limit controls for public evidence endpoints",
   "Statement-state validation to reduce accidental post-submission changes",
-  "Evidence collection linked to the relevant statement context",
   "Final-review and follow-up routes separated from internal firm dashboards",
-  "Event history for key witness and legal-team actions",
+] as const;
+
+const implementationNotes = [
+  "Firm isolation is enforced with Supabase RLS policies for application tables and storage policies for organisation buckets.",
+  "Paralegal, solicitor, firm-admin, and app-admin roles are not treated as interchangeable for write access.",
+  "Witness links are bearer-style access tokens, so logs redact token-like path segments and public routes re-check token validity before each sensitive action.",
+  "Uploaded evidence is stored only through server routes for public intake, with server-derived metadata and expected path prefixes.",
+  "Data is not currently application-level encrypted before it is written to Supabase. Transport encryption, Supabase platform controls, RLS, and access controls are therefore important parts of the current model.",
+  "Firms with a requirement for customer-managed keys or field-level encryption should raise that during security review before using the platform for highly sensitive matters.",
 ] as const;
 
 const firmResponsibilities = [
@@ -112,16 +123,13 @@ export default function SecurityPage() {
     <main className="pb-20">
       <section className="rounded-4xl border border-border/70 bg-background px-6 py-12 sm:px-10 sm:py-16 lg:px-14">
         <div className="max-w-4xl">
-          <p className="text-sm uppercase text-accent-foreground">Security</p>
-          <h1 className="mt-4 font-display text-4xl leading-tight text-primary sm:text-5xl">
-            Security for witness evidence, legal workflows, and firm data.
-          </h1>
-          <p className="mt-5 max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-            {env.NEXT_PUBLIC_APP_NAME} is designed for UK legal practices that
-            handle sensitive witness statements and case material. This page
-            explains the security posture, platform controls, and shared
-            responsibilities that support safer adoption.
-          </p>
+          <PageTitle
+            subtitle="Security"
+            title="Security for witness evidence, legal workflows, and firm data."
+            description={`${env.NEXT_PUBLIC_APP_NAME} is designed for UK legal practices that handle sensitive witness statements and case material. This page explains the security posture, current platform controls, and shared responsibilities that support safer adoption.`}
+            titleClassName="mt-4 text-4xl sm:text-5xl"
+            descriptionClassName="mt-5 max-w-3xl text-base leading-7 sm:text-lg"
+          />
           <div className="mt-8 flex flex-wrap gap-3">
             <Button size="lg" asChild className="rounded-full px-7">
               <Link
@@ -166,17 +174,14 @@ export default function SecurityPage() {
       </section>
 
       <section className="mx-auto mt-24 max-w-6xl space-y-8">
-        <div>
-          <p className="text-sm uppercase text-accent-foreground">Controls</p>
-          <h2 className="mt-2 font-display text-3xl text-primary">
-            How Casey protects access and activity
-          </h2>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-            Security is applied across the user, tenant, matter, statement, and
-            witness-link layers. The controls below are a high-level summary,
-            not a substitute for a firm&apos;s own information security review.
-          </p>
-        </div>
+        <PageTitle
+          subtitle="Controls"
+          title="How Casey protects access and activity"
+          description="Security is applied across the user, firm, matter, statement, and witness-link layers. The controls below are a high-level summary, not a substitute for a firm's own information security review."
+          titleTag="h2"
+          titleClassName="mt-2 text-3xl"
+          descriptionClassName="mt-3 text-sm leading-6"
+        />
 
         <div className="grid gap-4 lg:grid-cols-3">
           {controls.map((item) => (
@@ -200,6 +205,26 @@ export default function SecurityPage() {
       </section>
 
       <section className="mx-auto mt-24 max-w-6xl">
+        <PageTitle
+          subtitle="Implementation"
+          title="What is enforced today"
+          description="The controls below describe the current implementation rather than a future target state. They are intentionally specific so firms can evaluate whether the model fits their risk profile."
+          titleTag="h2"
+          className="mb-8"
+          titleClassName="mt-2 text-3xl"
+          descriptionClassName="mt-3 text-sm leading-6"
+        />
+        <Card className="mb-24 rounded-3xl bg-card/75">
+          <CardContent className="grid gap-3 pt-6 sm:grid-cols-2">
+            {implementationNotes.map((item) => (
+              <div key={item} className="flex items-start gap-2 text-sm">
+                <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground" />
+                <span className="text-muted-foreground">{item}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
         <div className="grid gap-4 lg:grid-cols-[1fr_1.15fr]">
           <Card className="rounded-3xl bg-card/75">
             <CardHeader>

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { toast } from "@/lib/toast";
 
 type RecoveryState = "loading" | "ready" | "invalid";
 
@@ -28,10 +29,7 @@ function ResetPasswordPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [newPassword, setNewPassword] = useState("");
-  const [status, setStatus] = useState<{
-    type: "error" | "success";
-    message: string;
-  } | null>(null);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [recoveryState, setRecoveryState] = useState<RecoveryState>("loading");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -107,10 +105,7 @@ function ResetPasswordPageContent() {
       } catch (error) {
         if (!cancelled) {
           setRecoveryState("invalid");
-          setStatus({
-            type: "error",
-            message: buildRecoveryErrorMessage(error),
-          });
+          setRecoveryError(buildRecoveryErrorMessage(error));
         }
       }
     };
@@ -123,14 +118,9 @@ function ResetPasswordPageContent() {
   }, [recoveryParams]);
 
   const handleResetPassword = async () => {
-    setStatus(null);
-
     const password = newPassword.trim();
     if (password.length < 8) {
-      setStatus({
-        type: "error",
-        message: "Password must be at least 8 characters long.",
-      });
+      toast.error("Password must be at least 8 characters long.");
       return;
     }
 
@@ -145,20 +135,15 @@ function ResetPasswordPageContent() {
         throw error;
       }
 
-      setStatus({
-        type: "success",
-        message: "Your password has been reset.",
-      });
+      toast.success("Your password has been reset.");
 
       setTimeout(() => {
         router.replace("/dashboard");
       }, 800);
     } catch (error) {
-      setStatus({
-        type: "error",
-        message:
-          error instanceof Error ? error.message : "Failed to reset password.",
-      });
+      toast.error(
+        error instanceof Error ? error.message : "Failed to reset password.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -177,7 +162,7 @@ function ResetPasswordPageContent() {
               Reset link unavailable
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              {status?.message ||
+              {recoveryError ||
                 "This password reset link is invalid or has expired."}
             </p>
           </CardHeader>
@@ -224,16 +209,6 @@ function ResetPasswordPageContent() {
           </Button>
         </CardFooter>
       </Card>
-      {status ? (
-        <Card
-          size="md"
-          variant={status.type === "error" ? "destructive" : "secondary"}
-        >
-          <CardHeader>
-            <CardTitle className="text-sm">{status.message}</CardTitle>
-          </CardHeader>
-        </Card>
-      ) : null}
     </section>
   );
 }

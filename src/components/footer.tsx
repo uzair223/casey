@@ -75,6 +75,7 @@ export default function Footer() {
                 { label: "Privacy Policy", href: "/legal/privacy" },
                 { label: "GDPR Notice", href: "/legal/gdpr" },
                 { label: "Security Policy", href: "/legal/security" },
+                { label: "Terms of Service", href: "/legal/terms" },
               ].map((item) => (
                 <Button
                   key={item.label}

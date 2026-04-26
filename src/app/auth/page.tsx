@@ -31,6 +31,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import Loading from "@/components/loading";
+import { toast } from "@/lib/toast";
 
 function AuthPageContent() {
   const router = useRouter();
@@ -38,10 +39,6 @@ function AuthPageContent() {
   const searchParams = useSearchParams();
 
   const { user, isLoading: isUserLoading, refreshUser } = useUser();
-  const [status, setStatus] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
   const [tenantLifecycle, setTenantLifecycle] = useState<{
     exists: boolean;
     softDeleted: boolean;
@@ -60,7 +57,7 @@ function AuthPageContent() {
   useEffect(() => {
     if (searchParams.get("tenantClosed") === "1") {
       setSuccessStatus(
-        "Organisation closed and you have been signed out. Sign in again to restore your tenant within 90 days.",
+        "Organisation closed and you have been signed out. Sign in again to restore access within 90 days.",
       );
 
       const params = new URLSearchParams(searchParams.toString());
@@ -71,11 +68,11 @@ function AuthPageContent() {
   }, [searchParams, router, pathname]);
 
   const setErrorStatus = (message: string) => {
-    setStatus({ type: "error", message });
+    toast.error(message);
   };
 
   const setSuccessStatus = (message: string) => {
-    setStatus({ type: "success", message });
+    toast.success(message);
   };
 
   const [isPasswordDropdownOpen, setIsPasswordDropdownOpen] = useState(false);
@@ -195,8 +192,6 @@ function AuthPageContent() {
     email: string;
     password: string;
   }> = async ({ email, password }) => {
-    setStatus(null);
-
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
@@ -230,8 +225,6 @@ function AuthPageContent() {
   };
 
   const handleForgotPassword = async () => {
-    setStatus(null);
-
     try {
       const email = authForm.getValues("email").trim().toLowerCase();
       if (!email) {
@@ -261,7 +254,6 @@ function AuthPageContent() {
   const handleLookupInvite: SubmitHandler<{ inviteCode: string }> = async ({
     inviteCode,
   }) => {
-    setStatus(null);
     try {
       if (!inviteCode.trim()) {
         throw new Error("Invite code is required.");
@@ -286,7 +278,6 @@ function AuthPageContent() {
     displayName: string;
     firmName: string;
   }> = async ({ displayName, firmName }) => {
-    setStatus(null);
     try {
       if (!inviteInfo) {
         throw new Error("No invite information available.");
@@ -324,7 +315,6 @@ function AuthPageContent() {
   };
 
   const handleRestoreTenant = async () => {
-    setStatus(null);
     try {
       await apiFetch<{ ok: boolean }>("/api/tenant/lifecycle", {
         method: "POST",
@@ -345,7 +335,9 @@ function AuthPageContent() {
       router.replace("/dashboard");
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to restore tenant";
+        error instanceof Error
+          ? error.message
+          : "Failed to restore organisation";
       setErrorStatus(message);
       throw new Error(message);
     }
@@ -377,12 +369,12 @@ function AuthPageContent() {
                 {
                   icon: Building2,
                   title: "Firm workspace onboarding",
-                  body: "Join existing teams or set up a new tenant-admin workspace.",
+                  body: "Join an existing firm or set up a new firm-admin workspace.",
                 },
                 {
                   icon: ShieldCheck,
                   title: "Security by default",
-                  body: "Tenant-isolated data with controlled lifecycle and restore paths.",
+                  body: "Firm-isolated data with controlled lifecycle and restore paths.",
                 },
               ].map((item) => (
                 <div
@@ -523,11 +515,11 @@ function AuthPageContent() {
             <Card variant="warning">
               <CardHeader>
                 <CardTitle className="text-sm uppercase tracking-[0.2em]">
-                  Tenant archived
+                  Organisation archived
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {tenantLifecycle.name || "Your tenant"} has been soft-deleted.
-                  Data access is currently blocked.
+                  {tenantLifecycle.name || "Your organisation"} has been
+                  archived. Data access is currently blocked.
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Permanent deletion date:{" "}
@@ -541,7 +533,7 @@ function AuthPageContent() {
                     onClick={handleRestoreTenant}
                     pendingText="Restoring..."
                   >
-                    Restore tenant
+                    Restore organisation
                   </AsyncButton>
                 </CardFooter>
               ) : (
@@ -615,7 +607,7 @@ function AuthPageContent() {
                       {inviteInfo.tenant_id ? (
                         <>
                           <p className="text-sm text-muted-foreground">
-                            You have been invited to join
+                            You have been invited to join this firm
                           </p>
                           <p className="text-lg font-semibold text-primary">
                             {inviteInfo.tenant_name}
@@ -668,7 +660,8 @@ function AuthPageContent() {
                             )}
                           />
                           <p className="text-xs text-muted-foreground">
-                            You&apos;ll be the admin of this new organization.
+                            You&apos;ll be the firm admin for this new
+                            organisation.
                           </p>
                         </div>
                       ) : null}
@@ -686,17 +679,6 @@ function AuthPageContent() {
                 </form>
               </FormProvider>
             )
-          ) : null}
-
-          {status ? (
-            <Card
-              size="md"
-              variant={status.type === "error" ? "destructive" : "secondary"}
-            >
-              <CardHeader>
-                <CardTitle className="text-sm">{status.message}</CardTitle>
-              </CardHeader>
-            </Card>
           ) : null}
 
           {!user ? (
