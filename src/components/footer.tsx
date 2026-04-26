@@ -11,11 +11,12 @@ export default function Footer() {
         <div className="min-w-md max-w-xl flex-1 space-y-6">
           <div>
             <p className="font-display text-xl">
-              Witness statements, without the chaos.
+              Stronger witness statements start with better intake.
             </p>
             <p className="text-sm leading-6 text-muted-foreground">
-              Purpose-built for legal professionals handling witness statements,
-              case preparation, and compliant data processing in the UK.
+              {env.NEXT_PUBLIC_APP_NAME} helps UK legal teams capture witness
+              accounts, draft statements, and govern the work around them in
+              one secure workflow.
             </p>
           </div>
 
@@ -25,7 +26,8 @@ export default function Footer() {
             </p>
             <p className="font-display text-xl">Join the waiting list</p>
             <p className="text-sm leading-6 text-muted-foreground mb-4">
-              Register your interest and we&apos;ll invite you to onboard.
+              Register your interest and we&apos;ll arrange a workflow-focused
+              walkthrough.
             </p>
             <WaitlistSignupForm id="waitlist" disableCalendly />
           </div>
@@ -95,6 +97,7 @@ export default function Footer() {
               <LinkList
                 items={[
                   { label: "Home", href: "/" },
+                  { label: "Platform", href: "/platform" },
                   { label: "Witness Intake Demo", href: "/intake/demo" },
                   { label: "Dashboard", href: "/dashboard" },
                 ]}

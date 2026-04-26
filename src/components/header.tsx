@@ -8,6 +8,12 @@ import { AsyncButton } from "@/components/ui/async-button";
 import { useUser } from "@/contexts/user-context";
 import { cn } from "@/lib/utils";
 
+const publicLinks = [
+  { label: "Platform", href: "/platform" },
+  { label: "Security", href: "/legal/security" },
+  { label: "Early access", href: "/#beta" },
+] as const;
+
 export default function Header() {
   const { user, signOut } = useUser();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -84,9 +90,16 @@ export default function Header() {
             </AsyncButton>
           </>
         ) : (
-          <Button size={null} variant="link" asChild>
-            <Link href="/auth">Sign in</Link>
-          </Button>
+          <>
+            {publicLinks.map((item) => (
+              <Button key={item.href} size={null} variant="link" asChild>
+                <Link href={item.href}>{item.label}</Link>
+              </Button>
+            ))}
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/auth">Sign in</Link>
+            </Button>
+          </>
         )}
       </nav>
 
@@ -161,14 +174,27 @@ export default function Header() {
                 </AsyncButton>
               </>
             ) : (
-              <Button
-                variant="ghost"
-                className="justify-start"
-                asChild
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <Link href="/auth">Sign in</Link>
-              </Button>
+              <>
+                {publicLinks.map((item) => (
+                  <Button
+                    key={item.href}
+                    variant="ghost"
+                    className="justify-start"
+                    asChild
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Link href={item.href}>{item.label}</Link>
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  className="mt-2"
+                  asChild
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Link href="/auth">Sign in</Link>
+                </Button>
+              </>
             )}
           </nav>
         </div>
