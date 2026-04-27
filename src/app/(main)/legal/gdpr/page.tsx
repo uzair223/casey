@@ -58,7 +58,7 @@ const complianceAreas = [
 
 export default function GdprPage() {
   return (
-    <main className="pb-20">
+    <>
       <section className="rounded-4xl border border-border/70 bg-background px-6 py-12 sm:px-10 sm:py-16 lg:px-14">
         <div className="max-w-4xl">
           <PageTitle
@@ -197,6 +197,6 @@ export default function GdprPage() {
           </Card>
         </div>
       </section>
-    </main>
+    </>
   );
 }

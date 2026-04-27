@@ -137,19 +137,9 @@ export function WaitlistSignupForm({
         ) : null}
 
         <div className="flex flex-col gap-1.5">
-          <AsyncButton
-            className="w-full"
-            type="submit"
-            pendingText="Joining..."
-          >
-            Join the waiting list
-          </AsyncButton>
           {!disableCalendly && env.NEXT_PUBLIC_CALENDLY_LINK && (
             <>
-              <span className="text-xs text-center text-muted-foreground">
-                &mdash; or &mdash;
-              </span>
-              <Button className="w-full" variant="outline" asChild>
+              <Button className="w-full" asChild>
                 <Link
                   href={env.NEXT_PUBLIC_CALENDLY_LINK}
                   target="_blank"
@@ -158,8 +148,23 @@ export function WaitlistSignupForm({
                   Book a demo call
                 </Link>
               </Button>
+              <span className="text-xs text-center text-muted-foreground">
+                or register interest
+              </span>
             </>
           )}
+          <AsyncButton
+            className="w-full"
+            type="submit"
+            pendingText="Joining..."
+            variant={
+              !disableCalendly && env.NEXT_PUBLIC_CALENDLY_LINK
+                ? "outline"
+                : "default"
+            }
+          >
+            Request early access
+          </AsyncButton>
         </div>
       </form>
     </FormProvider>

@@ -15,6 +15,7 @@ import {
   LockKeyhole,
   MailCheck,
   MessageSquareText,
+  Quote,
   ShieldCheck,
 } from "lucide-react";
 
@@ -50,10 +51,25 @@ const demoMessages = [
 ] as const;
 
 const proofPoints = [
-  "Guided witness intake",
-  "AI-assisted drafting",
-  "Inline document review",
-  "Firm-scoped governance",
+  "Built for PI, RTA, EL/PL, and clinical negligence teams",
+  "Review-ready first drafts with source context",
+  "Fewer loose emails and manual witness chasers",
+  "Firm-scoped governance from intake to final review",
+] as const;
+
+const painPoints = [
+  {
+    title: "Chasing drains fee-earner time",
+    body: "Witness evidence often arrives across emails, calls, attachments, and reminders. Every missing date or unclear sequence creates another admin loop before legal review can start.",
+  },
+  {
+    title: "Gaps surface too late",
+    body: "When the first account is thin, teams discover the problem during drafting or review: unclear chronology, unsupported detail, missing witnesses, or evidence that should have been requested days earlier.",
+  },
+  {
+    title: "Write-offs hide in the process",
+    body: "Paralegals and solicitors spend recoverable attention reconstructing facts instead of reviewing them. Casey is designed to move that work into a structured intake flow from the start.",
+  },
 ] as const;
 
 const workflow = [
@@ -70,7 +86,7 @@ const workflow = [
   {
     icon: FileText,
     title: "Draft and refine",
-    body: "Turn the transcript into structured statement sections, then edit the draft inline with legal context still attached.",
+    body: "Turn the transcript into structured statement sections, then edit the review-ready draft inline with legal context still attached.",
   },
   {
     icon: MailCheck,
@@ -82,18 +98,47 @@ const workflow = [
 const outcomes = [
   {
     icon: Clock3,
-    title: "Less chasing",
-    body: "Automated reminders and follow-up requests help paralegals keep witness work moving without losing track of who owes what.",
+    title: "Reduce witness chasing",
+    body: "Use structured intake, reminders, and follow-up requests to keep outstanding witness work visible without relying on spreadsheets or inbox memory.",
   },
   {
     icon: FileCheck2,
-    title: "Cleaner first drafts",
-    body: "Structured intake and AI formalization reduce the jump from raw witness answers to a review-ready legal document.",
+    title: "Get to review faster",
+    body: "Move from raw witness answers to a review-ready first draft while preserving the transcript, evidence, and review notes beside the document.",
   },
   {
     icon: ShieldCheck,
-    title: "Governed from day one",
-    body: "Consent, scoped links, role-based access, audit events, and DSAR export support are built into the workflow.",
+    title: "Make adoption easier",
+    body: "Consent, scoped links, role-based access, audit events, and DSAR export support give practice managers a governance story they can explain.",
+  },
+] as const;
+
+const proofSignals = [
+  {
+    value: "1 workflow",
+    label: "intake, drafting, follow-up, final review, and audit history",
+  },
+  {
+    value: "Every draft",
+    label: "keeps witness answers, evidence, and legal review context attached",
+  },
+  {
+    value: "Beta review",
+    label:
+      "available for claimant teams with real templates and live intake pain",
+  },
+] as const;
+
+const testimonials = [
+  {
+    quote:
+      "The valuable part is not just the draft. It is seeing what is still missing before a solicitor spends time reviewing it.",
+    attribution: "Early workflow review with a claimant PI team",
+  },
+  {
+    quote:
+      "This matches the way our team already thinks about statements: get the account, chase the gaps, then prepare something worth reviewing.",
+    attribution: "Practice operations feedback during product discovery",
   },
 ] as const;
 
@@ -116,14 +161,14 @@ export default function Home() {
     : { href: "/#beta", label: "Request early access", external: false };
 
   return (
-    <main className="pb-20 pt-6 sm:pt-10">
+    <>
       <section className="relative overflow-hidden rounded-4xl border border-border/70 bg-background px-6 py-12 sm:px-10 sm:py-16 lg:px-14">
         <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div className="max-w-3xl">
             <PageTitle
               subtitle="Witness evidence intake for UK legal teams"
               title="Turn witness interviews into stronger statements, faster."
-              description={`${env.NEXT_PUBLIC_APP_NAME} gives claimant firms a secure intake, drafting, and review workflow for witness statements. Capture the facts once, keep evidence organised, and move from first account to solicitor-ready draft with less manual rework.`}
+              description={`${env.NEXT_PUBLIC_APP_NAME} gives claimant firms a secure intake, drafting, and review workflow for witness statements. Capture the facts once, keep evidence organised, and move from first account to review-ready draft with less chasing and manual rework.`}
               titleClassName="mt-8 text-4xl leading-[1.02] sm:text-5xl lg:text-6xl"
               descriptionClassName="mt-5 max-w-2xl text-base leading-7 sm:text-lg"
             />
@@ -191,7 +236,8 @@ export default function Home() {
                     <span className="font-medium text-foreground">
                       Governance:
                     </span>{" "}
-                    consent, scoped access, audit events, and lifecycle controls.
+                    consent, scoped access, audit events, and lifecycle
+                    controls.
                   </CardContent>
                 </Card>
               </div>
@@ -203,8 +249,34 @@ export default function Home() {
       <section className="mx-auto mt-24 max-w-6xl space-y-8 sm:mt-28">
         <PageTitle
           subtitle="Why it matters"
-          title="A better front door for witness evidence"
-          description="Witness statements often start with fragmented emails, missed details, and repeated chasing. Casey turns that front-end mess into a guided, auditable workflow."
+          title="The hidden cost is not the draft. It is everything before it."
+          description="Witness statements often start with fragmented emails, missed details, and repeated chasing. By the time a solicitor sees the work, the team may already have lost hours reconstructing facts that should have been captured clearly at intake."
+          titleTag="h2"
+        />
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          {painPoints.map((item) => (
+            <Card key={item.title} className="rounded-3xl bg-card/75">
+              <CardHeader>
+                <CardTitle className="text-lg text-foreground">
+                  {item.title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-sm leading-6">
+                  {item.body}
+                </CardDescription>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto mt-24 max-w-6xl space-y-8 sm:mt-28">
+        <PageTitle
+          subtitle="Commercial case"
+          title="Built to protect review time"
+          description="Casey is designed around the economics of statement work: fewer admin loops, cleaner first drafts, and less fee-earner time spent turning scattered witness material into something reviewable."
           titleTag="h2"
         />
 
@@ -222,6 +294,23 @@ export default function Home() {
               <CardContent>
                 <CardDescription className="text-sm leading-6">
                   {item.body}
+                </CardDescription>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          {proofSignals.map((item) => (
+            <Card key={item.value} className="rounded-3xl bg-background/70">
+              <CardHeader>
+                <CardTitle className="font-display text-3xl text-primary">
+                  {item.value}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-sm leading-6">
+                  {item.label}
                 </CardDescription>
               </CardContent>
             </Card>
@@ -308,8 +397,8 @@ export default function Home() {
               <CardDescription className="text-sm leading-6">
                 Instead of asking fee-earners to reconstruct a statement from
                 scattered messages, Casey structures the work before it reaches
-                review. The witness gives the account, the system asks the
-                next useful question, and the legal team receives a draft with
+                review. The witness gives the account, the system asks the next
+                useful question, and the legal team receives a draft with
                 context still attached.
               </CardDescription>
             </CardHeader>
@@ -354,14 +443,43 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="mx-auto mt-24 max-w-6xl space-y-8 sm:mt-28">
+        <PageTitle
+          subtitle="Early proof"
+          title="Shaped with real claimant-firm workflows"
+          description="Casey is in early access, so the most useful proof is practical: bring your current witness journey, templates, and review bottlenecks, and see how the product handles them."
+          titleTag="h2"
+        />
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          {testimonials.map((item) => (
+            <Card key={item.quote} className="rounded-3xl bg-card/75">
+              <CardHeader>
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent-foreground">
+                  <Quote className="h-5 w-5" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <blockquote className="font-display text-xl leading-8 text-primary">
+                  &ldquo;{item.quote}&rdquo;
+                </blockquote>
+                <p className="mt-4 text-sm text-muted-foreground">
+                  {item.attribution}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
       <section id="beta" className="mx-auto mt-24 max-w-6xl sm:mt-28">
         <Card className="overflow-hidden rounded-3xl border-border/70 bg-card/85">
           <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="border-b border-border/70 bg-background/60 p-8 lg:border-b-0 lg:border-r">
               <PageTitle
-                subtitle="Early access"
-                title="Bring a real intake workflow to the demo."
-                description="We will walk through how Casey would handle your templates, witness journey, review steps, and governance requirements before you roll it out to a team."
+                subtitle="Demo"
+                title="Put your current witness workflow under the microscope."
+                description="Book a practical walkthrough with your templates, witness journey, review steps, and governance questions. We will show where Casey removes chasing, protects review time, and keeps the file auditable."
                 titleTag="h2"
                 titleClassName="mt-3 max-w-xl text-3xl sm:text-4xl"
                 descriptionClassName="mt-4 max-w-xl text-sm leading-6 sm:text-base"
@@ -371,7 +489,7 @@ export default function Home() {
                 {[
                   "Workflow review against your current intake process",
                   "Template and DOCX readiness discussion",
-                  "Priority onboarding guidance for early customers",
+                  "Clear rollout path for a pilot team",
                 ].map((item) => (
                   <div key={item} className="flex items-center gap-2">
                     <BadgeCheck className="h-4 w-4 text-accent-foreground" />
@@ -408,6 +526,6 @@ export default function Home() {
           ))}
         </div>
       </section>
-    </main>
+    </>
   );
 }

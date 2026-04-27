@@ -11,23 +11,23 @@ export default function Footer() {
         <div className="min-w-md max-w-xl flex-1 space-y-6">
           <div>
             <p className="font-display text-xl">
-              Stronger witness statements start with better intake.
+              Stop letting witness statements begin in the inbox.
             </p>
             <p className="text-sm leading-6 text-muted-foreground">
               {env.NEXT_PUBLIC_APP_NAME} helps UK legal teams capture witness
-              accounts, draft statements, and govern the work around them in
-              one secure workflow.
+              accounts, prepare review-ready drafts, and govern the work around
+              them in one secure workflow.
             </p>
           </div>
 
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-accent-foreground">
-              Early access
+              Demo
             </p>
-            <p className="font-display text-xl">Join the waiting list</p>
+            <p className="font-display text-xl">Map Casey to your workflow</p>
             <p className="text-sm leading-6 text-muted-foreground mb-4">
-              Register your interest and we&apos;ll arrange a workflow-focused
-              walkthrough.
+              Bring your current intake process, templates, and review
+              bottlenecks. We&apos;ll show how the workflow changes.
             </p>
             <WaitlistSignupForm id="waitlist" disableCalendly />
           </div>

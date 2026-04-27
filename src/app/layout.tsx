@@ -20,7 +20,7 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
   title: env.NEXT_PUBLIC_APP_NAME,
-  description: `${env.NEXT_PUBLIC_APP_NAME} is a witness statement management tool designed for legal professionals. Streamline the intake, review, and management of witness statements with our secure and user-friendly platform.`,
+  description: `${env.NEXT_PUBLIC_APP_NAME} helps UK claimant firms turn guided witness intake into review-ready statement drafts with less chasing, clearer evidence, and governed workflows.`,
 };
 
 export default function RootLayout({
