@@ -1,13 +1,5 @@
 import { z } from "zod";
 
-const AGENT_CHAT_DESCRIPTION = `Define the role of the conversational agent conducting the one-to-one witness interview.
-Start with "You are..."
-Focus on guiding the witness through a structured, neutral, and thorough account without leading or suggesting answers.`;
-
-const AGENT_FORMALIZE_DESCRIPTION = `Define the role of the agent responsible for converting interview transcripts into a formal witness statement.
-Start with "You are..."
-Focus on producing a clear, accurate, and legally structured narrative that preserves the witness's wording and intent.`;
-
 const PHASES_DESCRIPTION = `Generate 4-10 structured conversational phases for a one-to-one witness or claimant interview based on the inferred case type.
 
 The user input may describe any scenario (e.g. workplace injury, road traffic accident, medical negligence, public liability). You must infer the domain and generate an appropriate investigative structure.
@@ -186,14 +178,7 @@ export const StatementPromptTemplatesSchema = z
 
 export const StatementConfigSchema = z
   .object({
-    schema_version: z.literal(2).optional(),
-
-    agents: z
-      .object({
-        chat: z.string().describe(AGENT_CHAT_DESCRIPTION),
-        formalize: z.string().describe(AGENT_FORMALIZE_DESCRIPTION),
-      })
-      .strict(),
+    schema_version: z.literal(3).optional(),
 
     phases: z.array(StatementPhaseConfigSchema).describe(PHASES_DESCRIPTION),
 
@@ -212,22 +197,6 @@ export const StatementConfigSchema = z
 
 export const StatementConfigPublishSchema = StatementConfigSchema.superRefine(
   (config, ctx) => {
-    if (!config.agents.chat.trim()) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["agents", "chat"],
-        message: "Agent chat prompt is required.",
-      });
-    }
-
-    if (!config.agents.formalize.trim()) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["agents", "formalize"],
-        message: "Agent formalize prompt is required.",
-      });
-    }
-
     if (config.phases.length === 0) {
       ctx.addIssue({
         code: "custom",

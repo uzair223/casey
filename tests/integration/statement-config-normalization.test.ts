@@ -9,8 +9,8 @@ describe("statement config normalization", () => {
   it("strips legacy prompt keys without dropping phases or sections", () => {
     const config = normalizeConfig({
       agents: {
-        chat: "Chat agent",
-        formalize: "Formalize agent",
+        chat: "Legacy chat agent",
+        formalize: "Legacy formalize agent",
       },
       prompts: {
         chat_system_template: null,
@@ -56,6 +56,7 @@ describe("statement config normalization", () => {
       chat_system_template: null,
       formalize_system_template: null,
     });
+    expect("agents" in config).toBe(false);
     expect(config.phases).toHaveLength(1);
     expect(config.sections).toHaveLength(1);
     expect(config.witness_metadata_fields).toHaveLength(1);

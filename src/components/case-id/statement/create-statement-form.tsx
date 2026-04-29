@@ -63,7 +63,6 @@ export function CreateStatementForm({
       selectedTemplate?.draft_config ?? {
         id: "custom_template",
         name: "Template config",
-        agents: { chat: "", formalize: "" },
         includeStatementOfTruth: true,
         phases: [],
         sections: [],

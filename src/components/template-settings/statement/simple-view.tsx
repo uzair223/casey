@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
-  Controller,
   get,
   useFormContext,
   useFormState,
@@ -601,45 +600,6 @@ export function StatementTemplateSimpleView() {
           ) : null}
         </div>,
       )}
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {renderNativeDiffField(
-          "agents.chat",
-          "Agent chat prompt",
-          <div className="space-y-1">
-            <Controller
-              control={control}
-              name="agents.chat"
-              render={({ field }) => (
-                <Textarea {...field} rows={5} disabled={isBusy} />
-              )}
-            />
-            {errorMessage("agents.chat") ? (
-              <p className="text-xs text-destructive">
-                {errorMessage("agents.chat")}
-              </p>
-            ) : null}
-          </div>,
-        )}
-        {renderNativeDiffField(
-          "agents.formalize",
-          "Agent formalize prompt",
-          <div className="space-y-1">
-            <Controller
-              control={control}
-              name="agents.formalize"
-              render={({ field }) => (
-                <Textarea {...field} rows={5} disabled={isBusy} />
-              )}
-            />
-            {errorMessage("agents.formalize") ? (
-              <p className="text-xs text-destructive">
-                {errorMessage("agents.formalize")}
-              </p>
-            ) : null}
-          </div>,
-        )}
-      </div>
 
       <DynamicFieldsEditor
         title="Witness metadata fields"

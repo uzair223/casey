@@ -117,7 +117,6 @@ export async function POST(
 
     const statementConfig = statement.statement_config || {
       name: "Default",
-      agents: { chat: "", formalize: "" },
       phases: [],
       sections: [],
       witness_metadata_fields: [],

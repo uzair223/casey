@@ -6,14 +6,10 @@ import type {
   StatementSectionConfig,
 } from "@/types";
 
-export const CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION = 2;
+export const CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION = 3;
 
 export const EMPTY_STATEMENT_CONFIG: StatementConfig = {
   schema_version: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
-  agents: {
-    chat: "",
-    formalize: "",
-  },
   prompts: {
     chat_system_template: null,
     formalize_system_template: null,
@@ -136,14 +132,8 @@ function normalizeWitnessMetadataField(
 
 export function normalizeConfig(value: unknown): StatementConfig {
   if (isRecord(value)) {
-    const agents = isRecord(value.agents) ? value.agents : {};
-
     return {
       schema_version: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
-      agents: {
-        chat: stringValue(agents.chat),
-        formalize: stringValue(agents.formalize),
-      },
       prompts: normalizePrompts(value.prompts),
       phases: Array.isArray(value.phases)
         ? value.phases.flatMap((phase) => {

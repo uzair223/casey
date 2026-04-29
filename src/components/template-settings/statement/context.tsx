@@ -145,11 +145,6 @@ const StatementTemplateSettingsContext =
 function createEmptyConfig(): StatementConfig {
   return StatementConfigSchema.parse({
     schema_version: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
-    agents: {
-      chat: "You are an intake assistant helping collect facts, dates, names, and events from an interview.",
-      formalize:
-        "You are a drafting assistant turning interview transcript into structured witness statement sections.",
-    },
     phases: [],
     sections: [],
     witness_metadata_fields: [

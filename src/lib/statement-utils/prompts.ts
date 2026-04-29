@@ -15,7 +15,7 @@ export const PROMPT_TEMPLATE_TOKEN_HELP: Array<{
   {
     token: "template.*",
     description:
-      "Generic access to statement template config (e.g. {{template.agents.chat}}, {{template.phases.0.title}})",
+      "Generic access to statement template config (e.g. {{template.phases.0.title}})",
   },
   {
     token: "phasesList",
@@ -40,9 +40,7 @@ export const PROMPT_TEMPLATE_TOKEN_HELP: Array<{
   },
 ];
 
-const DEFAULT_CHAT_SYSTEM_PROMPT_TEMPLATE = `{{template.agents.chat}}
-
-You are a structured witness intake interviewer.
+const DEFAULT_CHAT_SYSTEM_PROMPT_TEMPLATE = `You are a structured witness intake interviewer.
 Your job each turn is to produce one JSON response containing:
 - "content": the assistant's next message to the witness
 - "metadata": the updated metadata for that same assistant message
@@ -259,10 +257,7 @@ export function getDefaultPromptTemplates() {
   };
 }
 
-type PromptComputedContext = Record<PromptTemplateTokens, string> & {
-  "agents.chat": string;
-  "agents.formalize": string;
-};
+type PromptComputedContext = Record<PromptTemplateTokens, string>;
 
 function buildPromptTemplateContext(
   config: StatementConfig,
@@ -317,8 +312,6 @@ function buildPromptTemplateContext(
   const jsonStructure = `{\n  ${jsonFields}\n}`;
 
   const context: PromptComputedContext = {
-    "agents.chat": config.agents.chat,
-    "agents.formalize": config.agents.formalize,
     phasesList,
     witnessDetailFieldList,
     sectionGuidelines,

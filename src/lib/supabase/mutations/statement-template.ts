@@ -140,13 +140,7 @@ function normalizeTemplateRow(
 }
 
 function createDefaultConfig(): StatementConfig {
-  return {
-    ...EMPTY_STATEMENT_CONFIG,
-    agents: {
-      chat: "Template-defined chat behavior",
-      formalize: "Template-defined formalization behavior",
-    },
-  };
+  return EMPTY_STATEMENT_CONFIG;
 }
 
 async function getTemplateById(
