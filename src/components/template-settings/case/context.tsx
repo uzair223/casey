@@ -46,7 +46,6 @@ type CaseEditorTab = "simple" | "json";
 type CaseTemplateSettingsContextValue = {
   userTenantName: string | null;
   isLoading: boolean;
-  message: string | null;
   caseTemplates: CaseTemplate[];
   statementTemplates: StatementConfigTemplate[];
   activeTemplateId: string | null;
@@ -157,7 +156,6 @@ export function CaseTemplateSettingsProvider({
     useState<string[]>([]);
   const [defaultStatementTemplateId, setDefaultStatementTemplateIdState] =
     useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [editorTab, setEditorTab] = useState<CaseEditorTab>("simple");
 
   const [draftName, setDraftName] = useState("");
@@ -342,7 +340,7 @@ export function CaseTemplateSettingsProvider({
       enabled: !!user,
       withUseEffect: true,
       onError: (error) => {
-        setMessage(
+        toast.error(
           error instanceof Error
             ? error.message
             : "Failed to load case templates",
@@ -355,13 +353,12 @@ export function CaseTemplateSettingsProvider({
     setActiveTemplateId(template.id);
     syncEditorFromTemplate(template);
     await loadTemplateStatementLinks(template.id);
-    setMessage(null);
   };
 
   const createNewTemplate = () => {
     setActiveTemplateId(null);
     syncEditorFromTemplate(null);
-    setMessage("Creating a new case template draft");
+    toast.info("Creating a new case template draft");
   };
 
   const persistTemplate = async (nextStatus?: TemplateStatus) => {
@@ -400,7 +397,7 @@ export function CaseTemplateSettingsProvider({
       } else {
         await updateCaseTemplate(activeTemplateId, payload);
       }
-      setMessage("Case template updated");
+      toast.success("Case template updated");
     } else {
       const created = await createCaseTemplate({
         ...payload,
@@ -411,7 +408,7 @@ export function CaseTemplateSettingsProvider({
       }
       savedId = created.id;
       setActiveTemplateId(created.id);
-      setMessage("Case template created");
+      toast.success("Case template created");
     }
 
     const refreshed = await refreshData();
@@ -469,7 +466,7 @@ export function CaseTemplateSettingsProvider({
     setActiveTemplateId(tenantCopy.id);
     syncEditorFromTemplate(tenantCopy);
     await loadTemplateStatementLinks(tenantCopy.id);
-    setMessage("Case template forked to firm scope");
+    toast.success("Case template forked to firm scope");
   };
 
   const duplicateTemplate = async () => {
@@ -505,7 +502,7 @@ export function CaseTemplateSettingsProvider({
     setActiveTemplateId(copy.id);
     syncEditorFromTemplate(copy);
     await loadTemplateStatementLinks(copy.id);
-    setMessage("Case template duplicated");
+    toast.success("Case template duplicated");
   };
 
   const deleteTemplate = async () => {
@@ -530,7 +527,7 @@ export function CaseTemplateSettingsProvider({
       syncEditorFromTemplate(null);
     }
 
-    setMessage("Case template deleted");
+    toast.success("Case template deleted");
   };
 
   const toggleFavourite = async () => {
@@ -563,7 +560,7 @@ export function CaseTemplateSettingsProvider({
         tenantId: user.tenant_id,
         defaultCaseTemplateId: null,
       });
-      setMessage("Unpinned case template from default");
+      toast.info("Unpinned case template from default");
       return;
     }
 
@@ -579,7 +576,7 @@ export function CaseTemplateSettingsProvider({
 
     setFavouriteTemplateIds(updated.favourite_case_template_ids);
     setDefaultTemplateId(updated.default_case_template_id);
-    setMessage("Pinned case template as default");
+    toast.success("Pinned case template as default");
   };
 
   const addDynamicField = () => {
@@ -606,9 +603,9 @@ export function CaseTemplateSettingsProvider({
     try {
       const parsed = normalizeConfig(JSON.parse(value));
       setDraftConfig(withGeneratedDynamicFieldKeys(parsed));
-      setMessage("Applied JSON changes to editor");
+      toast.success("Applied JSON changes to editor");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Invalid JSON");
+      toast.error(error instanceof Error ? error.message : "Invalid JSON");
       throw error;
     }
   };
@@ -616,7 +613,6 @@ export function CaseTemplateSettingsProvider({
   const value: CaseTemplateSettingsContextValue = {
     userTenantName: user?.tenant_name ?? null,
     isLoading,
-    message,
     caseTemplates,
     statementTemplates,
     activeTemplateId,

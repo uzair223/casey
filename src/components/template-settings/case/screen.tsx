@@ -22,16 +22,33 @@ import {
 } from "@/lib/status-styles";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/contexts/user-context";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+} from "@/components/ui/select";
+import { SelectTrigger, SelectValue } from "@radix-ui/react-select";
+import { Button } from "@/components/ui/button";
+import {
+  ArrowDownAZ,
+  ArrowDownZA,
+  CalendarArrowDown,
+  CalendarArrowUp,
+} from "lucide-react";
 
 export function CaseTemplateSettingsScreen() {
   const [templateSearch, setTemplateSearch] = useState("");
+  const [sortOption, setSortOption] = useState<
+    "newest" | "oldest" | "az" | "za"
+  >("newest");
   const { user } = useUser();
   const {
     canForkGlobalTemplate,
     canEditActiveTemplate,
     isTenantAdmin,
     isLoading,
-    message,
     caseTemplates,
     activeTemplate,
     defaultTemplateId,
@@ -62,14 +79,26 @@ export function CaseTemplateSettingsScreen() {
           return scopeDiff;
         }
 
-        return a.name.localeCompare(b.name, undefined, {
-          sensitivity: "base",
-        });
+        switch (sortOption) {
+          case "az":
+            return a.name.localeCompare(b.name, undefined, {
+              sensitivity: "base",
+            });
+          case "za":
+            return b.name.localeCompare(a.name, undefined, {
+              sensitivity: "base",
+            });
+          case "oldest":
+            return Date.parse(a.updated_at) - Date.parse(b.updated_at);
+          case "newest":
+          default:
+            return Date.parse(b.updated_at) - Date.parse(a.updated_at);
+        }
       })
       .filter((template) =>
         query.length === 0 ? true : template.name.toLowerCase().includes(query),
       );
-  }, [caseTemplates, templateSearch]);
+  }, [caseTemplates, templateSearch, sortOption]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -138,13 +167,47 @@ export function CaseTemplateSettingsScreen() {
         <Sidebar<CaseTemplate>
           title="Case Templates"
           actions={[
-            <Input
-              key="case-template-search"
-              value={templateSearch}
-              onChange={(event) => setTemplateSearch(event.target.value)}
-              placeholder="Search templates..."
-              className="h-8"
-            />,
+            <div key="case-template-filters" className="w-full flex gap-1.5">
+              <Input
+                key="case-template-search"
+                value={templateSearch}
+                onChange={(event) => setTemplateSearch(event.target.value)}
+                placeholder="Search templates..."
+                className="h-8 flex-1"
+              />
+              <Select
+                key="template-sort"
+                value={sortOption}
+                onValueChange={(value) =>
+                  setSortOption(value as typeof sortOption)
+                }
+              >
+                <SelectTrigger asChild>
+                  <Button variant="outline" size="icon-sm">
+                    {
+                      {
+                        az: <ArrowDownAZ />,
+                        za: <ArrowDownZA />,
+                        newest: <CalendarArrowDown />,
+                        oldest: <CalendarArrowUp />,
+                      }[sortOption]
+                    }
+                    <span className="sr-only">
+                      <SelectValue />
+                    </span>
+                  </Button>
+                </SelectTrigger>
+
+                <SelectContent>
+                  <SelectScrollUpButton />
+                  <SelectItem value="az">Alphabetic (asc)</SelectItem>
+                  <SelectItem value="za">Alphabetic (desc)</SelectItem>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="oldest">Oldest</SelectItem>
+                  <SelectScrollDownButton />
+                </SelectContent>
+              </Select>
+            </div>,
             {
               label: "New",
               onClick: () => void createNewTemplate(),
@@ -182,8 +245,8 @@ export function CaseTemplateSettingsScreen() {
                         variant="outline"
                         onClick={forkTemplate}
                         pendingText="Forking..."
-                        >
-                         Fork to firm
+                      >
+                        Fork to firm
                       </AsyncButton>
                     ) : null}
                     {isTenantAdmin && activeTemplate ? (
@@ -294,10 +357,6 @@ export function CaseTemplateSettingsScreen() {
                   <CaseTemplateJsonView />
                 </TabsContent>
               </Tabs>
-
-              {message ? (
-                <p className="text-sm text-muted-foreground">{message}</p>
-              ) : null}
             </CardContent>
           </Card>
         </SidebarContent>
