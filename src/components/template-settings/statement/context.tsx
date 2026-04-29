@@ -71,6 +71,10 @@ type DocxErrors = Awaited<ReturnType<typeof getDocxTemplateFieldWarnings>> & {
 };
 
 type StatementEditorTab = "simple" | "json" | "docx";
+type StatementTemplateAiPatch = {
+  name?: string;
+  config?: Partial<StatementConfig>;
+};
 
 type StatementTemplateSettingsContextValue = {
   userTenantName: string | null;
@@ -80,7 +84,6 @@ type StatementTemplateSettingsContextValue = {
   isLoading: boolean;
   setIsGenerating: (value: boolean) => void;
   isGenerating: boolean;
-  message: string | null;
   editorTab: StatementEditorTab;
   setEditorTab: (tab: StatementEditorTab) => void;
   canForkGlobalTemplate: boolean;
@@ -88,6 +91,7 @@ type StatementTemplateSettingsContextValue = {
   isBusy: boolean;
   hasPublishedVersion: boolean;
   draftName: string;
+  pendingAiDraftName: string | null;
   setDraftName: (value: string) => void;
   draftNameValidationError: string | null;
   currentStatus: TemplateStatus;
@@ -126,6 +130,7 @@ type StatementTemplateSettingsContextValue = {
     status: "added" | "removed" | "modified";
   }>;
   stageAiPatch: (patch: Partial<StatementConfig>) => void;
+  stageAiTemplatePatch: (patch: StatementTemplateAiPatch) => void;
   applyPendingAiPatch: () => void;
   discardPendingAiPatch: () => void;
   applyPendingAiPatchPath: (
@@ -256,7 +261,6 @@ export function StatementTemplateSettingsProvider({
 
   const [templates, setTemplates] = useState<StatementConfigTemplate[]>([]);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [editorTab, setEditorTab] = useState<StatementEditorTab>("simple");
 
   const [draftName, setDraftName] = useState("");
@@ -266,6 +270,9 @@ export function StatementTemplateSettingsProvider({
   );
   const [pendingAiPatch, setPendingAiPatch] =
     useState<Partial<StatementConfig> | null>(null);
+  const [pendingAiDraftName, setPendingAiDraftName] = useState<string | null>(
+    null,
+  );
 
   const formMethods = useForm<StatementConfig>({
     defaultValues: createEmptyConfig(),
@@ -315,6 +322,22 @@ export function StatementTemplateSettingsProvider({
   const draftNameValidationError = draftName.trim()
     ? null
     : "Template name is required.";
+  const currentAiDraft = useMemo(
+    () => ({
+      name: draftName,
+      ...draftConfig,
+    }),
+    [draftName, draftConfig],
+  );
+  const nextAiDraft = useMemo(
+    () => ({
+      name: pendingAiDraftName ?? draftName,
+      ...(pendingAiPatch
+        ? materializePendingPatch(draftConfig, pendingAiPatch)
+        : draftConfig),
+    }),
+    [draftName, draftConfig, pendingAiDraftName, pendingAiPatch],
+  );
   const isMainTemplateValid = mainTemplateValidationErrors.length === 0;
   const canPublishTemplate =
     isMainTemplateValid &&
@@ -322,23 +345,17 @@ export function StatementTemplateSettingsProvider({
     !draftNameValidationError;
   const pendingAiPatchPaths = useMemo(
     () =>
-      pendingAiPatch
-        ? resolvePatchPaths(
-            formMethods.getValues(),
-            materializePendingPatch(formMethods.getValues(), pendingAiPatch),
-          )
+      pendingAiPatch || pendingAiDraftName
+        ? resolvePatchPaths(currentAiDraft, nextAiDraft)
         : [],
-    [formMethods, pendingAiPatch],
+    [currentAiDraft, nextAiDraft, pendingAiDraftName, pendingAiPatch],
   );
   const pendingAiPatchDiffs = useMemo(
     () =>
-      pendingAiPatch
-        ? resolvePatchDiffs(
-            formMethods.getValues(),
-            materializePendingPatch(formMethods.getValues(), pendingAiPatch),
-          )
+      pendingAiPatch || pendingAiDraftName
+        ? resolvePatchDiffs(currentAiDraft, nextAiDraft)
         : [],
-    [formMethods, pendingAiPatch],
+    [currentAiDraft, nextAiDraft, pendingAiDraftName, pendingAiPatch],
   );
 
   const setDraftConfig = (
@@ -431,6 +448,7 @@ export function StatementTemplateSettingsProvider({
         unused: [],
       });
       setPendingAiPatch(null);
+      setPendingAiDraftName(null);
       return;
     }
 
@@ -440,6 +458,7 @@ export function StatementTemplateSettingsProvider({
     formMethods.reset(config);
     setPendingTemplateDocx(null);
     setPendingAiPatch(null);
+    setPendingAiDraftName(null);
   };
 
   const refreshData = async () => {
@@ -492,7 +511,7 @@ export function StatementTemplateSettingsProvider({
       enabled: !!user,
       withUseEffect: true,
       onError: (error) => {
-        setMessage(
+        toast.error(
           error instanceof Error
             ? error.message
             : "Failed to load statement templates",
@@ -544,8 +563,6 @@ export function StatementTemplateSettingsProvider({
     } else {
       await prepareStarterPreview(config, template.name);
     }
-
-    setMessage(null);
   };
 
   const createNewTemplate = async () => {
@@ -555,7 +572,7 @@ export function StatementTemplateSettingsProvider({
       createEmptyConfig(),
       "Witness Statement Template",
     );
-    setMessage("Creating a new template draft");
+    toast.info("Creating new template...");
   };
 
   const persistTemplate = async (
@@ -645,7 +662,7 @@ export function StatementTemplateSettingsProvider({
       } else {
         await updateStatementTemplate(activeTemplateId, payload);
       }
-      setMessage("Template updated");
+      toast.success("Template updated");
     } else {
       const created = await createStatementTemplate(payload);
       if ((nextStatus ?? currentStatus) === "published") {
@@ -653,7 +670,7 @@ export function StatementTemplateSettingsProvider({
       }
       savedId = created.id;
       setActiveTemplateId(created.id);
-      setMessage("Template created");
+      toast.success("Template created");
     }
 
     const refreshed = await refreshData();
@@ -724,7 +741,7 @@ export function StatementTemplateSettingsProvider({
       );
     }
 
-    setMessage("Template deleted");
+    toast.success("Template deleted");
   };
 
   const duplicateTemplate = async () => {
@@ -761,7 +778,7 @@ export function StatementTemplateSettingsProvider({
       await prepareStarterPreview(config, copy.name);
     }
 
-    setMessage("Template duplicated");
+    toast.success("Template duplicated");
   };
 
   const forkTemplate = async () => {
@@ -797,7 +814,7 @@ export function StatementTemplateSettingsProvider({
       await prepareStarterPreview(config, tenantCopy.name);
     }
 
-    setMessage("Template forked to firm scope");
+    toast.success("Template forked to firm scope");
   };
 
   const restorePreviousVersion = async () => {
@@ -826,13 +843,14 @@ export function StatementTemplateSettingsProvider({
       }
     }
 
-    setMessage("Restored the published version into draft.");
+    toast.success("Restored the published version into draft.");
   };
 
   const resetConfig = () => {
     formMethods.reset(withGeneratedConfigIds(createEmptyConfig()));
     setPendingAiPatch(null);
-    setMessage("Template config reset");
+    setPendingAiDraftName(null);
+    toast.info("Template config reset");
   };
 
   const applyAdvancedJson = async (value: string) => {
@@ -840,9 +858,10 @@ export function StatementTemplateSettingsProvider({
       const parsed = normalizeConfig(JSON.parse(value));
       formMethods.reset(parsed);
       setPendingAiPatch(null);
-      setMessage("Applied JSON changes to editor");
+      setPendingAiDraftName(null);
+      toast.success("JSON changes applied");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Invalid JSON");
+      toast.error(error instanceof Error ? error.message : "Invalid JSON");
       throw error;
     }
   };
@@ -857,25 +876,56 @@ export function StatementTemplateSettingsProvider({
     setPendingAiPatch((prev) => mergeDeep(prev ?? {}, patch));
   };
 
+  const stageAiTemplatePatch = (patch: StatementTemplateAiPatch) => {
+    const nextName = patch.name?.trim();
+    if (nextName) {
+      setPendingAiDraftName(nextName);
+    }
+
+    if (patch.config) {
+      stageAiPatch(patch.config);
+    }
+  };
+
   const applyPendingAiPatch = () => {
-    if (!pendingAiPatch) {
+    if (!pendingAiPatch && !pendingAiDraftName) {
       return;
     }
 
-    patchConfig(pendingAiPatch);
+    if (pendingAiPatch) {
+      patchConfig(pendingAiPatch);
+    }
+    if (pendingAiDraftName) {
+      setDraftName(pendingAiDraftName);
+    }
     setPendingAiPatch(null);
-    setMessage("Applied AI draft changes to template config");
+    setPendingAiDraftName(null);
+    toast.success("AI changes applied");
   };
 
   const discardPendingAiPatch = () => {
     setPendingAiPatch(null);
-    setMessage("Discarded AI draft changes");
+    setPendingAiDraftName(null);
+    toast.info("AI changes discarded");
   };
 
   const applyPendingAiPatchPath = (
     path: string,
     status?: "added" | "removed" | "modified",
   ) => {
+    if (!pendingAiPatch && !pendingAiDraftName) {
+      return;
+    }
+
+    if (path === "name") {
+      if (status !== "removed" && pendingAiDraftName) {
+        setDraftName(pendingAiDraftName);
+      }
+      setPendingAiDraftName(null);
+      toast.success("Name updated from AI");
+      return;
+    }
+
     if (!pendingAiPatch) {
       return;
     }
@@ -908,12 +958,18 @@ export function StatementTemplateSettingsProvider({
 
     formMethods.reset(nextConfig);
     setPendingAiPatch((prev) => deletePathFromObject(prev, path));
-    setMessage(`Applied AI change for ${path}`);
+    toast.success(`Applied: ${path}`);
   };
 
   const discardPendingAiPatchPath = (path: string) => {
+    if (path === "name") {
+      setPendingAiDraftName(null);
+      toast.info("Name change discarded");
+      return;
+    }
+
     setPendingAiPatch((prev) => deletePathFromObject(prev, path));
-    setMessage(`Discarded AI change for ${path}`);
+    toast.info(`Discarded: ${path}`);
   };
 
   const downloadStarterDocx = async () => {
@@ -931,7 +987,7 @@ export function StatementTemplateSettingsProvider({
 
   const downloadUploadedDocx = async () => {
     if (!activeTemplate?.draft_docx_template_document) {
-      setMessage("No uploaded DOCX to download");
+      toast.warning("No uploaded DOCX");
       return;
     }
     const blob = await downloadUploadedDocument(
@@ -977,7 +1033,7 @@ export function StatementTemplateSettingsProvider({
       );
     }
 
-    setMessage("Uploaded DOCX deleted");
+    toast.success("DOCX deleted");
   };
 
   const stageTemplateDocx = async (file: File | null) => {
@@ -997,7 +1053,7 @@ export function StatementTemplateSettingsProvider({
         await prepareStarterPreview(config, draftName);
       }
 
-      setMessage("Staged DOCX removed.");
+      toast.info("DOCX removed");
       return;
     }
 
@@ -1015,7 +1071,7 @@ export function StatementTemplateSettingsProvider({
 
       setPendingTemplateDocx(file);
       setPreviewState(file, `Staged: ${file.name}`);
-      setMessage("DOCX staged. Save the template to persist it.");
+      toast.info("DOCX staged for save");
     } finally {
       setIsUploadingTemplateDocx(false);
     }
@@ -1029,7 +1085,6 @@ export function StatementTemplateSettingsProvider({
     isLoading,
     setIsGenerating,
     isGenerating,
-    message,
     editorTab,
     setEditorTab,
     canForkGlobalTemplate,
@@ -1037,6 +1092,7 @@ export function StatementTemplateSettingsProvider({
     isBusy,
     hasPublishedVersion,
     draftName,
+    pendingAiDraftName,
     setDraftName,
     draftNameValidationError,
     currentStatus,
@@ -1068,6 +1124,7 @@ export function StatementTemplateSettingsProvider({
     pendingAiPatchPaths,
     pendingAiPatchDiffs,
     stageAiPatch,
+    stageAiTemplatePatch,
     applyPendingAiPatch,
     discardPendingAiPatch,
     applyPendingAiPatchPath,

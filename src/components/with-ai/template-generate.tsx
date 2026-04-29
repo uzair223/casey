@@ -8,12 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useAsync } from "@/hooks/useAsync";
 import { apiFetch } from "@/lib/api-utils";
-import {
-  MessageSquareText,
-  SparklesIcon,
-  Trash2,
-  X,
-} from "lucide-react";
+import { MessageSquareText, SparklesIcon, Trash2, X } from "lucide-react";
 import React from "react";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
@@ -176,7 +171,15 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
     [_schema],
   );
 
-  const partialSchema = React.useMemo(() => schema.partial(), [schema]);
+  const partialSchema = React.useMemo(
+    () =>
+      z.object({
+        kind: z.enum(["message", "patch"]).optional(),
+        message: z.string().optional(),
+        data: z.unknown().optional(),
+      }),
+    [],
+  );
 
   const formatRestoreTime = React.useCallback((timestamp?: number) => {
     if (!timestamp) {
@@ -192,9 +195,8 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
 
   React.useEffect(() => {
     setInput("");
-    latestConfigRef.current = (seedData as z.output<T> | undefined) ?? null;
     setMessages([]);
-  }, [resetTrigger, seedData]);
+  }, [resetTrigger]);
 
   React.useEffect(() => {
     latestConfigRef.current = (seedData as z.output<T> | undefined) ?? null;

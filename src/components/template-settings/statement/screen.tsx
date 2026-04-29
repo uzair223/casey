@@ -28,13 +28,66 @@ import {
 import { StatementConfigSchema } from "@/lib/schema";
 import { useFormContext, useFormState, useWatch } from "react-hook-form";
 import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
-import { SparklesIcon } from "lucide-react";
+import {
+  Sparkles,
+  CalendarArrowDown,
+  CalendarArrowUp,
+  ArrowDownAZ,
+  ArrowDownZA,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/contexts/user-context";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import { SelectTrigger, SelectValue } from "@radix-ui/react-select";
+
+const StatementTemplateGenerationSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .describe("Short, clear template name shown in the template list."),
+    config: StatementConfigSchema.omit({
+      schema_version: true,
+      case_metadata_deps: true,
+      prompts: true,
+    }).describe("statement config schema"),
+  })
+  .strict();
+
+function toTemplateGenerationPatch(data: unknown) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return null;
+  }
+
+  const record = data as Record<string, unknown>;
+  const name = typeof record.name === "string" ? record.name : undefined;
+  const config =
+    record.config && typeof record.config === "object"
+      ? (record.config as Partial<StatementConfig>)
+      : undefined;
+
+  if (!name && !config) {
+    return null;
+  }
+
+  return { name, config };
+}
 
 export function StatementTemplateSettingsScreen() {
   const { user } = useUser();
   const [templateSearch, setTemplateSearch] = useState("");
+  const [sortOption, setSortOption] = useState<
+    "newest" | "oldest" | "az" | "za"
+  >("newest");
 
   const {
     canForkGlobalTemplate,
@@ -46,13 +99,13 @@ export function StatementTemplateSettingsScreen() {
     activeTemplateId,
     activeTemplate,
     currentStatus,
-    message,
+    draftName,
     draftNameValidationError,
     mainTemplateValidationErrors,
     isLoading,
     editorTab,
     setIsGenerating,
-    stageAiPatch,
+    stageAiTemplatePatch,
     setEditorTab,
     selectTemplate,
     createNewTemplate,
@@ -78,7 +131,6 @@ export function StatementTemplateSettingsScreen() {
   const filteredTemplates = useMemo(() => {
     const query = templateSearch.trim().toLowerCase();
     const scopeOrder = { tenant: 0, global: 1 } as const;
-
     return [...templates]
       .sort((a, b) => {
         const scopeDiff =
@@ -87,12 +139,22 @@ export function StatementTemplateSettingsScreen() {
           return scopeDiff;
         }
 
-        return Date.parse(b.updated_at) - Date.parse(a.updated_at);
+        switch (sortOption) {
+          case "az":
+            return a.name.localeCompare(b.name);
+          case "za":
+            return b.name.localeCompare(a.name);
+          case "oldest":
+            return Date.parse(a.updated_at) - Date.parse(b.updated_at);
+          case "newest":
+          default:
+            return Date.parse(b.updated_at) - Date.parse(a.updated_at);
+        }
       })
       .filter((template) =>
         query.length === 0 ? true : template.name.toLowerCase().includes(query),
       );
-  }, [templates, templateSearch]);
+  }, [templates, templateSearch, sortOption]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -160,13 +222,50 @@ export function StatementTemplateSettingsScreen() {
         <Sidebar<StatementConfigTemplate>
           title="Statement Templates"
           actions={[
-            <Input
-              key="statement-template-search"
-              value={templateSearch}
-              onChange={(event) => setTemplateSearch(event.target.value)}
-              placeholder="Search templates..."
-              className="h-8 w-full"
-            />,
+            <div
+              key="statement-template-filters"
+              className="w-full flex gap-1.5"
+            >
+              <Input
+                key="statement-template-search"
+                value={templateSearch}
+                onChange={(event) => setTemplateSearch(event.target.value)}
+                placeholder="Search templates..."
+                className="h-8 flex-1"
+              />
+              <Select
+                key="template-sort"
+                value={sortOption}
+                onValueChange={(value) =>
+                  setSortOption(value as typeof sortOption)
+                }
+              >
+                <SelectTrigger asChild>
+                  <Button variant="outline" size="icon-sm">
+                    {
+                      {
+                        az: <ArrowDownAZ />,
+                        za: <ArrowDownZA />,
+                        newest: <CalendarArrowDown />,
+                        oldest: <CalendarArrowUp />,
+                      }[sortOption]
+                    }
+                    <span className="sr-only">
+                      <SelectValue />
+                    </span>
+                  </Button>
+                </SelectTrigger>
+
+                <SelectContent>
+                  <SelectScrollUpButton />
+                  <SelectItem value="az">Alphabetic (asc)</SelectItem>
+                  <SelectItem value="za">Alphabetic (desc)</SelectItem>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="oldest">Oldest</SelectItem>
+                  <SelectScrollDownButton />
+                </SelectContent>
+              </Select>
+            </div>,
             {
               label: "New",
               onClick: () => void createNewTemplate(),
@@ -198,22 +297,27 @@ export function StatementTemplateSettingsScreen() {
                     "Generate a statement template for a workplace injury claim...",
                 }}
                 resetTrigger={activeTemplateId}
-                seedData={draftConfig}
-                schema={StatementConfigSchema.omit({
-                  schema_version: true,
-                  case_metadata_deps: true,
-                  prompts: true,
-                }).describe("statement config schema")}
+                seedData={{
+                  name: draftName || activeTemplate?.name || "",
+                  config: draftConfig,
+                }}
+                schema={StatementTemplateGenerationSchema}
                 onRequestSent={() => {
                   setIsGenerating(true);
                 }}
                 onPartial={({ kind, data }) => {
                   if (kind !== "patch" || !data) return;
-                  stageAiPatch(data);
+                  const patch = toTemplateGenerationPatch(data);
+                  if (patch) {
+                    stageAiTemplatePatch(patch);
+                  }
                 }}
                 onComplete={({ kind, data }) => {
                   if (kind === "patch" && data) {
-                    stageAiPatch(data);
+                    const patch = toTemplateGenerationPatch(data);
+                    if (patch) {
+                      stageAiTemplatePatch(patch);
+                    }
                   }
                   setIsGenerating(false);
                 }}
@@ -227,7 +331,7 @@ export function StatementTemplateSettingsScreen() {
                       className="rounded-full"
                       disabled={!canEditActiveTemplate}
                     >
-                      <SparklesIcon /> AI Assistant
+                      <Sparkles /> AI Assistant
                     </GenerateWithAITrigger>
                   </div>
                 )}
@@ -244,8 +348,8 @@ export function StatementTemplateSettingsScreen() {
                         variant="outline"
                         onClick={forkTemplate}
                         pendingText="Forking..."
-                        >
-                         Fork to firm
+                      >
+                        Fork to firm
                       </AsyncButton>
                     ) : null}
                     {canEditActiveTemplate && activeTemplate && (
@@ -328,13 +432,6 @@ export function StatementTemplateSettingsScreen() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {message ? (
-                <Card size="md" variant="secondary">
-                  <CardHeader>
-                    <CardTitle className="text-sm">{message}</CardTitle>
-                  </CardHeader>
-                </Card>
-              ) : null}
               {showTemplateValidationIssues ? (
                 <Card size="md" variant="destructive">
                   <CardHeader className="pb-2">
