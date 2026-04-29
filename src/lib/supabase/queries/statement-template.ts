@@ -2,6 +2,7 @@ import type {
   StatementConfigTemplate,
   PublishedStatementConfigTemplate,
 } from "@/types/common";
+import { normalizeConfig } from "@/lib/statement-utils";
 import { getSupabaseClient } from "../client";
 
 const TEMPLATE_SELECT =
@@ -27,6 +28,10 @@ function normalizeTemplateRow(
 
   return {
     ...(row as StatementConfigTemplate),
+    draft_config: normalizeConfig(row.draft_config),
+    published_config: row.published_config
+      ? normalizeConfig(row.published_config)
+      : null,
     draft_docx_template_document: draftDoc,
     published_docx_template_document: publishedDoc,
   };

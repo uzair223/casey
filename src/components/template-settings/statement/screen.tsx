@@ -200,6 +200,7 @@ export function StatementTemplateSettingsScreen() {
                 resetTrigger={activeTemplateId}
                 seedData={draftConfig}
                 schema={StatementConfigSchema.omit({
+                  schema_version: true,
                   case_metadata_deps: true,
                   prompts: true,
                 }).describe("statement config schema")}

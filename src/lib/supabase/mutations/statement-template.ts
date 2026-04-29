@@ -10,7 +10,7 @@ import type { Json } from "@/types";
 import { getSupabaseClient } from "../client";
 import { downloadUploadedDocument } from "../queries/upload";
 import { uploadFile } from "./upload";
-import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
+import { EMPTY_STATEMENT_CONFIG, normalizeConfig } from "@/lib/statement-utils";
 
 type UpsertTemplateInput = {
   tenantId?: string | null;
@@ -130,6 +130,10 @@ function normalizeTemplateRow(
 
   return {
     ...(row as StatementConfigTemplate),
+    draft_config: normalizeConfig(row.draft_config),
+    published_config: row.published_config
+      ? normalizeConfig(row.published_config)
+      : null,
     draft_docx_template_document: draftDoc,
     published_docx_template_document: publishedDoc,
   };

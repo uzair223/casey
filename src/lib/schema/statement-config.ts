@@ -186,6 +186,8 @@ export const StatementPromptTemplatesSchema = z
 
 export const StatementConfigSchema = z
   .object({
+    schema_version: z.literal(2).optional(),
+
     agents: z
       .object({
         chat: z.string().describe(AGENT_CHAT_DESCRIPTION),

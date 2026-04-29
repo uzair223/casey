@@ -2,13 +2,13 @@ import type {
   CaseConfig,
   CaseTemplate,
   CaseTemplateStatementTemplateRelation,
-  StatementConfig,
   StatementConfigTemplate,
   TemplateScope,
   TemplateStatus,
   TenantCaseTemplatePreferences,
 } from "@/types";
 import { CaseConfigSchema } from "@/lib/schema";
+import { normalizeConfig as normalizeStatementConfig } from "@/lib/statement-utils";
 import { getSupabaseClient } from "../client";
 
 type CaseTemplateStatementTemplateLink = Pick<
@@ -70,8 +70,10 @@ function toStatementConfigTemplate(
     name: row.name as string,
     template_scope: row.template_scope as TemplateScope,
     status: row.status as TemplateStatus,
-    draft_config: row.draft_config as StatementConfig,
-    published_config: (row.published_config as StatementConfig | null) ?? null,
+    draft_config: normalizeStatementConfig(row.draft_config),
+    published_config: row.published_config
+      ? normalizeStatementConfig(row.published_config)
+      : null,
     draft_docx_template_document:
       (row.draft_docx_template_document as StatementConfigTemplate["draft_docx_template_document"]) ??
       null,

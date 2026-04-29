@@ -31,6 +31,10 @@ import {
   StatementConfigSchema,
 } from "@/lib/schema";
 import {
+  CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
+  normalizeConfig,
+} from "@/lib/statement-utils";
+import {
   downloadUploadedDocument,
   listStatementTemplates,
 } from "@/lib/supabase/queries";
@@ -140,6 +144,7 @@ const StatementTemplateSettingsContext =
 
 function createEmptyConfig(): StatementConfig {
   return StatementConfigSchema.parse({
+    schema_version: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
     agents: {
       chat: "You are an intake assistant helping collect facts, dates, names, and events from an interview.",
       formalize:
@@ -175,8 +180,9 @@ function normalizePromptsForStorage(config: StatementConfig): StatementConfig {
   const defaults = getDefaultPromptTemplates();
   const prompts = config.prompts ?? createNullPromptTemplates();
 
-  return {
+  return StatementConfigSchema.parse({
     ...config,
+    schema_version: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
     prompts: {
       chat_system_template:
         prompts.chat_system_template === defaults.chat_system_template
@@ -187,7 +193,7 @@ function normalizePromptsForStorage(config: StatementConfig): StatementConfig {
           ? null
           : prompts.formalize_system_template,
     },
-  };
+  });
 }
 
 function withGeneratedPhaseIds(config: StatementConfig) {
@@ -223,22 +229,6 @@ function withGeneratedSectionFields(config: StatementConfig) {
 
 function withGeneratedConfigIds(config: StatementConfig) {
   return withGeneratedSectionFields(withGeneratedPhaseIds(config));
-}
-
-function normalizeConfig(input: unknown): StatementConfig {
-  const parsed = StatementConfigSchema.safeParse(input);
-  if (!parsed.success) {
-    return createEmptyConfig();
-  }
-
-  const withPromptObject = parsed.data.prompts
-    ? parsed.data
-    : {
-        ...parsed.data,
-        prompts: createNullPromptTemplates(),
-      };
-
-  return normalizePromptsForStorage(withPromptObject);
 }
 
 function validateMainTemplateConfig(config: StatementConfig): string[] {
