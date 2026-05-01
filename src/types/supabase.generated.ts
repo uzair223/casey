@@ -64,6 +64,97 @@ export type Database = {
           },
         ]
       }
+      ai_generation_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          formalization_snapshot_id: string | null
+          id: string
+          kind: string
+          request_payload: Json
+          requested_by_user_id: string | null
+          result_snapshot_id: string | null
+          started_at: string | null
+          status: string
+          target_id: string
+          tenant_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          formalization_snapshot_id?: string | null
+          id?: string
+          kind: string
+          request_payload?: Json
+          requested_by_user_id?: string | null
+          result_snapshot_id?: string | null
+          started_at?: string | null
+          status?: string
+          target_id: string
+          tenant_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          formalization_snapshot_id?: string | null
+          id?: string
+          kind?: string
+          request_payload?: Json
+          requested_by_user_id?: string | null
+          result_snapshot_id?: string | null
+          started_at?: string | null
+          status?: string
+          target_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_generation_jobs_formalization_snapshot_id_fkey"
+            columns: ["formalization_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "statement_formalization_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generation_jobs_result_snapshot_id_fkey"
+            columns: ["result_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "case_analysis_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generation_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_rate_limits: {
+        Row: {
+          count: number
+          key: string
+          updated_at: string
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          key: string
+          updated_at?: string
+          window_start?: string
+        }
+        Update: {
+          count?: number
+          key?: string
+          updated_at?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -98,6 +189,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "audit_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      case_analysis_snapshots: {
+        Row: {
+          analysis: Json
+          case_id: string
+          created_at: string
+          created_by_user_id: string | null
+          id: string
+          model: string
+          source_statement_ids: string[]
+          source_statement_versions: Json
+          tenant_id: string
+        }
+        Insert: {
+          analysis: Json
+          case_id: string
+          created_at?: string
+          created_by_user_id?: string | null
+          id?: string
+          model: string
+          source_statement_ids?: string[]
+          source_statement_versions?: Json
+          tenant_id: string
+        }
+        Update: {
+          analysis?: Json
+          case_id?: string
+          created_at?: string
+          created_by_user_id?: string | null
+          id?: string
+          model?: string
+          source_statement_ids?: string[]
+          source_statement_versions?: Json
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_analysis_snapshots_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_analysis_snapshots_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -257,6 +399,7 @@ export type Database = {
           is_pinned: boolean
           pinned_at: string | null
           pinned_by_user_id: string | null
+          statement_id: string | null
           tenant_id: string
           updated_at: string
         }
@@ -269,6 +412,7 @@ export type Database = {
           is_pinned?: boolean
           pinned_at?: string | null
           pinned_by_user_id?: string | null
+          statement_id?: string | null
           tenant_id: string
           updated_at?: string
         }
@@ -281,6 +425,7 @@ export type Database = {
           is_pinned?: boolean
           pinned_at?: string | null
           pinned_by_user_id?: string | null
+          statement_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
@@ -290,6 +435,13 @@ export type Database = {
             columns: ["case_id"]
             isOneToOne: false
             referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_notes_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "statements"
             referencedColumns: ["id"]
           },
           {
@@ -626,6 +778,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           role: string
+          soft_deleted_at: string | null
           tenant_id: string | null
           user_id: string
         }
@@ -633,6 +786,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           role?: string
+          soft_deleted_at?: string | null
           tenant_id?: string | null
           user_id: string
         }
@@ -640,6 +794,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           role?: string
+          soft_deleted_at?: string | null
           tenant_id?: string | null
           user_id?: string
         }
@@ -777,137 +932,53 @@ export type Database = {
           },
         ]
       }
-      statement_internal_documents: {
+      statement_formalization_snapshots: {
         Row: {
           created_at: string
-          document: Json
+          created_by_user_id: string | null
+          evidence_documents: Json
           id: string
+          model: string
+          sections: Json
+          source_message_ids: string[]
+          source_message_versions: Json
           statement_id: string
           tenant_id: string
-          uploaded_by_user_id: string
         }
         Insert: {
           created_at?: string
-          document: Json
+          created_by_user_id?: string | null
+          evidence_documents?: Json
           id?: string
+          model: string
+          sections: Json
+          source_message_ids?: string[]
+          source_message_versions?: Json
           statement_id: string
           tenant_id: string
-          uploaded_by_user_id: string
         }
         Update: {
           created_at?: string
-          document?: Json
+          created_by_user_id?: string | null
+          evidence_documents?: Json
           id?: string
+          model?: string
+          sections?: Json
+          source_message_ids?: string[]
+          source_message_versions?: Json
           statement_id?: string
           tenant_id?: string
-          uploaded_by_user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "statement_internal_documents_statement_id_fkey"
+            foreignKeyName: "statement_formalization_snapshots_statement_id_fkey"
             columns: ["statement_id"]
             isOneToOne: false
             referencedRelation: "statements"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "statement_internal_documents_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      statement_note_mentions: {
-        Row: {
-          created_at: string
-          created_by_user_id: string
-          id: string
-          mentioned_user_id: string
-          statement_note_id: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string
-          created_by_user_id: string
-          id?: string
-          mentioned_user_id: string
-          statement_note_id: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string
-          created_by_user_id?: string
-          id?: string
-          mentioned_user_id?: string
-          statement_note_id?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "statement_note_mentions_statement_note_id_fkey"
-            columns: ["statement_note_id"]
-            isOneToOne: false
-            referencedRelation: "statement_notes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "statement_note_mentions_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      statement_notes: {
-        Row: {
-          author_user_id: string
-          body: string
-          created_at: string
-          id: string
-          is_pinned: boolean
-          pinned_at: string | null
-          pinned_by_user_id: string | null
-          statement_id: string
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          author_user_id: string
-          body: string
-          created_at?: string
-          id?: string
-          is_pinned?: boolean
-          pinned_at?: string | null
-          pinned_by_user_id?: string | null
-          statement_id: string
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          author_user_id?: string
-          body?: string
-          created_at?: string
-          id?: string
-          is_pinned?: boolean
-          pinned_at?: string | null
-          pinned_by_user_id?: string | null
-          statement_id?: string
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "statement_notes_statement_id_fkey"
-            columns: ["statement_id"]
-            isOneToOne: false
-            referencedRelation: "statements"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "statement_notes_tenant_id_fkey"
+            foreignKeyName: "statement_formalization_snapshots_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1042,14 +1113,96 @@ export type Database = {
           },
         ]
       }
+      statement_supporting_documents: {
+        Row: {
+          case_id: string
+          created_at: string
+          descriptor_generated_at: string | null
+          descriptor_model: string | null
+          descriptor_status: string
+          descriptors: Json
+          document: Json
+          group_name: string | null
+          id: string
+          statement_id: string
+          tenant_id: string
+          title: string
+          updated_at: string
+          uploaded_by_type: string
+          uploaded_by_user_id: string | null
+          uploaded_by_witness_email: string | null
+          uploaded_by_witness_name: string | null
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          descriptor_generated_at?: string | null
+          descriptor_model?: string | null
+          descriptor_status?: string
+          descriptors?: Json
+          document: Json
+          group_name?: string | null
+          id?: string
+          statement_id: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+          uploaded_by_type: string
+          uploaded_by_user_id?: string | null
+          uploaded_by_witness_email?: string | null
+          uploaded_by_witness_name?: string | null
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          descriptor_generated_at?: string | null
+          descriptor_model?: string | null
+          descriptor_status?: string
+          descriptors?: Json
+          document?: Json
+          group_name?: string | null
+          id?: string
+          statement_id?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+          uploaded_by_type?: string
+          uploaded_by_user_id?: string | null
+          uploaded_by_witness_email?: string | null
+          uploaded_by_witness_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "statement_supporting_documents_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "statement_supporting_documents_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "statement_supporting_documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       statements: {
         Row: {
           case_id: string
           config_snapshot_id: string | null
           created_at: string
+          formalization_snapshot_id: string | null
           gdpr_notice_acknowledgement: Json | null
           id: string
-          sections: Json
           signed_document: Json | null
           status: string
           supporting_documents: Json
@@ -1065,9 +1218,9 @@ export type Database = {
           case_id: string
           config_snapshot_id?: string | null
           created_at?: string
+          formalization_snapshot_id?: string | null
           gdpr_notice_acknowledgement?: Json | null
           id?: string
-          sections?: Json
           signed_document?: Json | null
           status?: string
           supporting_documents?: Json
@@ -1083,9 +1236,9 @@ export type Database = {
           case_id?: string
           config_snapshot_id?: string | null
           created_at?: string
+          formalization_snapshot_id?: string | null
           gdpr_notice_acknowledgement?: Json | null
           id?: string
-          sections?: Json
           signed_document?: Json | null
           status?: string
           supporting_documents?: Json
@@ -1110,6 +1263,13 @@ export type Database = {
             columns: ["config_snapshot_id"]
             isOneToOne: false
             referencedRelation: "statement_config_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "statements_formalization_snapshot_id_fkey"
+            columns: ["formalization_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "statement_formalization_snapshots"
             referencedColumns: ["id"]
           },
           {
@@ -1300,6 +1460,14 @@ export type Database = {
         Args: { bucket_id_param: string }
         Returns: boolean
       }
+      check_api_rate_limit: {
+        Args: {
+          key_param: string
+          limit_param: number
+          window_seconds_param: number
+        }
+        Returns: Json
+      }
       current_tenant_is_active: { Args: never; Returns: boolean }
       delete_storage_document: {
         Args: { default_bucket?: string; document_json: Json }
@@ -1327,6 +1495,14 @@ export type Database = {
         Returns: boolean
       }
       tenant_has_valid_magic_link: {
+        Args: { tenant_id_param: string }
+        Returns: boolean
+      }
+      user_can_write_tenant_bucket: {
+        Args: { bucket_id_param: string }
+        Returns: boolean
+      }
+      user_can_write_tenant_data: {
         Args: { tenant_id_param: string }
         Returns: boolean
       }

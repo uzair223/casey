@@ -20,12 +20,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Sidebar, SidebarWrapper } from "@/components/ui/sidebar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronLeftIcon, PenIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useAsync } from "@/hooks/useAsync";
 import { getCaseTemplateById } from "@/lib/supabase/queries/case-template";
 
 import {
   CaseActivityTimeline,
+  CaseAnalysisCard,
   CaseInternalDocumentsCard,
   CaseNotesCard,
   CreateStatementForm,
@@ -273,90 +275,113 @@ export default function CaseDetailPage() {
         </CardContent>
       </Card>
 
-      <SidebarWrapper>
-        <Sidebar
-          title="Witnesses"
-          count={data.statements.length}
-          actions={[
-            {
-              label: (
-                <>
-                  <PlusIcon className="h-4 w-4" />
-                  Add witness
-                </>
-              ),
-              onClick: () => setIsAddWitnessOpen(true),
-            },
-          ]}
-          items={data.statements}
-          activeItemId={activeStatement?.id ?? null}
-          getItemId={(statement) => statement.id}
-          onSelectItem={(statement) => handleSelectStatement(statement.id)}
-          emptyMessage="No witness statements have been added yet."
-          renderItem={(statement) => {
-            const config = (
-              statement as { statement_config?: { name?: string } | null }
-            ).statement_config || { name: "Statement" };
+      <CaseAnalysisCard caseId={data.id} statements={data.statements} />
 
-            return (
-              <div className="flex w-full flex-col items-start gap-1">
-                <div className="flex w-full flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium">
-                    {statement.witness_name || "Unnamed witness"}
-                  </span>
-                  <Badge variant={statementStatusVariant[statement.status]}>
-                    {statementStatusLabel[statement.status]}
-                  </Badge>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {statement.witness_email}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {config.name}
-                </span>
-              </div>
-            );
-          }}
-        />
+      <Tabs defaultValue="witnesses" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="witnesses">
+            Witnesses
+            <Badge variant="secondary" className="ml-2">
+              {data.statements.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="notes">Notes</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+        </TabsList>
 
-        {activeStatement ? (
-          <StatementDetailPanel
-            key={activeStatement.id}
-            statementId={activeStatement.id}
-            refreshCase={refreshCase}
+        <TabsContent value="witnesses">
+          <SidebarWrapper>
+            <Sidebar
+              title="Witnesses"
+              count={data.statements.length}
+              actions={[
+                {
+                  label: (
+                    <>
+                      <PlusIcon className="h-4 w-4" />
+                      Add witness
+                    </>
+                  ),
+                  onClick: () => setIsAddWitnessOpen(true),
+                },
+              ]}
+              items={data.statements}
+              activeItemId={activeStatement?.id ?? null}
+              getItemId={(statement) => statement.id}
+              onSelectItem={(statement) => handleSelectStatement(statement.id)}
+              emptyMessage="No witness statements have been added yet."
+              renderItem={(statement) => {
+                const config = (
+                  statement as { statement_config?: { name?: string } | null }
+                ).statement_config || { name: "Statement" };
+
+                return (
+                  <div className="flex w-full flex-col items-start gap-1">
+                    <div className="flex w-full flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium">
+                        {statement.witness_name || "Unnamed witness"}
+                      </span>
+                      <Badge variant={statementStatusVariant[statement.status]}>
+                        {statementStatusLabel[statement.status]}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {statement.witness_email}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {config.name}
+                    </span>
+                  </div>
+                );
+              }}
+            />
+
+            {activeStatement ? (
+              <StatementDetailPanel
+                key={activeStatement.id}
+                statementId={activeStatement.id}
+                statements={data.statements}
+                refreshCase={refreshCase}
+              />
+            ) : (
+              <Card className="min-h-96">
+                <CardHeader>
+                  <CardTitle className="text-base">Statement details</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Select a witness from the sidebar to view and edit their
+                    statement.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </SidebarWrapper>
+        </TabsContent>
+
+        <TabsContent value="documents">
+          <CaseInternalDocumentsCard
+            caseId={data.id}
+            tenantId={data.tenant_id}
           />
-        ) : (
-          <Card className="min-h-96">
-            <CardHeader>
-              <CardTitle className="text-base">Statement details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Select a witness from the sidebar to view and edit their
-                statement.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-      </SidebarWrapper>
+        </TabsContent>
 
-      <CaseInternalDocumentsCard
-        size="md"
-        caseId={data.id}
-        tenantId={data.tenant_id}
-      />
+        <TabsContent value="notes">
+          <CaseNotesCard
+            caseId={data.id}
+            statements={data.statements}
+            canPinNotes={["tenant_admin", "solicitor"].includes(user.role)}
+          />
+        </TabsContent>
 
-      <CaseNotesCard
-        size="md"
-        caseId={data.id}
-        canPinNotes={["tenant_admin", "solicitor"].includes(user.role)}
-      />
-
-      <CaseActivityTimeline
-        size="md"
-        caseId={data.id}
-        refreshTrigger={timelineRefreshTrigger}
-      />
+        <TabsContent value="activity">
+          <CaseActivityTimeline
+            caseId={data.id}
+            refreshTrigger={timelineRefreshTrigger}
+          />
+        </TabsContent>
+      </Tabs>
     </section>
   );
 }

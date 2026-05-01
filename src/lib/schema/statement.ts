@@ -33,5 +33,5 @@ export type UpdateStatementSchemaType = Partial<
   sections?: Record<string, string>;
   witness_metadata?: Record<string, string | null>;
   signed_document?: UploadedDocument | null;
-  supporting_documents?: UploadedDocument[];
+  supporting_documents?: string[];
 };

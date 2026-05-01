@@ -1,6 +1,8 @@
 export * from "./account-deletion";
 export * from "./auth";
 export * from "./case-template";
+export * from "./case-analysis";
+export * from "./ai-generation-jobs";
 export * from "./case";
 export * from "./collaboration";
 export * from "./dashboards";
@@ -8,6 +10,7 @@ export * from "./demo-studio";
 export * from "./invites";
 export * from "./notifications";
 export * from "./statement-template";
+export * from "./statement-supporting-documents";
 export * from "./statement";
 export * from "./team";
 export * from "./tenant";

@@ -14,6 +14,33 @@ export type UploadedDocument = {
   group?: string;
 };
 
+export type StatementDocumentDescriptors = {
+  summary?: string;
+  documentType?: string;
+  keyDetails?: string[];
+  concerns?: string[];
+};
+
+export type StatementSupportingDocument = {
+  id: string;
+  tenant_id: string;
+  case_id: string;
+  statement_id: string;
+  uploaded_by_type: "witness" | "internal_user" | string;
+  uploaded_by_user_id: string | null;
+  uploaded_by_witness_name: string | null;
+  uploaded_by_witness_email: string | null;
+  title: string;
+  group_name: string | null;
+  document: UploadedDocument;
+  descriptor_status: "pending" | "generating" | "generated" | "failed" | string;
+  descriptors: StatementDocumentDescriptors;
+  descriptor_model: string | null;
+  descriptor_generated_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type AccountDeletionRequestStatus =
   | "pending"
   | "approved"
@@ -40,7 +67,9 @@ export type Message = {
   content: string;
 };
 
-export type ConversationMessageMeta = ResponseMetadata | Record<string, unknown>;
+export type ConversationMessageMeta =
+  | ResponseMetadata
+  | Record<string, unknown>;
 
 export type IntakeChatMessage = Message & {
   status?: "pending" | "complete" | "error";
@@ -122,24 +151,18 @@ export type StatementStatus =
   | "demo_published";
 export type Statement = Omit<
   Tables<"statements">,
-  | "status"
-  | "sections"
-  | "signed_document"
-  | "supporting_documents"
-  | "witness_metadata"
+  "status" | "signed_document" | "supporting_documents" | "witness_metadata"
 > & {
   status: StatementStatus;
   sections: Record<string, string>;
   signed_document: UploadedDocument | null;
-  supporting_documents: UploadedDocument[];
+  supporting_documents: StatementSupportingDocument[];
   witness_metadata: Record<string, string | number | null | undefined>;
 };
 
 export type Tenant = Tables<"tenants">;
 export type CaseNote = Tables<"case_notes">;
-export type StatementNote = Tables<"statement_notes">;
 export type CaseNoteMention = Tables<"case_note_mentions">;
-export type StatementNoteMention = Tables<"statement_note_mentions">;
 export type StatementReminderRule = Tables<"statement_reminder_rules">;
 export type StatementReminderEvent = Tables<"statement_reminder_events">;
 export type TenantNotificationPreferences =
@@ -182,7 +205,7 @@ export type StatementDetailed = Omit<Statement, "config_snapshot_id"> & {
 export type CaseStatementJoin = Case & {
   statements: Pick<
     Statement,
-    "id" | "status" | "witness_name" | "witness_email"
+    "id" | "status" | "witness_name" | "witness_email" | "updated_at"
   >[];
 };
 
@@ -212,6 +235,7 @@ export type CollaborationNoteView = {
   created_at: string;
   updated_at: string;
   author_user_id: string;
+  statement_id: string | null;
   is_pinned: boolean;
   pinned_at: string | null;
   pinned_by_user_id: string | null;

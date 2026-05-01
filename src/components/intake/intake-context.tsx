@@ -9,7 +9,11 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { IntakeChatMessage, StatementDataResponse } from "@/types";
+import {
+  IntakeChatMessage,
+  StatementDataResponse,
+  StatementSupportingDocument,
+} from "@/types";
 import { generateDoc } from "@/lib/doc-gen";
 import {
   getEvidenceDocuments,
@@ -17,7 +21,7 @@ import {
   inferEvidenceGroupFromFiles,
   normalizeEvidenceGroup,
   TempUploadedDocument,
-} from "@/lib/intake-evidence";
+} from "@/lib/evidence";
 import {
   CHAT_METADATA_MARKER,
   getMessageResponseMeta,
@@ -48,6 +52,7 @@ export type IntakeContextValue = {
   suggestedEvidence: { name: string; type: string }[] | null;
   evidenceFiles: Record<string, TempUploadedDocument[]>;
   statementSections: Record<string, string>;
+  hasFormalizedStatement: boolean;
   templateDocument: Blob | null;
   hasAcknowledgedPrivacyNotice: boolean;
 
@@ -299,7 +304,9 @@ export function IntakeProvider({
 
   const persistedEvidenceDocuments = useMemo(
     () =>
-      getEvidenceDocuments(data?.statement.supporting_documents).sort(
+      getEvidenceDocuments(
+        data?.statement.supporting_documents?.map((row) => row.document),
+      ).sort(
         (left, right) =>
           new Date(right.uploadedAt).getTime() -
           new Date(left.uploadedAt).getTime(),
@@ -327,7 +334,28 @@ export function IntakeProvider({
               ...prev.statement,
               supporting_documents: [
                 ...(prev.statement.supporting_documents ?? []),
-                ...documents,
+                ...documents.map(
+                  (document) =>
+                    ({
+                      id: document.path,
+                      tenant_id: prev.tenant_id,
+                      case_id: prev.case.id,
+                      statement_id: prev.statement.id,
+                      uploaded_by_type: "witness",
+                      uploaded_by_user_id: null,
+                      uploaded_by_witness_name: prev.statement.witness_name,
+                      uploaded_by_witness_email: prev.statement.witness_email,
+                      title: document.name,
+                      group_name: document.group ?? null,
+                      document,
+                      descriptor_status: "pending",
+                      descriptors: {},
+                      descriptor_model: null,
+                      descriptor_generated_at: null,
+                      created_at: document.uploadedAt,
+                      updated_at: document.uploadedAt,
+                    }) satisfies StatementSupportingDocument,
+                ),
               ],
             },
           }
@@ -344,7 +372,7 @@ export function IntakeProvider({
               ...prev.statement,
               supporting_documents: (
                 prev.statement.supporting_documents ?? []
-              ).filter((document) => document.path !== path),
+              ).filter((row) => row.document.path !== path),
             },
           }
         : prev,
@@ -703,17 +731,48 @@ export function IntakeProvider({
 
       // yield "Generating statement draft...";
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 65000);
+      await apiFetch(`/api/intake/${token}/interview/formalize`, {
+        method: "POST",
+        requireAuth: requiresDemoAuth,
+      });
 
-      const payload = await apiFetch<Record<string, string>>(
-        `/api/intake/${token}/interview/formalize`,
-        {
-          method: "POST",
-          signal: controller.signal,
-          requireAuth: requiresDemoAuth,
-        },
-      ).finally(() => clearTimeout(timeout));
+      type FormalizePollResponse = {
+        job: {
+          status: "queued" | "running" | "succeeded" | "failed";
+          error_message: string | null;
+        } | null;
+        sections: Record<string, string>;
+      };
+
+      let payload: Record<string, string> | null = null;
+      const startedAt = Date.now();
+      const timeoutMs = 120_000;
+
+      while (Date.now() - startedAt < timeoutMs) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const poll = await apiFetch<FormalizePollResponse>(
+          `/api/intake/${token}/interview/formalize`,
+          {
+            method: "GET",
+            requireAuth: requiresDemoAuth,
+          },
+        );
+
+        if (poll.job?.status === "succeeded") {
+          payload = poll.sections;
+          break;
+        }
+
+        if (poll.job?.status === "failed") {
+          throw new Error(
+            poll.job.error_message || "Failed to formalize statement.",
+          );
+        }
+      }
+
+      if (!payload) {
+        throw new Error("Formalization timed out. Please try again.");
+      }
 
       // Build sections dynamically from config
       const newSections: Record<string, string> = {};
@@ -730,6 +789,18 @@ export function IntakeProvider({
       initialLoading: false,
       withUseEffect: false,
     },
+  );
+
+  const hasFormalizedStatement = useMemo(
+    () =>
+      Boolean(data?.statement.formalization_snapshot_id) ||
+      Boolean(statementFormalization.data) ||
+      Object.values(statementSections).some((section) => section.trim()),
+    [
+      data?.statement.formalization_snapshot_id,
+      statementFormalization.data,
+      statementSections,
+    ],
   );
 
   const statementSubmission = useAsync(
@@ -983,6 +1054,7 @@ export function IntakeProvider({
     data,
     messages,
     statementSections,
+    hasFormalizedStatement,
     suggestedEvidence,
     evidenceFiles,
     templateDocument,

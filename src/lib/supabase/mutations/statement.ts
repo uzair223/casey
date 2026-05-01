@@ -18,6 +18,7 @@ import {
 } from "../queries/statement";
 import { createStatementConfigSnapshot } from "./statement-template";
 import { deleteStorageFolders } from "../storage-cleanup";
+import { getStatementSupportingDocumentsWithClient } from "../queries/statement-supporting-documents";
 
 type WitnessMetadataRecord = Record<string, string | null>;
 
@@ -106,11 +107,12 @@ async function cleanupStatementStorageDocuments(
     targets.push(signedTarget);
   }
 
-  const supportingDocuments = Array.isArray(statement.supporting_documents)
-    ? statement.supporting_documents
-    : [];
+  const supportingDocuments = await getStatementSupportingDocumentsWithClient(
+    supabase,
+    statementId,
+  );
   for (const supportingDocument of supportingDocuments) {
-    const target = toStorageTarget(supportingDocument, fallbackBucketId);
+    const target = toStorageTarget(supportingDocument.document, fallbackBucketId);
     if (target) {
       targets.push(target);
     }
@@ -192,6 +194,67 @@ async function getSnapshotConfigById(
   return data ? normalizeConfig(data.config_json) : null;
 }
 
+async function getCurrentUserId(supabase: QueryClient) {
+  const { data } = await supabase.auth.getUser().catch(() => ({
+    data: { user: null },
+  }));
+
+  return data.user?.id ?? null;
+}
+
+function normalizeSectionsForSnapshot(sections: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(sections).map(([key, value]) => [
+      key,
+      typeof value === "string" ? value : value == null ? "" : String(value),
+    ]),
+  );
+}
+
+async function createStatementFormalizationSnapshot(params: {
+  supabase: QueryClient;
+  statementId: string;
+  sections: Record<string, unknown>;
+  model: string;
+  createdByUserId?: string | null;
+}) {
+  const { data: statement, error: statementError } = await params.supabase
+    .from("statements")
+    .select("id, tenant_id")
+    .eq("id", params.statementId)
+    .single();
+
+  if (statementError) {
+    throw statementError;
+  }
+
+  const createdByUserId =
+    params.createdByUserId === undefined
+      ? await getCurrentUserId(params.supabase)
+      : params.createdByUserId;
+
+  const { data: snapshot, error: snapshotError } = await params.supabase
+    .from("statement_formalization_snapshots")
+    .insert({
+      statement_id: statement.id,
+      tenant_id: statement.tenant_id,
+      created_by_user_id: createdByUserId,
+      model: params.model,
+      sections: normalizeSectionsForSnapshot(params.sections) as Json,
+      source_message_ids: [],
+      source_message_versions: [],
+      evidence_documents: [],
+    })
+    .select("id")
+    .single();
+
+  if (snapshotError) {
+    throw snapshotError;
+  }
+
+  return snapshot.id;
+}
+
 async function resolveWitnessMetadataPatch(
   supabase: QueryClient,
   statementId: string,
@@ -269,8 +332,7 @@ export const SERVERONLY_submitStatement = async (
 
   const updatePayload: {
     signed_document: Json;
-    sections?: Json;
-    supporting_documents?: Json;
+    formalization_snapshot_id?: string;
     status: "submitted" | "demo_published";
   } = {
     signed_document: submission.signedDocument,
@@ -278,11 +340,14 @@ export const SERVERONLY_submitStatement = async (
   };
 
   if (submission.sections) {
-    updatePayload.sections = submission.sections as Json;
-  }
-
-  if (submission.supportingDocuments) {
-    updatePayload.supporting_documents = submission.supportingDocuments as Json;
+    updatePayload.formalization_snapshot_id =
+      await createStatementFormalizationSnapshot({
+        supabase,
+        statementId: statement.id,
+        sections: submission.sections,
+        model: "submitted_sections",
+        createdByUserId: null,
+      });
   }
 
   const { error: statementUpdateError } = await supabase
@@ -495,8 +560,15 @@ export async function updateStatement(
     updatePayload.witness_metadata = resolvedMetadata as Json;
   }
   if (payload.status !== undefined) updatePayload.status = payload.status;
-  if (payload.sections !== undefined)
-    updatePayload.sections = payload.sections as Json;
+  if (payload.sections !== undefined) {
+    updatePayload.formalization_snapshot_id =
+      await createStatementFormalizationSnapshot({
+        supabase,
+        statementId: id,
+        sections: payload.sections,
+        model: "manual_edit",
+      });
+  }
   if (payload.signed_document !== undefined) {
     updatePayload.signed_document = payload.signed_document as Json;
   }
@@ -548,7 +620,17 @@ export async function SERVERONLY_updateStatementByToken(
       : {}),
     ...(payload.status !== undefined ? { status: payload.status } : {}),
     ...(payload.sections !== undefined
-      ? { sections: payload.sections as Json }
+      ? {
+          formalization_snapshot_id: await createStatementFormalizationSnapshot(
+            {
+              supabase,
+              statementId: link.statement_id,
+              sections: payload.sections,
+              model: "manual_edit",
+              createdByUserId: null,
+            },
+          ),
+        }
       : {}),
     ...(payload.signed_document !== undefined
       ? { signed_document: payload.signed_document as Json }
@@ -640,12 +722,21 @@ export async function regenerateMagicLink(statementId: string) {
 
   const { data: statement, error: statementError } = await supabase
     .from("statements")
-    .select("id, tenant_id")
+    .select("id, tenant_id, status")
     .eq("id", statementId)
     .maybeSingle();
 
   if (statementError || !statement) {
     throw new Error("Statement not found");
+  }
+
+  if (
+    statement.status === "demo_published" ||
+    statement.status === "completed"
+  ) {
+    throw new Error(
+      "Magic links cannot be regenerated for demo-published or completed statements.",
+    );
   }
 
   const { error: deleteError } = await supabase

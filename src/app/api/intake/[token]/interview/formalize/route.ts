@@ -1,80 +1,133 @@
-import OpenAI from "openai";
-import {
-  downloadUploadedDocument,
-  SERVERONLY_getConversationHistory,
-  SERVERONLY_getStatementWithConfigFromToken,
-} from "@/lib/supabase/queries";
-import { generateFormalizeSystemPrompt } from "@/lib/statement-utils/prompts";
-import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
+
+import { after, NextResponse } from "next/server";
+
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
-import { Allow, parse as parsePartialJson } from "partial-json";
-import { z } from "zod";
+import { getWorkerFailureMessage } from "@/lib/api-utils/worker-error";
+import { processFormalizationJob } from "@/lib/ai-workers/statement-formalization";
 import { logServerEvent } from "@/lib/observability/logger";
+import { getServiceClient } from "@/lib/supabase/server";
+import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
 
-import { env } from "@/lib/env";
-import { getOpenRouterClientOptions } from "@/lib/utils";
-import {
-  createEvidenceExhibits,
-  getEvidenceDocuments,
-} from "@/lib/intake-evidence";
-import { buildIntakeChatFileParts } from "@/lib/intake-chat-file-parts";
+type RouteContext = {
+  params: Promise<{ token: string }>;
+};
 
-function previewText(value: string, maxLength = 800): string {
-  if (value.length <= maxLength) {
-    return value;
+function isFormalizeBlocked(status: string) {
+  return ["locked", "demo_published", "finalized", "completed"].includes(
+    status,
+  );
+}
+
+async function getLatestFormalizationJob(statementId: string) {
+  const service = getServiceClient("api.intake.formalize.latest_job");
+  const { data, error } = await service
+    .from("ai_generation_jobs")
+    .select(
+      "id, status, error_message, formalization_snapshot_id, created_at, started_at, completed_at",
+    )
+    .eq("kind", "statement_formalization")
+    .eq("target_id", statementId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
   }
 
-  return `${value.slice(0, maxLength)}...[truncated]`;
+  return data;
 }
 
-const client = new OpenAI(getOpenRouterClientOptions());
-
-function isRetriableError(error: unknown) {
-  if (typeof error !== "object" || error === null) return false;
-  const e = error as { status?: number; code?: string; name?: string };
-  return e.status === 429 || e.status === 502 || e.status === 503;
-}
-
-function isAbortError(error: unknown) {
-  if (typeof error !== "object" || error === null) return false;
-  const e = error as { name?: string; code?: string };
-  return e.name === "AbortError" || e.code === "ABORT_ERR";
-}
-
-function isStructuredParseOrValidationError(error: unknown) {
-  if (error instanceof SyntaxError) return true;
-  if (error instanceof z.ZodError) return true;
-  return false;
-}
-
-function parseFormalizeContent(
-  content: string,
-  schema: z.ZodObject<Record<string, z.ZodString>>,
-) {
-  try {
-    return schema.parse(JSON.parse(content));
-  } catch (strictError) {
-    // Some providers may still produce near-valid JSON despite json_schema mode.
-    // Attempt a safe recovery parse, then validate strictly with Zod.
-    try {
-      const recovered = parsePartialJson(content, Allow.OBJ | Allow.STR);
-      return schema.parse(recovered);
-    } catch {
-      throw strictError;
-    }
+async function getFormalizedSections(snapshotId: string | null | undefined) {
+  if (!snapshotId) {
+    return {};
   }
+
+  const service = getServiceClient("api.intake.formalize.snapshot");
+  const { data, error } = await service
+    .from("statement_formalization_snapshots")
+    .select("sections")
+    .eq("id", snapshotId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (
+    !data?.sections ||
+    typeof data.sections !== "object" ||
+    Array.isArray(data.sections)
+  ) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(data.sections as Record<string, unknown>).map(
+      ([key, value]) => [
+        key,
+        typeof value === "string" ? value : value == null ? "" : String(value),
+      ],
+    ),
+  );
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ token: string }> },
-) {
-  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+export async function GET(request: Request, { params }: RouteContext) {
+  const requestId = request.headers.get("x-request-id") ?? randomUUID();
 
   try {
     const { token } = await params;
-
     const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
+
+    if (!statement) {
+      return NextResponse.json(
+        { error: "Link not available" },
+        { status: 404 },
+      );
+    }
+
+    const accessError = await getIntakeAccessError(
+      request,
+      statement.status,
+      "interact",
+    );
+    if (accessError) {
+      return accessError;
+    }
+
+    const latestJob = await getLatestFormalizationJob(statement.id);
+    const snapshotId =
+      latestJob?.formalization_snapshot_id ??
+      statement.formalization_snapshot_id;
+    const sections =
+      latestJob?.status === "succeeded"
+        ? await getFormalizedSections(snapshotId)
+        : statement.sections;
+
+    return NextResponse.json({
+      job: latestJob,
+      sections: sections ?? {},
+    });
+  } catch (error) {
+    await logServerEvent("error", "api.intake.formalize.poll_failed", {
+      requestId,
+      error,
+    });
+    return NextResponse.json(
+      { error: "Failed to get formalization status" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: Request, { params }: RouteContext) {
+  const requestId = request.headers.get("x-request-id") ?? randomUUID();
+
+  try {
+    const { token } = await params;
+    const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
+
     if (!statement) {
       await logServerEvent("warn", "api.intake.formalize.not_found", {
         requestId,
@@ -99,11 +152,7 @@ export async function POST(
       return accessError;
     }
 
-    if (
-      statement.status === "locked" ||
-      statement.status === "finalized" ||
-      statement.status === "completed"
-    ) {
+    if (isFormalizeBlocked(statement.status)) {
       await logServerEvent("warn", "api.intake.formalize.precondition_failed", {
         requestId,
         reason: "statement_not_formalizable",
@@ -115,236 +164,100 @@ export async function POST(
       );
     }
 
-    const statementConfig = statement.statement_config || {
-      name: "Default",
-      phases: [],
-      sections: [],
-      witness_metadata_fields: [],
-      case_metadata_deps: [],
-      prompts: {
-        chat_system_template: null,
-        formalize_system_template: null,
-      },
-    };
+    const service = getServiceClient("api.intake.formalize.enqueue");
+    const { data: existingJob, error: existingJobError } = await service
+      .from("ai_generation_jobs")
+      .select("id, status, created_at")
+      .eq("kind", "statement_formalization")
+      .eq("target_id", statement.id)
+      .in("status", ["queued", "running"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    const responses = await SERVERONLY_getConversationHistory(statement.id);
+    if (existingJobError) {
+      throw existingJobError;
+    }
 
-    const evidence = getEvidenceDocuments(statement.supporting_documents);
-    const exhibits = createEvidenceExhibits(evidence, statement.witness_name);
+    let job = existingJob;
 
-    const evidenceFiles = await Promise.all(
-      exhibits.flatMap((exhibit) =>
-        exhibit.documents.map(async (document, index) => {
-          const blob = await downloadUploadedDocument(document);
+    if (!job) {
+      const { data: createdJob, error: createJobError } = await service
+        .from("ai_generation_jobs")
+        .insert({
+          tenant_id: statement.tenant_id,
+          kind: "statement_formalization",
+          target_id: statement.id,
+          status: "queued",
+          request_payload: { requestId, tokenSuffix: token.slice(-6) },
+        })
+        .select("id, status, created_at")
+        .single();
 
-          const originalName =
-            "name" in document && typeof document.name === "string"
-              ? document.name
-              : `document-${index + 1}`;
+      if (createJobError) {
+        throw createJobError;
+      }
 
-          return new File(
-            [blob],
-            `Exhibit ${exhibit.exhibit}.${index + 1} - ${originalName}`,
+      job = createdJob;
+    }
+
+    if (!job) {
+      throw new Error("Failed to enqueue statement formalization job.");
+    }
+
+    if (!existingJob) {
+      after(async () => {
+        try {
+          await processFormalizationJob(job.id);
+        } catch (error) {
+          const responseBody =
+            error instanceof Error
+              ? JSON.stringify({ error: error.message })
+              : JSON.stringify({ error: "Unknown worker error" });
+          const workerErrorMessage = getWorkerFailureMessage({
+            fallback: "Failed to start statement formalization worker.",
+            responseBody,
+            status: 500,
+          });
+          await logServerEvent(
+            "error",
+            "api.intake.formalize.worker_invoke_failed",
             {
-              type: blob.type || "application/pdf",
+              requestId,
+              statementId: statement.id,
+              jobId: job.id,
+              status: 500,
+              responseBody,
+              workerErrorMessage,
             },
           );
-        }),
-      ),
-    );
-
-    const evidenceList = exhibits.length
-      ? exhibits
-          .map(
-            (exhibit) => `Exhibit ${exhibit.exhibit}: ${exhibit.description}`,
-          )
-          .join("\n")
-      : undefined;
-
-    const evidenceInput = await buildIntakeChatFileParts({
-      userMessage: "EVIDENCE EXHIBITS",
-      files: evidenceFiles,
-    });
-
-    await logServerEvent("info", "api.intake.formalize.evidence_input", {
-      requestId,
-      attachedFiles: evidenceInput.attachedFiles,
-      contentPreview:
-        typeof evidenceInput.content === "string"
-          ? previewText(evidenceInput.content)
-          : evidenceInput.content
-              .filter((part) => part.type === "text")
-              .map((part) => previewText(part.text))
-              .join("\n\n"),
-    });
-
-    await logServerEvent("info", "api.intake.formalize.request", {
-      requestId,
-      path: "/api/intake/[token]/interview/formalize",
-      tokenSuffix: token.slice(-6),
-      responseCount: responses.length,
-      evidenceCount: (evidence ?? []).length,
-    });
-
-    const normalizedResponses = responses
-      .map((response) => ({
-        role: response.role,
-        content: response.content.trim(),
-      }))
-      .filter((response) => !!response.content)
-      .slice(-env.FORMALIZE_MAX_USER_TURNS)
-      .map((response, index) => {
-        const normalized = response.content.replace(/\s+/g, " ").trim();
-        const bounded = normalized.slice(0, env.FORMALIZE_MAX_CHARS_PER_TURN);
-        return `${index + 1}. ${response.role.toLocaleUpperCase()}:\n${bounded}\n\n`;
+          await service
+            .from("ai_generation_jobs")
+            .update({
+              status: "failed",
+              completed_at: new Date().toISOString(),
+              error_message: workerErrorMessage,
+            })
+            .eq("id", job.id);
+        }
       });
+    }
 
-    const transcriptText = normalizedResponses.length
-      ? normalizedResponses.join("\n")
-      : "No transcript available.";
+    await logServerEvent("info", "api.intake.formalize.queued", {
+      requestId,
+      statementId: statement.id,
+      jobId: job.id,
+      reused: !!existingJob,
+    });
 
-    // Build strict structured output schema from configured section ids.
-    const sectionEntries = Object.fromEntries(
-      statementConfig.sections.map((section) => [section.id, z.string()]),
+    return NextResponse.json(
+      {
+        id: job.id,
+        status: job.status,
+        created_at: job.created_at,
+      },
+      { status: 202 },
     );
-    const formalizeSchema = z.object(sectionEntries).strict();
-    const formalizeJsonSchema = {
-      type: "object",
-      properties: Object.fromEntries(
-        statementConfig.sections.map((section) => [
-          section.id,
-          { type: "string" },
-        ]),
-      ),
-      required: statementConfig.sections.map((section) => section.id),
-      additionalProperties: false,
-    } as const;
-
-    let parsed: Record<string, string> | null = null;
-    let lastError: unknown = null;
-
-    await logServerEvent("info", "api.intake.formalize.model.call", {
-      requestId,
-      model: env.OPENROUTER_MODEL,
-      maxAttempts: env.FORMALIZE_MAX_ATTEMPTS,
-      timeoutMs: env.FORMALIZE_TIMEOUT_MS,
-      transcriptLength: transcriptText.length,
-    });
-
-    for (let attempt = 1; attempt <= env.FORMALIZE_MAX_ATTEMPTS; attempt++) {
-      const controller = new AbortController();
-      const timeout = setTimeout(
-        () => controller.abort(),
-        env.FORMALIZE_TIMEOUT_MS,
-      );
-      try {
-        const completion = await client.chat.completions.create(
-          {
-            model: env.OPENROUTER_MODEL,
-            messages: [
-              {
-                role: "system",
-                content: generateFormalizeSystemPrompt(
-                  statementConfig,
-                  evidenceList,
-                ),
-              },
-              {
-                role: "user",
-                // @ts-expect-error OpenRouter accepts multimodal message content here.
-                content: evidenceInput.content,
-              },
-              {
-                role: "user",
-                content: `TRANSCRIPT:\n\n${transcriptText}`,
-              },
-            ],
-            plugins: evidenceInput.requiresPdfPlugin
-              ? [
-                  {
-                    id: "file-parser",
-                    pdf: {
-                      engine: "pdf-text",
-                    },
-                  },
-                ]
-              : undefined,
-            response_format: {
-              type: "json_schema",
-              json_schema: {
-                name: "witness_statement",
-                strict: true,
-                schema: formalizeJsonSchema,
-              },
-            },
-          },
-          { signal: controller.signal },
-        );
-
-        const content = completion.choices[0]?.message?.content?.trim();
-        if (!content) {
-          throw new Error("Empty AI response");
-        }
-
-        parsed = parseFormalizeContent(content, formalizeSchema);
-
-        await logServerEvent("info", "api.intake.formalize.model.response", {
-          requestId,
-          model: env.OPENROUTER_MODEL,
-          attempt,
-          rawResponsePreview: previewText(content),
-          rawResponseLength: content.length,
-          parsed,
-        });
-
-        break;
-      } catch (error) {
-        lastError = error;
-
-        await logServerEvent(
-          "warn",
-          "api.intake.formalize.model.attempt_failed",
-          {
-            requestId,
-            model: env.OPENROUTER_MODEL,
-            attempt,
-            error,
-          },
-        );
-
-        if (
-          (!isRetriableError(error) &&
-            !isStructuredParseOrValidationError(error)) ||
-          attempt === env.FORMALIZE_MAX_ATTEMPTS
-        ) {
-          break;
-        }
-      } finally {
-        clearTimeout(timeout);
-      }
-    }
-
-    if (!parsed) {
-      if (isAbortError(lastError)) {
-        await logServerEvent("warn", "api.intake.formalize.timed_out", {
-          requestId,
-          model: env.OPENROUTER_MODEL,
-        });
-        return NextResponse.json(
-          { error: "Formalization timed out. Please try again." },
-          { status: 504 },
-        );
-      }
-      throw lastError ?? new Error("Failed to formalize statement");
-    }
-
-    await logServerEvent("info", "api.intake.formalize.response", {
-      requestId,
-      sectionCount: Object.keys(parsed).length,
-      parsed,
-    });
-
-    return NextResponse.json(parsed);
   } catch (error) {
     await logServerEvent("error", "api.intake.formalize.failed", {
       requestId,

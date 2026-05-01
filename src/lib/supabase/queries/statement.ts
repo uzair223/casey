@@ -11,6 +11,7 @@ import { EMPTY_STATEMENT_CONFIG, normalizeConfig } from "@/lib/statement-utils";
 import { getSupabaseClient } from "../client";
 import { getServiceClient } from "../server";
 import { SupabaseClient } from "@supabase/supabase-js";
+import { resolveStatementSupportingDocuments } from "./statement-supporting-documents";
 
 type StatementFlat = Statement & {
   statement_config: StatementConfig;
@@ -33,15 +34,27 @@ type SnapshotRelation = {
   template_document?: unknown;
 };
 
+type FormalizationSnapshotRelation = {
+  sections: unknown;
+};
+
 type StatementWithRelations = Statement & {
   cases?: Case | null;
   tenants?: { name: string } | null;
   magic_links?: Array<Pick<MagicLink, "token" | "expires_at">> | null;
   statement_config_snapshots?: SnapshotRelation | SnapshotRelation[] | null;
+  statement_formalization_snapshots?:
+    | FormalizationSnapshotRelation
+    | FormalizationSnapshotRelation[]
+    | null;
 };
 
 type StatementWithSnapshot = Statement & {
   statement_config_snapshots?: SnapshotRelation | SnapshotRelation[] | null;
+  statement_formalization_snapshots?:
+    | FormalizationSnapshotRelation
+    | FormalizationSnapshotRelation[]
+    | null;
 };
 
 function getSnapshotRelation(
@@ -76,10 +89,41 @@ function getRelatedSnapshotTemplateDocument(
   return (snapshot.template_document as UploadedDocument | null) ?? null;
 }
 
+function getFormalizationSnapshotRelation(
+  relation: StatementWithRelations["statement_formalization_snapshots"],
+): FormalizationSnapshotRelation | null {
+  if (!relation) {
+    return null;
+  }
+
+  return Array.isArray(relation) ? (relation[0] ?? null) : relation;
+}
+
+function getRelatedFormalizedSections(
+  relation: StatementWithRelations["statement_formalization_snapshots"],
+): Record<string, string> {
+  const snapshot = getFormalizationSnapshotRelation(relation);
+  if (!snapshot?.sections || typeof snapshot.sections !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(snapshot.sections as Record<string, unknown>).map(
+      ([key, value]) => [key, typeof value === "string" ? value : ""],
+    ),
+  );
+}
+
 function getStatementLink(
   statement: StatementWithRelations,
 ): Pick<MagicLink, "token" | "expires_at"> | null {
-  const link = statement.magic_links?.[0];
+  const link = (statement.magic_links ?? [])
+    .slice()
+    .sort(
+      (left, right) =>
+        new Date(right.expires_at).getTime() -
+        new Date(left.expires_at).getTime(),
+    )[0];
   return link ? { token: link.token, expires_at: link.expires_at } : null;
 }
 
@@ -90,12 +134,16 @@ function toStatementFlat(statement: StatementWithRelations): StatementFlat {
         key !== "cases" &&
         key !== "tenants" &&
         key !== "magic_links" &&
-        key !== "statement_config_snapshots",
+        key !== "statement_config_snapshots" &&
+        key !== "statement_formalization_snapshots",
     ),
   ) as StatementFlat;
 
   return {
     ...statementRow,
+    sections: getRelatedFormalizedSections(
+      statement.statement_formalization_snapshots,
+    ),
     statement_config:
       getRelatedSnapshotConfig(statement.statement_config_snapshots) ??
       EMPTY_STATEMENT_CONFIG,
@@ -103,6 +151,20 @@ function toStatementFlat(statement: StatementWithRelations): StatementFlat {
       statement.statement_config_snapshots,
     ),
     link: getStatementLink(statement),
+  };
+}
+
+async function hydrateStatementSupportingDocuments<T extends StatementFlat>(
+  supabase: QueryClient,
+  statement: T,
+): Promise<T> {
+  return {
+    ...statement,
+    supporting_documents: await resolveStatementSupportingDocuments(
+      supabase,
+      statement.id,
+      statement.supporting_documents,
+    ),
   };
 }
 
@@ -135,7 +197,7 @@ async function loadStatementWithRelations(
   const { data, error } = await supabase
     .from("statements")
     .select(
-      "*, cases(*), tenants(name), magic_links(token, expires_at), statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, template_document)",
+      "*, cases(*), tenants(name), magic_links(token, expires_at), statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, template_document), statement_formalization_snapshots!statements_formalization_snapshot_id_fkey(sections)",
     )
     .eq("id", statementId)
     .single();
@@ -158,7 +220,7 @@ async function loadStatementWithSnapshot(
   const { data, error } = await supabase
     .from("statements")
     .select(
-      "*, statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, template_document)",
+      "*, statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, template_document), statement_formalization_snapshots!statements_formalization_snapshot_id_fkey(sections)",
     )
     .eq("id", statementId)
     .single();
@@ -197,7 +259,7 @@ const _getStatementWithConfigFromToken = async (
     link.statement_id,
   );
 
-  return {
+  return hydrateStatementSupportingDocuments(supabase, {
     ...statement,
     statement_config:
       getRelatedSnapshotConfig(statement.statement_config_snapshots) ??
@@ -209,7 +271,7 @@ const _getStatementWithConfigFromToken = async (
       token: link.token,
       expires_at: link.expires_at,
     },
-  };
+  });
 };
 
 export const SERVERONLY_getStatementWithConfigFromToken = (token: string) =>
@@ -335,6 +397,15 @@ async function loadFullStatementById(
   }
 
   const base = toFullStatementRecord(statement);
+  const hydratedStatement = await hydrateStatementSupportingDocuments(
+    supabase,
+    base.statement,
+  );
+  const hydratedBase = {
+    ...base,
+    ...hydratedStatement,
+    statement: hydratedStatement,
+  };
 
   const q = supabase
     .from("conversation_messages")
@@ -350,7 +421,7 @@ async function loadFullStatementById(
 
     const messages = (messagesData as unknown as IntakeChatMessage[]) ?? [];
     return {
-      ...base,
+      ...hydratedBase,
       messages,
       has_history: messages.length > 0,
     };
@@ -359,7 +430,7 @@ async function loadFullStatementById(
   const latest = await getLatestConversationMessage(statementId, supabase);
 
   return {
-    ...base,
+    ...hydratedBase,
     latest,
   };
 }
