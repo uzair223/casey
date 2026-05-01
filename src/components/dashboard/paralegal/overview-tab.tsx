@@ -21,7 +21,7 @@ export function ParalegalOverviewTab() {
   return (
     <main className="grid grid-cols-[320px_1fr] gap-4">
       <aside>
-        <Card size="md" className="h-full">
+        <Card className="h-full">
           <CardHeader>
             <CardTitle className="text-xs uppercase tracking-[0.2em] text-accent-foreground hover:underline">
               <Link href="/notifications">Notifications</Link>
@@ -33,8 +33,8 @@ export function ParalegalOverviewTab() {
         </Card>
       </aside>
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
-        <Card size="md">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Assigned Cases
             </CardTitle>
@@ -47,8 +47,8 @@ export function ParalegalOverviewTab() {
           </CardContent>
         </Card>
 
-        <Card size="md">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Draft
             </CardTitle>
@@ -61,8 +61,8 @@ export function ParalegalOverviewTab() {
           </CardContent>
         </Card>
 
-        <Card size="md">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               In Progress
             </CardTitle>
@@ -75,8 +75,8 @@ export function ParalegalOverviewTab() {
           </CardContent>
         </Card>
 
-        <Card size="md">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Submitted
             </CardTitle>
@@ -89,8 +89,8 @@ export function ParalegalOverviewTab() {
           </CardContent>
         </Card>
 
-        <Card size="md">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Locked
             </CardTitle>
@@ -103,8 +103,8 @@ export function ParalegalOverviewTab() {
           </CardContent>
         </Card>
 
-        <Card size="md">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Witness Completion
             </CardTitle>

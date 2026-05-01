@@ -21,9 +21,14 @@ import { useTenant } from "@/contexts/tenant-context";
 import { CardSkeleton } from "@/components/dashboard/shared/skeleton";
 import { useCanManageTeam, useUser } from "@/contexts/user-context";
 import { AsyncButton } from "@/components/ui/async-button";
-import type { Invite } from "@/types";
+import type { Invite, Profile } from "@/types";
 import { getTenantParalegalInviteCode } from "@/lib/supabase/queries";
 import { regenerateTenantParalegalInviteCode } from "@/lib/supabase/mutations";
+import {
+  removeTeamMember,
+  restoreTeamMember,
+} from "@/lib/supabase/mutations/team";
+import { toast } from "@/lib/toast";
 
 export function TenantRoleTeamTab() {
   const { user } = useUser();
@@ -95,10 +100,36 @@ export function TenantRoleTeamTab() {
     }
   };
 
+  const toggleUserAccess = async (member: Profile) => {
+    const isRevoked = !!member.soft_deleted_at;
+    const confirmed = await toast.confirm(
+      `${isRevoked ? "Restore" : "Revoke"} access for ${member.display_name}?`,
+      {
+        confirmLabel: isRevoked ? "Restore access" : "Revoke access",
+      },
+    );
+    if (!confirmed) return;
+
+    try {
+      if (isRevoked) {
+        await restoreTeamMember(member.user_id, user!.tenant_id!, user!.id);
+      } else {
+        await removeTeamMember(member.user_id, user!.tenant_id!, user!.id);
+      }
+      await team.handler();
+      toast.success(isRevoked ? "Access restored" : "Access revoked");
+    } catch (error) {
+      toast.errorFromUnknown(
+        error,
+        isRevoked ? "Failed to restore access" : "Failed to revoke access",
+      );
+    }
+  };
+
   return (
     <div className="space-y-4">
       {user && canManageTeam && (
-        <Card size="md" className="border-primary/20 bg-primary/5">
+        <Card className="border-primary/20 bg-primary/5">
           <CardHeader>
             <CardTitle>Paralegal Invite Code</CardTitle>
             <CardDescription>
@@ -148,7 +179,6 @@ export function TenantRoleTeamTab() {
 
       {user && canManageTeam && (
         <InviteMemberCard
-          size="md"
           createdByUserId={user.id}
           tenantId={user.tenant_id}
           defaultRole="paralegal"
@@ -166,7 +196,7 @@ export function TenantRoleTeamTab() {
       {team.isLoading ? (
         <CardSkeleton title="Team Members" />
       ) : (
-        <Card size="md">
+        <Card>
           <CardHeader>
             <CardTitle>Team Members</CardTitle>
           </CardHeader>
@@ -182,19 +212,41 @@ export function TenantRoleTeamTab() {
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Joined</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {team.data.members.map((member) => (
-                    <TableRow key={member.user_id}>
+                    <TableRow
+                      key={member.user_id}
+                      className={member.soft_deleted_at ? "opacity-70" : ""}
+                    >
                       <TableCell>{member.display_name}</TableCell>
                       <TableCell>{member.email}</TableCell>
                       <TableCell className="capitalize">
                         {member.role.replace("_", " ")}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
+                        {member.soft_deleted_at ? "Revoked" : "Active"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
                         {new Date(member.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {user?.role === "tenant_admin" &&
+                        user?.id !== member.user_id ? (
+                          <AsyncButton
+                            size="sm"
+                            variant={
+                              member.soft_deleted_at ? "outline" : "destructive"
+                            }
+                            onClick={() => toggleUserAccess(member)}
+                          >
+                            {member.soft_deleted_at ? "Restore" : "Revoke"}
+                          </AsyncButton>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))}

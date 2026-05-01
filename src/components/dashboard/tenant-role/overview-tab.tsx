@@ -25,7 +25,7 @@ export function TenantRoleOverviewTab() {
   return (
     <main className="grid md:grid-cols-[320px_1fr] gap-4">
       <aside className="hidden md:block">
-        <Card size="md" className="h-full">
+        <Card className="h-full">
           <CardHeader>
             <CardTitle className="text-xs uppercase tracking-[0.2em] text-accent-foreground hover:underline">
               <Link href="/notifications">Notifications</Link>
@@ -39,8 +39,8 @@ export function TenantRoleOverviewTab() {
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
         <OutstandingWorkCard className="col-span-full" />
 
-        <Card size="md">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Cases
             </CardTitle>
@@ -53,8 +53,8 @@ export function TenantRoleOverviewTab() {
           </CardContent>
         </Card>
 
-        <Card size="md">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Statements
             </CardTitle>
@@ -67,8 +67,8 @@ export function TenantRoleOverviewTab() {
           </CardContent>
         </Card>
 
-        <Card size="md">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Team Members
             </CardTitle>
@@ -81,8 +81,8 @@ export function TenantRoleOverviewTab() {
           </CardContent>
         </Card>
 
-        <Card size="md">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Closure Rate
             </CardTitle>
@@ -95,8 +95,8 @@ export function TenantRoleOverviewTab() {
           </CardContent>
         </Card>
 
-        <Card size="md">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Statements per Case
             </CardTitle>
@@ -109,8 +109,8 @@ export function TenantRoleOverviewTab() {
           </CardContent>
         </Card>
 
-        <Card size="md">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               7 Day Throughput
             </CardTitle>

@@ -11,7 +11,7 @@ export function OverviewTabSkeleton() {
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {Array.from({ length: 9 }).map((_, index) => (
         <Card key={index}>
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
               <Bar className="h-3 w-24" />
             </CardTitle>

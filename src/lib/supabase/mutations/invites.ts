@@ -189,6 +189,22 @@ export const regenerateTenantParalegalInviteCode = async (
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
 
+  // Revoke any other unaccepted tenant team invite codes so only the
+  // newly generated token remains valid. This deletes older tokens that
+  // could otherwise still be used.
+  const { error: deleteError } = await supabase
+    .from("invites")
+    .delete()
+    .eq("tenant_id", tenantId)
+    .is("email", null)
+    .eq("role", TEAM_INVITE_ROLE)
+    .is("accepted_at", null)
+    .neq("id", existing.id);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
   const { data, error } = await supabase
     .from("invites")
     .update({

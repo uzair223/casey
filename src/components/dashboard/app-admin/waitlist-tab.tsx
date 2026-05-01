@@ -64,7 +64,7 @@ export function AppAdminWaitlistTab({ userId }: AppAdminWaitlistTabProps) {
   }
 
   return (
-    <Card size="md">
+    <Card>
       <CardHeader>
         <CardTitle>Waitlist Signups</CardTitle>
       </CardHeader>

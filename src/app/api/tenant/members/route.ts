@@ -52,7 +52,7 @@ const requireTeamAccess = async (request: Request) => {
 
   if (!profile || !profile.tenant_id) {
     return {
-        error: forbidden("No organisation associated"),
+      error: forbidden("No organisation associated"),
     };
   }
 
@@ -100,7 +100,7 @@ export async function PUT(request: Request) {
 
     const { data: targetProfile, error: targetError } = await supabase
       .from("profiles")
-      .select("tenant_id, role")
+      .select("tenant_id, role, soft_deleted_at")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -124,7 +124,7 @@ export async function PUT(request: Request) {
       }
 
       if ((count ?? 0) <= 1) {
-          return conflict("Cannot demote the final firm admin");
+        return conflict("Cannot demote the final firm admin");
       }
     }
 
@@ -199,9 +199,10 @@ export async function DELETE(request: Request) {
 
     const { error: deleteError } = await supabase
       .from("profiles")
-      .delete()
+      .update({ soft_deleted_at: new Date().toISOString() })
       .eq("user_id", userId)
-      .eq("tenant_id", auth.tenant_id);
+      .eq("tenant_id", auth.tenant_id)
+      .is("soft_deleted_at", null);
 
     if (deleteError) {
       throw deleteError;
@@ -211,6 +212,72 @@ export async function DELETE(request: Request) {
       tenantId: auth.tenant_id,
       actorUserId: auth.user_id,
       action: "team.member.removed",
+      targetType: "profile",
+      targetId: userId,
+    });
+
+    return ok({ ok: true });
+  } catch (error) {
+    return serverError(error);
+  }
+}
+
+export async function PATCH(request: Request) {
+  const auth = await requireTeamAccess(request);
+  if (auth.error) return auth.error;
+
+  if (auth.role !== "tenant_admin") {
+    return forbidden();
+  }
+
+  try {
+    const raw = await request.json();
+    const parsed = DeleteMemberSchema.safeParse(raw);
+
+    if (!parsed.success) {
+      return badRequest(parsed.error.issues[0]?.message ?? "Invalid payload");
+    }
+
+    const { userId } = parsed.data;
+
+    if (userId === auth.user_id) {
+      return conflict("Cannot restore yourself");
+    }
+
+    const supabase = getServiceClient();
+
+    const { data: targetProfile, error: targetError } = await supabase
+      .from("profiles")
+      .select("tenant_id, role, soft_deleted_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (targetError || !targetProfile) {
+      return notFound("User not found");
+    }
+
+    if (targetProfile.tenant_id !== auth.tenant_id) {
+      return forbidden("User is not in your organisation");
+    }
+
+    if (!targetProfile.soft_deleted_at) {
+      return conflict("User access is already active");
+    }
+
+    const { error: restoreError } = await supabase
+      .from("profiles")
+      .update({ soft_deleted_at: null })
+      .eq("user_id", userId)
+      .eq("tenant_id", auth.tenant_id);
+
+    if (restoreError) {
+      throw restoreError;
+    }
+
+    await logAuditEvent({
+      tenantId: auth.tenant_id,
+      actorUserId: auth.user_id,
+      action: "team.member.restored",
       targetType: "profile",
       targetId: userId,
     });

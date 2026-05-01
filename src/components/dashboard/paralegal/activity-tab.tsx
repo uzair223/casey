@@ -27,7 +27,7 @@ export function ParalegalActivityTab() {
     .slice(0, 10);
 
   return (
-    <Card size="md">
+    <Card>
       <CardHeader>
         <CardTitle>Recent Activity</CardTitle>
       </CardHeader>

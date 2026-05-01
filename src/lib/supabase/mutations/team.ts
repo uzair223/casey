@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "../client";
+import { apiFetch } from "@/lib/api-utils/fetch";
 
 const TEAM_EDITABLE_ROLES = ["tenant_admin", "solicitor", "paralegal"];
 
@@ -6,23 +6,16 @@ async function getTenantMemberProfile(
   userId: string,
   tenantId: string,
 ): Promise<{ role: string; tenant_id: string }> {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("tenant_id, role")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const { members } = await apiFetch<{
+    members: Array<{ user_id: string; tenant_id: string; role: string }>;
+  }>("/api/tenant/members");
 
-  if (error || !data) {
+  const data = members.find(
+    (member) => member.user_id === userId && member.tenant_id === tenantId,
+  );
+
+  if (!data) {
     throw new Error("User not found");
-  }
-
-  if (!data.tenant_id) {
-    throw new Error("User not assigned to a tenant");
-  }
-
-  if (data.tenant_id !== tenantId) {
-    throw new Error("User not in your tenant");
   }
 
   return {
@@ -37,8 +30,6 @@ export const updateUserRole = async (
   tenant_id: string,
   requestinguser_id: string,
 ): Promise<void> => {
-  const supabase = getSupabaseClient();
-
   if (!TEAM_EDITABLE_ROLES.includes(newRole)) {
     throw new Error("Invalid role");
   }
@@ -49,14 +40,10 @@ export const updateUserRole = async (
     throw new Error("Cannot modify other tenant admins");
   }
 
-  const { error: updateError } = await supabase
-    .from("profiles")
-    .update({ role: newRole })
-    .eq("user_id", user_id);
-
-  if (updateError) {
-    throw updateError;
-  }
+  await apiFetch("/api/tenant/members", {
+    method: "PUT",
+    body: JSON.stringify({ userId: user_id, role: newRole }),
+  });
 };
 
 export const removeTeamMember = async (
@@ -64,8 +51,6 @@ export const removeTeamMember = async (
   tenant_id: string,
   requestinguser_id: string,
 ): Promise<void> => {
-  const supabase = getSupabaseClient();
-
   if (user_id === requestinguser_id) {
     throw new Error("Cannot remove yourself");
   }
@@ -76,12 +61,29 @@ export const removeTeamMember = async (
     throw new Error("Cannot remove other tenant admins");
   }
 
-  const { error: deleteError } = await supabase
-    .from("profiles")
-    .delete()
-    .eq("user_id", user_id);
+  await apiFetch("/api/tenant/members", {
+    method: "DELETE",
+    body: JSON.stringify({ userId: user_id }),
+  });
+};
 
-  if (deleteError) {
-    throw deleteError;
+export const restoreTeamMember = async (
+  user_id: string,
+  tenant_id: string,
+  requestinguser_id: string,
+): Promise<void> => {
+  if (user_id === requestinguser_id) {
+    throw new Error("Cannot restore yourself");
   }
+
+  const targetProfile = await getTenantMemberProfile(user_id, tenant_id);
+
+  if (targetProfile.role === "tenant_admin") {
+    throw new Error("Cannot restore other tenant admins");
+  }
+
+  await apiFetch("/api/tenant/members", {
+    method: "PATCH",
+    body: JSON.stringify({ userId: user_id }),
+  });
 };

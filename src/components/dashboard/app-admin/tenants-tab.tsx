@@ -120,7 +120,6 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
   return (
     <div className="space-y-4">
       <InviteMemberCard
-        size="md"
         createdByUserId={userId}
         tenantId={null}
         defaultRole="tenant_admin"
@@ -131,7 +130,7 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
       {!tenants.data || tenants.isLoading ? (
         <CardSkeleton title="Existing Organisations" />
       ) : (
-        <Card size="md">
+        <Card>
           <CardHeader>
             <CardTitle>Existing Organisations</CardTitle>
           </CardHeader>
@@ -201,7 +200,7 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
       {!tenantInvites.data || tenantInvites.isLoading ? (
         <CardSkeleton title="Organisation Invites" />
       ) : (
-        <Card size="md">
+        <Card>
           <CardHeader>
             <CardTitle>Organisation Invites</CardTitle>
           </CardHeader>

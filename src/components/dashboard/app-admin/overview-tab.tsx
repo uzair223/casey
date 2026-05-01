@@ -18,8 +18,8 @@ export function AppAdminOverviewTab() {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card size="md">
-        <CardHeader className="pb-2">
+      <Card>
+        <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Organisations
           </CardTitle>
@@ -32,8 +32,8 @@ export function AppAdminOverviewTab() {
         </CardContent>
       </Card>
 
-      <Card size="md">
-        <CardHeader className="pb-2">
+      <Card>
+        <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Total Cases
           </CardTitle>
@@ -49,8 +49,8 @@ export function AppAdminOverviewTab() {
         </CardContent>
       </Card>
 
-      <Card size="md">
-        <CardHeader className="pb-2">
+      <Card>
+        <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Statements
           </CardTitle>
@@ -67,8 +67,8 @@ export function AppAdminOverviewTab() {
         </CardContent>
       </Card>
 
-      <Card size="md">
-        <CardHeader className="pb-2">
+      <Card>
+        <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Users
           </CardTitle>
@@ -84,8 +84,8 @@ export function AppAdminOverviewTab() {
         </CardContent>
       </Card>
 
-      <Card size="md">
-        <CardHeader className="pb-2">
+      <Card>
+        <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Cases per Tenant
           </CardTitle>
@@ -98,8 +98,8 @@ export function AppAdminOverviewTab() {
         </CardContent>
       </Card>
 
-      <Card size="md">
-        <CardHeader className="pb-2">
+      <Card>
+        <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Statements per Tenant
           </CardTitle>
@@ -112,8 +112,8 @@ export function AppAdminOverviewTab() {
         </CardContent>
       </Card>
 
-      <Card size="md">
-        <CardHeader className="pb-2">
+      <Card>
+        <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Users per Tenant
           </CardTitle>
@@ -126,8 +126,8 @@ export function AppAdminOverviewTab() {
         </CardContent>
       </Card>
 
-      <Card size="md">
-        <CardHeader className="pb-2">
+      <Card>
+        <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Statements per Case
           </CardTitle>
@@ -140,8 +140,8 @@ export function AppAdminOverviewTab() {
         </CardContent>
       </Card>
 
-      <Card size="md">
-        <CardHeader className="pb-2">
+      <Card>
+        <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
             Pending Invites
           </CardTitle>

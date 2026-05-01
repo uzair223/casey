@@ -13,7 +13,9 @@ export const SERVERONLY_getTeamMembers = async (
 
   const { data: members, error } = await supabase
     .from("profiles")
-    .select("user_id, tenant_id, display_name, role, created_at")
+    .select(
+      "user_id, tenant_id, display_name, role, created_at, soft_deleted_at",
+    )
     .eq("tenant_id", tenant_id);
 
   if (error) {
