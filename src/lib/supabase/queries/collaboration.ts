@@ -49,7 +49,7 @@ export async function getCaseNotes(
   const { data: notes, error } = await supabase
     .from("case_notes")
     .select(
-      "id, body, created_at, updated_at, author_user_id, is_pinned, pinned_at, pinned_by_user_id",
+      "id, body, created_at, updated_at, author_user_id, statement_id, is_pinned, pinned_at, pinned_by_user_id",
     )
     .eq("case_id", caseId)
     .order("is_pinned", { ascending: false })
@@ -76,50 +76,6 @@ export async function getCaseNotes(
   const mentionsMap = toMentionsMap(
     mentions,
     "case_note_id",
-    "mentioned_user_id",
-  );
-
-  return (notes ?? []).map((note) => ({
-    ...note,
-    mentions: mentionsMap.get(note.id) ?? [],
-  }));
-}
-
-export async function getStatementNotes(
-  statementId: string,
-): Promise<CollaborationNoteView[]> {
-  const supabase = getSupabaseClient();
-
-  const { data: notes, error } = await supabase
-    .from("statement_notes")
-    .select(
-      "id, body, created_at, updated_at, author_user_id, is_pinned, pinned_at, pinned_by_user_id",
-    )
-    .eq("statement_id", statementId)
-    .order("is_pinned", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    throw error;
-  }
-
-  const noteIds = uniqueIds((notes ?? []).map((note) => note.id));
-  if (!noteIds.length) {
-    return [];
-  }
-
-  const { data: mentions, error: mentionsError } = await supabase
-    .from("statement_note_mentions")
-    .select("statement_note_id, mentioned_user_id")
-    .in("statement_note_id", noteIds);
-
-  if (mentionsError) {
-    throw mentionsError;
-  }
-
-  const mentionsMap = toMentionsMap(
-    mentions,
-    "statement_note_id",
     "mentioned_user_id",
   );
 
@@ -168,36 +124,6 @@ export async function getCaseInternalDocuments(caseId: string): Promise<
     .from("case_documents")
     .select("id, created_at, uploaded_by_user_id, document")
     .eq("case_id", caseId)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? []).map((item) => ({
-    id: item.id,
-    created_at: item.created_at,
-    uploaded_by_user_id: item.uploaded_by_user_id,
-    document: item.document as UploadedDocument,
-  }));
-}
-
-export async function getStatementInternalDocuments(
-  statementId: string,
-): Promise<
-  Array<{
-    id: string;
-    created_at: string;
-    uploaded_by_user_id: string;
-    document: UploadedDocument;
-  }>
-> {
-  const supabase = getSupabaseClient();
-
-  const { data, error } = await supabase
-    .from("statement_internal_documents")
-    .select("id, created_at, uploaded_by_user_id, document")
-    .eq("statement_id", statementId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -437,95 +363,67 @@ export async function getUnifiedActivityTimeline(input: {
     return false;
   };
 
-  const [caseNotesRes, statementNotesRes, reminderEventsRes, auditRes] =
-    await Promise.all([
-      input.caseId
+  const [caseNotesRes, reminderEventsRes, auditRes] = await Promise.all([
+    input.caseId
+      ? supabase
+          .from("case_notes")
+          .select("id, case_id, statement_id, author_user_id, body, created_at")
+          .eq("case_id", input.caseId)
+          .order("created_at", { ascending: false })
+          .limit(limit)
+      : isTenantWide
         ? supabase
             .from("case_notes")
-            .select("id, case_id, author_user_id, body, created_at")
-            .eq("case_id", input.caseId)
+            .select(
+              "id, case_id, statement_id, author_user_id, body, created_at",
+            )
             .order("created_at", { ascending: false })
             .limit(limit)
-        : isTenantWide
-          ? supabase
-              .from("case_notes")
-              .select("id, case_id, author_user_id, body, created_at")
-              .order("created_at", { ascending: false })
-              .limit(limit)
-          : Promise.resolve({ data: [], error: null }),
-      statementIds.length
-        ? supabase
-            .from("statement_notes")
-            .select("id, statement_id, author_user_id, body, created_at")
-            .in("statement_id", statementIds)
-            .order("created_at", { ascending: false })
-            .limit(limit)
-        : isTenantWide
-          ? supabase
-              .from("statement_notes")
-              .select("id, statement_id, author_user_id, body, created_at")
-              .order("created_at", { ascending: false })
-              .limit(limit)
-          : Promise.resolve({ data: [], error: null }),
-      statementIds.length
+        : Promise.resolve({ data: [], error: null }),
+    statementIds.length
+      ? supabase
+          .from("statement_reminder_events")
+          .select(
+            "id, statement_id, created_by_user_id, send_type, status, metadata, created_at",
+          )
+          .in("statement_id", statementIds)
+          .order("created_at", { ascending: false })
+          .limit(limit)
+      : isTenantWide
         ? supabase
             .from("statement_reminder_events")
             .select(
               "id, statement_id, created_by_user_id, send_type, status, metadata, created_at",
             )
-            .in("statement_id", statementIds)
             .order("created_at", { ascending: false })
             .limit(limit)
-        : isTenantWide
-          ? supabase
-              .from("statement_reminder_events")
-              .select(
-                "id, statement_id, created_by_user_id, send_type, status, metadata, created_at",
-              )
-              .order("created_at", { ascending: false })
-              .limit(limit)
-          : Promise.resolve({ data: [], error: null }),
-      supabase
-        .from("audit_logs")
-        .select(
-          "id, actor_user_id, target_type, target_id, action, metadata, created_at",
-        )
-        .order("created_at", { ascending: false })
-        .limit(isTenantWide ? limit : Math.min(500, limit * 10)),
-    ]);
+        : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("audit_logs")
+      .select(
+        "id, actor_user_id, target_type, target_id, action, metadata, created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(isTenantWide ? limit : Math.min(500, limit * 10)),
+  ]);
 
   if (caseNotesRes.error) throw caseNotesRes.error;
-  if (statementNotesRes.error) throw statementNotesRes.error;
   if (reminderEventsRes.error) throw reminderEventsRes.error;
   if (auditRes.error) throw auditRes.error;
 
   const caseNoteEvents: UnifiedTimelineEvent[] = (caseNotesRes.data ?? []).map(
     (item) => ({
       id: `case-note:${item.id}`,
-      type: "case_note",
+      type: item.statement_id ? "statement_note" : "case_note",
       createdAt: item.created_at,
       actorUserId: item.author_user_id,
       caseId: item.case_id,
-      statementId: null,
-      title: "Case note added",
+      statementId: item.statement_id,
+      title: item.statement_id ? "Statement note added" : "Case note added",
       description: item.body,
       metadata: {},
     }),
   );
-
-  const statementNoteEvents: UnifiedTimelineEvent[] = (
-    statementNotesRes.data ?? []
-  ).map((item) => ({
-    id: `statement-note:${item.id}`,
-    type: "statement_note",
-    createdAt: item.created_at,
-    actorUserId: item.author_user_id,
-    caseId: input.caseId ?? null,
-    statementId: item.statement_id,
-    title: "Statement note added",
-    description: item.body,
-    metadata: {},
-  }));
 
   const reminderEvents: UnifiedTimelineEvent[] = (
     reminderEventsRes.data ?? []
@@ -562,12 +460,7 @@ export async function getUnifiedActivityTimeline(input: {
       metadata: (item.metadata ?? {}) as Record<string, unknown>,
     }));
 
-  const events = [
-    ...caseNoteEvents,
-    ...statementNoteEvents,
-    ...reminderEvents,
-    ...auditEvents,
-  ]
+  const events = [...caseNoteEvents, ...reminderEvents, ...auditEvents]
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, limit);
 

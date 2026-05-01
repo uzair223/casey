@@ -3,6 +3,7 @@ export * from "./case/edit-case-form";
 export * from "./case/notes-card";
 export * from "./case/documents-card";
 export * from "./case/activity-timeline";
+export * from "./case/analysis-card";
 export * from "./statement/detail-panel";
 export * from "./statement/follow-up-card";
 export * from "./statement/documents-card";

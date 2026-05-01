@@ -3,22 +3,14 @@ import { NextRequest } from "next/server";
 import { badRequest, ok, serverError } from "@/lib/api-utils/response";
 import { requireTenantUser } from "@/lib/api-utils/auth";
 import { sendMentionNotificationEmail } from "@/lib/email";
-import {
-  SERVERONLY_getMentionNotificationDispatchContext,
-  type MentionNotificationSourceKind,
-} from "@/lib/supabase/queries";
+import { SERVERONLY_getMentionNotificationDispatchContext } from "@/lib/supabase/queries";
 import { getServiceClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireTenantUser(request);
     const body = await request.json().catch(() => ({}));
-    const kind =
-      body?.kind === "statement"
-        ? ("statement" as MentionNotificationSourceKind)
-        : body?.kind === "case"
-          ? ("case" as MentionNotificationSourceKind)
-          : null;
+    const kind = body?.kind === "case" ? "case" : null;
     const noteId = typeof body?.noteId === "string" ? body.noteId.trim() : "";
 
     if (!kind || !noteId) {

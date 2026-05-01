@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useUser } from "@/contexts/user-context";
 import { useTenant } from "@/contexts/tenant-context";
@@ -9,6 +9,13 @@ import { apiFetch } from "@/lib/api-utils/fetch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AsyncButton } from "@/components/ui/async-button";
 
@@ -22,22 +29,56 @@ import {
 } from "@/lib/supabase/mutations";
 import { toast } from "@/lib/toast";
 
+type NoteStatementOption = {
+  id: string;
+  witness_name: string;
+  title?: string | null;
+};
+
 type CaseNotesCardProps = React.ComponentProps<typeof Card> & {
   caseId: string;
   canPinNotes: boolean;
+  statements?: NoteStatementOption[];
+  defaultStatementId?: string | null;
+  title?: string;
 };
+
+const GENERAL_REFERENCE = "__general__";
+const ALL_NOTES = "__all__";
+
+function getStatementLabel(statement?: NoteStatementOption) {
+  if (!statement) {
+    return "Unknown statement";
+  }
+
+  return statement.witness_name || statement.title || "Unnamed witness";
+}
 
 export function CaseNotesCard({
   caseId,
   canPinNotes,
+  statements = [],
+  defaultStatementId = null,
+  title = "Notes",
   ...props
 }: CaseNotesCardProps) {
   const { user } = useUser();
   const { team } = useTenant();
   const [noteBody, setNoteBody] = useState("");
+  const [noteStatementId, setNoteStatementId] = useState<string>(
+    defaultStatementId ?? GENERAL_REFERENCE,
+  );
+  const [filterStatementId, setFilterStatementId] = useState<string>(
+    defaultStatementId ?? ALL_NOTES,
+  );
   const [selectedMentionIds, setSelectedMentionIds] = useState<string[]>([]);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteBody, setEditingNoteBody] = useState("");
+
+  const statementMap = useMemo(
+    () => new Map(statements.map((statement) => [statement.id, statement])),
+    [statements],
+  );
 
   const {
     data: notes,
@@ -67,6 +108,8 @@ export function CaseNotesCard({
     const noteId = await createCaseNote({
       tenantId: user.tenant_id,
       caseId,
+      statementId:
+        noteStatementId === GENERAL_REFERENCE ? null : noteStatementId,
       authorUserId: user.id,
       body: trimmed,
       mentionedUserIds: selectedMentionIds,
@@ -154,46 +197,86 @@ export function CaseNotesCard({
   };
 
   const mentionNameMap = team.data?.nameMap ?? {};
-  const notesList = notes ?? [];
+  const notesList =
+    filterStatementId === ALL_NOTES
+      ? (notes ?? [])
+      : filterStatementId === GENERAL_REFERENCE
+        ? (notes ?? []).filter((note) => !note.statement_id)
+        : (notes ?? []).filter(
+            (note) => note.statement_id === filterStatementId,
+          );
 
   return (
     <Card {...props}>
-      <CardHeader>
-        <CardTitle className="text-base">Case notes</CardTitle>
+      <CardHeader className="flex-row items-center justify-between gap-3">
+        <CardTitle className="text-base">{title}</CardTitle>
+        <Select value={filterStatementId} onValueChange={setFilterStatementId}>
+          <SelectTrigger className="h-8 w-52">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_NOTES}>All notes</SelectItem>
+            <SelectItem value={GENERAL_REFERENCE}>
+              General case notes
+            </SelectItem>
+            {statements.map((statement) => (
+              <SelectItem key={statement.id} value={statement.id}>
+                {getStatementLabel(statement)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Textarea
             value={noteBody}
             onChange={(event) => setNoteBody(event.target.value)}
-            placeholder="Add an internal note for this case"
+            placeholder="Add an internal note"
             rows={3}
           />
-          {team.data?.members?.length ? (
-            <div className="rounded-md border p-3">
-              <p className="text-xs font-medium text-muted-foreground">
-                Mentions
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {team.data.members.map((member) => {
-                  const isSelected = selectedMentionIds.includes(
-                    member.user_id,
-                  );
-                  return (
-                    <Button
-                      key={member.user_id}
-                      type="button"
-                      size="sm"
-                      variant={isSelected ? "default" : "outline"}
-                      onClick={() => onToggleMention(member.user_id)}
-                    >
-                      @{mentionNameMap[member.user_id] || "Team member"}
-                    </Button>
-                  );
-                })}
+          <div className="grid gap-2 md:grid-cols-[220px_1fr]">
+            <Select value={noteStatementId} onValueChange={setNoteStatementId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Reference" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={GENERAL_REFERENCE}>General case</SelectItem>
+                {statements.map((statement) => (
+                  <SelectItem key={statement.id} value={statement.id}>
+                    {getStatementLabel(statement)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {team.data?.members?.length ? (
+              <div className="rounded-md border p-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Mentions
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {team.data.members.map((member) => {
+                    const isSelected = selectedMentionIds.includes(
+                      member.user_id,
+                    );
+                    return (
+                      <Button
+                        key={member.user_id}
+                        type="button"
+                        size="sm"
+                        variant={isSelected ? "default" : "outline"}
+                        onClick={() => onToggleMention(member.user_id)}
+                      >
+                        @{mentionNameMap[member.user_id] || "Team member"}
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
+
           <AsyncButton
             type="button"
             onClick={onCreateNote}
@@ -209,11 +292,18 @@ export function CaseNotesCard({
         ) : notesList.length ? (
           <div className="space-y-2">
             {notesList.map((note) => (
-              <div key={note.id} className="rounded-md border p-3 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(note.created_at).toLocaleString()}
-                  </p>
+              <div key={note.id} className="space-y-2 rounded-md border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(note.created_at).toLocaleString()}
+                    </p>
+                    <Badge variant="outline">
+                      {note.statement_id
+                        ? getStatementLabel(statementMap.get(note.statement_id))
+                        : "General case"}
+                    </Badge>
+                  </div>
                   <div className="flex items-center gap-2">
                     {canPinNotes ? (
                       <Button
@@ -271,7 +361,7 @@ export function CaseNotesCard({
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm whitespace-pre-wrap">{note.body}</p>
+                  <p className="whitespace-pre-wrap text-sm">{note.body}</p>
                 )}
                 {note.mentions.length ? (
                   <div className="flex flex-wrap gap-1">
