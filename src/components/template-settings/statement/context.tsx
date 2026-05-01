@@ -25,7 +25,7 @@ import {
   generateStarterDoc,
   validateDocxTemplateDocument,
 } from "@/lib/doc-gen";
-import { getDefaultPromptTemplates } from "@/lib/statement-utils/prompts";
+import { getDefaultPromptTemplates } from "@/lib/llm/prompts";
 import {
   StatementConfigPublishSchema,
   StatementConfigSchema,

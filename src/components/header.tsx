@@ -119,7 +119,7 @@ export default function Header() {
       </Button>
 
       {isMobileMenuOpen ? (
-        <div className="absolute left-0 right-0 top-full border-b bg-background/95 rounded-b-xl md:hidden">
+        <div className="absolute left-0 right-0 top-full border-b bg-background rounded-b-xl md:hidden">
           <nav className="container pb-6 flex flex-col gap-1 text-sm">
             {user ? (
               <>

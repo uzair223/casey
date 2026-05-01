@@ -121,7 +121,7 @@ export function NotificationPreferencesCard({
   };
 
   return (
-    <Card size="md" className="col-span-2">
+    <Card className="col-span-2">
       <CardHeader>
         <CardTitle>Notification preferences</CardTitle>
       </CardHeader>

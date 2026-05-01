@@ -232,7 +232,7 @@ export function CaseTemplateSettingsScreen() {
 
         <SidebarContent>
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Editor</CardTitle>
 

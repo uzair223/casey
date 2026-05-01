@@ -4,8 +4,8 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-const cardVariants = cva(
-  "group rounded-xl border shadow [--card-opacity:50%]",
+export const cardVariants = cva(
+  "group flex flex-col rounded-xl border shadow [--card-opacity:50%]",
   {
     variants: {
       variant: {
@@ -19,14 +19,13 @@ const cardVariants = cva(
         warning: "text-warning-foreground bg-warning/(--card-opacity)",
       },
       size: {
-        lg: "[--card-padding:calc(var(--spacing)*6)]",
-        md: "[--card-padding:calc(var(--spacing)*4)]",
-        sm: "[--card-padding:calc(var(--spacing)*2)_calc(var(--spacing)*2.5)]",
+        md: "p-4 gap-2",
+        sm: "py-2 px-2.5",
       },
     },
     defaultVariants: {
       variant: "default",
-      size: "lg",
+      size: "md",
     },
   },
 );
@@ -56,7 +55,7 @@ const CardHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex flex-col space-y-1.5 p-(--card-padding)", className)}
+    className={cn("space-y-1.5", className)}
     data-card-header="true"
     {...props}
   />
@@ -93,7 +92,7 @@ const CardContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("p-(--card-padding) pt-0 space-y-1.5", className)}
+    className={cn("space-y-1.5", className)}
     {...props}
     data-card-content="true"
   />
@@ -106,7 +105,7 @@ const CardFooter = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("p-(--card-padding) pt-0 flex items-center gap-2", className)}
+    className={cn("flex items-center gap-2", className)}
     {...props}
     data-card-footer="true"
   />

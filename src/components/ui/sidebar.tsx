@@ -52,7 +52,7 @@ export function Sidebar<T>({
   onSelectItem,
   renderItem,
   emptyMessage = "No items available.",
-  scrollAreaHeightClassName = "h-[20vh] lg:h-[calc(100vh-12rem)]",
+  scrollAreaHeightClassName = "h-[20vh] lg:h-[calc(100vh-10rem)]",
   className,
 }: SidebarProps<T>) {
   const hasStructuredItems =
@@ -68,7 +68,7 @@ export function Sidebar<T>({
     <aside className={cn("min-w-0", className)}>
       <Card className="lg:sticky top-4 h-fit">
         {title || actions ? (
-          <CardHeader className="pb-2">
+          <CardHeader>
             {title ? (
               <CardTitle className="flex text-base">
                 {title}

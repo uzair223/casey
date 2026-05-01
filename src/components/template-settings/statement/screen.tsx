@@ -290,7 +290,7 @@ export function StatementTemplateSettingsScreen() {
 
         <SidebarContent>
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader>
               <GenerateWithAI
                 textareaProps={{
                   placeholder:
@@ -433,8 +433,8 @@ export function StatementTemplateSettingsScreen() {
             </CardHeader>
             <CardContent className="space-y-4">
               {showTemplateValidationIssues ? (
-                <Card size="md" variant="destructive">
-                  <CardHeader className="pb-2">
+                <Card variant="destructive">
+                  <CardHeader>
                     <CardTitle className="text-sm">Validation issues</CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -448,8 +448,8 @@ export function StatementTemplateSettingsScreen() {
               ) : null}
 
               {docxErrors.errors.length > 0 ? (
-                <Card size="md" variant="destructive">
-                  <CardHeader className="pb-2">
+                <Card variant="destructive">
+                  <CardHeader>
                     <CardTitle className="text-sm">
                       DOCX validation issues
                     </CardTitle>

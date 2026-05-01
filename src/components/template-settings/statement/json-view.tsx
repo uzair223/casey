@@ -4,7 +4,7 @@ import { useStatementTemplateSettings } from "./context";
 import {
   PROMPT_TEMPLATE_TOKEN_HELP,
   getDefaultPromptTemplates,
-} from "@/lib/statement-utils/prompts";
+} from "@/lib/llm/prompts";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -129,11 +129,7 @@ export function StatementTemplateJsonView() {
         <>
           {!showPromptEditor && applyButton}
 
-          <Card
-            size="md"
-            variant="warning"
-            className="hover:[--card-opacity:60%]"
-          >
+          <Card variant="warning" className="hover:[--card-opacity:60%]">
             <CardHeader
               className="cursor-pointer"
               onClick={() => setShowPromptEditor((prev) => !prev)}

@@ -1,0 +1,29 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Casey Icon</title>
+  <desc id="desc">A stylised C-shaped chat bubble with three message lines.</desc>
+  <defs>
+    <linearGradient id="caseyGradient" x1="88" y1="398" x2="420" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7357FF"/>
+      <stop offset="0.55" stop-color="#4E4BFF"/>
+      <stop offset="1" stop-color="#2D35E8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- C-shaped chat bubble -->
+  <path
+    d="M379 162C342 112 286 91 221 96C132 103 72 162 72 254C72 344 133 402 225 409C295 414 350 389 384 334"
+    stroke="url(#caseyGradient)"
+    stroke-width="58"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+
+  <!-- speech tail -->
+  <path
+    d="M103 331L76 428L176 397L141 363L103 331Z"
+    fill="url(#caseyGradient)"/>
+
+  <!-- inner message lines -->
+  <path d="M174 211H254" stroke="#07122E" stroke-width="25" stroke-linecap="round"/>
+  <path d="M174 258H309" stroke="#07122E" stroke-width="25" stroke-linecap="round"/>
+  <path d="M174 305H252" stroke="#07122E" stroke-width="25" stroke-linecap="round"/>
+</svg>

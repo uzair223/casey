@@ -864,7 +864,9 @@ export default function DemoStudioPage() {
                   name="demoTenantName"
                   controlId="demo-tenant-name"
                   label="Organisation Name"
-                  registerOptions={{ required: "Demo organisation is required" }}
+                  registerOptions={{
+                    required: "Demo organisation is required",
+                  }}
                   renderControl={(
                     registration: RhfControlRegistration,
                     required: boolean,
@@ -1124,7 +1126,7 @@ export default function DemoStudioPage() {
       </Card>
 
       {error && (
-        <Card size="md" variant="destructive">
+        <Card variant="destructive">
           <CardHeader>
             <CardTitle className="text-sm">{error}</CardTitle>
           </CardHeader>

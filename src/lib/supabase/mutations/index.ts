@@ -8,6 +8,7 @@ export * from "./demo-studio";
 export * from "./invites";
 export * from "./notifications";
 export * from "./statement-template";
+export * from "./statement-supporting-documents";
 export * from "./statement";
 export * from "./team";
 export * from "./tenant";

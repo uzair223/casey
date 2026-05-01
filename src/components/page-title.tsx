@@ -38,7 +38,7 @@ export function PageTitle({
   return (
     <div
       className={cn(
-        "flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
+        "flex flex-col gap-4 md:flex-row md:items-start md:justify-between",
         className,
       )}
     >

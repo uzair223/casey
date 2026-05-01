@@ -106,7 +106,6 @@ export function NotificationFeed({
         <div className="space-y-3">
           {notifications.slice(0, limit).map((notification) => (
             <Card
-              size="md"
               key={notification.id}
               className={notification.read_at ? "bg-card" : "border-primary/40"}
             >

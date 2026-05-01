@@ -287,7 +287,7 @@ export default function TenantSettingsPage() {
           user?.role === "tenant_admin" ||
           user?.role === "solicitor") && (
           <>
-            <Card size="md">
+            <Card>
               <CardHeader>
                 <CardTitle>Case Templates</CardTitle>
               </CardHeader>
@@ -305,7 +305,7 @@ export default function TenantSettingsPage() {
                 </Button>
               </CardFooter>
             </Card>
-            <Card size="md">
+            <Card>
               <CardHeader>
                 <CardTitle>Statement Templates</CardTitle>
               </CardHeader>
@@ -326,7 +326,7 @@ export default function TenantSettingsPage() {
           </>
         )}
 
-        <Card size="md" className="col-span-2">
+        <Card className="col-span-2">
           <CardHeader>
             <CardTitle>Profile</CardTitle>
           </CardHeader>
@@ -352,7 +352,7 @@ export default function TenantSettingsPage() {
           </CardFooter>
         </Card>
 
-        <Card size="md" className="col-span-2">
+        <Card className="col-span-2">
           <CardHeader>
             <div className="flex items-center justify-between gap-2">
               <CardTitle>Authentication</CardTitle>
@@ -428,7 +428,7 @@ export default function TenantSettingsPage() {
         )}
 
         {canManageTenant && (
-          <Card size="md" className="col-span-2">
+          <Card className="col-span-2">
             <CardHeader>
               <CardTitle>Organisation</CardTitle>
             </CardHeader>
@@ -464,7 +464,7 @@ export default function TenantSettingsPage() {
           </Card>
         )}
 
-        <Card size="md" className="col-span-2">
+        <Card className="col-span-2">
           <CardHeader>
             <CardTitle>Compliance</CardTitle>
           </CardHeader>
@@ -493,7 +493,7 @@ export default function TenantSettingsPage() {
           </CardFooter>
         </Card>
 
-        <Card size="md" variant="destructive" className="col-span-2">
+        <Card variant="destructive" className="col-span-2">
           <CardHeader>
             <CardTitle>Danger zone</CardTitle>
           </CardHeader>
