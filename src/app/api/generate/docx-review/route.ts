@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/api-utils/auth";
 import { badRequest } from "@/lib/api-utils/response";
 import { env } from "@/lib/env";
 import { logServerEvent } from "@/lib/observability/logger";
+import { selectModel } from "@/lib/llm/model-config";
 import { getOpenRouterClientOptions } from "@/lib/utils";
 import { DocxReviewer } from "@eigenpal/docx-editor-agents";
 import { zodResponseFormat } from "openai/helpers/zod.mjs";
@@ -203,7 +204,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const selectedModel = env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
+    const selectedModel = selectModel("docx-review");
 
     await logServerEvent("info", "api.generate.docx_review.request", {
       requestId,

@@ -1,5 +1,5 @@
 import { IntakeChatMessage, StatementConfig } from "@/types";
-import { defaultMeta as defaultMetadata } from "./message-metadata";
+import { defaultMeta as defaultMetadata } from "../statement-utils/message-metadata";
 
 export type PromptTemplateTokens =
   | "phasesList"

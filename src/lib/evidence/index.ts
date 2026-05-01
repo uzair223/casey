@@ -1,5 +1,7 @@
 import type { UploadedDocument } from "@/types";
 
+import { isAudioFile, isImageFile, isVideoFile } from "@/lib/files";
+
 export type EvidenceDocument = UploadedDocument & {
   group?: string;
 };
@@ -20,24 +22,6 @@ export function normalizeEvidenceGroup(value: string | null | undefined) {
   return normalized || "other";
 }
 
-function looksLikeImage(file: Pick<File, "type" | "name">) {
-  return (
-    file.type.startsWith("image/") || /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(file.name)
-  );
-}
-
-function looksLikeVideo(file: Pick<File, "type" | "name">) {
-  return (
-    file.type.startsWith("video/") || /\.(mp4|mov|avi|m4v|webm)$/i.test(file.name)
-  );
-}
-
-function looksLikeAudio(file: Pick<File, "type" | "name">) {
-  return (
-    file.type.startsWith("audio/") || /\.(mp3|wav|m4a|aac|ogg)$/i.test(file.name)
-  );
-}
-
 export function inferEvidenceGroupFromFiles(
   files: Array<Pick<File, "type" | "name">>,
 ) {
@@ -47,7 +31,11 @@ export function inferEvidenceGroupFromFiles(
 
   const joinedNames = files.map((file) => file.name.toLowerCase()).join(" ");
 
-  if (joinedNames.includes("quote") || joinedNames.includes("estimate") || joinedNames.includes("repair")) {
+  if (
+    joinedNames.includes("quote") ||
+    joinedNames.includes("estimate") ||
+    joinedNames.includes("repair")
+  ) {
     return "repair estimate or quote";
   }
 
@@ -68,15 +56,15 @@ export function inferEvidenceGroupFromFiles(
     return "medical records";
   }
 
-  if (files.every(looksLikeImage)) {
+  if (files.every(isImageFile)) {
     return "photos of the accident damage";
   }
 
-  if (files.every(looksLikeVideo)) {
+  if (files.every(isVideoFile)) {
     return "video footage";
   }
 
-  if (files.every(looksLikeAudio)) {
+  if (files.every(isAudioFile)) {
     return "audio recordings";
   }
 
@@ -84,10 +72,12 @@ export function inferEvidenceGroupFromFiles(
 }
 
 export function sanitizeEvidenceGroupForPath(value: string) {
-  return normalizeEvidenceGroup(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "other";
+  return (
+    normalizeEvidenceGroup(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "other"
+  );
 }
 
 export function getWitnessInitials(name: string) {

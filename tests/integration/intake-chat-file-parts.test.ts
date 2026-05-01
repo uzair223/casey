@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildIntakeChatFileParts } from "@/lib/intake-chat-file-parts";
+import { buildIntakeChatFileParts } from "@/lib/files";
 
 describe("buildIntakeChatFileParts", () => {
   it("turns uploaded files into real model input parts without storage", async () => {

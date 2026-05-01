@@ -10,7 +10,8 @@ import { SERVERONLY_getFullStatementFromToken } from "@/lib/supabase/queries";
 import {
   generateGreeting,
   getMissingWitnessFieldLabels,
-} from "@/lib/statement-utils/prompts";
+} from "@/lib/llm/prompts";
+import { selectModel } from "@/lib/llm/model-config";
 import { getOpenRouterClientOptions } from "@/lib/utils";
 
 const client = new OpenAI(getOpenRouterClientOptions());
@@ -53,8 +54,10 @@ export async function POST(
     }
 
     try {
+      const selectedModel = selectModel("intake-greeting");
+
       const completion = await client.chat.completions.create({
-        model: env.OPENROUTER_MODEL || "openai/gpt-4o-mini",
+        model: selectedModel,
         temperature: 0.2,
         response_format: zodResponseFormat(
           greetingQuestionSchema,

@@ -28,7 +28,6 @@ export const EnvSchema = z.looseObject({
   NEXT_PUBLIC_CALENDLY_LINK: stringOrEmpty,
 
   OPENROUTER_API_KEY: stringOrEmpty,
-  OPENROUTER_MODEL: z.string().trim().optional().default("openai/gpt-4o-mini"),
 
   FORMALIZE_MAX_USER_TURNS: z
     .string()
@@ -64,7 +63,6 @@ export const BuildEnvSchema = z.object({
   NEXT_PUBLIC_SUPPORT_EMAIL: z.string().optional(),
   NEXT_PUBLIC_CALENDLY_LINK: z.string().optional(),
   OPENROUTER_API_KEY: nonEmpty,
-  OPENROUTER_MODEL: nonEmpty,
   FORMALIZE_MAX_USER_TURNS: z.string().optional(),
   FORMALIZE_MAX_CHARS_PER_TURN: z.string().optional(),
   FORMALIZE_TIMEOUT_MS: z.string().optional(),

@@ -1,9 +1,18 @@
-import PizZip from "pizzip";
-import { extractText as unpdfExtractText } from "unpdf";
+import { logServerEvent } from "@/lib/observability/logger";
 
-import { logServerEvent } from "./observability/logger";
-
-const MAX_TEXT_CHARS_PER_FILE = 20_000;
+import {
+  getAudioFormat,
+  getFileExtension,
+  isAudioFile,
+  isImageFile,
+  isPdfFile,
+  isPlainTextLikeFile,
+  isVideoFile,
+  toBase64,
+  toDataUrl,
+  truncateText,
+} from "./core";
+import { extractDocxText, extractPdfText } from "./extraction";
 
 export type IntakeChatAttachmentSummary = {
   name: string;
@@ -22,136 +31,23 @@ export type IntakeChatContentPart =
   | { type: "file"; file: { filename: string; file_data: string } };
 
 export type BuiltIntakeChatFileParts = {
-  content:
-    | string
-    | Array<
-        | { type: "text"; text: string }
-        | { type: "image_url"; image_url: { url: string } }
-        | { type: "input_audio"; input_audio: { data: string; format: string } }
-        | { type: "video_url"; video_url: { url: string } }
-        | { type: "file"; file: { filename: string; file_data: string } }
-      >;
+  content: string | IntakeChatContentPart[];
   attachmentSummaries: IntakeChatAttachmentSummary[];
   requiresPdfPlugin: boolean;
 };
 
 export type IntakeAttachedFile = IntakeChatAttachmentSummary;
 
-function getFileExtension(name: string) {
-  const match = /\.([a-z0-9]+)$/i.exec(name);
-  return match ? match[1].toLowerCase() : "";
-}
-
-function toBase64(buffer: ArrayBuffer) {
-  return Buffer.from(buffer).toString("base64");
-}
-
-function toDataUrl(mimeType: string, base64: string) {
-  return `data:${mimeType};base64,${base64}`;
-}
-
-function decodeXmlEntities(value: string) {
-  return value
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
-}
-
-function stripXmlTags(value: string) {
-  return decodeXmlEntities(
-    value
-      .replace(/<w:p\b[^>]*>/g, "\n")
-      .replace(/<w:tab\b[^>]*\/>/g, "\t")
-      .replace(/<w:br\b[^>]*\/>/g, "\n")
-      .replace(/<[^>]+>/g, ""),
-  )
-    .replace(/\r/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-function truncateText(value: string) {
-  if (value.length <= MAX_TEXT_CHARS_PER_FILE) {
-    return value;
-  }
-
-  return `${value.slice(0, MAX_TEXT_CHARS_PER_FILE)}\n\n[Truncated due to length]`;
-}
-
-async function extractDocxText(file: File) {
-  const arrayBuffer = await file.arrayBuffer();
-  const zip = new PizZip(Buffer.from(arrayBuffer));
-  const documentXml = zip.file("word/document.xml")?.asText() ?? "";
-
-  if (!documentXml.trim()) {
-    return "";
-  }
-
-  return truncateText(stripXmlTags(documentXml));
-}
-
-async function extractPdfText(file: File) {
-  const buffer = new Uint8Array(await file.arrayBuffer());
-  const result = await unpdfExtractText(buffer, { mergePages: true });
-  return truncateText(result.text.trim());
-}
-
-function getAudioFormat(file: File) {
-  const mimeType = (file.type || "").toLowerCase();
-  const extension = getFileExtension(file.name);
-
-  if (mimeType.includes("mpeg") || extension === "mp3") {
-    return "mp3";
-  }
-  if (mimeType.includes("wav") || extension === "wav") {
-    return "wav";
-  }
-
-  return null;
-}
-
-function isPdfFile(file: File) {
-  return (
-    file.type === "application/pdf" || getFileExtension(file.name) === "pdf"
-  );
-}
-
-function isImageFile(file: File) {
-  return file.type.startsWith("image/");
-}
-
-function isAudioFile(file: File) {
-  return file.type.startsWith("audio/");
-}
-
-function isVideoFile(file: File) {
-  return file.type.startsWith("video/");
-}
-
-function isPlainTextLikeFile(file: File) {
-  const mimeType = (file.type || "").toLowerCase();
-  const extension = getFileExtension(file.name);
-
-  return (
-    mimeType.startsWith("text/") ||
-    ["txt", "md", "csv", "json", "xml", "html", "htm", "yaml", "yml"].includes(
-      extension,
-    )
-  );
-}
-
 export async function buildIntakeChatUserContent(args: {
   userMessage: string;
   files: File[];
-}) {
+}): Promise<BuiltIntakeChatFileParts> {
   const { userMessage, files } = args;
 
   if (files.length === 0) {
     return {
       content: userMessage,
-      attachmentSummaries: [] satisfies IntakeChatAttachmentSummary[],
+      attachmentSummaries: [],
       requiresPdfPlugin: false,
     };
   }
@@ -161,8 +57,6 @@ export async function buildIntakeChatUserContent(args: {
   const baseUserText =
     userMessage ||
     "I have attached supporting evidence files for review. Please use the attached evidence as factual context for this turn and only ask about genuinely missing details.";
-
-  const requiresPdfPlugin = false;
 
   for (const file of files) {
     if (isImageFile(file)) {
@@ -184,7 +78,7 @@ export async function buildIntakeChatUserContent(args: {
 
     if (isPdfFile(file)) {
       try {
-        const extractedText = await extractPdfText(file);
+        const extractedText = await extractPdfText(await file.arrayBuffer());
         if (extractedText) {
           contentParts.push({
             type: "text",
@@ -201,7 +95,6 @@ export async function buildIntakeChatUserContent(args: {
         }
       } catch (error) {
         logServerEvent("error", "extract.pdf", { error });
-        // Fall through to metadata-only handling below.
       }
 
       contentParts.push({
@@ -283,7 +176,7 @@ export async function buildIntakeChatUserContent(args: {
 
     if (getFileExtension(file.name) === "docx") {
       try {
-        const extractedText = await extractDocxText(file);
+        const extractedText = await extractDocxText(await file.arrayBuffer());
         if (extractedText) {
           contentParts.push({
             type: "text",
@@ -347,9 +240,9 @@ export async function buildIntakeChatUserContent(args: {
         text: `${baseUserText}\n\n[Attached files]\n${attachmentOverview}`,
       },
       ...contentParts,
-    ] satisfies IntakeChatContentPart[],
+    ],
     attachmentSummaries,
-    requiresPdfPlugin,
+    requiresPdfPlugin: false,
   };
 }
 

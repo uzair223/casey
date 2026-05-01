@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/api-utils/auth";
 import { badRequest } from "@/lib/api-utils/response";
 import { env } from "@/lib/env";
 import { logServerEvent } from "@/lib/observability/logger";
+import { selectModel } from "@/lib/llm/model-config";
 import { getOpenRouterClientOptions } from "@/lib/utils";
 
 const client = new OpenAI(getOpenRouterClientOptions());
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
     const { input, conversationHistory, seedData, responseFormat } = body.data;
 
     const encoder = new TextEncoder();
-    const selectedModel = env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
+    const selectedModel = selectModel("template-generation");
 
     await logServerEvent("info", "api.generate.config.request", {
       requestId,

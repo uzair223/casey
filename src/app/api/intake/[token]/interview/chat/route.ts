@@ -13,7 +13,7 @@ import {
 import {
   generateChatSystemPrompt,
   generateIntakeStatePrompt,
-} from "@/lib/statement-utils/prompts";
+} from "@/lib/llm/prompts";
 
 import { randomUUID } from "crypto";
 import { CHAT_METADATA_MARKER, getLastMeta } from "@/lib/statement-utils";
@@ -24,12 +24,13 @@ import { Allow, parse } from "partial-json";
 import { z } from "zod";
 import { logServerEvent } from "@/lib/observability/logger";
 import { zodResponseFormat } from "openai/helpers/zod";
+import { selectModel } from "@/lib/llm/model-config";
 import { getOpenRouterClientOptions } from "@/lib/utils";
 import {
   buildIntakeChatFileParts,
   type IntakeChatContentPart,
-} from "@/lib/intake-chat-file-parts";
-import type { EvidenceDocument } from "@/lib/intake-evidence";
+} from "@/lib/files";
+import type { EvidenceDocument } from "@/lib/evidence";
 
 const client = new OpenAI(getOpenRouterClientOptions());
 
@@ -318,7 +319,7 @@ export async function POST(
       .strict();
 
     let responseStream: AsyncIterable<string>;
-    const selectedModel = env.OPENROUTER_MODEL || "";
+    const selectedModel = selectModel("intake-chat");
 
     await logServerEvent("info", "api.intake.chat.model.call", {
       requestId,

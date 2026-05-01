@@ -1,5 +1,6 @@
 export * from "./response-metadata";
 export * from "./case";
+export * from "./case-analysis";
 export * from "./case-config";
 export * from "./statement";
 export * from "./statement-config";
