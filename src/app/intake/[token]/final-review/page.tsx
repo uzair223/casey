@@ -7,7 +7,11 @@ import confetti from "canvas-confetti";
 import { useAsync } from "@/hooks/useAsync";
 import { apiFetch } from "@/lib/api-utils";
 import { signDoc } from "@/lib/doc-gen";
-import { SignaturePad } from "@/components/intake/signature-pad";
+import {
+  SignaturePad,
+  SignaturePadProvider,
+  SignaturePadSubmitButton,
+} from "@/components/intake/signature-pad";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -46,6 +50,7 @@ export default function FinalReviewPage({
   const [signatureImageDataUrl, setSignatureImageDataUrl] = useState<
     string | null
   >(null);
+  const [baseDocumentBlob, setBaseDocumentBlob] = useState<Blob | null>(null);
   const [documentBlob, setDocumentBlob] = useState<Blob | null>(null);
 
   const finalReview = useAsync<FinalReviewData>(
@@ -95,6 +100,7 @@ export default function FinalReviewPage({
 
     async function loadDocumentBlob() {
       if (!finalReview.data?.signedDocument) {
+        setBaseDocumentBlob(null);
         setDocumentBlob(null);
         return;
       }
@@ -108,15 +114,18 @@ export default function FinalReviewPage({
 
         if (!response.ok) {
           console.error("Failed to load document", response.status);
+          setBaseDocumentBlob(null);
           setDocumentBlob(null);
           return;
         }
 
         const data = await response.blob();
 
+        setBaseDocumentBlob(data);
         setDocumentBlob(data);
       } catch (err) {
         console.error("Error loading document", err);
+        setBaseDocumentBlob(null);
         setDocumentBlob(null);
       }
     }
@@ -180,13 +189,14 @@ export default function FinalReviewPage({
 
       setSignatureImageDataUrl(canvas.toDataURL("image/png"));
 
-      if (documentBlob && finalReview.data.signedDocument) {
+      if (baseDocumentBlob && finalReview.data.signedDocument) {
         const signedBlob = await signDoc({
-          file: documentBlob,
+          file: baseDocumentBlob,
           signatureImage: blob,
           signatureDate: new Date().toLocaleDateString("en-GB"),
         });
         setDocumentBlob(signedBlob);
+        await submitFinalReview.handler();
       }
     } catch (error) {
       toast.errorFromUnknown(
@@ -248,35 +258,46 @@ export default function FinalReviewPage({
               subtitle="Final signature required"
               title="Review and sign your statement"
               description={`${finalReview.data.witnessName}, please review the finalized statement and supporting evidence for ${finalReview.data.caseTitle}.`}
-              actions={[
-                {
-                  label: submitFinalReview.isLoading
-                    ? "Submitting..."
-                    : "Submit Final Signed Statement",
-                  action: () => void submitFinalReview.handler(),
-                  disabled:
-                    !finalReview.data?.canSign ||
-                    finalReview.data.alreadyCompleted ||
-                    !signatureImageDataUrl ||
-                    submitFinalReview.isLoading,
-                },
-                {
-                  label: "Open interview page",
-                  href: `/intake/${token}/interview`,
-                  variant: "outline",
-                },
-              ]}
             />
           )}
         </CardHeader>
         <CardContent className="space-y-5">
+          {!finalReview.data.alreadyCompleted && !submitFinalReview.data ? (
+            <div>
+              <SignaturePadProvider>
+                <SignaturePad />
+                <SignaturePadSubmitButton
+                  className="mr-1"
+                  onCaptureSignature={onCaptureSignature}
+                  disabled={submitFinalReview.isLoading}
+                >
+                  {submitFinalReview.isLoading
+                    ? "Submitting..."
+                    : "Submit Final Signed Statement"}
+                </SignaturePadSubmitButton>
+              </SignaturePadProvider>
+            </div>
+          ) : finalReview.data.canSign ? null : (
+            <Card variant="warning">
+              <CardHeader>
+                <CardTitle className="text-sm">
+                  This statement is not currently ready for witness final
+                  signature.
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          )}
+
           {finalReview.data.signedDocument ? (
             <DocxEditor
               source={documentBlob}
               documentName={finalReview.data.signedDocument.name}
               canEdit={false}
             >
-              <DocxEditorPanel className="h-[50vh] max-h-[50vh] sm:h-[65vh] sm:max-h-[65vh]" />
+              <DocxEditorPanel
+                mode="bare"
+                className="h-[50vh] max-h-[50vh] sm:h-[65vh] sm:max-h-[65vh]"
+              />
             </DocxEditor>
           ) : (
             <div className="rounded-md border p-3 bg-muted/20">
@@ -300,30 +321,6 @@ export default function FinalReviewPage({
               </p>
             )}
           </div>
-
-          {finalReview.data.alreadyCompleted ||
-          submitFinalReview.data ? null : finalReview.data.canSign ? (
-            <div className="space-y-3 rounded-md border p-3 sm:p-4">
-              <p className="text-sm font-medium">Witness signature</p>
-              <SignaturePad
-                witnessName={finalReview.data.witnessName}
-                onSignatureCapture={(canvas) => {
-                  void onCaptureSignature(canvas);
-                }}
-                isDisabled={submitFinalReview.isLoading}
-              />
-              {signatureImageDataUrl ? (
-                <p className="text-xs text-green-700">
-                  Signature captured for {finalReview.data.witnessName}. Ready
-                  to submit.
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-              This statement is not currently ready for witness final signature.
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

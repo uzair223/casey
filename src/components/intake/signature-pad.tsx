@@ -1,19 +1,39 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { createContext, useRef, useEffect, useState, useContext } from "react";
+import { Button } from "../ui/button";
+import { Slot } from "@radix-ui/react-slot";
 
-type SignaturePadProps = {
-  onSignatureCapture: (canvas: HTMLCanvasElement) => void;
-  witnessName: string;
-  isDisabled?: boolean;
-};
+const SignaturePadContext = createContext<{
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  hasSignature: boolean;
+  disabled: boolean;
+  draw: (
+    e:
+      | React.MouseEvent<HTMLCanvasElement>
+      | React.TouchEvent<HTMLCanvasElement>,
+  ) => void;
+  startDrawing: (
+    e:
+      | React.MouseEvent<HTMLCanvasElement>
+      | React.TouchEvent<HTMLCanvasElement>,
+  ) => void;
+  stopDrawing: (
+    e:
+      | React.MouseEvent<HTMLCanvasElement>
+      | React.TouchEvent<HTMLCanvasElement>,
+  ) => void;
+  clearSignature: () => void;
+} | null>(null);
 
-export function SignaturePad({
-  onSignatureCapture,
-  isDisabled = false,
-}: SignaturePadProps) {
+type SignaturePadProviderProps = React.PropsWithChildren<{
+  disabled?: boolean;
+}>;
+
+export function SignaturePadProvider({
+  disabled,
+  children,
+}: SignaturePadProviderProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
@@ -49,7 +69,7 @@ export function SignaturePad({
       | React.TouchEvent<HTMLCanvasElement>,
   ) => {
     const context = contextRef.current;
-    if (isDisabled || !context) return;
+    if (disabled || !context) return;
 
     setIsDrawing(true);
     const canvas = canvasRef.current;
@@ -113,56 +133,97 @@ export function SignaturePad({
     setHasSignature(false);
   };
 
-  const handleCapture = () => {
-    if (canvasRef.current && hasSignature) {
-      onSignatureCapture(canvasRef.current);
-    }
-  };
+  return (
+    <SignaturePadContext.Provider
+      value={{
+        canvasRef,
+        draw,
+        startDrawing,
+        stopDrawing,
+        clearSignature,
+        hasSignature,
+        disabled: !!disabled,
+      }}
+    >
+      {children}
+    </SignaturePadContext.Provider>
+  );
+}
 
-  const isValid = hasSignature;
+export function useSignaturePad() {
+  const context = useContext(SignaturePadContext);
+  if (!context) {
+    throw new Error(
+      "useSignaturePad must be used within a SignaturePadProvider",
+    );
+  }
+  return context;
+}
+
+export function SignaturePad() {
+  const {
+    canvasRef,
+    draw,
+    startDrawing,
+    stopDrawing,
+    clearSignature,
+    disabled: isDisabled,
+    hasSignature,
+  } = useSignaturePad();
 
   return (
-    <div className="space-y-4">
-      <div>
-        <Label className="text-sm font-semibold mb-2 block">
-          Draw Your Signature
-        </Label>
-        <p className="text-xs text-muted-foreground mb-2">
-          Sign using your mouse or finger on the touchscreen
-        </p>
-        <canvas
-          ref={canvasRef}
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
-          onTouchStart={startDrawing}
-          onTouchMove={draw}
-          onTouchEnd={stopDrawing}
-          className="border-2 border-border rounded bg-white w-full cursor-crosshair touch-none"
-          style={{
-            width: "100%",
-            maxWidth: "600px",
-            height: "150px",
-            pointerEvents: isDisabled ? "none" : "auto",
-          }}
-        />
-        <button
-          onClick={clearSignature}
-          disabled={!hasSignature || isDisabled}
-          className="text-xs text-muted-foreground hover:text-foreground mt-1 underline disabled:opacity-50"
-        >
-          Clear signature
-        </button>
-      </div>
-
-      <Button
-        onClick={handleCapture}
-        disabled={!isValid || isDisabled}
-        className="w-full"
+    <div>
+      <canvas
+        ref={canvasRef}
+        onMouseDown={startDrawing}
+        onMouseMove={draw}
+        onMouseUp={stopDrawing}
+        onMouseLeave={stopDrawing}
+        onTouchStart={startDrawing}
+        onTouchMove={draw}
+        onTouchEnd={stopDrawing}
+        className="border-2 border-border rounded bg-white w-full cursor-crosshair touch-none"
+        style={{
+          width: "100%",
+          maxWidth: "600px",
+          height: "150px",
+          pointerEvents: isDisabled ? "none" : "auto",
+        }}
+      />
+      <button
+        onClick={clearSignature}
+        disabled={!hasSignature || isDisabled}
+        className="text-xs text-muted-foreground hover:text-foreground mt-1 underline disabled:opacity-50"
       >
-        {isValid ? "Confirm Signature" : "Draw signature"}
-      </Button>
+        Clear signature
+      </button>
     </div>
+  );
+}
+
+type SignaturePadSubmitButtonProps = Omit<
+  React.ComponentProps<typeof Button>,
+  "onClick"
+> & {
+  onCaptureSignature: (canvas: HTMLCanvasElement) => void;
+};
+
+export function SignaturePadSubmitButton({
+  onCaptureSignature,
+  disabled,
+  children,
+  ...props
+}: SignaturePadSubmitButtonProps) {
+  const { canvasRef, hasSignature, disabled: isDisabled } = useSignaturePad();
+  return (
+    <Button
+      onClick={() =>
+        canvasRef?.current && onCaptureSignature(canvasRef.current)
+      }
+      disabled={disabled || !hasSignature || isDisabled}
+      {...props}
+    >
+      {children ?? "Confirm Signature"}
+    </Button>
   );
 }

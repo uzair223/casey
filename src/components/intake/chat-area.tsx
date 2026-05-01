@@ -14,7 +14,7 @@ import { AttachmentPreviewCard } from "@/components/ui/attachment-preview-card";
 import { getMessageResponseMeta } from "@/lib/statement-utils";
 import { useWitnessStatement } from "@/components/intake/intake-context";
 import { CheckIcon, PaperclipIcon, SkipForwardIcon } from "lucide-react";
-import type { EvidenceDocument } from "@/lib/intake-evidence";
+import type { EvidenceDocument } from "@/lib/evidence";
 
 function getAttachedFiles(message: { meta?: Record<string, unknown> | null }) {
   if (!message.meta || typeof message.meta !== "object") {
@@ -38,7 +38,6 @@ export function ChatAreaContent() {
     setTab,
     isDemo,
     data,
-    statementFormalization,
     unlockDemoTabs,
   } = useWitnessStatement();
 
@@ -133,9 +132,8 @@ export function ChatAreaContent() {
                       onClick={() => {
                         if (isDemo) {
                           unlockDemoTabs();
-                          void statementFormalization.handler();
                         }
-                        setTab("statement");
+                        setTab(isDemo ? "evidence" : "statement");
                       }}
                     >
                       <CheckIcon />

@@ -135,7 +135,7 @@ function StatementContent() {
         defaultValue={isDemo ? "chat" : isReadyToPrepare ? "statement" : "chat"}
       >
         <ScrollAreaPrimitive.ScrollArea asChild>
-          <Card size="md" className="flex min-h-0 flex-1 flex-col">
+          <Card className="flex min-h-0 flex-1 flex-col">
             <CardHeader className="py-0">
               <TabsList className="grid w-full grid-cols-3 gap-0 overflow-visible">
                 {tabs.map((tab) => (

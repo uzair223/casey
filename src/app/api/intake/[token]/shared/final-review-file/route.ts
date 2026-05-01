@@ -3,14 +3,14 @@ import { NextResponse } from "next/server";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { SERVERONLY_getFullStatementFromToken } from "@/lib/supabase/queries";
 import { getServiceClient } from "@/lib/supabase/server";
-import type { UploadedDocument } from "@/types";
+import type { StatementSupportingDocument, UploadedDocument } from "@/types";
 
 function sanitizeFilename(value: string) {
   return value.replace(/"/g, "");
 }
 
 function getSupportingDocument(
-  documents: UploadedDocument[] | unknown,
+  documents: StatementSupportingDocument[] | unknown,
   indexRaw: string | null,
 ): UploadedDocument | null {
   const index = Number.parseInt(indexRaw ?? "", 10);
@@ -22,7 +22,7 @@ function getSupportingDocument(
     return null;
   }
 
-  return (documents as UploadedDocument[])[index] ?? null;
+  return (documents as StatementSupportingDocument[])[index]?.document ?? null;
 }
 
 export async function GET(

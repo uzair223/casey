@@ -27,7 +27,7 @@ type DocxTemplateRenderData = {
   signatureImage: string;
   signatureDate: string;
   sections: Record<string, string>;
-};
+} & Record<string, string | Record<string, string>>;
 
 type DocxTemplateGenerationPayload = {
   caseMetadata?: Record<string, string | number | null | undefined>;
@@ -204,10 +204,10 @@ export async function generateStarterDoc(params: {
   // Plain body paragraph: consistent rhythm, no ad-hoc before/after pairs
   const bodyPara = (
     text: string,
-    opts?: { bold?: boolean; italics?: boolean; size?: number },
+    opts?: { bold?: boolean; italics?: boolean; size?: number; after?: number },
   ) =>
     new Paragraph({
-      spacing: { after: SP.sm },
+      spacing: { after: opts?.after ?? SP.sm },
       children: [
         new TextRun({
           text,
@@ -295,10 +295,10 @@ export async function generateStarterDoc(params: {
           ...(remainingWitnessMeta.length > 0
             ? [
                 sectionHeading("1. Witness Details"),
-                bodyPara(
-                  remainingWitnessMeta
-                    .map((f) => `${f.label}: {witnessMetadata.${f.id}}`)
-                    .join("\n"),
+                ...remainingWitnessMeta.map((f) =>
+                  bodyPara(`${f.label}: {witnessMetadata.${f.id}}`, {
+                    after: 0,
+                  }),
                 ),
               ]
             : []),
@@ -404,6 +404,7 @@ function buildTemplateData(
   }
 
   return {
+    ...sectionMap,
     caseMetadata: caseMetadataMap,
     witnessName: data.witnessName,
     witnessEmail: data.witnessEmail ?? "",
@@ -534,7 +535,9 @@ function getAllowedDocxTemplateFields(config: StatementConfig): Set<string> {
 
   for (const section of config.sections ?? []) {
     if (section.id?.trim()) {
-      allowed.add(`sections.${section.id.trim()}`);
+      const sectionId = section.id.trim();
+      allowed.add(sectionId);
+      allowed.add(`sections.${sectionId}`);
     }
   }
 

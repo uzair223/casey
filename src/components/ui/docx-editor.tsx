@@ -96,6 +96,7 @@ type DocxEditorPanelProps = React.ComponentProps<typeof Card> & {
   mode?: PanelMode;
   showFullscreenToggle?: boolean;
   showError?: boolean;
+  initialZoom?: number;
 };
 
 type DocxEditorContextValue = SharedDocxEditorProps & {
@@ -309,8 +310,9 @@ export const DocxEditorPanel = forwardRef<DocxEditorRef, DocxEditorPanelProps>(
       mode = "minimal",
       showFullscreenToggle,
       showError = true,
+      initialZoom,
       ...props
-    }: DocxEditorPanelProps,
+    },
     ref,
   ) {
     const {
@@ -510,6 +512,7 @@ export const DocxEditorPanel = forwardRef<DocxEditorRef, DocxEditorPanelProps>(
               onError={(editorError) => {
                 setError(editorError.message);
               }}
+              initialZoom={initialZoom}
             />
           ) : (
             <p className="text-sm text-muted-foreground">

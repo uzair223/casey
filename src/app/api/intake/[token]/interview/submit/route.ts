@@ -11,10 +11,8 @@ import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { sendStatementSubmittedNotificationEmail } from "@/lib/email";
 import { StatementSubmission, UploadedDocument } from "@/types";
 import { getServiceClient } from "@/lib/supabase/server";
-import {
-  createEvidenceExhibits,
-  getEvidenceDocuments,
-} from "@/lib/intake-evidence";
+import { getEvidenceDocuments } from "@/lib/evidence";
+import { generateMissingStatementDocumentDescriptors } from "@/lib/ai-workers/document-descriptors";
 
 const SIGNED_DOCUMENT_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -66,7 +64,13 @@ function getValidatedSupportingDocuments(
 }
 
 async function uploadSignedDocument(params: {
-  statement: { tenant_id: string; case_id: string; id: string; title: string; witness_name: string };
+  statement: {
+    tenant_id: string;
+    case_id: string;
+    id: string;
+    title: string;
+    witness_name: string;
+  };
   file: File;
 }) {
   if (params.file.size > MAX_SIGNED_DOCUMENT_SIZE_BYTES) {
@@ -102,38 +106,26 @@ async function uploadSignedDocument(params: {
   } satisfies UploadedDocument;
 }
 
-async function describeEvidenceExhibits(token: string) {
+async function describeEvidenceDocuments(token: string) {
   const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
   if (!statement) {
     throw new Error("Link not available");
   }
 
-  const existing = getEvidenceDocuments(statement.supporting_documents);
+  const existingRows = statement.supporting_documents;
+  const existing = getEvidenceDocuments(existingRows.map((row) => row.document));
 
   if (existing.length === 0) {
     return [];
   }
 
-  const exhibits = createEvidenceExhibits(
-    existing,
-    statement.witness_name || "Witness",
-  );
-  const nextDocuments = [];
-
-  for (const exhibit of exhibits) {
-    for (const document of exhibit.documents) {
-      nextDocuments.push({
-        ...document,
-        description: `${exhibit.exhibit}. ${exhibit.description}`,
-      });
-    }
-  }
-
-  await SERVERONLY_updateStatementByToken(token, {
-    supporting_documents: nextDocuments,
+  await generateMissingStatementDocumentDescriptors({
+    tenantId: statement.tenant_id,
+    documents: existingRows,
+    source: "witness",
   });
 
-  return nextDocuments;
+  return existing;
 }
 
 export async function POST(
@@ -198,7 +190,9 @@ export async function POST(
         file: signedDocumentFile,
       });
     } else {
-      const body = (await request.json()) as StatementSubmission;
+      const body = (await request.json()) as StatementSubmission & {
+        supportingDocuments?: UploadedDocument[];
+      };
       sections = body.sections;
       submittedSupportingDocuments = body.supportingDocuments;
       signedDocument = body.signedDocument;
@@ -219,23 +213,19 @@ export async function POST(
     }
 
     const existingEvidenceDocuments = getEvidenceDocuments(
-      statement.supporting_documents,
+      statement.supporting_documents.map((row) => row.document),
     );
-    const validatedSupportingDocuments = getValidatedSupportingDocuments(
+    getValidatedSupportingDocuments(
       submittedSupportingDocuments,
       existingEvidenceDocuments,
       statement,
     );
 
-    const supportingDocuments =
-      validatedSupportingDocuments && validatedSupportingDocuments.length > 0
-        ? validatedSupportingDocuments
-        : await describeEvidenceExhibits(token);
+    await describeEvidenceDocuments(token);
 
     const statementId = await SERVERONLY_submitStatement(token, {
       signedDocument,
       sections,
-      supportingDocuments,
     });
 
     try {

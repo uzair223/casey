@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { FileInput, FileInputTrigger } from "../ui/file-input";
 import { PageTitle } from "../page-title";
 import { Button } from "../ui/button";
-import { normalizeEvidenceGroup } from "@/lib/intake-evidence";
+import { normalizeEvidenceGroup } from "@/lib/evidence";
 import { AttachmentPreviewCard } from "../ui/attachment-preview-card";
 
 export function SupportingDocumentsView() {
@@ -81,8 +81,8 @@ export function SupportingDocumentsView() {
 
       <div className="grid gap-2.5 md:grid-cols-2">
         {knownGroups.map((group) => (
-          <Card key={group.name} size="md">
-            <CardHeader className="pb-2">
+          <Card key={group.name}>
+            <CardHeader>
               <CardTitle className="flex flex-col items-start gap-3 sm:ml-1 sm:flex-row sm:items-center sm:justify-between">
                 <span>{group.name}</span>
                 <FileInput

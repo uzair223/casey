@@ -89,7 +89,9 @@ export async function GET(
       status: data.statement.status,
       sections: data.statement.sections,
       signedDocument: data.statement.signed_document,
-      supportingDocuments: data.statement.supporting_documents,
+      supportingDocuments: data.statement.supporting_documents.map(
+        (row) => row.document,
+      ),
       canSign:
         data.statement.status === "finalized" ||
         data.statement.status === "demo_published",

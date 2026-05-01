@@ -2,14 +2,17 @@ import { NextResponse } from "next/server";
 import { enforcePersistentRateLimit, handleApiError } from "@/lib/api-utils";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
-import { SERVERONLY_updateStatementByToken } from "@/lib/supabase/mutations";
+import {
+  SERVERONLY_createWitnessSupportingDocuments,
+  SERVERONLY_deleteWitnessSupportingDocument,
+} from "@/lib/supabase/mutations";
 import { getServiceClient } from "@/lib/supabase/server";
 import type { UploadedDocument } from "@/types";
 import {
   getEvidenceDocuments,
   normalizeEvidenceGroup,
   sanitizeEvidenceGroupForPath,
-} from "@/lib/intake-evidence";
+} from "@/lib/evidence";
 
 const MAX_EVIDENCE_FILES = 10;
 const MAX_EVIDENCE_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -136,12 +139,13 @@ export async function POST(
       });
     }
 
-    const existing = Array.isArray(statement.supporting_documents)
-      ? (statement.supporting_documents as UploadedDocument[])
-      : [];
-
-    await SERVERONLY_updateStatementByToken(token, {
-      supporting_documents: [...existing, ...uploadedDocuments],
+    await SERVERONLY_createWitnessSupportingDocuments({
+      tenantId: statement.tenant_id,
+      caseId: statement.case_id,
+      statementId: statement.id,
+      witnessName: statement.witness_name,
+      witnessEmail: statement.witness_email,
+      documents: uploadedDocuments,
     });
 
     return NextResponse.json({ documents: uploadedDocuments });
@@ -189,7 +193,9 @@ export async function DELETE(
       return NextResponse.json({ error: "path is required" }, { status: 400 });
     }
 
-    const existing = getEvidenceDocuments(statement.supporting_documents);
+    const existing = getEvidenceDocuments(
+      statement.supporting_documents.map((row) => row.document),
+    );
     const targetDocument = existing.find(
       (document) => document.path === targetPath,
     );
@@ -206,16 +212,18 @@ export async function DELETE(
       );
     }
 
-    const nextDocuments = existing.filter(
-      (document) => document.path !== targetPath,
-    );
-
-    const supabase = getServiceClient("api.intake.shared.evidence.delete");
-    await supabase.storage.from(statement.tenant_id).remove([targetPath]);
-
-    await SERVERONLY_updateStatementByToken(token, {
-      supporting_documents: nextDocuments,
+    const deleted = await SERVERONLY_deleteWitnessSupportingDocument({
+      tenantId: statement.tenant_id,
+      statementId: statement.id,
+      documentPath: targetPath,
     });
+
+    if (!deleted) {
+      return NextResponse.json(
+        { error: "Requested evidence document not found" },
+        { status: 404 },
+      );
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
