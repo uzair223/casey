@@ -1,11 +1,14 @@
 "use client";
 
+import React from "react";
 import {
   CASEY_TOASTER_ID,
   PromiseToast,
+  PromptToast,
   Toast,
   type ToastVariant,
 } from "@/components/ui/sonner";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ExternalToast as SonnerExternalToast,
   toast as sonnerToast,
@@ -32,6 +35,22 @@ type ConfirmToastOptions = {
   cancelLabel?: string;
 };
 
+type PromptToastOptions = {
+  variant?: ToastVariant;
+  description?: React.ReactNode;
+  required?: boolean;
+  placeholder?: string;
+  defaultValue?: string;
+  action?: {
+    label: string;
+    callback?: (message: string | null) => void;
+  };
+  cancel?: {
+    label: string;
+    callback?: () => void;
+  };
+};
+
 type ExternalToast = Omit<
   SonnerExternalToast,
   | "cancelButtonStyle"
@@ -44,7 +63,7 @@ type ExternalToast = Omit<
   | "richColors"
   | "invert"
   | "closeButton"
->;
+> & { children?: React.ReactNode | (() => React.ReactNode) };
 
 function toastFor(variant: ToastVariant) {
   return function (
@@ -55,6 +74,7 @@ function toastFor(variant: ToastVariant) {
       description,
       icon,
       dismissible,
+      children,
       ...data
     }: ExternalToast = {},
   ) {
@@ -70,7 +90,9 @@ function toastFor(variant: ToastVariant) {
             dismissible={dismissible}
             action={action}
             cancel={cancel}
-          />
+          >
+            {typeof children === "function" ? children() : children}
+          </Toast>
         );
       },
       { ...data, toasterId: CASEY_TOASTER_ID },
@@ -127,6 +149,36 @@ export const toast = {
         onDismiss: () => finish(false),
         onAutoClose: () => finish(false),
       });
+    });
+  },
+  prompt: function (message: React.ReactNode, opts: PromptToastOptions = {}) {
+    return new Promise<
+      | { status: "cancelled"; message: null }
+      | { status: "confirmed"; message: string }
+    >((resolve) => {
+      let settled = false;
+      const finish = (status: "cancelled" | "confirmed", message?: string) => {
+        if (settled) return;
+        settled = true;
+        sonnerToast.dismiss(id);
+        if (status === "cancelled") {
+          resolve({ status, message: null });
+        } else {
+          resolve({ status, message: message ?? "" });
+        }
+      };
+
+      const id = sonnerToast.custom(
+        (id) => (
+          <PromptToast id={id} message={message} finish={finish} {...opts} />
+        ),
+        {
+          onDismiss: () => finish("cancelled"),
+          onAutoClose: () => finish("cancelled"),
+          duration: Infinity,
+          toasterId: CASEY_TOASTER_ID,
+        },
+      );
     });
   },
   promise: function <T>(

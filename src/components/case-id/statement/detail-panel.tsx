@@ -438,9 +438,8 @@ export function StatementDetailPanel({
           "Return statement to review?",
           {
             variant: "warning",
-            description:
-              "The signed submission will be deleted. You can optionally notify the witness.",
-            confirmLabel: "Return to review",
+            description: "The signed submission will be deleted",
+            confirmLabel: "Yes, return to review",
             cancelLabel: "Cancel",
           },
         );
@@ -448,17 +447,12 @@ export function StatementDetailPanel({
           return;
         }
 
-        const shouldEmail = await toast.confirm("Notify the witness?", {
-          description:
-            "Send the intake link with an optional message explaining what changed.",
-          confirmLabel: "Notify witness",
-          cancelLabel: "Do not notify",
+        const notify = await toast.prompt("Notify the witness?", {
+          action: { label: "Notify" },
+          cancel: { label: "Don't notify" },
+          placeholder: "Optional message to the witness...",
+          required: true,
         });
-        const message = shouldEmail
-          ? (window
-              .prompt("Optional message to include in the email")
-              ?.trim() ?? "")
-          : "";
 
         await apiFetch(
           `/api/tenant/statement/${data.statement.id}/return-to-review`,
@@ -466,8 +460,8 @@ export function StatementDetailPanel({
             method: "POST",
             body: JSON.stringify({
               status: formData.status,
-              notifyWitness: shouldEmail,
-              message,
+              notifyWitness: notify.message?.length,
+              message: notify.message,
             }),
           },
         );
@@ -513,11 +507,18 @@ export function StatementDetailPanel({
     if (!data) return;
 
     const message =
-      window.prompt("Optional message from the firm to include")?.trim() ?? "";
+      (
+        await toast.prompt("Send intake link", {
+          action: { label: "Send link" },
+          cancel: { label: "Send without message" },
+          placeholder: "Optional message to the witness...",
+          required: true,
+        })
+      ).message ?? "";
 
     await apiFetch(`/api/tenant/statement/${data.statement.id}/send-link`, {
       method: "POST",
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message: message.trim() }),
     });
     toast.success("Statement link sent to witness email");
   };
@@ -551,7 +552,18 @@ export function StatementDetailPanel({
     if (!data) return;
 
     const message =
-      window.prompt("Optional message from the firm to include")?.trim() ?? "";
+      (
+        await toast.prompt("Finalize and request signature", {
+          action: {
+            label: "Send request",
+          },
+          cancel: {
+            label: "Send without message",
+          },
+          placeholder: "Optional message to the witness...",
+          required: true,
+        })
+      ).message ?? "";
 
     await apiFetch(
       `/api/tenant/statement/${data.statement.id}/send-final-review`,

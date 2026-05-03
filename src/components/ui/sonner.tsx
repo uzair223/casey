@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "./button";
+import { Textarea } from "./textarea";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
@@ -28,6 +29,7 @@ export const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       {...props}
+      swipeDirections={["left", "right"]}
     />
   );
 };
@@ -39,6 +41,7 @@ export type ToastVariant =
   | "warning"
   | "info"
   | "loading";
+
 type ToastProps = {
   variant?: ToastVariant;
   id: string | number;
@@ -48,6 +51,7 @@ type ToastProps = {
   dismissible?: boolean;
   action?: Action | React.ReactNode;
   cancel?: Action | React.ReactNode;
+  children?: React.ReactNode;
 };
 
 function isAction(obj: React.ReactNode | Action): obj is Action {
@@ -77,15 +81,16 @@ export const Toast = ({
   dismissible = true,
   action,
   cancel,
+  children,
 }: ToastProps) => {
   const iconProps = {
     strokeWidth: 3,
-    width: 18,
-    height: 18,
+    width: 20,
+    height: 20,
     className: "shrink-0",
   };
   const VARIANTS_ICON: Record<ToastVariant, React.ReactNode> = {
-    default: null,
+    default: <Info {...iconProps} />,
     success: <CircleCheck {...iconProps} />,
     error: <CircleAlert {...iconProps} />,
     warning: <TriangleAlert {...iconProps} />,
@@ -115,12 +120,12 @@ export const Toast = ({
 
       <div className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-3 gap-y-2 p-(--card-padding)">
         {/* Icon aligned with content only */}
-        <div className="row-start-1 row-end-2 self-center pt-0.5">
+        <div className="self-center">
           {icon ?? VARIANTS_ICON[variant ?? "default"]}
         </div>
 
         {/* Content */}
-        <div className="row-start-1 row-end-2 min-w-0">
+        <div className="min-w-0">
           <CardTitle className="text-sm">
             {typeof message === "function" ? message() : message}
           </CardTitle>
@@ -132,9 +137,10 @@ export const Toast = ({
           )}
         </div>
 
-        {/* Actions (separate row, does NOT affect icon alignment) */}
+        {!!children && <div className="col-start-2">{children}</div>}
+
         {hasActions && (
-          <div className="col-start-2 row-start-2 flex gap-1">
+          <div className="col-start-2 flex gap-1">
             {isAction(action) ? (
               <Button
                 variant="outline"
@@ -217,4 +223,88 @@ export function PromiseToast<T>({
           : error;
 
   return <Toast {...props} message={content} dismissible={false} />;
+}
+
+type PromptToastProps = Omit<ToastProps, "action" | "cancel"> & {
+  required?: boolean;
+  finish: (status: "cancelled" | "confirmed", message?: string) => void;
+  placeholder?: string;
+  defaultValue?: string;
+  action?: {
+    label: string;
+    callback?: (message: string | null) => void;
+  };
+  cancel?: {
+    label: string;
+    callback?: () => void;
+  };
+};
+
+export function PromptToast({
+  finish,
+  required,
+  placeholder,
+  defaultValue,
+  action,
+  cancel,
+  ...props
+}: PromptToastProps) {
+  const [value, setValue] = React.useState(defaultValue || "");
+  const [requiredError, setRequiredError] = React.useState(false);
+
+  const handleAction = (e?: React.SyntheticEvent) => {
+    e?.preventDefault();
+    const v = value.trim();
+    if (!v || requiredError) {
+      setRequiredError(true);
+      return;
+    }
+    finish("confirmed", v);
+    action?.callback?.(v);
+  };
+
+  const handleCancel = (e?: React.SyntheticEvent) => {
+    e?.preventDefault();
+    if (!cancel) return;
+    finish("cancelled");
+    cancel?.callback?.();
+  };
+
+  return (
+    <Toast
+      action={{
+        label: action?.label ?? "Confirm",
+        onClick: handleAction,
+      }}
+      cancel={
+        cancel
+          ? {
+              label: cancel.label,
+              onClick: handleCancel,
+            }
+          : undefined
+      }
+      {...props}
+    >
+      <Textarea
+        autoFocus
+        placeholder={placeholder}
+        defaultValue={defaultValue}
+        className={cn("w-full", requiredError && "border-destructive")}
+        onChange={(e) => {
+          setValue(e.target.value);
+          if (required) {
+            setRequiredError(!e.target.value.trim());
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            handleAction(e);
+          } else if (e.key === "Escape") {
+            handleCancel(e);
+          }
+        }}
+      />
+    </Toast>
+  );
 }
