@@ -14,7 +14,6 @@ import {
   StatementDataResponse,
   StatementSupportingDocument,
 } from "@/types";
-import { generateDoc } from "@/lib/doc-gen";
 import {
   getEvidenceDocuments,
   groupEvidenceDocuments,
@@ -806,7 +805,7 @@ export function IntakeProvider({
   const statementSubmission = useAsync(
     async () => {
       if (isDemo) return true;
-      if (!data || !templateDocument) return false;
+      if (!data) return false;
 
       if (
         persistedEvidenceDocuments.length === 0 &&
@@ -833,34 +832,9 @@ export function IntakeProvider({
         return false;
       }
 
-      const blob = await generateDoc(
-        {
-          caseMetadata:
-            (data.case.case_metadata as Record<
-              string,
-              string | number | null | undefined
-            >) ?? {},
-          witnessName: data.statement.witness_name,
-          witnessEmail: data.statement.witness_email,
-          witnessMetadata:
-            (data.statement.witness_metadata as Record<
-              string,
-              string | number | null | undefined
-            >) ?? {},
-          sections: statementSections,
-          config: data.statement.statement_config,
-        },
-        templateDocument,
-      );
-
-      const name = `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;
-      const formData = new FormData();
-      formData.append("sections", JSON.stringify(statementSections));
-      formData.append("signedDocument", blob, name);
-
       await apiFetch(`/api/intake/${token}/interview/submit`, {
         method: "POST",
-        body: formData,
+        body: JSON.stringify({ sections: statementSections }),
         requireAuth: requiresDemoAuth,
       });
       return true;

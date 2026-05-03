@@ -6,21 +6,14 @@ import {
   SERVERONLY_updateStatementByToken,
 } from "@/lib/supabase/mutations";
 import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
-import { handleApiError, userError, validationError } from "@/lib/api-utils";
+import { handleApiError, validationError } from "@/lib/api-utils";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { sendStatementSubmittedNotificationEmail } from "@/lib/email";
 import { StatementSubmission, UploadedDocument } from "@/types";
 import { getServiceClient } from "@/lib/supabase/server";
 import { getEvidenceDocuments } from "@/lib/evidence";
 import { generateMissingStatementDocumentDescriptors } from "@/lib/ai-workers/document-descriptors";
-
-const SIGNED_DOCUMENT_CONTENT_TYPE =
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-const MAX_SIGNED_DOCUMENT_SIZE_BYTES = 25 * 1024 * 1024;
-
-function sanitizeFilename(name: string) {
-  return name.replace(/[^\w.\- ]+/g, "_").trim() || "file";
-}
+import { applyProgrammaticEvidenceSection } from "@/lib/statement-utils";
 
 function getSubmittedPathPrefix(statement: { case_id: string; id: string }) {
   return `cases/${statement.case_id}/${statement.id}/submitted/`;
@@ -61,49 +54,6 @@ function getValidatedSupportingDocuments(
   }
 
   return validated;
-}
-
-async function uploadSignedDocument(params: {
-  statement: {
-    tenant_id: string;
-    case_id: string;
-    id: string;
-    title: string;
-    witness_name: string;
-  };
-  file: File;
-}) {
-  if (params.file.size > MAX_SIGNED_DOCUMENT_SIZE_BYTES) {
-    throw validationError("Signed statement exceeds the 25MB file size limit.");
-  }
-
-  const supabase = getServiceClient("intake_submit_signed_document_upload");
-  const storage = supabase.storage.from(params.statement.tenant_id);
-  const safeName = sanitizeFilename(
-    params.file.name ||
-      `${params.statement.title || "case"} ${params.statement.witness_name} Witness Statement.docx`,
-  );
-  const path = `${getSubmittedPathPrefix(params.statement)}${new Date().toISOString()} ${safeName}`;
-
-  const { data, error } = await storage.upload(path, params.file, {
-    contentType: params.file.type || SIGNED_DOCUMENT_CONTENT_TYPE,
-    upsert: false,
-  });
-
-  if (error || !data) {
-    throw userError("Failed to upload signed statement.", 400, {
-      cause: error,
-    });
-  }
-
-  return {
-    bucketId: params.statement.tenant_id,
-    name: params.file.name || safeName,
-    description: `${params.statement.witness_name}'s signed statement on ${new Date().toLocaleDateString()}`,
-    path: data.path,
-    uploadedAt: new Date().toISOString(),
-    type: params.file.type || SIGNED_DOCUMENT_CONTENT_TYPE,
-  } satisfies UploadedDocument;
 }
 
 async function describeEvidenceDocuments(token: string) {
@@ -160,13 +110,11 @@ export async function POST(
 
     const contentType = request.headers.get("content-type") || "";
     let sections: StatementSubmission["sections"];
-    let signedDocument: UploadedDocument | null = null;
     let submittedSupportingDocuments: UploadedDocument[] | undefined;
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       const sectionsRaw = formData.get("sections");
-      const signedDocumentFile = formData.get("signedDocument");
 
       if (typeof sectionsRaw === "string" && sectionsRaw.trim()) {
         try {
@@ -177,39 +125,12 @@ export async function POST(
           });
         }
       }
-
-      if (!(signedDocumentFile instanceof File)) {
-        return NextResponse.json(
-          { error: "signedDocument file is required" },
-          { status: 400 },
-        );
-      }
-
-      signedDocument = await uploadSignedDocument({
-        statement,
-        file: signedDocumentFile,
-      });
     } else {
       const body = (await request.json()) as StatementSubmission & {
         supportingDocuments?: UploadedDocument[];
       };
       sections = body.sections;
       submittedSupportingDocuments = body.supportingDocuments;
-      signedDocument = body.signedDocument;
-
-      if (!documentBelongsToStatement(signedDocument, statement)) {
-        return NextResponse.json(
-          { error: "Invalid signed document reference" },
-          { status: 400 },
-        );
-      }
-    }
-
-    if (!signedDocument) {
-      return NextResponse.json(
-        { error: "signedDocument is required" },
-        { status: 400 },
-      );
     }
 
     const existingEvidenceDocuments = getEvidenceDocuments(
@@ -222,9 +143,24 @@ export async function POST(
     );
 
     await describeEvidenceDocuments(token);
+    const statementWithDescriptors =
+      await SERVERONLY_getStatementWithConfigFromToken(token);
+    if (!statementWithDescriptors) {
+      return NextResponse.json(
+        { error: "Link not available" },
+        { status: 404 },
+      );
+    }
+
+    if (sections) {
+      sections = applyProgrammaticEvidenceSection(sections, {
+        config: statementWithDescriptors.statement_config,
+        rows: statementWithDescriptors.supporting_documents,
+        witnessName: statementWithDescriptors.witness_name || "Witness",
+      }) as StatementSubmission["sections"];
+    }
 
     const statementId = await SERVERONLY_submitStatement(token, {
-      signedDocument,
       sections,
     });
 

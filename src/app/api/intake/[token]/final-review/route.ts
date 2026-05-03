@@ -8,7 +8,7 @@ import {
 } from "@/lib/supabase/mutations";
 import type { UploadedDocument } from "@/types";
 import { getServiceClient } from "@/lib/supabase/server";
-import { signDoc } from "@/lib/doc-gen";
+import { generateDoc, signDoc } from "@/lib/doc-gen";
 
 async function downloadStorageDocument(params: {
   supabase: ReturnType<typeof getServiceClient>;
@@ -56,6 +56,48 @@ async function uploadStorageDocument(params: {
   } as UploadedDocument;
 }
 
+function getStatementDocumentName(data: {
+  case: { title: string };
+  statement: { witness_name: string };
+}) {
+  return `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;
+}
+
+async function renderUnsignedStatementDocument(params: {
+  data: NonNullable<Awaited<ReturnType<typeof SERVERONLY_getFullStatementFromToken>>>;
+  supabase: ReturnType<typeof getServiceClient>;
+}) {
+  const templateDocument = params.data.statement.template_document_snapshot
+    ? await downloadStorageDocument({
+        supabase: params.supabase,
+        bucketId:
+          params.data.statement.template_document_snapshot.bucketId ??
+          params.data.tenant_id,
+        path: params.data.statement.template_document_snapshot.path,
+      })
+    : null;
+
+  return generateDoc(
+    {
+      caseMetadata:
+        (params.data.case.case_metadata as Record<
+          string,
+          string | number | null | undefined
+        >) ?? {},
+      witnessName: params.data.statement.witness_name,
+      witnessEmail: params.data.statement.witness_email,
+      witnessMetadata:
+        (params.data.statement.witness_metadata as Record<
+          string,
+          string | number | null | undefined
+        >) ?? {},
+      sections: params.data.statement.sections,
+      config: params.data.statement.statement_config,
+    },
+    templateDocument,
+  );
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -89,6 +131,8 @@ export async function GET(
       status: data.statement.status,
       sections: data.statement.sections,
       signedDocument: data.statement.signed_document,
+      documentName:
+        data.statement.signed_document?.name ?? getStatementDocumentName(data),
       supportingDocuments: data.statement.supporting_documents.map(
         (row) => row.document,
       ),
@@ -167,39 +211,36 @@ export async function POST(
     );
 
     const existingSignedDocument = data.statement.signed_document;
-    let signedDocument = existingSignedDocument;
-
-    if (existingSignedDocument?.path) {
-      const templateDocument = await downloadStorageDocument({
+    const baseDocument = existingSignedDocument?.path
+      ? await downloadStorageDocument({
         supabase,
         bucketId: existingSignedDocument.bucketId ?? data.tenant_id,
         path: existingSignedDocument.path,
-      });
+      })
+      : await renderUnsignedStatementDocument({ data, supabase });
 
-      const signedBlob = await signDoc({
-        file: templateDocument,
-        signatureImage,
-        signatureDate: new Date().toLocaleDateString("en-GB"),
-      });
+    const signedBlob = await signDoc({
+      file: baseDocument,
+      signatureImage,
+      signatureDate: new Date().toLocaleDateString("en-GB"),
+    });
 
-      const finalDocName =
-        existingSignedDocument.name ||
-        `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;
-      const finalDocPath =
-        existingSignedDocument.path ||
-        `cases/${data.case.id}/${data.statement.id}/submitted/${new Date().toISOString()} ${finalDocName}`;
+    const finalDocName =
+      existingSignedDocument?.name ?? getStatementDocumentName(data);
+    const finalDocPath =
+      existingSignedDocument?.path ??
+      `cases/${data.case.id}/${data.statement.id}/submitted/${new Date().toISOString()} ${finalDocName}`;
 
-      signedDocument = await uploadStorageDocument({
-        supabase,
-        bucketId: existingSignedDocument.bucketId ?? data.tenant_id,
-        path: finalDocPath,
-        file: signedBlob,
-        name: finalDocName,
-        description: `Final signed witness statement by ${signatureName}`,
-        contentType:
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      });
-    }
+    const signedDocument = await uploadStorageDocument({
+      supabase,
+      bucketId: existingSignedDocument?.bucketId ?? data.tenant_id,
+      path: finalDocPath,
+      file: signedBlob,
+      name: finalDocName,
+      description: `Final signed witness statement by ${signatureName}`,
+      contentType:
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
 
     await SERVERONLY_updateStatementByToken(token, {
       signed_document: signedDocument,

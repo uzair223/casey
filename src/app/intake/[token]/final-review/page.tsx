@@ -36,6 +36,7 @@ type FinalReviewData = {
   status: string;
   sections: Record<string, string>;
   signedDocument: UploadedDocument | null;
+  documentName: string;
   supportingDocuments: UploadedDocument[];
   canSign: boolean;
   alreadyCompleted: boolean;
@@ -65,13 +66,14 @@ export default function FinalReviewPage({
       initialLoading: true,
     },
   );
+  const finalReviewData = finalReview.data;
 
   const submitFinalReview = useAsync(
     async () => {
-      if (!finalReview.data || !signatureImageDataUrl) {
+      if (!finalReviewData || !signatureImageDataUrl) {
         return false;
       }
-      if (finalReview.data.status === "demo_published") {
+      if (finalReviewData.status === "demo_published") {
         return true;
       }
 
@@ -80,13 +82,13 @@ export default function FinalReviewPage({
         requireAuth: false,
         body: JSON.stringify({
           signatureImageDataUrl,
-          signatureName: finalReview.data.witnessName,
+          signatureName: finalReviewData.witnessName,
         }),
       });
       await finalReview.handler();
       return true;
     },
-    [token, signatureImageDataUrl, finalReview.data],
+    [token, signatureImageDataUrl, finalReviewData],
     {
       withUseEffect: false,
       onlyFirstLoad: false,
@@ -94,12 +96,13 @@ export default function FinalReviewPage({
     },
   );
 
-  // Load document blob whenever signed document changes
+  // Load the review document on demand. Before completion this is generated
+  // server-side from the latest statement snapshot rather than persisted.
   useEffect(() => {
     let cancelled = false;
 
     async function loadDocumentBlob() {
-      if (!finalReview.data?.signedDocument) {
+      if (!finalReviewData) {
         setBaseDocumentBlob(null);
         setDocumentBlob(null);
         return;
@@ -135,7 +138,10 @@ export default function FinalReviewPage({
     return () => {
       cancelled = true;
     };
-  }, [token, finalReview.data?.signedDocument, finalReview.data?.tenantId]);
+  }, [
+    token,
+    finalReviewData,
+  ]);
 
   // Confetti effect when submission is complete
   useEffect(() => {
@@ -189,7 +195,7 @@ export default function FinalReviewPage({
 
       setSignatureImageDataUrl(canvas.toDataURL("image/png"));
 
-      if (baseDocumentBlob && finalReview.data.signedDocument) {
+      if (baseDocumentBlob) {
         const signedBlob = await signDoc({
           file: baseDocumentBlob,
           signatureImage: blob,
@@ -288,10 +294,10 @@ export default function FinalReviewPage({
             </Card>
           )}
 
-          {finalReview.data.signedDocument ? (
+          {documentBlob ? (
             <DocxEditor
               source={documentBlob}
-              documentName={finalReview.data.signedDocument.name}
+              documentName={finalReview.data.documentName}
               canEdit={false}
             >
               <DocxEditorPanel

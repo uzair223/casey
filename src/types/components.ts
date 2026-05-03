@@ -1,7 +1,7 @@
 import type { UploadedDocument } from "./common";
 
 export type StatementSubmission = {
-  signedDocument: UploadedDocument;
+  signedDocument?: UploadedDocument | null;
   sections?: Record<string, unknown>;
 };
 
