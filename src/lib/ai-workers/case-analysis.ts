@@ -19,11 +19,74 @@ import { getOpenRouterClientOptions } from "@/lib/utils";
 import { normalizeCaseAnalysis } from "@/lib/case-analysis/normalize";
 import { CaseAnalysisSchema } from "@/lib/schema/case-analysis";
 import type { CaseAnalysis } from "@/lib/schema/case-analysis";
+import type { StatementSupportingDocument, UploadedDocument } from "@/types";
 
 const MAX_EVIDENCE_FILES_PER_CASE = 8;
 const CASE_ANALYSIS_TIMEOUT_MS = Number(
   process.env.CASE_ANALYSIS_TIMEOUT_MS ?? 60_000,
 );
+
+type EvidenceContext = {
+  statementId: string;
+  witnessName: string;
+  documentId: string;
+  documentTitle: string;
+  documentName: string;
+  exhibitId: string;
+  exhibitDescription: string;
+  groupName: string | null;
+  documentType: string;
+  uploadedByType: string;
+  uploadedByUserId: string | null;
+  uploadedByWitnessName: string | null;
+  uploadedByWitnessEmail: string | null;
+  descriptorStatus: string;
+  descriptorModel: string | null;
+  descriptorGeneratedAt: string | null;
+  descriptors: StatementSupportingDocument["descriptors"];
+  handledAs: string;
+  text: string | null;
+  warning?: string;
+};
+
+function getDocumentKey(document: UploadedDocument) {
+  return [document.path, document.name, document.uploadedAt].join("\u001f");
+}
+
+function buildDescriptorLines(
+  descriptors: StatementSupportingDocument["descriptors"],
+) {
+  const lines = [
+    descriptors.summary ? `descriptorSummary: ${descriptors.summary}` : null,
+    descriptors.documentType
+      ? `descriptorDocumentType: ${descriptors.documentType}`
+      : null,
+    descriptors.keyDetails?.length
+      ? `descriptorKeyDetails: ${JSON.stringify(descriptors.keyDetails)}`
+      : null,
+    descriptors.concerns?.length
+      ? `descriptorConcerns: ${JSON.stringify(descriptors.concerns)}`
+      : null,
+  ];
+
+  return lines.filter(Boolean) as string[];
+}
+
+function getEvidenceContextSummary(item: EvidenceContext) {
+  const lines = [
+    `documentId: ${item.documentId}`,
+    `title: ${item.documentTitle}`,
+    `documentName: ${item.documentName}`,
+    `exhibitId: ${item.exhibitId}`,
+    `groupName: ${item.groupName ?? "other"}`,
+    `documentType: ${item.documentType}`,
+    `uploadedByType: ${item.uploadedByType}`,
+    `descriptorStatus: ${item.descriptorStatus}`,
+    ...buildDescriptorLines(item.descriptors),
+  ];
+
+  return lines.join("\n");
+}
 
 function stringifySections(sections: unknown): string {
   if (!sections || typeof sections !== "object" || Array.isArray(sections)) {
@@ -58,17 +121,7 @@ async function buildEvidenceContext(params: {
     bucketId?: string;
   }>;
 }) {
-  const contexts: Array<{
-    statementId: string;
-    witnessName: string;
-    documentName: string;
-    exhibitId: string;
-    exhibitDescription: string;
-    documentType: string;
-    handledAs: string;
-    text: string | null;
-    warning?: string;
-  }> = [];
+  const contexts: EvidenceContext[] = [];
   let processedCount = 0;
 
   for (const statement of params.statements) {
@@ -79,6 +132,9 @@ async function buildEvidenceContext(params: {
       );
     const documents = getUploadedDocumentsFromSupportingRows(
       supportingDocumentRows,
+    );
+    const rowsByDocumentKey = new Map(
+      supportingDocumentRows.map((row) => [getDocumentKey(row.document), row]),
     );
     const exhibits = createEvidenceExhibits(
       documents,
@@ -92,6 +148,31 @@ async function buildEvidenceContext(params: {
         }
 
         processedCount += 1;
+        const supportingRow = rowsByDocumentKey.get(getDocumentKey(document));
+
+        if (!supportingRow) {
+          continue;
+        }
+
+        const baseContext = {
+          statementId: statement.id,
+          witnessName: statement.witness_name,
+          documentId: supportingRow.id,
+          documentTitle: supportingRow.title,
+          documentName: document.name,
+          exhibitId: exhibit.exhibit,
+          exhibitDescription: exhibit.description,
+          groupName: supportingRow.group_name,
+          documentType: document.type,
+          uploadedByType: supportingRow.uploaded_by_type,
+          uploadedByUserId: supportingRow.uploaded_by_user_id,
+          uploadedByWitnessName: supportingRow.uploaded_by_witness_name,
+          uploadedByWitnessEmail: supportingRow.uploaded_by_witness_email,
+          descriptorStatus: supportingRow.descriptor_status,
+          descriptorModel: supportingRow.descriptor_model,
+          descriptorGeneratedAt: supportingRow.descriptor_generated_at,
+          descriptors: supportingRow.descriptors,
+        };
 
         try {
           const bucketId = document.bucketId || params.tenantId;
@@ -107,34 +188,19 @@ async function buildEvidenceContext(params: {
 
           if (extracted.type === "text") {
             contexts.push({
-              statementId: statement.id,
-              witnessName: statement.witness_name,
-              documentName: document.name,
-              exhibitId: exhibit.exhibit,
-              exhibitDescription: exhibit.description,
-              documentType: document.type,
+              ...baseContext,
               handledAs: "text",
               text: extracted.text,
             });
           } else if (extracted.type === "image_url") {
             contexts.push({
-              statementId: statement.id,
-              witnessName: statement.witness_name,
-              documentName: document.name,
-              exhibitId: exhibit.exhibit,
-              exhibitDescription: exhibit.description,
-              documentType: document.type,
+              ...baseContext,
               handledAs: "metadata_only",
               text: null,
             });
           } else {
             contexts.push({
-              statementId: statement.id,
-              witnessName: statement.witness_name,
-              documentName: document.name,
-              exhibitId: exhibit.exhibit,
-              exhibitDescription: exhibit.description,
-              documentType: document.type,
+              ...baseContext,
               handledAs: "metadata_only",
               text: null,
               warning: extracted.warning,
@@ -142,12 +208,7 @@ async function buildEvidenceContext(params: {
           }
         } catch {
           contexts.push({
-            statementId: statement.id,
-            witnessName: statement.witness_name,
-            documentName: document.name,
-            exhibitId: exhibit.exhibit,
-            exhibitDescription: exhibit.description,
-            documentType: document.type,
+            ...baseContext,
             handledAs: "metadata_only",
             text: null,
             warning: "Evidence could not be downloaded or extracted.",
@@ -160,19 +221,7 @@ async function buildEvidenceContext(params: {
   return contexts;
 }
 
-function buildEvidenceCorpus(
-  contexts: Array<{
-    statementId: string;
-    witnessName: string;
-    documentName: string;
-    exhibitId: string;
-    exhibitDescription: string;
-    documentType: string;
-    handledAs: string;
-    text: string | null;
-    warning?: string;
-  }>,
-) {
+export function buildEvidenceCorpus(contexts: EvidenceContext[]) {
   if (!contexts.length) {
     return "No supporting evidence files were available for inline analysis.";
   }
@@ -183,10 +232,29 @@ function buildEvidenceCorpus(
         `EVIDENCE ${index + 1}`,
         `statementId: ${item.statementId}`,
         `witnessName: ${item.witnessName}`,
+        `documentId: ${item.documentId}`,
+        `documentTitle: ${item.documentTitle}`,
         `exhibitId: ${item.exhibitId}`,
         `exhibitDescription: ${item.exhibitDescription}`,
+        `groupName: ${item.groupName ?? "other"}`,
         `documentName: ${item.documentName}`,
         `documentType: ${item.documentType}`,
+        `uploadedByType: ${item.uploadedByType}`,
+        item.uploadedByUserId
+          ? `uploadedByUserId: ${item.uploadedByUserId}`
+          : null,
+        item.uploadedByWitnessName
+          ? `uploadedByWitnessName: ${item.uploadedByWitnessName}`
+          : null,
+        item.uploadedByWitnessEmail
+          ? `uploadedByWitnessEmail: ${item.uploadedByWitnessEmail}`
+          : null,
+        `descriptorStatus: ${item.descriptorStatus}`,
+        item.descriptorModel ? `descriptorModel: ${item.descriptorModel}` : null,
+        item.descriptorGeneratedAt
+          ? `descriptorGeneratedAt: ${item.descriptorGeneratedAt}`
+          : null,
+        ...buildDescriptorLines(item.descriptors),
         `handledAs: ${item.handledAs}`,
         item.warning ? `warning: ${item.warning}` : null,
       ]
@@ -197,8 +265,8 @@ function buildEvidenceCorpus(
         item.text
           ? `Extracted text:\n${item.text}`
           : item.documentType.startsWith("image/")
-            ? "Uploaded photograph. Visual content is intentionally omitted from inline model context; use only the filename, exhibit number, and metadata above."
-            : "No extracted text available; use metadata only."
+            ? "Uploaded photograph. Visual content is intentionally omitted from inline model context; use only the filename, exhibit number, descriptor fields, and metadata above."
+            : "No extracted text available; use descriptor fields and metadata only."
       }`;
     })
     .join("\n\n---\n\n");
@@ -221,7 +289,18 @@ function hasStatementContent(statement: StatementForAnalysis) {
   return stringifySections(getStatementSections(statement)).trim().length > 0;
 }
 
-function buildStatementCorpus(statements: StatementForAnalysis[]) {
+function buildStatementCorpus(
+  statements: StatementForAnalysis[],
+  evidenceContexts: EvidenceContext[] = [],
+) {
+  const documentsByStatement = new Map<string, EvidenceContext[]>();
+  for (const item of evidenceContexts) {
+    documentsByStatement.set(item.statementId, [
+      ...(documentsByStatement.get(item.statementId) ?? []),
+      item,
+    ]);
+  }
+
   return statements
     .map((statement, index) => {
       const witnessMetadata =
@@ -229,9 +308,15 @@ function buildStatementCorpus(statements: StatementForAnalysis[]) {
         typeof statement.witness_metadata === "object"
           ? JSON.stringify(statement.witness_metadata)
           : "{}";
-      const supportingDocuments = Array.isArray(statement.supporting_documents)
-        ? JSON.stringify(statement.supporting_documents)
-        : "[]";
+      const supportingDocuments = documentsByStatement.get(statement.id) ?? [];
+      const supportingDocumentIndex = supportingDocuments.length
+        ? supportingDocuments
+            .map((item, documentIndex) => {
+              return `SUPPORTING DOCUMENT ${documentIndex + 1}
+${getEvidenceContextSummary(item)}`;
+            })
+            .join("\n\n")
+        : "No resolved supporting documents.";
 
       return `STATEMENT ${index + 1}
 statementId: ${statement.id}
@@ -240,7 +325,8 @@ title: ${statement.title}
 status: ${statement.status}
 updatedAt: ${statement.updated_at}
 witnessMetadata: ${witnessMetadata}
-supportingDocuments: ${supportingDocuments}
+supportingDocuments:
+${supportingDocumentIndex}
 
 ${stringifySections(getStatementSections(statement))}`;
     })
@@ -264,6 +350,9 @@ Classify issues carefully:
 
 Evidence handling:
 - Supporting evidence may include extracted text or metadata-only uploads.
+- Supporting evidence may include AI-generated descriptor fields: descriptorSummary, descriptorDocumentType, descriptorKeyDetails, and descriptorConcerns.
+- Treat generated descriptor fields as document-reading assistance, not as independent witness testimony.
+- Use descriptor fields for evidenceMentioned, chronology context, themes, gaps, and conflicts where relevant, especially for metadata_only documents.
 - metadata_only files, especially images, are intentionally supplied as metadata to save tokens. Treat them as uploaded/available evidence.
 - Do not describe metadata_only images as "not visible", "not supplied", "cannot be reviewed", or "cannot be described from the material provided".
 - Do not create gaps, weaknesses, or suggested follow-ups merely because an uploaded image is metadata_only.
@@ -353,7 +442,10 @@ export async function processCaseAnalysisJob(jobId: string) {
       timeoutMs: CASE_ANALYSIS_TIMEOUT_MS,
       statementCount: sourceStatements.length,
       evidenceCount: evidenceContexts.length,
-      statementCorpusLength: buildStatementCorpus(sourceStatements).length,
+      statementCorpusLength: buildStatementCorpus(
+        sourceStatements,
+        evidenceContexts,
+      ).length,
       evidenceCorpusLength: evidenceCorpus.length,
     });
 
@@ -375,7 +467,7 @@ Case metadata: ${JSON.stringify(caseRecord.case_metadata ?? {})}
 
 Witness statements:
 
-${buildStatementCorpus(sourceStatements)}
+${buildStatementCorpus(sourceStatements, evidenceContexts)}
 
 Supporting evidence:
 

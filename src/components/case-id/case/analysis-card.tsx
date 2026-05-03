@@ -99,6 +99,50 @@ function SourceList({ sources }: { sources: CaseAnalysisSourceRef[] }) {
   );
 }
 
+function CompactSourceList({ sources }: { sources: CaseAnalysisSourceRef[] }) {
+  const uniqueStatementSources = Array.from(
+    new Map(
+      sources.map((source) => [source.statementId, source] as const),
+    ).values(),
+  );
+  const uniqueEvidenceSources = Array.from(
+    new Map(
+      sources
+        .filter((source) => source.exhibitId || source.evidenceName)
+        .map((source) => [
+          `${source.exhibitId ?? ""}:${source.evidenceName ?? ""}`,
+          source,
+        ]),
+    ).values(),
+  );
+  const items = [
+    ...uniqueStatementSources.map((source) => source.witnessName),
+    ...uniqueEvidenceSources.map((source) =>
+      source.exhibitId ? `Ex ${source.exhibitId}` : source.evidenceName,
+    ),
+  ].filter(Boolean);
+
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+      {items.slice(0, 4).map((item, index) => (
+        <span
+          key={`${item}-${index}`}
+          className="rounded bg-muted/60 px-1.5 py-0.5 leading-5"
+        >
+          {item}
+        </span>
+      ))}
+      {items.length > 4 ? (
+        <span className="leading-5">+{items.length - 4}</span>
+      ) : null}
+    </div>
+  );
+}
+
 function EmptySection({ label }: { label: string }) {
   return <p className="text-sm text-muted-foreground">{label}</p>;
 }
@@ -134,23 +178,34 @@ function ChronologyTab({ analysis }: { analysis: CaseAnalysis }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="overflow-hidden rounded-md border">
       {analysis.chronology.map((item, index) => (
-        <div key={`${item.event}-${index}`} className="rounded-md border p-3">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <p className="text-sm font-medium">{item.event}</p>
-            {item.dateOrTime ? (
-              <Badge variant="outline">{item.dateOrTime}</Badge>
+        <div
+          key={`${item.event}-${index}`}
+          className="grid gap-3 border-b px-3 py-3 last:border-b-0 sm:grid-cols-[9rem_1fr]"
+        >
+          <div className="flex items-start gap-2 sm:block">
+            <span className="mt-1 hidden size-2 rounded-full bg-primary/60 sm:block" />
+            <p className="min-w-0 text-xs font-medium text-muted-foreground sm:mt-2">
+              {item.dateOrTime ?? "Undated"}
+            </p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm leading-5">{item.event}</p>
+            <CompactSourceList sources={item.sources} />
+            {item.conflicts.length ? (
+              <div className="mt-2 rounded border border-amber-500/25 bg-amber-500/5 px-2 py-1.5">
+                {item.conflicts.map((conflict) => (
+                  <p
+                    key={conflict}
+                    className="text-xs leading-5 text-muted-foreground"
+                  >
+                    {conflict}
+                  </p>
+                ))}
+              </div>
             ) : null}
           </div>
-          <SourceList sources={item.sources} />
-          {item.conflicts.length ? (
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-              {item.conflicts.map((conflict) => (
-                <li key={conflict}>{conflict}</li>
-              ))}
-            </ul>
-          ) : null}
         </div>
       ))}
     </div>
