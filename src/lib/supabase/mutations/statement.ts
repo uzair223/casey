@@ -331,11 +331,11 @@ export const SERVERONLY_submitStatement = async (
   }
 
   const updatePayload: {
-    signed_document: Json;
+    signed_document: Json | null;
     formalization_snapshot_id?: string;
     status: "submitted" | "demo_published";
   } = {
-    signed_document: submission.signedDocument,
+    signed_document: submission.signedDocument ?? null,
     status: statement.status === "demo" ? "demo_published" : "submitted",
   };
 
@@ -455,6 +455,48 @@ export const SERVERONLY_updateStatementStatus = async (
   await syncCaseStatusFromWitnesses(statement.case_id, supabase);
 };
 
+export const SERVERONLY_returnStatementToReview = async (
+  statementId: string,
+  status: "draft" | "in_progress" | "submitted",
+) => {
+  const supabase = getServiceClient("SERVERONLY_returnStatementToReview");
+
+  const { data: statement, error: statementError } = await supabase
+    .from("statements")
+    .select("case_id, tenant_id, status, signed_document")
+    .eq("id", statementId)
+    .maybeSingle();
+
+  if (statementError || !statement) {
+    throw statementError ?? new Error("Statement not found");
+  }
+
+  if (statement.status !== "finalized" && statement.status !== "completed") {
+    throw new Error(
+      "Only finalized or completed statements can be returned to review.",
+    );
+  }
+
+  const signedTarget = toStorageTarget(
+    statement.signed_document,
+    statement.tenant_id,
+  );
+  if (signedTarget) {
+    await removeStorageTargets(supabase, [signedTarget]);
+  }
+
+  const { error } = await supabase
+    .from("statements")
+    .update({ status, signed_document: null })
+    .eq("id", statementId);
+
+  if (error) {
+    throw error;
+  }
+
+  await syncCaseStatusFromWitnesses(statement.case_id, supabase);
+};
+
 export async function createStatement(payload: {
   case_id: string;
   tenant_id: string;
@@ -545,6 +587,20 @@ export async function updateStatement(
 ) {
   const supabase = getSupabaseClient();
   const updatePayload: Record<string, unknown> = {};
+  const { data: currentStatement, error: currentStatementError } =
+    await supabase
+      .from("statements")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+
+  if (currentStatementError) {
+    throw currentStatementError;
+  }
+
+  const isFinalReviewOrCompleted =
+    currentStatement?.status === "finalized" ||
+    currentStatement?.status === "completed";
 
   if (payload.title !== undefined) updatePayload.title = payload.title;
   if (payload.witness_name !== undefined)
@@ -559,8 +615,23 @@ export async function updateStatement(
     );
     updatePayload.witness_metadata = resolvedMetadata as Json;
   }
-  if (payload.status !== undefined) updatePayload.status = payload.status;
+  if (payload.status !== undefined) {
+    const movesBackFromFinal =
+      isFinalReviewOrCompleted &&
+      !["finalized", "completed"].includes(payload.status);
+    if (movesBackFromFinal) {
+      throw new Error(
+        "Use the return-to-review action to move a finalized or completed statement back.",
+      );
+    }
+    updatePayload.status = payload.status;
+  }
   if (payload.sections !== undefined) {
+    if (isFinalReviewOrCompleted) {
+      throw new Error(
+        "Statement sections cannot be edited during final review or after completion.",
+      );
+    }
     updatePayload.formalization_snapshot_id =
       await createStatementFormalizationSnapshot({
         supabase,
@@ -570,9 +641,19 @@ export async function updateStatement(
       });
   }
   if (payload.signed_document !== undefined) {
+    if (isFinalReviewOrCompleted) {
+      throw new Error(
+        "Statement document cannot be edited during final review or after completion.",
+      );
+    }
     updatePayload.signed_document = payload.signed_document as Json;
   }
   if (payload.supporting_documents !== undefined) {
+    if (isFinalReviewOrCompleted) {
+      throw new Error(
+        "Supporting documents cannot be edited during final review or after completion.",
+      );
+    }
     updatePayload.supporting_documents = payload.supporting_documents as Json;
   }
 

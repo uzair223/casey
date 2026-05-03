@@ -94,6 +94,15 @@ export async function POST(
       return badRequest("Witness email not set on this case");
     }
 
+    const body = (await request.json().catch(() => ({}))) as {
+      message?: unknown;
+    };
+    const firmMessage =
+      typeof body.message === "string" ? body.message.trim() : "";
+    if (firmMessage.length > 2000) {
+      return badRequest("Message must be 2000 characters or less");
+    }
+
     // Build statement link URL
     const baseUrl = env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
     const statementUrl = `${baseUrl}/intake/${statement.token}`;
@@ -104,6 +113,7 @@ export async function POST(
       witnessName: statement.witness_name,
       caseTitle: statement.title,
       statementUrl,
+      ...(firmMessage ? { firmMessage } : {}),
     });
 
     return ok({

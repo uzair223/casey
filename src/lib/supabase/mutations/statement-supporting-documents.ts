@@ -1,8 +1,10 @@
 import type {
   Json,
+  StatementConfig,
   StatementDocumentDescriptors,
   UploadedDocument,
 } from "@/types";
+import { applyProgrammaticEvidenceSection } from "@/lib/statement-utils";
 import { getSupabaseClient } from "../client";
 import { getServiceClient } from "../server";
 import {
@@ -33,6 +35,138 @@ async function syncStatementSupportingDocumentIds(
   }
 }
 
+function normalizeSnapshotSections(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, sectionValue]) => [
+      key,
+      typeof sectionValue === "string"
+        ? sectionValue
+        : sectionValue == null
+          ? ""
+          : String(sectionValue),
+    ]),
+  );
+}
+
+async function refreshProgrammaticEvidenceSection(
+  supabase: QueryClient,
+  statementId: string,
+) {
+  const { data: statement, error: statementError } = await supabase
+    .from("statements")
+    .select(
+      "id, tenant_id, witness_name, config_snapshot_id, formalization_snapshot_id",
+    )
+    .eq("id", statementId)
+    .maybeSingle();
+
+  if (statementError) {
+    throw statementError;
+  }
+
+  if (!statement?.config_snapshot_id) {
+    return;
+  }
+
+  const { data: configSnapshot, error: configError } = await supabase
+    .from("statement_config_snapshots")
+    .select("config_json")
+    .eq("id", statement.config_snapshot_id)
+    .maybeSingle();
+
+  if (configError) {
+    throw configError;
+  }
+
+  const config = configSnapshot?.config_json as StatementConfig | null;
+  if (!config?.sections?.length) {
+    return;
+  }
+
+  const rows = await getStatementSupportingDocumentsWithClient(
+    supabase,
+    statementId,
+  );
+
+  let existingSections: Record<string, string> = {};
+  if (statement.formalization_snapshot_id) {
+    const { data: snapshot, error: snapshotError } = await supabase
+      .from("statement_formalization_snapshots")
+      .select("sections")
+      .eq("id", statement.formalization_snapshot_id)
+      .maybeSingle();
+
+    if (snapshotError) {
+      throw snapshotError;
+    }
+
+    existingSections = normalizeSnapshotSections(snapshot?.sections);
+  }
+
+  const nextSections = applyProgrammaticEvidenceSection(existingSections, {
+    config,
+    rows,
+    witnessName: statement.witness_name || "Witness",
+  });
+
+  if (nextSections === existingSections) {
+    return;
+  }
+
+  const { data: nextSnapshot, error: insertError } = await supabase
+    .from("statement_formalization_snapshots")
+    .insert({
+      statement_id: statement.id,
+      tenant_id: statement.tenant_id,
+      created_by_user_id: null,
+      model: "programmatic_evidence",
+      sections: nextSections as Json,
+      source_message_ids: [],
+      source_message_versions: [],
+      evidence_documents: rows.map((row) => row.document) as Json,
+    })
+    .select("id")
+    .single();
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  const { error: updateError } = await supabase
+    .from("statements")
+    .update({ formalization_snapshot_id: nextSnapshot.id })
+    .eq("id", statement.id);
+
+  if (updateError) {
+    throw updateError;
+  }
+}
+
+async function assertStatementDocumentsEditable(
+  supabase: QueryClient,
+  statementId: string,
+) {
+  const { data, error } = await supabase
+    .from("statements")
+    .select("status")
+    .eq("id", statementId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (data?.status === "finalized" || data?.status === "completed") {
+    throw new Error(
+      "Supporting documents cannot be edited during final review or after completion.",
+    );
+  }
+}
+
 export async function createStatementSupportingDocumentWithClient(
   supabase: QueryClient,
   input: {
@@ -48,6 +182,8 @@ export async function createStatementSupportingDocumentWithClient(
     descriptors?: StatementDocumentDescriptors;
   },
 ) {
+  await assertStatementDocumentsEditable(supabase, input.statementId);
+
   const { data, error } = await supabase
     .from("statement_supporting_documents")
     .insert({
@@ -72,6 +208,7 @@ export async function createStatementSupportingDocumentWithClient(
   }
 
   await syncStatementSupportingDocumentIds(supabase, input.statementId);
+  await refreshProgrammaticEvidenceSection(supabase, input.statementId);
   return data.id as string;
 }
 
@@ -134,6 +271,20 @@ export async function renameStatementSupportingDocument(input: {
     throw new Error("Document name cannot be empty");
   }
 
+  const { data: existing, error: existingError } = await supabase
+    .from("statement_supporting_documents")
+    .select("statement_id")
+    .eq("id", input.documentId)
+    .maybeSingle();
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  if (existing?.statement_id) {
+    await assertStatementDocumentsEditable(supabase, existing.statement_id);
+  }
+
   const nextDocument: UploadedDocument = {
     ...input.document,
     name: nextName,
@@ -147,6 +298,10 @@ export async function renameStatementSupportingDocument(input: {
   if (error) {
     throw error;
   }
+
+  if (existing?.statement_id) {
+    await refreshProgrammaticEvidenceSection(supabase, existing.statement_id);
+  }
 }
 
 export async function replaceStatementSupportingDocument(input: {
@@ -154,6 +309,19 @@ export async function replaceStatementSupportingDocument(input: {
   document: UploadedDocument;
 }) {
   const supabase = getSupabaseClient();
+  const { data: existing, error: existingError } = await supabase
+    .from("statement_supporting_documents")
+    .select("statement_id")
+    .eq("id", input.documentId)
+    .maybeSingle();
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  if (existing?.statement_id) {
+    await assertStatementDocumentsEditable(supabase, existing.statement_id);
+  }
 
   const { error } = await supabase
     .from("statement_supporting_documents")
@@ -171,6 +339,10 @@ export async function replaceStatementSupportingDocument(input: {
   if (error) {
     throw error;
   }
+
+  if (existing?.statement_id) {
+    await refreshProgrammaticEvidenceSection(supabase, existing.statement_id);
+  }
 }
 
 export async function deleteStatementSupportingDocument(input: {
@@ -180,6 +352,7 @@ export async function deleteStatementSupportingDocument(input: {
   statementId: string;
 }) {
   const supabase = getSupabaseClient();
+  await assertStatementDocumentsEditable(supabase, input.statementId);
   const bucketId = input.document.bucketId || input.fallbackBucketId;
 
   if (bucketId && input.document.path) {
@@ -202,6 +375,7 @@ export async function deleteStatementSupportingDocument(input: {
   }
 
   await syncStatementSupportingDocumentIds(supabase, input.statementId);
+  await refreshProgrammaticEvidenceSection(supabase, input.statementId);
 }
 
 export async function SERVERONLY_deleteWitnessSupportingDocument(input: {
@@ -210,6 +384,7 @@ export async function SERVERONLY_deleteWitnessSupportingDocument(input: {
   tenantId: string;
 }) {
   const supabase = getServiceClient("SERVERONLY_deleteWitnessSupportingDocument");
+  await assertStatementDocumentsEditable(supabase, input.statementId);
 
   const rows = await getStatementSupportingDocumentsWithClient(
     supabase,
@@ -237,6 +412,7 @@ export async function SERVERONLY_deleteWitnessSupportingDocument(input: {
   }
 
   await syncStatementSupportingDocumentIds(supabase, input.statementId);
+  await refreshProgrammaticEvidenceSection(supabase, input.statementId);
   return true;
 }
 
@@ -264,6 +440,20 @@ export async function SERVERONLY_updateStatementSupportingDocumentDescriptors(
 
   if (error) {
     throw error;
+  }
+
+  const { data: row, error: rowError } = await supabase
+    .from("statement_supporting_documents")
+    .select("statement_id")
+    .eq("id", input.documentId)
+    .maybeSingle();
+
+  if (rowError) {
+    throw rowError;
+  }
+
+  if (row?.statement_id) {
+    await refreshProgrammaticEvidenceSection(supabase, row.statement_id);
   }
 }
 

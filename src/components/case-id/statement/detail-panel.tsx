@@ -12,7 +12,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertTriangle,
   ExternalLinkIcon,
-  FileTextIcon,
   Info,
   PenIcon,
   RotateCwIcon,
@@ -26,7 +25,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -55,19 +53,17 @@ import {
   deleteStatement,
   regenerateMagicLink,
   updateStatement,
-  uploadFile,
 } from "@/lib/supabase/mutations";
 import {
   buildUpdateWitnessDetailsSchema,
   type UpdateWitnessDetailsFormData,
 } from "@/lib/schema/witness-statement";
 import { type UpdateStatementSchemaType } from "@/lib/schema/statement";
-import { generateDoc } from "@/lib/doc-gen";
 import {
   EMPTY_STATEMENT_CONFIG,
   getMessageResponseMeta,
 } from "@/lib/statement-utils";
-import type { FullStatementDataResponse, UploadedDocument } from "@/types";
+import type { FullStatementDataResponse } from "@/types";
 import { CaseNotesCard } from "../case/notes-card";
 import { StatementFollowUpCard } from "./follow-up-card";
 import { StatementSupportingDocumentsCard } from "./documents-card";
@@ -79,6 +75,7 @@ import {
 } from "@/lib/status-styles";
 import { toast } from "@/lib/toast";
 import { DocxEditor, DocxEditorPanel } from "@/components/ui/docx-editor";
+import { generateDoc } from "@/lib/doc-gen";
 
 type StatementDetailPanelProps = {
   statementId: string;
@@ -97,9 +94,21 @@ const DEMO_ONLY_STATUSES = new Set<UpdateWitnessDetailsFormData["status"]>([
 const MAGIC_LINK_REGENERATION_BLOCKED_STATUSES = new Set<
   UpdateWitnessDetailsFormData["status"]
 >(["demo_published", "completed"]);
+const STATEMENT_CONTENT_LOCKED_STATUSES = new Set<
+  UpdateWitnessDetailsFormData["status"]
+>(["finalized", "completed"]);
+const RETURN_TO_REVIEW_STATUSES = new Set<
+  UpdateWitnessDetailsFormData["status"]
+>(["draft", "in_progress", "submitted"]);
 
 function isDemoOnlyStatus(status: UpdateWitnessDetailsFormData["status"]) {
   return DEMO_ONLY_STATUSES.has(status);
+}
+
+function isStatementContentLocked(
+  status: UpdateWitnessDetailsFormData["status"],
+) {
+  return STATEMENT_CONTENT_LOCKED_STATUSES.has(status);
 }
 
 function normalizeSectionValues(value: unknown, sectionFields: string[]) {
@@ -196,21 +205,6 @@ function toFormValues(
   };
 }
 
-function SignedDocument({ document }: { document: UploadedDocument }) {
-  const doc = useAsync(async () => {
-    return await downloadUploadedDocument(document);
-  });
-  return doc.data ? (
-    <DocxEditor source={doc.data} documentName={document.name}>
-      <DocxEditorPanel
-        mode="bare"
-        className="h-[50vh] max-h-[50vh]"
-        initialZoom={0.8}
-      />
-    </DocxEditor>
-  ) : null;
-}
-
 export function StatementDetailPanel({
   statementId,
   statements,
@@ -224,7 +218,6 @@ export function StatementDetailPanel({
   const [isEditingSections, setIsEditingSections] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingSections, setIsSavingSections] = useState(false);
-  const [isRegenerating, setIsRegenerating] = useState(false);
   const [sectionDrafts, setSectionDrafts] = useState<Record<string, string>>(
     {},
   );
@@ -287,6 +280,88 @@ export function StatementDetailPanel({
       data?.statement.statement_config ?? EMPTY_STATEMENT_CONFIG;
   }, [data?.statement.statement_config]);
 
+  const [statementDocument, setStatementDocument] = useState<
+    | {
+        blob: Blob;
+        templateBlob: null;
+        type: "signed";
+      }
+    | {
+        blob: Blob | null;
+        templateBlob: Blob;
+        type: "generated";
+      }
+    | null
+  >(null);
+
+  useEffect(() => {
+    if (!data?.statement) return;
+    if (statementDocument) return;
+
+    void (async () => {
+      if (data.statement.signed_document) {
+        try {
+          const signedBlob = await downloadUploadedDocument(
+            data.statement.signed_document,
+          );
+          setStatementDocument({
+            blob: signedBlob,
+            templateBlob: null,
+            type: "signed",
+          });
+          return;
+        } catch (error) {
+          console.error("Error downloading signed document:", error);
+        }
+      }
+
+      if (!data.statement.template_document_snapshot || !sectionDrafts) return;
+      try {
+        const templateBlob = await downloadUploadedDocument(
+          data.statement.template_document_snapshot,
+        );
+        setStatementDocument({
+          blob: null,
+          templateBlob,
+          type: "generated",
+        });
+      } catch (error) {
+        console.error("Error generating statement document:", error);
+      }
+    })();
+  }, [data?.statement, sectionDrafts, statementDocument]);
+
+  useEffect(() => {
+    if (statementDocument?.type !== "generated" || !data?.statement) {
+      return;
+    }
+    void (async () => {
+      try {
+        const generatedBlob = await generateDoc(
+          {
+            witnessEmail: data.statement.witness_email,
+            witnessName: data.statement.witness_name,
+            witnessMetadata: data.statement.witness_metadata,
+            sections: data.statement.sections,
+            config: data.statement.statement_config,
+          },
+          statementDocument.templateBlob,
+        );
+        setStatementDocument((current) =>
+          current?.type === "generated"
+            ? { ...current, blob: generatedBlob }
+            : current,
+        );
+      } catch (error) {
+        console.error("Error generating statement document:", error);
+      }
+    })();
+  }, [
+    data?.statement,
+    statementDocument?.type,
+    statementDocument?.templateBlob,
+  ]);
+
   if (isLoading || !data) {
     return (
       <Card>
@@ -309,6 +384,7 @@ export function StatementDetailPanel({
   const witnessMetadataFields = statementConfig.witness_metadata_fields ?? [];
   const witnessMetadataValues = data.statement.witness_metadata;
   const progress = latestMeta?.progress;
+  const isContentLocked = isStatementContentLocked(data.statement.status);
 
   const isLinkExpired = data.statement.link?.expires_at
     ? new Date(data.statement.link.expires_at) < new Date()
@@ -352,12 +428,64 @@ export function StatementDetailPanel({
         }),
       );
 
-      await persistStatement({
-        status: formData.status,
-        witness_name: formData.witness_name,
-        witness_email: formData.witness_email,
-        witness_metadata: metadataPatch,
-      });
+      const movesBackFromFinalReview =
+        isStatementContentLocked(currentStatus) &&
+        RETURN_TO_REVIEW_STATUSES.has(formData.status) &&
+        formData.status !== currentStatus;
+
+      if (movesBackFromFinalReview) {
+        const notifyWitness = await toast.confirm(
+          "Return statement to review?",
+          {
+            variant: "warning",
+            description:
+              "The signed submission will be deleted. You can optionally notify the witness.",
+            confirmLabel: "Return to review",
+            cancelLabel: "Cancel",
+          },
+        );
+        if (!notifyWitness) {
+          return;
+        }
+
+        const shouldEmail = await toast.confirm("Notify the witness?", {
+          description:
+            "Send the intake link with an optional message explaining what changed.",
+          confirmLabel: "Notify witness",
+          cancelLabel: "Do not notify",
+        });
+        const message = shouldEmail
+          ? (window
+              .prompt("Optional message to include in the email")
+              ?.trim() ?? "")
+          : "";
+
+        await apiFetch(
+          `/api/tenant/statement/${data.statement.id}/return-to-review`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              status: formData.status,
+              notifyWitness: shouldEmail,
+              message,
+            }),
+          },
+        );
+
+        await updateStatement(data.statement.id, {
+          witness_name: formData.witness_name,
+          witness_email: formData.witness_email,
+          witness_metadata: metadataPatch,
+        });
+        await Promise.all([refreshCase(), fetchStatement()]);
+      } else {
+        await persistStatement({
+          status: formData.status,
+          witness_name: formData.witness_name,
+          witness_email: formData.witness_email,
+          witness_metadata: metadataPatch,
+        });
+      }
       setIsEditing(false);
     } finally {
       setIsSaving(false);
@@ -384,8 +512,12 @@ export function StatementDetailPanel({
   const onSendStatementLink = async () => {
     if (!data) return;
 
+    const message =
+      window.prompt("Optional message from the firm to include")?.trim() ?? "";
+
     await apiFetch(`/api/tenant/statement/${data.statement.id}/send-link`, {
       method: "POST",
+      body: JSON.stringify({ message }),
     });
     toast.success("Statement link sent to witness email");
   };
@@ -418,94 +550,19 @@ export function StatementDetailPanel({
   const onSendFinalReviewRequest = async () => {
     if (!data) return;
 
+    const message =
+      window.prompt("Optional message from the firm to include")?.trim() ?? "";
+
     await apiFetch(
       `/api/tenant/statement/${data.statement.id}/send-final-review`,
       {
         method: "POST",
+        body: JSON.stringify({ message }),
       },
     );
 
     toast.success("Final review request sent to witness");
     await Promise.all([refreshCase(), fetchStatement()]);
-  };
-
-  const regenerateDocx = async (skipSectionPersist = false) => {
-    if (!data) return;
-    if (
-      !(await toast.confirm("This will overwrite the existing DOCX file.", {
-        variant: "warning",
-        confirmLabel: "Regenerate DOCX",
-        cancelLabel: "Cancel",
-      }))
-    ) {
-      return;
-    }
-
-    toast.promise(
-      async () => {
-        setIsRegenerating(true);
-        try {
-          if (!skipSectionPersist) {
-            await updateStatement(data.statement.id, {
-              sections: sectionDrafts,
-            });
-          }
-
-          const templateDocument = data.statement.template_document_snapshot
-            ? await downloadUploadedDocument(
-                data.statement.template_document_snapshot,
-              )
-            : null;
-
-          const blob = await generateDoc(
-            {
-              caseMetadata:
-                (data.case.case_metadata as Record<
-                  string,
-                  string | number | null | undefined
-                >) ?? {},
-              witnessName: data.statement.witness_name,
-              witnessEmail: data.statement.witness_email,
-              witnessMetadata:
-                (data.statement.witness_metadata as Record<
-                  string,
-                  string | number | null | undefined
-                >) ?? {},
-              sections: sectionDrafts,
-              config: statementConfig,
-            },
-            templateDocument,
-          );
-
-          const name = `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;
-          const path = `cases/${data.case.id}/${data.statement.id}/submitted/${new Date().toISOString()} ${name}`;
-          const uploaded = await uploadFile({
-            bucketId: data.tenant_id,
-            name,
-            path,
-            file: new File([blob], name, {
-              type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            }),
-            contentType:
-              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            upsert: true,
-          });
-
-          await updateStatement(data.statement.id, {
-            signed_document: uploaded,
-          });
-
-          await Promise.all([refreshCase(), fetchStatement()]);
-        } finally {
-          setIsRegenerating(false);
-        }
-      },
-      {
-        loading: "Regenerating DOCX...",
-        success: "DOCX regenerated",
-        error: "Failed to regenerate DOCX",
-      },
-    );
   };
 
   const onSaveSections = async () => {
@@ -518,23 +575,14 @@ export function StatementDetailPanel({
       });
       await Promise.all([refreshCase(), fetchStatement()]);
       setIsEditingSections(false);
-
-      const shouldRegenerate = await toast.confirm("Sections saved", {
-        description: "Do you want to regenerate the DOCX now?",
-        confirmLabel: "Regenerate DOCX",
-      });
-      if (shouldRegenerate) {
-        await regenerateDocx(true);
-      } else {
-        toast.success("Sections saved");
-      }
+      toast.success("Sections saved");
     } finally {
       setIsSavingSections(false);
     }
   };
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       <Tabs defaultValue="manage" className="space-y-4">
         <TabsList>
           <TabsTrigger value="manage">Details</TabsTrigger>
@@ -911,29 +959,18 @@ export function StatementDetailPanel({
           <Card>
             <CardHeader className="flex-row items-center justify-between gap-2">
               <CardTitle className="text-base">Statement sections</CardTitle>
-              {canModify ? (
+              {canModify && !isContentLocked ? (
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setIsEditingSections((prev) => !prev)}
-                    disabled={isSavingSections || isRegenerating}
+                    disabled={isSavingSections}
                   >
                     <PenIcon className="h-4 w-4" />
                     {isEditingSections
                       ? "Cancel section edits"
                       : "Edit sections"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void regenerateDocx()}
-                    disabled={isRegenerating}
-                  >
-                    <FileTextIcon className="h-4 w-4" />
-                    {isRegenerating
-                      ? "Regenerating DOCX..."
-                      : "Regenerate DOCX"}
                   </Button>
                 </div>
               ) : null}
@@ -1002,16 +1039,27 @@ export function StatementDetailPanel({
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-4">
-          {data.statement.signed_document?.name ? (
-            <Card>
+          {statementDocument ? (
+            <Card className="w-full min-w-0">
               <CardHeader>
-                <CardTitle className="text-base">Statement</CardTitle>
-                <CardDescription>
-                  Edit sections and regenerate the DOCX to update this document.
-                </CardDescription>
+                <CardTitle className="text-base">
+                  {statementDocument.type === "generated"
+                    ? "Generated"
+                    : "Signed"}{" "}
+                  Statement
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <SignedDocument document={data.statement.signed_document} />
+              <CardContent className="w-full min-w-0 overflow-hidden">
+                <DocxEditor
+                  source={statementDocument.blob}
+                  documentName={data.statement.witness_name}
+                >
+                  <DocxEditorPanel
+                    mode="bare"
+                    className="h-[50vh] max-h-[50vh] w-full"
+                    initialZoom={0.8}
+                  />
+                </DocxEditor>
               </CardContent>
             </Card>
           ) : null}
@@ -1020,6 +1068,7 @@ export function StatementDetailPanel({
             tenantId={data.tenant_id}
             caseId={data.case.id}
             statementId={data.statement.id}
+            readOnly={isContentLocked}
           />
         </TabsContent>
 

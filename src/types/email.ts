@@ -4,6 +4,8 @@ export type StatementEmailPayload = {
   witnessName: string | null;
   caseTitle: string;
   statementUrl: string;
+  firmMessage?: string | null;
+  reason?: "initial_intake" | "back_to_review";
 };
 
 export type StatementSubmittedNotificationPayload = {
@@ -29,6 +31,7 @@ export type StatementFinalReviewRequestPayload = {
   caseTitle: string;
   witnessName: string | null;
   reviewUrl: string;
+  firmMessage?: string | null;
 };
 
 export type StatementReminderEmailPayload = {

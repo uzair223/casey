@@ -27,6 +27,7 @@ type StatementSupportingDocumentsCardProps = {
   tenantId: string;
   caseId: string;
   statementId: string;
+  readOnly?: boolean;
 };
 
 function getDescriptorSummary(entry: StatementSupportingDocument) {
@@ -43,6 +44,7 @@ export function StatementSupportingDocumentsCard({
   tenantId,
   caseId,
   statementId,
+  readOnly = false,
 }: StatementSupportingDocumentsCardProps) {
   const { user } = useUser();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -189,7 +191,8 @@ export function StatementSupportingDocumentsCard({
             </div>
           </div>
 
-          <div className="flex flex-wrap justify-end gap-1.5">
+          {!readOnly ? (
+            <div className="flex flex-wrap justify-end gap-1.5">
             {editingDocumentId === entry.id ? (
               <>
                 <AsyncButton
@@ -261,7 +264,8 @@ export function StatementSupportingDocumentsCard({
             >
               <Trash2Icon className="h-4 w-4" />
             </AsyncButton>
-          </div>
+            </div>
+          ) : null}
         </div>
 
         <p className="text-sm text-muted-foreground">
@@ -289,7 +293,8 @@ export function StatementSupportingDocumentsCard({
           <FileTextIcon className="h-4 w-4" />
           Supporting documents
         </CardTitle>
-        <div className="flex items-center gap-2">
+        {!readOnly ? (
+          <div className="flex items-center gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -305,7 +310,8 @@ export function StatementSupportingDocumentsCard({
             <UploadIcon className="h-4 w-4" />
             Upload
           </Button>
-        </div>
+          </div>
+        ) : null}
       </CardHeader>
 
       <CardContent>

@@ -90,19 +90,45 @@ export const buildStatementLinkEmailTemplate = (
   payload: StatementEmailPayload,
 ): EmailTemplateContent => {
   const witnessName = payload.witnessName?.trim() || "there";
-  const subject = `${payload.caseTitle}: Complete your witness statement`;
-  const text = `Hello ${witnessName},\n\n${payload.tenantName} has invited you to complete a witness statement for ${payload.caseTitle}.\n\nUse this secure link to continue: ${payload.statementUrl}\n\nIf you did not expect this email, you can ignore it.`;
+  const isBackToReview = payload.reason === "back_to_review";
+  const subject = isBackToReview
+    ? `${payload.caseTitle}: Your statement is back in review`
+    : `${payload.caseTitle}: Complete your witness statement`;
+  const intro = isBackToReview
+    ? `${payload.tenantName} has moved your witness statement for ${payload.caseTitle} back into review.`
+    : `${payload.tenantName} has invited you to complete a witness statement for ${payload.caseTitle}.`;
+  const message = payload.firmMessage?.trim();
+  const text = `Hello ${witnessName},\n\n${intro}${
+    message ? `\n\nMessage from ${payload.tenantName}:\n${message}` : ""
+  }\n\nUse this secure link to continue: ${payload.statementUrl}\n\nIf you did not expect this email, you can ignore it.`;
 
   return {
     subject,
     text,
     react: (
-      <EmailLayout heading="Witness Statement Intake Link">
+      <EmailLayout
+        heading={
+          isBackToReview
+            ? "Statement Back In Review"
+            : "Witness Statement Intake Link"
+        }
+      >
         <p style={paragraphStyle}>Hello {witnessName},</p>
         <p style={paragraphStyle}>
-          <strong>{payload.tenantName}</strong> has invited you to complete a
-          witness statement for <strong>{payload.caseTitle}</strong>.
+          <strong>{payload.tenantName}</strong>{" "}
+          {isBackToReview
+            ? "has moved your witness statement back into review for"
+            : "has invited you to complete a witness statement for"}{" "}
+          <strong>{payload.caseTitle}</strong>.
         </p>
+        {message ? (
+          <>
+            <p style={paragraphStyle}>
+              <strong>Message:</strong>
+            </p>
+            <p style={paragraphStyle}>{message}</p>
+          </>
+        ) : null}
         <a
           href={payload.statementUrl}
           target="_blank"
@@ -187,7 +213,10 @@ export const buildStatementFinalReviewRequestTemplate = (
 ): EmailTemplateContent => {
   const witnessName = payload.witnessName?.trim() || "there";
   const subject = `Final review and signature requested: ${payload.caseTitle}`;
-  const text = `Hello ${witnessName},\n\n${payload.tenantName} has finalized your witness statement and supporting evidence for ${payload.caseTitle}.\n\nPlease review the finalized materials, provide your signature, and submit using this secure link: ${payload.reviewUrl}`;
+  const message = payload.firmMessage?.trim();
+  const text = `Hello ${witnessName},\n\n${payload.tenantName} has finalized your witness statement and supporting evidence for ${payload.caseTitle}.${
+    message ? `\n\nMessage from ${payload.tenantName}:\n${message}` : ""
+  }\n\nPlease review the finalized materials, provide your signature, and submit using this secure link: ${payload.reviewUrl}`;
 
   return {
     subject,
@@ -204,6 +233,14 @@ export const buildStatementFinalReviewRequestTemplate = (
           Please review the finalized materials, provide your signature, and
           submit your confirmation.
         </p>
+        {message ? (
+          <>
+            <p style={paragraphStyle}>
+              <strong>Message:</strong>
+            </p>
+            <p style={paragraphStyle}>{message}</p>
+          </>
+        ) : null}
         <a
           href={payload.reviewUrl}
           target="_blank"

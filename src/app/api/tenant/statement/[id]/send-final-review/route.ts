@@ -22,6 +22,14 @@ export async function POST(
   try {
     const auth = await requireTenantUser(request);
     const { id: statementId } = await params;
+    const body = (await request.json().catch(() => ({}))) as {
+      message?: unknown;
+    };
+    const firmMessage =
+      typeof body.message === "string" ? body.message.trim() : "";
+    if (firmMessage.length > 2000) {
+      return badRequest("Message must be 2000 characters or less");
+    }
 
     const statement = await SERVERONLY_getStatementForSendLink(
       statementId,
@@ -113,6 +121,7 @@ export async function POST(
       caseTitle: statement.title,
       witnessName: statement.witness_name,
       reviewUrl,
+      ...(firmMessage ? { firmMessage } : {}),
     });
 
     await logAuditEvent({
