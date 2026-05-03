@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 
+import type { Json } from "@/types";
 import { getServiceClient } from "@/lib/supabase/server";
 import { logServerEvent } from "@/lib/observability/logger";
 import { selectModel } from "@/lib/llm/model-config";
@@ -22,7 +23,11 @@ import { getOpenRouterClientOptions } from "@/lib/utils";
 import { createEvidenceExhibits } from "@/lib/evidence";
 import type { EvidenceExhibit } from "@/lib/evidence";
 import type { StatementConfig } from "@/types";
-import { generateFormalizeSystemPrompt } from "@/lib/statement-utils";
+import {
+  applyProgrammaticEvidenceSection,
+  generateFormalizeSystemPrompt,
+  getProgrammaticEvidenceSection,
+} from "@/lib/statement-utils";
 
 const MAX_USER_TURNS = Number(process.env.FORMALIZE_MAX_USER_TURNS ?? 40);
 const MAX_CHARS_PER_TURN = Number(
@@ -48,9 +53,12 @@ function buildEvidenceList(exhibits: EvidenceExhibit[]) {
 }
 
 function buildFormalizeResponseSchema(config: StatementConfig) {
+  const evidenceSection = getProgrammaticEvidenceSection(config);
   return z.object(
     Object.fromEntries(
-      config.sections.map((section) => [section.id, z.string()]),
+      config.sections
+        .filter((section) => section.id !== evidenceSection?.id)
+        .map((section) => [section.id, z.string()]),
     ),
   );
 }
@@ -316,7 +324,14 @@ export async function processFormalizationJob(jobId: string) {
     }
 
     const content = getStructuredResponseJson(response);
-    const parsed = normalizeFormalizedSections(JSON.parse(content), config);
+    const parsed = applyProgrammaticEvidenceSection(
+      normalizeFormalizedSections(JSON.parse(content), config),
+      {
+        config,
+        rows: supportingDocumentRows,
+        witnessName: statement.witness_name || "Witness",
+      },
+    );
 
     const sourceMessageVersions = sourceMessages.map(
       (message: { id: string; created_at: string }) => ({
@@ -333,7 +348,7 @@ export async function processFormalizationJob(jobId: string) {
           tenant_id: statement.tenant_id,
           created_by_user_id: job.requested_by_user_id,
           model,
-          sections: parsed,
+          sections: parsed as Json,
           source_message_ids: sourceMessages.map(
             (message: { id: string }) => message.id,
           ),

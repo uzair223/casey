@@ -2,6 +2,7 @@ import type {
   StatementSupportingDocument,
   UploadedDocument,
 } from "@/types";
+import { getEvidenceDocumentsFromSupportingRows } from "@/lib/evidence";
 import { getSupabaseClient } from "../client";
 import { getServiceClient } from "../server";
 
@@ -41,11 +42,7 @@ export function getSupportingDocumentIds(value: unknown): string[] {
 export function getUploadedDocumentsFromSupportingRows(
   rows: StatementSupportingDocument[] | undefined | null,
 ): UploadedDocument[] {
-  return (rows ?? []).map((row) => ({
-    ...row.document,
-    description: row.descriptors.summary || row.document.description,
-    group: row.group_name || row.document.group,
-  }));
+  return getEvidenceDocumentsFromSupportingRows(rows);
 }
 
 export async function getStatementSupportingDocumentsWithClient(

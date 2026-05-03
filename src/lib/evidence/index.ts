@@ -1,4 +1,4 @@
-import type { UploadedDocument } from "@/types";
+import type { StatementSupportingDocument, UploadedDocument } from "@/types";
 
 import { isAudioFile, isImageFile, isVideoFile } from "@/lib/files";
 
@@ -112,6 +112,102 @@ export function groupEvidenceDocuments(
   return Array.from(groups.entries()).map(([group, groupedDocuments]) => ({
     group,
     documents: groupedDocuments,
+  }));
+}
+
+function getDescriptorGroupFromText(value: string) {
+  const normalized = value.toLowerCase();
+
+  if (
+    normalized.includes("photo") ||
+    normalized.includes("image") ||
+    normalized.includes("photograph")
+  ) {
+    return "photographs";
+  }
+
+  if (
+    normalized.includes("repair") ||
+    normalized.includes("estimate") ||
+    normalized.includes("quote")
+  ) {
+    return "repair estimates";
+  }
+
+  if (
+    normalized.includes("medical") ||
+    normalized.includes("gp") ||
+    normalized.includes("hospital") ||
+    normalized.includes("clinical")
+  ) {
+    return "medical records";
+  }
+
+  if (
+    normalized.includes("invoice") ||
+    normalized.includes("receipt") ||
+    normalized.includes("bill")
+  ) {
+    return "receipts and invoices";
+  }
+
+  if (
+    normalized.includes("video") ||
+    normalized.includes("dashcam") ||
+    normalized.includes("cctv")
+  ) {
+    return "video footage";
+  }
+
+  if (normalized.includes("audio") || normalized.includes("recording")) {
+    return "audio recordings";
+  }
+
+  if (
+    normalized.includes("letter") ||
+    normalized.includes("email") ||
+    normalized.includes("correspondence") ||
+    normalized.includes("insurer")
+  ) {
+    return "correspondence";
+  }
+
+  return "";
+}
+
+export function inferEvidenceGroupFromDescriptor(
+  row: StatementSupportingDocument,
+) {
+  const descriptorInputs = [
+    row.descriptors.documentType,
+    row.descriptors.summary,
+    ...(row.descriptors.keyDetails ?? []),
+    row.title,
+    row.document.name,
+  ].filter((value): value is string => Boolean(value?.trim()));
+
+  for (const input of descriptorInputs) {
+    const group = getDescriptorGroupFromText(input);
+    if (group) {
+      return group;
+    }
+  }
+
+  const descriptorType = row.descriptors.documentType?.trim();
+  if (descriptorType) {
+    return descriptorType;
+  }
+
+  return normalizeEvidenceGroup(row.group_name || row.document.group);
+}
+
+export function getEvidenceDocumentsFromSupportingRows(
+  rows: StatementSupportingDocument[] | undefined | null,
+) {
+  return (rows ?? []).map((row) => ({
+    ...row.document,
+    description: row.descriptors.summary || row.document.description,
+    group: inferEvidenceGroupFromDescriptor(row),
   }));
 }
 
