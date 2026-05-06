@@ -61,20 +61,24 @@ export type Case = Omit<Tables<"cases">, "case_metadata"> & {
 
 //#region Message
 
-export type Message = {
+export type BaseMessage = {
   id?: string;
   role: "user" | "assistant";
   content: string;
 };
 
-export type ConversationMessageMeta =
-  | ResponseMetadata
-  | Record<string, unknown>;
-
-export type IntakeChatMessage = Message & {
+type BaseIntakeChatMessage = BaseMessage & {
   status?: "pending" | "complete" | "error";
-  meta?: ConversationMessageMeta | null;
 };
+export type IntakeUserMessage = BaseIntakeChatMessage & {
+  role: "user";
+  meta?: Record<string, unknown> | null;
+};
+export type IntakeResponseMessage = BaseIntakeChatMessage & {
+  role: "assistant";
+  meta?: ResponseMetadata | Record<string, unknown> | null;
+};
+export type IntakeChatMessage = IntakeUserMessage | IntakeResponseMessage;
 
 export type ConversationMessage = Tables<"conversation_messages">;
 export type MetadataProgress = ResponseMetadata["progress"];

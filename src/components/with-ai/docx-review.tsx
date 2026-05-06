@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAsync } from "@/hooks/useAsync";
 import { apiFetch } from "@/lib/api-utils";
 import { cn } from "@/lib/utils";
-import { Message } from "@/types";
+import { BaseMessage } from "@/types";
 import { MessageSquareText, Sparkles, Trash2, X, Zap } from "lucide-react";
 
 type ReviewWithAIDialogContentProps = Omit<
@@ -42,7 +42,7 @@ type ReviewWithAIProps = ReviewWithAIDialogContentProps & {
   children?: React.ReactNode;
 };
 
-type ChatMessage = Message & {
+type ChatMessage = BaseMessage & {
   status?: "pending" | "complete" | "error";
 };
 

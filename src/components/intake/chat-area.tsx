@@ -7,13 +7,13 @@ import { MessageCard } from "../ui/message";
 import { ProgressIndicator } from "./progress-indicator";
 import {
   FileInput,
-  FileInputList,
   FileInputTrigger,
+  FileInputThumbnails,
 } from "@/components/ui/file-input";
 import { AttachmentPreviewCard } from "@/components/ui/attachment-preview-card";
 import { getMessageResponseMeta } from "@/lib/statement-utils";
 import { useWitnessStatement } from "@/components/intake/intake-context";
-import { CheckIcon, PaperclipIcon, SkipForwardIcon } from "lucide-react";
+import { CheckIcon, Paperclip, SkipForwardIcon } from "lucide-react";
 import type { EvidenceDocument } from "@/lib/evidence";
 
 function getAttachedFiles(message: { meta?: Record<string, unknown> | null }) {
@@ -34,7 +34,6 @@ export function ChatAreaContent() {
     hasConvoEnded,
     hasIntakeStopped,
     intakeStopReason,
-    setEvidence,
     setTab,
     isDemo,
     data,
@@ -63,7 +62,6 @@ export function ChatAreaContent() {
             message,
             data.statement.statement_config,
           );
-          const requestedEvidence = responseMeta?.evidence.requestedEvidence;
           const attachedFiles =
             message.role === "user" ? getAttachedFiles(message) : [];
 
@@ -79,29 +77,6 @@ export function ChatAreaContent() {
                 <MessageCard message={message}>
                   {message.role === "assistant" ? (
                     <>
-                      {requestedEvidence && (
-                        <Button
-                          className="bg-card/20"
-                          size="sm"
-                          variant="outline"
-                          asChild
-                        >
-                          <label className="cursor-pointer">
-                            <input
-                              type="file"
-                              multiple
-                              accept={requestedEvidence.type}
-                              onChange={(e) => {
-                                void setEvidence(
-                                  e.target.files,
-                                  requestedEvidence.name,
-                                );
-                              }}
-                            />
-                            <PaperclipIcon />
-                          </label>
-                        </Button>
-                      )}
                       {responseMeta?.progress && (
                         <ProgressIndicator progress={responseMeta.progress} />
                       )}
@@ -173,20 +148,11 @@ export function ChatAreaFooter() {
     hasConvoEnded,
     isDemoPlaybackActive,
     skipDemoPlayback,
-    data,
-    messages,
+    latestRequestedEvidence,
     sendMessage,
   } = useWitnessStatement();
 
   const isInputDisabled = isBusy || hasIntakeStopped || hasConvoEnded;
-
-  const latestRequestedEvidence = [...messages]
-    .reverse()
-    .map((message) =>
-      getMessageResponseMeta(message, data.statement.statement_config),
-    )
-    .find((metadata) => metadata?.evidence.requestedEvidence)
-    ?.evidence.requestedEvidence;
 
   const attachmentAccept =
     latestRequestedEvidence?.type ||
@@ -224,24 +190,28 @@ export function ChatAreaFooter() {
       ) : (
         <form
           ref={formRef}
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            void sendMessage.handler(
-              input,
-              attachments,
-              latestRequestedEvidence?.name,
-            );
+            const submittedInput = input;
+            const submittedAttachments = attachments;
+
+            if (
+              isInputDisabled ||
+              (!submittedInput.trim() && submittedAttachments.length === 0)
+            ) {
+              return;
+            }
+
             setInput("");
             setAttachments([]);
+            await sendMessage.handler(
+              submittedInput,
+              submittedAttachments,
+              latestRequestedEvidence?.name,
+            );
           }}
           className="w-full space-y-2"
         >
-          {latestRequestedEvidence && (
-            <p className="text-xs text-muted-foreground">
-              Requested evidence: {latestRequestedEvidence.name} (
-              {latestRequestedEvidence.type})
-            </p>
-          )}
           <FileInput
             multiple
             accept={attachmentAccept}
@@ -249,52 +219,60 @@ export function ChatAreaFooter() {
             value={attachments}
             onChange={setAttachments}
           >
-            <FileInputTrigger variant="outline">
-              {latestRequestedEvidence
-                ? "Attach requested evidence"
-                : "Attach files"}
-            </FileInputTrigger>
-            <div className="mt-2 space-y-1.5">
-              <FileInputList />
+            {latestRequestedEvidence && (
+              <p className="text-xs text-muted-foreground mb-2">
+                Requested evidence: {latestRequestedEvidence.name} (
+                {latestRequestedEvidence.type})
+              </p>
+            )}
+            <div className="mt-2 flex flex-wrap gap-2 empty:hidden">
+              <FileInputThumbnails />
+            </div>
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-end">
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" || e.shiftKey) return;
+                  e.preventDefault();
+                  if (
+                    isInputDisabled ||
+                    (!input.trim() && attachments.length === 0)
+                  ) {
+                    return;
+                  }
+                  formRef.current?.requestSubmit();
+                }}
+                placeholder={
+                  hasConvoEnded
+                    ? "Conversation ended"
+                    : "Type your response, attach files, or both..."
+                }
+                disabled={isInputDisabled}
+                className="min-h-0 flex-1 resize-none overflow-hidden"
+                rows={1}
+                autoFocus
+              />
+              <FileInputTrigger
+                title="Attach files"
+                size="icon"
+                indicator={false}
+                variant="outline"
+              >
+                <Paperclip />
+              </FileInputTrigger>
+              <Button
+                className="w-full sm:w-auto"
+                type="submit"
+                disabled={
+                  (!input.trim() && attachments.length === 0) || isInputDisabled
+                }
+              >
+                Send
+              </Button>
             </div>
           </FileInput>
-
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-end">
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter" || e.shiftKey) return;
-                e.preventDefault();
-                if (
-                  isInputDisabled ||
-                  (!input.trim() && attachments.length === 0)
-                ) {
-                  return;
-                }
-                formRef.current?.requestSubmit();
-              }}
-              placeholder={
-                hasConvoEnded
-                  ? "Conversation ended"
-                  : "Type your response, attach files, or both..."
-              }
-              disabled={isInputDisabled}
-              className="min-h-0 flex-1 resize-none overflow-hidden"
-              rows={1}
-              autoFocus
-            />
-            <Button
-              className="w-full sm:w-auto"
-              type="submit"
-              disabled={
-                (!input.trim() && attachments.length === 0) || isInputDisabled
-              }
-            >
-              Send
-            </Button>
-          </div>
         </form>
       )}
     </div>

@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   IntakeChatMessage,
+  IntakeResponseMessage,
   StatementDataResponse,
   StatementSupportingDocument,
 } from "@/types";
@@ -49,6 +50,7 @@ export type IntakeContextValue = {
   data: IntakeContextData;
   messages: IntakeChatMessage[];
   suggestedEvidence: { name: string; type: string }[] | null;
+  latestRequestedEvidence: { name: string; type: string } | null;
   evidenceFiles: Record<string, TempUploadedDocument[]>;
   statementSections: Record<string, string>;
   hasFormalizedStatement: boolean;
@@ -301,6 +303,19 @@ export function IntakeProvider({
     );
   }, [reversed, statementConfig]);
 
+  const latestRequestedEvidence = useMemo(() => {
+    if (!statementConfig) {
+      return null;
+    }
+
+    return (
+      reversed
+        .map((message) => getMessageResponseMeta(message, statementConfig))
+        .find((metadata) => metadata?.evidence.requestedEvidence)?.evidence
+        .requestedEvidence ?? null
+    );
+  }, [reversed, statementConfig]);
+
   const persistedEvidenceDocuments = useMemo(
     () =>
       getEvidenceDocuments(
@@ -409,6 +424,68 @@ export function IntakeProvider({
     return response.documents;
   };
 
+  const compressImageFile = async (
+    file: File,
+    maxDim = 1600,
+    quality = 0.8,
+  ) => {
+    try {
+      if (!file.type.startsWith("image/")) return file;
+
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(image);
+        };
+        image.onerror = (event) => {
+          URL.revokeObjectURL(url);
+          reject(event);
+        };
+        image.src = url;
+      });
+
+      const { width, height } = img;
+      let targetWidth = width;
+      let targetHeight = height;
+
+      if (Math.max(width, height) > maxDim) {
+        if (width > height) {
+          targetWidth = maxDim;
+          targetHeight = Math.round((height / width) * maxDim);
+        } else {
+          targetHeight = maxDim;
+          targetWidth = Math.round((width / height) * maxDim);
+        }
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return file;
+
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+      const blob: Blob | null = await new Promise((resolve) =>
+        canvas.toBlob((nextBlob) => resolve(nextBlob), "image/jpeg", quality),
+      );
+      if (!blob) return file;
+
+      const compressedName = file.name.includes(".")
+        ? file.name.replace(/\.[^/.]+$/, ".jpg")
+        : `${file.name}.jpg`;
+
+      return new File([blob], compressedName, { type: "image/jpeg" });
+    } catch {
+      return file;
+    }
+  };
+
+  const compressFiles = async (files: File[]) =>
+    Promise.all(files.map((file) => compressImageFile(file)));
+
   const inferChatEvidenceGroup = (
     attachments: File[],
     suggestedGroup?: string,
@@ -452,31 +529,62 @@ export function IntakeProvider({
 
       if (!trimmedInput && !hasAttachments) return;
 
-      const uploadedDocuments =
-        (hasAttachments
-          ? await uploadEvidenceFiles(
-              attachments,
-              inferChatEvidenceGroup(attachments, evidenceGroup),
-            )
-          : []) ?? [];
-
       const userDisplayContent =
         trimmedInput || (hasAttachments ? "Uploaded supporting files." : "");
+      const submittedAt = new Date().toISOString();
+      const userMessageId = `user-${Date.now()}`;
+      const inferredEvidenceGroup = hasAttachments
+        ? inferChatEvidenceGroup(attachments, evidenceGroup)
+        : undefined;
 
-      const userMessage: IntakeChatMessage = {
-        role: "user",
-        content: userDisplayContent,
-        id: `user-${Date.now()}`,
-        status: "complete",
-        meta:
-          uploadedDocuments.length > 0
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "user",
+          content: userDisplayContent,
+          id: userMessageId,
+          status: "complete",
+          meta: hasAttachments
             ? {
-                attachedFiles: uploadedDocuments,
-                submittedAt: new Date().toISOString(),
+                attachedFiles: attachments.map((file, index) => ({
+                  name: file.name,
+                  path: `optimistic-${userMessageId}-${index}`,
+                  type: file.type || "application/octet-stream",
+                  uploadedAt: submittedAt,
+                  size: file.size,
+                  temp: true,
+                  group: inferredEvidenceGroup,
+                })),
+                submittedAt,
               }
-            : undefined,
-      };
-      setMessages((prev) => [...prev, userMessage]);
+            : { submittedAt },
+        },
+      ]);
+
+      const filesForUpload = hasAttachments
+        ? await compressFiles(attachments)
+        : [];
+
+      const uploadedDocuments =
+        (hasAttachments
+          ? await uploadEvidenceFiles(filesForUpload, inferredEvidenceGroup)
+          : []) ?? [];
+
+      if (uploadedDocuments.length > 0) {
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.role === "user" && message.id === userMessageId
+              ? {
+                  ...message,
+                  meta: {
+                    attachedFiles: uploadedDocuments,
+                    submittedAt,
+                  },
+                }
+              : message,
+          ),
+        );
+      }
 
       const requestBody = hasAttachments
         ? (() => {
@@ -487,7 +595,7 @@ export function IntakeProvider({
               "persistedAttachments",
               JSON.stringify(uploadedDocuments),
             );
-            attachments.forEach((file, index) => {
+            filesForUpload.forEach((file, index) => {
               formData.append(`file_${index}`, file);
             });
             return formData;
@@ -518,7 +626,7 @@ export function IntakeProvider({
         throw new Error("No response body");
       }
 
-      let assistantMessage: IntakeChatMessage & { raw: string } = {
+      let assistantMessage: IntakeResponseMessage & { raw: string } = {
         role: "assistant",
         content: "",
         raw: "",
@@ -591,7 +699,7 @@ export function IntakeProvider({
           try {
             const parsedMeta = JSON.parse(
               metadataJson,
-            ) as IntakeChatMessage["meta"];
+            ) as IntakeResponseMessage["meta"];
             assistantMessage = {
               ...assistantMessage,
               meta: parsedMeta,
@@ -1030,6 +1138,7 @@ export function IntakeProvider({
     statementSections,
     hasFormalizedStatement,
     suggestedEvidence,
+    latestRequestedEvidence,
     evidenceFiles,
     templateDocument,
     hasAcknowledgedPrivacyNotice,

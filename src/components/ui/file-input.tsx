@@ -119,13 +119,14 @@ FileInput.displayName = "FileInput";
 
 export const FileInputTrigger = React.forwardRef<
   HTMLButtonElement,
-  ButtonProps
+  ButtonProps & { indicator?: boolean }
 >(
   (
     {
       className,
       variant = "accent",
       children = "Choose Files",
+      indicator = true,
       disabled = false,
       ...props
     },
@@ -160,20 +161,22 @@ export const FileInputTrigger = React.forwardRef<
             type="button"
             variant={variant}
             onClick={handleClick}
-            className={cn("w-min file-input-trigger", className)}
+            className={cn("file-input-trigger", className)}
             ref={ref}
             disabled={disabled || context.disabled}
             {...props}
           >
             {children}
           </Button>
-          <span className="ml-2 text-sm text-muted-foreground">
-            {files.length > 0
-              ? multiple
-                ? `${files.length} file(s) selected`
-                : files[0].name
-              : "No files selected"}
-          </span>
+          {indicator && (
+            <span className="ml-2 text-sm text-muted-foreground">
+              {files.length > 0
+                ? multiple
+                  ? `${files.length} file(s) selected`
+                  : files[0].name
+                : "No files selected"}
+            </span>
+          )}
         </div>
       </>
     );
@@ -208,3 +211,55 @@ export const FileInputList: React.FC<FileInputListProps> = React.memo(() => {
 });
 
 FileInputList.displayName = "FileInputList";
+
+export const FileInputThumbnails: React.FC = React.memo(() => {
+  const context = React.useContext(FileInputContext);
+  if (!context)
+    throw new Error("FileInputThumbnails must be used within a FileInput");
+
+  const { files, removeFile } = context;
+  const [previews, setPreviews] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    const urls = files.map((f) => URL.createObjectURL(f));
+    setPreviews(urls);
+    return () => {
+      urls.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [files]);
+
+  if (files.length === 0) return null;
+
+  return files.map((file, idx) => {
+    const isImage = file.type.startsWith("image/");
+    return (
+      <div
+        key={idx}
+        className="relative w-20 h-20 rounded overflow-hidden border"
+      >
+        <Button
+          variant="destructive"
+          className="absolute top-0.5 right-0.5 h-4 w-4 active:scale-95"
+          onClick={() => removeFile(idx)}
+          size={null}
+        >
+          &times;
+        </Button>
+        {isImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={previews[idx]}
+            alt={file.name}
+            className="object-cover w-full h-full"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center p-2 text-xs">
+            <div className="truncate text-center">{file.name}</div>
+          </div>
+        )}
+      </div>
+    );
+  });
+});
+
+FileInputThumbnails.displayName = "FileInputThumbnails";

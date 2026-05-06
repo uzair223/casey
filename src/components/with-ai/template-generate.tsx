@@ -13,7 +13,7 @@ import React from "react";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { MessageCard } from "@/components/ui/message";
-import { Message } from "@/types";
+import { BaseMessage } from "@/types";
 import { buildGenerateConfigResponseSchema } from "@/lib/schema/generate-config-response-format";
 import { cn } from "@/lib/utils";
 
@@ -143,7 +143,7 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
   resetTrigger,
   ...dialogContentProps
 }: GenerateWithAIDialogProps<T>) {
-  type ChatMessage = Message & {
+  type ChatMessage = BaseMessage & {
     createdAt?: number;
     status?: "pending" | "complete" | "error";
     restorePoint?: z.output<T>;
