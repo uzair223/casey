@@ -1473,8 +1473,17 @@ export type Database = {
         Args: { default_bucket?: string; document_json: Json }
         Returns: undefined
       }
+      get_system_config: { Args: { p_key: string }; Returns: string }
       is_tenant_active: { Args: { tenant_id_param: string }; Returns: boolean }
       is_tenant_bucket: { Args: { bucket_id_param: string }; Returns: boolean }
+      list_system_config: {
+        Args: never
+        Returns: {
+          key: string
+          updated_at: string
+          value: string
+        }[]
+      }
       permanently_delete_expired_soft_deleted_tenants: {
         Args: never
         Returns: number
@@ -1482,6 +1491,10 @@ export type Database = {
       restore_tenant: { Args: { tenant_id_param: string }; Returns: undefined }
       run_retention_purge_job: { Args: never; Returns: number }
       run_statement_reminders_job: { Args: never; Returns: number }
+      set_system_config: {
+        Args: { p_key: string; p_value: string }
+        Returns: undefined
+      }
       soft_delete_tenant: {
         Args: { tenant_id_param: string }
         Returns: undefined

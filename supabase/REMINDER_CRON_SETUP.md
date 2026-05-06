@@ -7,7 +7,7 @@ This project now schedules reminder dispatches from Supabase (hourly) instead of
 Run this in your Supabase project SQL editor, replacing placeholders with your deployed app URL and reminder secret.
 
 ```sql
-INSERT INTO app_private.scheduler_config (key, value)
+INSERT INTO app_private.system_config (key, value)
 VALUES
 	('site_url', 'https://your-app-domain.com'),
 	('cron_secret', 'your-cron-secret')
@@ -17,8 +17,8 @@ DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
 
 Notes:
 
-- scheduler_config key cron_secret must match your app environment variable CRON_SECRET.
-- scheduler_config key site_url should be your public app origin without a trailing slash.
+- system_config key cron_secret must match your app environment variable CRON_SECRET.
+- system_config key site_url should be your public app origin without a trailing slash.
 
 ## Verify the cron job exists
 

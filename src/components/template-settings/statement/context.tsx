@@ -25,7 +25,6 @@ import {
   generateStarterDoc,
   validateDocxTemplateDocument,
 } from "@/lib/doc-gen";
-import { getDefaultPromptTemplates } from "@/lib/llm/prompts";
 import {
   StatementConfigPublishSchema,
   StatementConfigSchema,
@@ -177,21 +176,15 @@ function createNullPromptTemplates(): NonNullable<StatementConfig["prompts"]> {
 }
 
 function normalizePromptsForStorage(config: StatementConfig): StatementConfig {
-  const defaults = getDefaultPromptTemplates();
   const prompts = config.prompts ?? createNullPromptTemplates();
 
   return StatementConfigSchema.parse({
     ...config,
     schema_version: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
     prompts: {
-      chat_system_template:
-        prompts.chat_system_template === defaults.chat_system_template
-          ? null
-          : prompts.chat_system_template,
+      chat_system_template: prompts.chat_system_template?.trim() || null,
       formalize_system_template:
-        prompts.formalize_system_template === defaults.formalize_system_template
-          ? null
-          : prompts.formalize_system_template,
+        prompts.formalize_system_template?.trim() || null,
     },
   });
 }

@@ -1,3 +1,5 @@
+import "server-only";
+
 import OpenAI from "openai";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
@@ -10,9 +12,7 @@ import {
 } from "@/lib/llm/request";
 import { getStructuredResponseJson } from "@/lib/llm/responses";
 import { getServiceClient } from "@/lib/supabase/server";
-import {
-  SERVERONLY_updateStatementSupportingDocumentDescriptors,
-} from "@/lib/supabase/mutations/statement-supporting-documents";
+import { SERVERONLY_updateStatementSupportingDocumentDescriptors } from "@/lib/supabase/mutations/statement-supporting-documents";
 import type {
   StatementDocumentDescriptors,
   StatementSupportingDocument,

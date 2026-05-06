@@ -329,6 +329,7 @@ export async function POST(
     });
 
     try {
+      const chatSystemPrompt = await generateChatSystemPrompt(statementConfig);
       const completion = await client.chat.completions.create({
         model: selectedModel,
 
@@ -342,7 +343,7 @@ export async function POST(
         messages: [
           {
             role: "system",
-            content: generateChatSystemPrompt(statementConfig),
+            content: chatSystemPrompt,
           },
           {
             role: "system",

@@ -1,10 +1,7 @@
 "use client";
 
 import { useStatementTemplateSettings } from "./context";
-import {
-  PROMPT_TEMPLATE_TOKEN_HELP,
-  getDefaultPromptTemplates,
-} from "@/lib/llm/prompts";
+import { PROMPT_TEMPLATE_TOKEN_HELP } from "@/lib/llm/prompts";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -56,12 +53,9 @@ export function StatementTemplateJsonView() {
   }, [draftConfig, pendingAiPatch]);
 
   const promptTemplates = {
-    chat_system_template:
-      draftConfig.prompts?.chat_system_template ??
-      getDefaultPromptTemplates().chat_system_template,
+    chat_system_template: draftConfig.prompts?.chat_system_template ?? "",
     formalize_system_template:
-      draftConfig.prompts?.formalize_system_template ??
-      getDefaultPromptTemplates().formalize_system_template,
+      draftConfig.prompts?.formalize_system_template ?? "",
   };
 
   const setPromptTemplate = (

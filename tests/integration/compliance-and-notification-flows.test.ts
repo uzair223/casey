@@ -107,7 +107,7 @@ describe("compliance and notification flows", () => {
       new Request("http://localhost/api/notifications/mentions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "statement", noteId: "note-1" }),
+        body: JSON.stringify({ kind: "case", noteId: "note-1" }),
       }) as never,
     );
 

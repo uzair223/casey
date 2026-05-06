@@ -1,3 +1,5 @@
+import "server-only";
+
 import OpenAI from "openai";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
@@ -11,10 +13,7 @@ import {
   getModelRequestError,
 } from "@/lib/llm/request";
 import { getStructuredResponseJson } from "@/lib/llm/responses";
-import {
-  extractDocumentContent,
-  type UploadedDocument,
-} from "@/lib/files";
+import { extractDocumentContent, type UploadedDocument } from "@/lib/files";
 import {
   getStatementSupportingDocumentsWithClient,
   getUploadedDocumentsFromSupportingRows,
@@ -238,12 +237,11 @@ export async function processFormalizationJob(jobId: string) {
         })
         .join("\n") || "No transcript available.";
 
-    const supportingDocumentRows = await getStatementSupportingDocumentsWithClient(
-      supabase,
-      statement.id,
+    const supportingDocumentRows =
+      await getStatementSupportingDocumentsWithClient(supabase, statement.id);
+    const evidenceDocuments = getUploadedDocumentsFromSupportingRows(
+      supportingDocumentRows,
     );
-    const evidenceDocuments =
-      getUploadedDocumentsFromSupportingRows(supportingDocumentRows);
     const exhibits = createEvidenceExhibits(
       evidenceDocuments,
       statement.witness_name || "Witness",
@@ -280,6 +278,10 @@ export async function processFormalizationJob(jobId: string) {
 
     let response: Awaited<ReturnType<typeof client.chat.completions.parse>>;
     try {
+      const systemPrompt = await generateFormalizeSystemPrompt(
+        config,
+        buildEvidenceList(exhibits),
+      );
       response = await client.chat.completions.parse(
         {
           model,
@@ -287,10 +289,7 @@ export async function processFormalizationJob(jobId: string) {
           messages: [
             {
               role: "system",
-              content: generateFormalizeSystemPrompt(
-                config,
-                buildEvidenceList(exhibits),
-              ),
+              content: systemPrompt,
             },
             {
               role: "user",

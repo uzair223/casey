@@ -1,4 +1,7 @@
-import { CaseAnalysisSchema, CaseAnalysisSourceVersionSchema } from "@/lib/schema";
+import {
+  CaseAnalysisSchema,
+  CaseAnalysisSourceVersionSchema,
+} from "@/lib/schema";
 import type { CaseAnalysis, CaseAnalysisSourceVersion } from "@/lib/schema";
 import { normalizeCaseAnalysis } from "@/lib/case-analysis/normalize";
 import { getSupabaseClient } from "../client";

@@ -13,6 +13,7 @@ const getIntakeAccessError = vi.fn();
 const logServerEvent = vi.fn();
 const generateGreeting = vi.fn();
 const getMissingWitnessFieldLabels = vi.fn();
+const generateChatSystemPrompt = vi.fn();
 const generateFormalizeSystemPrompt = vi.fn();
 const getOpenRouterClientOptions = vi.fn();
 
@@ -29,6 +30,14 @@ vi.mock("openai", () => ({
 vi.mock("openai/helpers/zod", () => ({
   zodResponseFormat: vi.fn(() => ({ type: "json_schema" })),
 }));
+
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: vi.fn(),
+  };
+});
 
 vi.mock("@/lib/env", () => ({
   env: {
@@ -64,9 +73,10 @@ vi.mock("@/lib/observability/logger", () => ({
   logServerEvent,
 }));
 
-vi.mock("@/lib/statement-utils/prompts", () => ({
+vi.mock("@/lib/llm/prompts", () => ({
   generateGreeting,
   getMissingWitnessFieldLabels,
+  generateChatSystemPrompt,
   generateFormalizeSystemPrompt,
 }));
 
@@ -212,8 +222,27 @@ describe("intake interview flows", () => {
   });
 
   it("formalizes responses and injects missing evidence into the evidence section", async () => {
+    const pendingJob = {
+      id: "job-1",
+      status: "queued",
+      created_at: "2026-04-23T12:00:00.000Z",
+    };
+    const existingJobLookup = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      insert: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: pendingJob, error: null }),
+    };
+    getServiceClient.mockReturnValue({
+      from: vi.fn(() => existingJobLookup),
+    });
     SERVERONLY_getStatementWithConfigFromToken.mockResolvedValue({
       id: "statement-1",
+      tenant_id: "tenant-1",
       witness_name: "Casey Witness",
       status: "in_progress",
       supporting_documents: [
@@ -232,20 +261,6 @@ describe("intake interview flows", () => {
         ],
       },
     });
-    generateFormalizeSystemPrompt.mockReturnValue("formalize prompt");
-    chatCompletionsCreate.mockResolvedValue({
-      choices: [
-        {
-          message: {
-            content: JSON.stringify({
-              background: "The witness entered the site at 08:10.",
-              supportingEvidence: "Existing references only.",
-            }),
-          },
-        },
-      ],
-    });
-
     const route = await importFresh<
       typeof import("@/app/api/intake/[token]/interview/formalize/route")
     >("@/app/api/intake/[token]/interview/formalize/route");
@@ -270,22 +285,49 @@ describe("intake interview flows", () => {
       { params: Promise.resolve({ token: "token-1" }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(generateFormalizeSystemPrompt).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.stringContaining("Exhibit"),
-    );
-    await expect(
-      readJson<Record<string, string>>(response),
-    ).resolves.toEqual({
-      background: "The witness entered the site at 08:10.",
-      supportingEvidence: "Existing references only.",
+    expect(response.status).toBe(202);
+    expect(existingJobLookup.insert).toHaveBeenCalledWith({
+      tenant_id: "tenant-1",
+      kind: "statement_formalization",
+      target_id: "statement-1",
+      status: "queued",
+      request_payload: {
+        requestId: expect.any(String),
+        tokenSuffix: "oken-1",
+      },
+    });
+    await expect(readJson<typeof pendingJob>(response)).resolves.toEqual({
+      id: "job-1",
+      status: "queued",
+      created_at: "2026-04-23T12:00:00.000Z",
     });
   });
 
   it("passes uploaded evidence text into the formalization prompt", async () => {
+    const existingJob = {
+      id: "job-existing",
+      status: "running",
+      created_at: "2026-04-23T12:00:00.000Z",
+    };
+    const existingJobLookup = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: existingJob,
+        error: null,
+      }),
+      insert: vi.fn().mockReturnThis(),
+      single: vi.fn(),
+    };
+    getServiceClient.mockReturnValue({
+      from: vi.fn(() => existingJobLookup),
+    });
     SERVERONLY_getStatementWithConfigFromToken.mockResolvedValue({
       id: "statement-1",
+      tenant_id: "tenant-1",
       witness_name: "Casey Witness",
       status: "in_progress",
       supporting_documents: [
@@ -301,19 +343,6 @@ describe("intake interview flows", () => {
         sections: [{ id: "damageDetails", title: "Damage Details" }],
       },
     });
-    generateFormalizeSystemPrompt.mockReturnValue("formalize prompt");
-    chatCompletionsCreate.mockResolvedValue({
-      choices: [
-        {
-          message: {
-            content: JSON.stringify({
-              damageDetails: "Drafted from transcript and uploaded evidence.",
-            }),
-          },
-        },
-      ],
-    });
-
     const route = await importFresh<
       typeof import("@/app/api/intake/[token]/interview/formalize/route")
     >("@/app/api/intake/[token]/interview/formalize/route");
@@ -335,10 +364,12 @@ describe("intake interview flows", () => {
       { params: Promise.resolve({ token: "token-1" }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(generateFormalizeSystemPrompt).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.any(String),
-    );
+    expect(response.status).toBe(202);
+    expect(existingJobLookup.insert).not.toHaveBeenCalled();
+    await expect(readJson<typeof existingJob>(response)).resolves.toEqual({
+      id: "job-existing",
+      status: "running",
+      created_at: "2026-04-23T12:00:00.000Z",
+    });
   });
 });

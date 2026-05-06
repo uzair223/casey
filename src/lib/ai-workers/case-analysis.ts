@@ -1,3 +1,5 @@
+import "server-only";
+
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 
@@ -20,6 +22,8 @@ import { normalizeCaseAnalysis } from "@/lib/case-analysis/normalize";
 import { CaseAnalysisSchema } from "@/lib/schema/case-analysis";
 import type { CaseAnalysis } from "@/lib/schema/case-analysis";
 import type { StatementSupportingDocument, UploadedDocument } from "@/types";
+
+import { getSystemConfig } from "@/lib/supabase/system-config";
 
 const MAX_EVIDENCE_FILES_PER_CASE = 8;
 const CASE_ANALYSIS_TIMEOUT_MS = Number(
@@ -250,7 +254,9 @@ export function buildEvidenceCorpus(contexts: EvidenceContext[]) {
           ? `uploadedByWitnessEmail: ${item.uploadedByWitnessEmail}`
           : null,
         `descriptorStatus: ${item.descriptorStatus}`,
-        item.descriptorModel ? `descriptorModel: ${item.descriptorModel}` : null,
+        item.descriptorModel
+          ? `descriptorModel: ${item.descriptorModel}`
+          : null,
         item.descriptorGeneratedAt
           ? `descriptorGeneratedAt: ${item.descriptorGeneratedAt}`
           : null,
@@ -332,39 +338,6 @@ ${stringifySections(getStatementSections(statement))}`;
     })
     .join("\n\n---\n\n");
 }
-
-const CASE_ANALYSIS_SYSTEM_PROMPT = `You analyse multiple witness statements and supporting evidence for a legal team.
-
-Core rules:
-- Stay neutral. Do not decide what truly happened, who is credible, who is liable, or what is proven.
-- Only describe what the supplied statements and supporting evidence say.
-- Every factual item must cite source material. Do not cite the same statement more than once for the same factual item.
-- A fact belongs in agreedFacts only when supported by two or more distinct witness statements. A witness statement plus one document is corroboration, not an agreed fact.
-
-Classify issues carefully:
-- disputedFacts is for material inconsistencies, contradictions, or unresolved tensions.
-- Include statement-vs-statement conflicts, statement-vs-evidence conflicts, and internal inconsistencies within a single document or statement.
-- If evidence text conflicts with a witness narrative, add it to disputedFacts with separate positions for each account.
-- If the same inconsistency needs clarification, include it in missingInformation too. Do not hide conflicts only in missingInformation.
-- chronology.conflicts should briefly flag conflicts attached to timeline events.
-
-Evidence handling:
-- Supporting evidence may include extracted text or metadata-only uploads.
-- Supporting evidence may include AI-generated descriptor fields: descriptorSummary, descriptorDocumentType, descriptorKeyDetails, and descriptorConcerns.
-- Treat generated descriptor fields as document-reading assistance, not as independent witness testimony.
-- Use descriptor fields for evidenceMentioned, chronology context, themes, gaps, and conflicts where relevant, especially for metadata_only documents.
-- metadata_only files, especially images, are intentionally supplied as metadata to save tokens. Treat them as uploaded/available evidence.
-- Do not describe metadata_only images as "not visible", "not supplied", "cannot be reviewed", or "cannot be described from the material provided".
-- Do not create gaps, weaknesses, or suggested follow-ups merely because an uploaded image is metadata_only.
-- Do not suggest "review the images directly" unless another textual source specifically says the image contents resolve a named issue.
-- If a photograph is metadata_only, you may mention only that the photograph was uploaded/available and cite its filename or exhibit number.
-- When evidence text is supplied, use it as supporting context and mention the document name in evidenceMentioned.
-- When citing evidence in a source, use the associated statementId and witnessName, set sectionId to "evidence:<documentName>", set evidenceName to the documentName, and set exhibitId to the supplied exhibitId.
-- When citing a witness statement rather than evidence, omit evidenceName and exhibitId.
-
-Output style:
-- Use "says", "states", "records", "appears", and "is inconsistent with"; avoid definitive findings.
-- Keep suggested follow-ups concrete and proportionate.`;
 
 export async function processCaseAnalysisJob(jobId: string) {
   const supabase = getServiceClient("case-analysis-worker");
@@ -458,7 +431,7 @@ export async function processCaseAnalysisJob(jobId: string) {
           messages: [
             {
               role: "system",
-              content: CASE_ANALYSIS_SYSTEM_PROMPT,
+              content: await getSystemConfig("case_analysis_prompt"),
             },
             {
               role: "user",
