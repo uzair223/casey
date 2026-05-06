@@ -15,8 +15,9 @@ export default function Footer() {
             </p>
             <p className="text-sm leading-6 text-muted-foreground">
               {env.NEXT_PUBLIC_APP_NAME} helps UK legal teams capture witness
-              accounts, prepare review-ready drafts, and govern the work around
-              them in one secure workflow.
+              accounts, prepare review-ready drafts, and surface case
+              intelligence across facts, gaps, chronology, and evidence in one
+              secure workflow.
             </p>
           </div>
 
@@ -27,7 +28,8 @@ export default function Footer() {
             <p className="font-display text-xl">Map Casey to your workflow</p>
             <p className="text-sm leading-6 text-muted-foreground mb-4">
               Bring your current intake process, templates, and review
-              bottlenecks. We&apos;ll show how the workflow changes.
+              bottlenecks. We&apos;ll show how the workflow changes once witness
+              evidence and case analysis live together.
             </p>
             <WaitlistSignupForm id="waitlist" disableCalendly />
           </div>

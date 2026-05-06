@@ -20,7 +20,7 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
   title: env.NEXT_PUBLIC_APP_NAME,
-  description: `${env.NEXT_PUBLIC_APP_NAME} helps UK claimant firms turn guided witness intake into review-ready statement drafts with less chasing, clearer evidence, and governed workflows.`,
+  description: `${env.NEXT_PUBLIC_APP_NAME} helps UK claimant firms turn guided witness intake, structured evidence, and case intelligence into review-ready statement workflows.`,
 };
 
 export default function RootLayout({

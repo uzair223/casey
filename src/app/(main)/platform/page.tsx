@@ -39,7 +39,12 @@ const pillars = [
   {
     icon: FileText,
     title: "Statement drafting",
-    body: "Turn the interview transcript into structured statement sections, then refine wording, order, and evidential clarity in the editor.",
+    body: "Turn the interview transcript into structured statement sections, then refine wording, order, and evidential clarity in the editor while source context stays attached.",
+  },
+  {
+    icon: BrainCircuit,
+    title: "Case intelligence",
+    body: "Generate a matter-level view of chronology, agreed facts, disputed points, missing information, and evidence references across formalized statements.",
   },
   {
     icon: FileCog,
@@ -65,7 +70,7 @@ const teamViews = [
   },
   {
     title: "Solicitors",
-    body: "Review statement drafts with source context, refine the legal wording, and keep matter activity visible.",
+    body: "Review statement drafts with source context, inspect chronology and gaps, refine the legal wording, and keep matter activity visible.",
   },
   {
     title: "Admins",
@@ -88,8 +93,8 @@ export default function PlatformPage() {
         <div className="max-w-4xl">
           <PageTitle
             subtitle="Platform"
-            title="A governed workspace for witness statement work."
-            description={`${env.NEXT_PUBLIC_APP_NAME} connects witness intake, AI-assisted drafting, template controls, collaboration, and compliance support so firms can manage statement preparation as one workflow.`}
+            title="A governed workspace for witness evidence and case intelligence."
+            description={`${env.NEXT_PUBLIC_APP_NAME} connects witness intake, AI-assisted drafting, descriptor-backed evidence, case analysis, template controls, collaboration, and compliance support so firms can manage statement preparation as one workflow.`}
             titleClassName="mt-4 text-4xl sm:text-5xl"
             descriptionClassName="mt-5 max-w-3xl text-base leading-7 sm:text-lg"
           />
@@ -160,7 +165,7 @@ export default function PlatformPage() {
               <CardDescription className="text-sm leading-6">
                 Casey keeps each stage connected: secure link issue, witness
                 interview, evidence collection, AI formalization, inline review,
-                follow-up, and final witness review.
+                case intelligence, follow-up, and final witness review.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -169,6 +174,8 @@ export default function PlatformPage() {
                 "Privacy acknowledgement before intake",
                 "Evidence requests inside the interview",
                 "Draft formalization with source context",
+                "Chronology, facts, conflicts, and gaps",
+                "Descriptor-backed exhibit context",
                 "Follow-up and final-review channels",
                 "Event history for operational oversight",
               ].map((item) => (
@@ -241,7 +248,8 @@ export default function PlatformPage() {
             </CardTitle>
             <CardDescription className="max-w-2xl text-sm leading-6">
               Bring a real witness workflow, a template, or a current pain
-              point. We will show how the platform handles it.
+              point. We will show how the platform handles intake, drafting,
+              evidence descriptors, and case intelligence.
             </CardDescription>
           </CardHeader>
           <CardContent>

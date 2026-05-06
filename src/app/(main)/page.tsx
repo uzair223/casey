@@ -52,7 +52,7 @@ const demoMessages = [
 
 const proofPoints = [
   "Built for PI, RTA, EL/PL, and clinical negligence teams",
-  "Review-ready first drafts with source context",
+  "Review-ready first drafts with case intelligence",
   "Fewer loose emails and manual witness chasers",
   "Firm-scoped governance from intake to final review",
 ] as const;
@@ -64,7 +64,7 @@ const painPoints = [
   },
   {
     title: "Gaps surface too late",
-    body: "When the first account is thin, teams discover the problem during drafting or review: unclear chronology, unsupported detail, missing witnesses, or evidence that should have been requested days earlier.",
+    body: "When the first account is thin, teams discover the problem during drafting or review: unclear chronology, unsupported detail, missing witnesses, evidence conflicts, or documents that should have been requested days earlier.",
   },
   {
     title: "Write-offs hide in the process",
@@ -85,8 +85,8 @@ const workflow = [
   },
   {
     icon: FileText,
-    title: "Draft and refine",
-    body: "Turn the transcript into structured statement sections, then edit the review-ready draft inline with legal context still attached.",
+    title: "Draft and analyse",
+    body: "Turn the transcript into structured statement sections, then review chronology, facts, gaps, conflicts, and exhibit-aware evidence context beside the draft.",
   },
   {
     icon: MailCheck,
@@ -104,7 +104,7 @@ const outcomes = [
   {
     icon: FileCheck2,
     title: "Get to review faster",
-    body: "Move from raw witness answers to a review-ready first draft while preserving the transcript, evidence, and review notes beside the document.",
+    body: "Move from raw witness answers to a review-ready first draft while preserving the transcript, evidence descriptors, case analysis, and review notes beside the document.",
   },
   {
     icon: ShieldCheck,
@@ -119,8 +119,9 @@ const proofSignals = [
     label: "intake, drafting, follow-up, final review, and audit history",
   },
   {
-    value: "Every draft",
-    label: "keeps witness answers, evidence, and legal review context attached",
+    value: "Every case",
+    label:
+      "can surface chronology, agreed facts, disputes, missing information, and evidence context",
   },
   {
     value: "Beta review",
@@ -146,6 +147,8 @@ const capabilities = [
   "Magic-link intake with state checks and privacy acknowledgement",
   "Guided interviews that request evidence in context",
   "Transcript-to-statement formalization with structured sections",
+  "Case intelligence across chronology, facts, gaps, conflicts, and evidence",
+  "AI-generated document descriptors and exhibit-aware evidence summaries",
   "Inline document editing for paragraph-level refinement",
   "Template publishing, forking, DOCX validation, and firm defaults",
   "Mentions, notes, notifications, audit events, and lifecycle controls",
@@ -168,7 +171,7 @@ export default function Home() {
             <PageTitle
               subtitle="Witness evidence intake for UK legal teams"
               title="Turn witness interviews into stronger statements, faster."
-              description={`${env.NEXT_PUBLIC_APP_NAME} gives claimant firms a secure intake, drafting, and review workflow for witness statements. Capture the facts once, keep evidence organised, and move from first account to review-ready draft with less chasing and manual rework.`}
+              description={`${env.NEXT_PUBLIC_APP_NAME} gives claimant firms a secure intake, drafting, review, and case intelligence workflow for witness statements. Capture the facts once, keep evidence organised, and move from first account to review-ready draft with chronology, gaps, conflicts, and exhibit context already surfaced.`}
               titleClassName="mt-8 text-4xl leading-[1.02] sm:text-5xl lg:text-6xl"
               descriptionClassName="mt-5 max-w-2xl text-base leading-7 sm:text-lg"
             />
@@ -226,9 +229,10 @@ export default function Home() {
                 <Card size="sm" className="rounded-2xl bg-background/70">
                   <CardContent className="p-3 text-xs text-muted-foreground">
                     <span className="font-medium text-foreground">
-                      Drafting:
+                      Intelligence:
                     </span>{" "}
-                    chronology, facts, exhibits, and review notes stay together.
+                    chronology, facts, gaps, exhibits, and review notes stay
+                    together.
                   </CardContent>
                 </Card>
                 <Card size="sm" className="rounded-2xl bg-background/70">
@@ -276,7 +280,7 @@ export default function Home() {
         <PageTitle
           subtitle="Commercial case"
           title="Built to protect review time"
-          description="Casey is designed around the economics of statement work: fewer admin loops, cleaner first drafts, and less fee-earner time spent turning scattered witness material into something reviewable."
+          description="Casey is designed around the economics of statement work: fewer admin loops, cleaner first drafts, and less fee-earner time spent turning scattered witness material into a chronology, fact pattern, or gap list."
           titleTag="h2"
         />
 
@@ -311,6 +315,51 @@ export default function Home() {
               <CardContent>
                 <CardDescription className="text-sm leading-6">
                   {item.label}
+                </CardDescription>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto mt-24 max-w-6xl space-y-8 sm:mt-28">
+        <PageTitle
+          subtitle="Case intelligence"
+          title="See what the witness material is saying before review starts"
+          description="Casey combines formalized statements and evidence descriptors to produce a practical case view: chronology, shared facts, disputed points, missing information, and the exhibits behind each issue."
+          titleTag="h2"
+        />
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          {[
+            {
+              icon: BrainCircuit,
+              title: "Facts and gaps",
+              body: "Summarise what the available statements support, what is disputed, and what follow-up evidence would make the file stronger.",
+            },
+            {
+              icon: Clock3,
+              title: "Chronology",
+              body: "Convert witness accounts and document descriptors into a timeline with source references rather than another manual note.",
+            },
+            {
+              icon: FileSearch,
+              title: "Evidence context",
+              body: "Use document descriptors and exhibit numbers so photos, repair quotes, records, and internal uploads stay attached to the legal issue they support.",
+            },
+          ].map((item) => (
+            <Card key={item.title} className="rounded-3xl bg-card/75">
+              <CardHeader>
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent-foreground">
+                  <item.icon className="h-5 w-5" />
+                </div>
+                <CardTitle className="mt-3 text-lg text-foreground">
+                  {item.title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-sm leading-6">
+                  {item.body}
                 </CardDescription>
               </CardContent>
             </Card>
@@ -357,7 +406,7 @@ export default function Home() {
             <PageTitle
               subtitle="Platform"
               title="Everything around the statement, not just the draft"
-              description="Casey is built for the operational reality around witness evidence: intake, templates, collaboration, security controls, and follow-through."
+              description="Casey is built for the operational reality around witness evidence: intake, templates, collaboration, case intelligence, security controls, and follow-through."
               titleTag="h2"
             />
             <Button asChild variant="outline" className="mt-6 rounded-full">
@@ -399,12 +448,13 @@ export default function Home() {
                 scattered messages, Casey structures the work before it reaches
                 review. The witness gives the account, the system asks the next
                 useful question, and the legal team receives a draft with
-                context still attached.
+                context, evidence, and case intelligence still attached.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
               {[
                 "Chronology and evidence captured together",
+                "Facts, disputes, and missing information surfaced",
                 "Review workflow after AI formalization",
                 "Follow-up channel for missing details",
                 "Templates governed by firm defaults",
@@ -473,13 +523,13 @@ export default function Home() {
       </section>
 
       <section id="beta" className="mx-auto mt-24 max-w-6xl sm:mt-28">
-        <Card className="overflow-hidden rounded-3xl border-border/70 bg-card/85">
+        <div className="overflow-hidden rounded-3xl border-border/70 bg-card/85">
           <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="border-b border-border/70 bg-background/60 p-8 lg:border-b-0 lg:border-r">
               <PageTitle
                 subtitle="Demo"
                 title="Put your current witness workflow under the microscope."
-                description="Book a practical walkthrough with your templates, witness journey, review steps, and governance questions. We will show where Casey removes chasing, protects review time, and keeps the file auditable."
+                description="Book a practical walkthrough with your templates, witness journey, review steps, case analysis needs, and governance questions. We will show where Casey removes chasing, protects review time, and keeps the file auditable."
                 titleTag="h2"
                 titleClassName="mt-3 max-w-xl text-3xl sm:text-4xl"
                 descriptionClassName="mt-4 max-w-xl text-sm leading-6 sm:text-base"
@@ -488,6 +538,7 @@ export default function Home() {
               <div className="mt-8 grid gap-3 text-sm text-muted-foreground">
                 {[
                   "Workflow review against your current intake process",
+                  "Case intelligence mapped to your review bottlenecks",
                   "Template and DOCX readiness discussion",
                   "Clear rollout path for a pilot team",
                 ].map((item) => (
@@ -503,14 +554,17 @@ export default function Home() {
               <WaitlistSignupForm id="waitlist" />
             </div>
           </div>
-        </Card>
+        </div>
       </section>
 
       <section className="mx-auto mt-16 max-w-6xl">
         <div className="grid gap-3 sm:grid-cols-3">
           {[
             { icon: MessageSquareText, label: "Guided witness interviews" },
-            { icon: FileSearch, label: "Review-ready statement drafts" },
+            {
+              icon: FileSearch,
+              label: "Case intelligence and evidence context",
+            },
             { icon: LockKeyhole, label: "Governed legal operations" },
           ].map((item) => (
             <Card

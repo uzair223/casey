@@ -356,7 +356,8 @@ function AuthPageContent() {
             </h1>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               Built for legal teams that need secure witness intake, clean
-              handoffs, and auditable workflows from first contact.
+              handoffs, auditable workflows, and case intelligence from first
+              account to final review.
             </p>
 
             <div className="mt-6 space-y-3">
@@ -373,8 +374,8 @@ function AuthPageContent() {
                 },
                 {
                   icon: ShieldCheck,
-                  title: "Security by default",
-                  body: "Firm-isolated data with controlled lifecycle and restore paths.",
+                  title: "Intelligence with governance",
+                  body: "Structured facts, evidence descriptors, and review context stay firm-isolated and auditable.",
                 },
               ].map((item) => (
                 <div
