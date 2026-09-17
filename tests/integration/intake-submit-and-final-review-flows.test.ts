@@ -43,6 +43,22 @@ vi.mock("@/lib/doc-gen", () => ({
   signDoc,
 }));
 
+vi.mock("@/lib/signing/record", () => ({
+  getStatementSigningMethod: vi.fn().mockResolvedValue("canvas"),
+  recordSignatureEvent: vi.fn().mockResolvedValue({ id: "sig-1" }),
+}));
+
+vi.mock("@/lib/signing/statement-document", () => ({
+  getOrRenderUnsignedStatementBytes: vi
+    .fn()
+    .mockResolvedValue(new Uint8Array([1, 2, 3])),
+  getStatementDocumentName: vi.fn().mockReturnValue("statement.docx"),
+  uploadStorageDocument: vi.fn().mockResolvedValue({
+    path: "docs/final-signed.docx",
+    name: "statement.docx",
+  }),
+}));
+
 describe("intake submission and final review flows", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -203,6 +219,7 @@ describe("intake submission and final review flows", () => {
           signatureImageDataUrl:
             "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/w8AAgMBgN4XvGkAAAAASUVORK5CYII=",
           signatureName: "Casey Witness",
+          intentAttested: true,
         }),
       }),
       { params: Promise.resolve({ token: "token-1" }) },

@@ -23,6 +23,9 @@ export type TenantWithCounts = {
   createdAt: string;
   softDeletedAt: string | null;
   purgeAfter: string | null;
+  billingStatus: string;
+  seatLimit: number;
+  dpaSignedAt: string | null;
   userCount: number;
   statementCount: number;
 };

@@ -45,6 +45,7 @@ function createAwaitableBuilder(result: unknown) {
     then(onfulfilled: (value: unknown) => unknown, onrejected?: (reason: unknown) => unknown) {
       return Promise.resolve(result).then(onfulfilled, onrejected);
     },
+    in: vi.fn().mockReturnThis(),
   };
 
   return builder;
@@ -146,13 +147,18 @@ describe("compliance and notification flows", () => {
           error: null,
         }),
       },
+      storage: {
+        from: vi.fn(() => ({
+          list: vi.fn().mockResolvedValue({ data: [], error: null }),
+        })),
+      },
       from: vi.fn((table: string) => {
         if (table === "audit_logs") return auditLogs;
         if (table === "account_deletion_requests") return deletionRequests;
         if (table === "invites") return invites;
         if (table === "cases") return cases;
         if (table === "statements") return statements;
-        throw new Error(`Unexpected table ${table}`);
+        return createAwaitableBuilder({ data: [], error: null });
       }),
     });
 

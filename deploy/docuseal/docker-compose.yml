@@ -1,0 +1,13 @@
+services:
+  docuseal:
+    image: docuseal/docuseal:latest
+    ports:
+      - "3001:3000"
+    volumes:
+      - docuseal-data:/data
+    environment:
+      HOST: ${DOCUSEAL_HOST:-localhost:3001}
+      SECRET_KEY_BASE: ${DOCUSEAL_SECRET_KEY_BASE:-dev-only-change-me}
+
+volumes:
+  docuseal-data:

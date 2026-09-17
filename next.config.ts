@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 import { BuildEnvSchema } from "./src/lib/env";
 
 const buildEnvResult = BuildEnvSchema.safeParse(process.env);
@@ -24,10 +25,30 @@ const supabaseHostname = (() => {
 const cspEnforce =
   process.env.CSP_ENFORCE === "1" ||
   process.env.CSP_ENFORCE === "true" ||
-  process.env.CSP_ENFORCE === "TRUE";
+  process.env.CSP_ENFORCE === "TRUE" ||
+  (process.env.NODE_ENV === "production" &&
+    process.env.CSP_ENFORCE !== "0" &&
+    process.env.CSP_ENFORCE !== "false");
+
+const originFromEnv = (value?: string) => {
+  if (!value) return undefined;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return undefined;
+  }
+};
+
+const docusealOrigin = originFromEnv(
+  process.env.NEXT_PUBLIC_DOCUSEAL_URL || process.env.DOCUSEAL_URL,
+);
 
 const connectSrc = [
   "'self'",
+  "https://cdn.docuseal.com",
+  "https://js.stripe.com",
+  "https://api.stripe.com",
+  ...(docusealOrigin ? [docusealOrigin] : []),
   ...(supabaseHostname
     ? [`https://${supabaseHostname}`, `wss://${supabaseHostname}`]
     : []),
@@ -49,10 +70,14 @@ const cspPolicy = [
   `img-src ${imgSrc}`,
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline' https://cdn.docuseal.com https://js.stripe.com${
+    docusealOrigin ? ` ${docusealOrigin}` : ""
+  }`,
   `connect-src ${connectSrc}`,
   "worker-src 'self' blob:",
-  "frame-src 'self'",
+  `frame-src 'self' https://cdn.docuseal.com https://js.stripe.com https://hooks.stripe.com${
+    docusealOrigin ? ` ${docusealOrigin}` : ""
+  }`,
   "report-uri /api/security/csp-report",
   "report-to csp-endpoint",
   "upgrade-insecure-requests",
@@ -114,5 +139,7 @@ const nextConfig: NextConfig = {
       : [],
   },
 };
+
+initOpenNextCloudflareForDev();
 
 export default nextConfig;

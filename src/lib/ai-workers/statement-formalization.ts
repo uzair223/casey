@@ -27,6 +27,10 @@ import {
   generateFormalizeSystemPrompt,
   getProgrammaticEvidenceSection,
 } from "@/lib/statement-utils";
+import {
+  claimGenerationJob,
+  completeGenerationJobFailure,
+} from "@/lib/ai-workers/claim";
 
 const MAX_USER_TURNS = Number(process.env.FORMALIZE_MAX_USER_TURNS ?? 40);
 const MAX_CHARS_PER_TURN = Number(
@@ -146,29 +150,16 @@ async function buildEvidenceInputs(params: {
 
 export async function processFormalizationJob(jobId: string) {
   const supabase = getServiceClient("statement-formalization-worker");
+  const claimed = await claimGenerationJob(jobId);
+  const job = claimed.job;
 
-  const { data: job, error: jobError } = await supabase
-    .from("ai_generation_jobs")
-    .select("*")
-    .eq("id", jobId)
-    .maybeSingle();
-
-  if (jobError || !job) {
-    throw new Error("Job not found.");
-  }
-
-  if (job.status === "succeeded") {
-    return { ok: true, status: job.status };
+  if (claimed.skipped) {
+    return { ok: true, status: job.status, skipped: true };
   }
 
   if (job.kind !== "statement_formalization") {
     throw new Error("Unsupported job kind.");
   }
-
-  await supabase
-    .from("ai_generation_jobs")
-    .update({ status: "running", started_at: new Date().toISOString() })
-    .eq("id", jobId);
 
   try {
     const { data: statement, error: statementError } = await supabase
@@ -379,14 +370,12 @@ export async function processFormalizationJob(jobId: string) {
     return { ok: true, status: "succeeded" };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    await supabase
-      .from("ai_generation_jobs")
-      .update({
-        status: "failed",
-        completed_at: new Date().toISOString(),
-        error_message: message,
-      })
-      .eq("id", jobId);
+    await completeGenerationJobFailure({
+      jobId,
+      attemptCount:
+        typeof job.attempt_count === "number" ? job.attempt_count : 1,
+      message,
+    });
 
     void logServerEvent("error", "api.intake.formalize.worker_failed", {
       jobId,

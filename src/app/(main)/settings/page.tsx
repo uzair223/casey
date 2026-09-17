@@ -47,6 +47,8 @@ export default function TenantSettingsPage() {
   const [hasPassword, setHasPassword] = useState(false);
   const [name, setName] = useState("");
   const [dataRetentionDays, setDataRetentionDays] = useState("365");
+  const [seatLimit, setSeatLimit] = useState<number | null>(null);
+  const [billingStatus, setBillingStatus] = useState<string | null>(null);
   const [pendingDeletionRequest, setPendingDeletionRequest] =
     useState<boolean>(false);
 
@@ -76,6 +78,8 @@ export default function TenantSettingsPage() {
       const tenant = await getTenantSettings(user.tenant_id);
       setName(tenant.name);
       setDataRetentionDays(String(tenant.data_retention_days));
+      setSeatLimit(tenant.seat_limit);
+      setBillingStatus(tenant.billing_status);
     }
   }, [refreshHasPassword, user]);
 
@@ -452,7 +456,16 @@ export default function TenantSettingsPage() {
                   onChange={(event) => setDataRetentionDays(event.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Configure how long data is retained for your organisation.
+                  Used only after the organisation is archived. Live matter
+                  files are not deleted on this timer.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Seats</p>
+                <p className="text-sm text-muted-foreground">
+                  {seatLimit == null
+                    ? "Seat limit is managed by Casey."
+                    : `${seatLimit} licensed seats. Billing status: ${billingStatus ?? "trial"}.`}
                 </p>
               </div>
             </CardContent>

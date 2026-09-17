@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import confetti from "canvas-confetti";
 
 import { useAsync } from "@/hooks/useAsync";
 import { apiFetch } from "@/lib/api-utils";
 import { signDoc } from "@/lib/doc-gen";
+import { DocusealEmbed } from "@/components/intake/docuseal-embed";
 import {
   SignaturePad,
   SignaturePadProvider,
@@ -32,6 +33,7 @@ type FinalReviewData = {
   caseId: string;
   caseTitle: string;
   witnessName: string;
+  witnessEmail: string;
   statementId: string;
   status: string;
   sections: Record<string, string>;
@@ -40,6 +42,7 @@ type FinalReviewData = {
   supportingDocuments: UploadedDocument[];
   canSign: boolean;
   alreadyCompleted: boolean;
+  signingMethod: "canvas" | "docuseal";
 };
 
 export default function FinalReviewPage({
@@ -51,8 +54,11 @@ export default function FinalReviewPage({
   const [signatureImageDataUrl, setSignatureImageDataUrl] = useState<
     string | null
   >(null);
+  const [intentAttested, setIntentAttested] = useState(false);
+  const [certifiedComplete, setCertifiedComplete] = useState(false);
   const [baseDocumentBlob, setBaseDocumentBlob] = useState<Blob | null>(null);
   const [documentBlob, setDocumentBlob] = useState<Blob | null>(null);
+  const [documentUrl, setDocumentUrl] = useState<string | null>(null);
 
   const finalReview = useAsync<FinalReviewData>(
     async () =>
@@ -68,9 +74,34 @@ export default function FinalReviewPage({
   );
   const finalReviewData = finalReview.data;
 
+  const startCertifiedSigning = useAsync(
+    async () => {
+      if (!finalReviewData || !intentAttested) {
+        return null;
+      }
+      return apiFetch<{ embedSrc: string }>(
+        `/api/intake/${token}/final-review/embedded`,
+        {
+          method: "POST",
+          requireAuth: false,
+          body: JSON.stringify({
+            signatureName: finalReviewData.witnessName,
+            intentAttested: true,
+          }),
+        },
+      );
+    },
+    [token, finalReviewData, intentAttested],
+    {
+      withUseEffect: false,
+      onlyFirstLoad: false,
+      initialLoading: false,
+    },
+  );
+
   const submitFinalReview = useAsync(
     async () => {
-      if (!finalReviewData || !signatureImageDataUrl) {
+      if (!finalReviewData || !signatureImageDataUrl || !intentAttested) {
         return false;
       }
       if (finalReviewData.status === "demo_published") {
@@ -83,12 +114,13 @@ export default function FinalReviewPage({
         body: JSON.stringify({
           signatureImageDataUrl,
           signatureName: finalReviewData.witnessName,
+          intentAttested: true,
         }),
       });
       await finalReview.handler();
       return true;
     },
-    [token, signatureImageDataUrl, finalReviewData],
+    [token, signatureImageDataUrl, finalReviewData, intentAttested],
     {
       withUseEffect: false,
       onlyFirstLoad: false,
@@ -105,6 +137,10 @@ export default function FinalReviewPage({
       if (!finalReviewData) {
         setBaseDocumentBlob(null);
         setDocumentBlob(null);
+        setDocumentUrl((current) => {
+          if (current) URL.revokeObjectURL(current);
+          return null;
+        });
         return;
       }
 
@@ -119,6 +155,10 @@ export default function FinalReviewPage({
           console.error("Failed to load document", response.status);
           setBaseDocumentBlob(null);
           setDocumentBlob(null);
+          setDocumentUrl((current) => {
+            if (current) URL.revokeObjectURL(current);
+            return null;
+          });
           return;
         }
 
@@ -126,10 +166,18 @@ export default function FinalReviewPage({
 
         setBaseDocumentBlob(data);
         setDocumentBlob(data);
+        setDocumentUrl((current) => {
+          if (current) URL.revokeObjectURL(current);
+          return URL.createObjectURL(data);
+        });
       } catch (err) {
         console.error("Error loading document", err);
         setBaseDocumentBlob(null);
         setDocumentBlob(null);
+        setDocumentUrl((current) => {
+          if (current) URL.revokeObjectURL(current);
+          return null;
+        });
       }
     }
 
@@ -141,11 +189,12 @@ export default function FinalReviewPage({
   }, [
     token,
     finalReviewData,
+    certifiedComplete,
   ]);
 
   // Confetti effect when submission is complete
   useEffect(() => {
-    if (!submitFinalReview.data) return;
+    if (!submitFinalReview.data && !certifiedComplete) return;
 
     const defaults = {
       spread: 65,
@@ -177,10 +226,15 @@ export default function FinalReviewPage({
     }, 350);
 
     return () => clearTimeout(followUp);
-  }, [submitFinalReview.data]);
+  }, [submitFinalReview.data, certifiedComplete]);
 
   const onCaptureSignature = async (canvas: HTMLCanvasElement) => {
     try {
+      if (!intentAttested) {
+        toast.error("Please confirm you intend to sign this statement.");
+        return;
+      }
+
       if (!finalReview.data) {
         return;
       }
@@ -211,6 +265,11 @@ export default function FinalReviewPage({
       );
     }
   };
+
+  const onDocusealComplete = useCallback(() => {
+    setCertifiedComplete(true);
+    void finalReview.handler();
+  }, [finalReview]);
 
   if (finalReview.isLoading) {
     return (
@@ -249,11 +308,20 @@ export default function FinalReviewPage({
     );
   }
 
+  const signedOff =
+    finalReview.data.alreadyCompleted ||
+    Boolean(submitFinalReview.data) ||
+    certifiedComplete;
+  const embedSrc = startCertifiedSigning.data?.embedSrc ?? null;
+  const documentIsPdf =
+    Boolean(documentBlob?.type.includes("pdf")) ||
+    finalReview.data.documentName.toLowerCase().endsWith(".pdf");
+
   return (
     <div className="container py-4 sm:py-8">
       <Card className="mx-auto w-full max-w-4xl">
         <CardHeader>
-          {finalReview.data.alreadyCompleted || submitFinalReview.data ? (
+          {signedOff ? (
             <PageTitle
               subtitle="Submission complete"
               title="Thank you for signing your statement"
@@ -268,21 +336,59 @@ export default function FinalReviewPage({
           )}
         </CardHeader>
         <CardContent className="space-y-5">
-          {!finalReview.data.alreadyCompleted && !submitFinalReview.data ? (
-            <div>
-              <SignaturePadProvider>
-                <SignaturePad />
-                <SignaturePadSubmitButton
-                  className="mr-1"
-                  onCaptureSignature={onCaptureSignature}
-                  disabled={submitFinalReview.isLoading}
+          {!signedOff && !embedSrc ? (
+            <div className="space-y-3">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={intentAttested}
+                  onChange={(event) => setIntentAttested(event.target.checked)}
+                />
+                <span>
+                  I intend to sign this statement as {finalReview.data.witnessName}
+                  and confirm that the account is true to the best of my knowledge.
+                </span>
+              </label>
+              {finalReview.data.signingMethod === "docuseal" ? (
+                <Button
+                  onClick={() => {
+                    void startCertifiedSigning.handler().catch((error) => {
+                      toast.errorFromUnknown(
+                        error,
+                        "Failed to start certified signing.",
+                      );
+                    });
+                  }}
+                  disabled={!intentAttested || startCertifiedSigning.isLoading}
                 >
-                  {submitFinalReview.isLoading
-                    ? "Submitting..."
-                    : "Submit Final Signed Statement"}
-                </SignaturePadSubmitButton>
-              </SignaturePadProvider>
+                  {startCertifiedSigning.isLoading
+                    ? "Opening signature..."
+                    : "Sign with DocuSeal"}
+                </Button>
+              ) : (
+                <SignaturePadProvider>
+                  <SignaturePad />
+                  <SignaturePadSubmitButton
+                    className="mr-1"
+                    onCaptureSignature={onCaptureSignature}
+                    disabled={
+                      !intentAttested || submitFinalReview.isLoading
+                    }
+                  >
+                    {submitFinalReview.isLoading
+                      ? "Submitting..."
+                      : "Submit Final Signed Statement"}
+                  </SignaturePadSubmitButton>
+                </SignaturePadProvider>
+              )}
             </div>
+          ) : !signedOff && embedSrc ? (
+            <DocusealEmbed
+              src={embedSrc}
+              email={finalReview.data.witnessEmail}
+              onComplete={onDocusealComplete}
+            />
           ) : finalReview.data.canSign ? null : (
             <Card variant="warning">
               <CardHeader>
@@ -294,7 +400,13 @@ export default function FinalReviewPage({
             </Card>
           )}
 
-          {documentBlob ? (
+          {documentBlob && documentIsPdf && documentUrl ? (
+            <iframe
+              title={finalReview.data.documentName}
+              src={documentUrl}
+              className="h-[50vh] w-full rounded-md border sm:h-[65vh]"
+            />
+          ) : documentBlob ? (
             <DocxEditor
               source={documentBlob}
               documentName={finalReview.data.documentName}

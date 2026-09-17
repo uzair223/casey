@@ -9,6 +9,8 @@ const SERVERONLY_createDemoStudioStatement = vi.fn();
 const SERVERONLY_listDemoStudioStatements = vi.fn();
 const getOpenRouterClientOptions = vi.fn();
 const logServerEvent = vi.fn();
+const getSystemConfig = vi.fn();
+const setSystemConfig = vi.fn();
 const chatCompletionsCreate = vi.fn();
 const docxReviewerFromBuffer = vi.fn();
 
@@ -38,7 +40,15 @@ vi.mock("@/lib/env", () => ({
   env: {
     OPENROUTER_API_KEY: "test-key",
     OPENROUTER_MODEL: "openai/gpt-4o-mini",
+    CRON_SECRET: "cron-secret",
   },
+}));
+
+vi.mock("@/lib/supabase/system-config", () => ({
+  getSystemConfig,
+  setSystemConfig,
+  isSystemConfigKey: (key: string) =>
+    ["cron_secret", "site_url", "default_chat_system_prompt"].includes(key),
 }));
 
 vi.mock("openai", () => ({
@@ -74,6 +84,62 @@ describe("admin and AI-assisted flows", () => {
     vi.clearAllMocks();
     requireAppAdmin.mockResolvedValue({ userId: "admin-1" });
     requireUser.mockResolvedValue({ userId: "user-1" });
+  });
+
+  it("rejects unauthenticated system-config reads", async () => {
+    const { unauthorized } = await import("@/lib/api-utils");
+    requireAppAdmin.mockRejectedValue(unauthorized());
+
+    const route = await importFresh<
+      typeof import("@/app/api/admin/system-config/[key]/route")
+    >("@/app/api/admin/system-config/[key]/route");
+
+    const response = await route.GET(
+      new Request("https://casey.test/api/admin/system-config/cron_secret"),
+      { params: Promise.resolve({ key: "cron_secret" }) },
+    );
+
+    expect(response.status).toBe(401);
+    expect(getSystemConfig).not.toHaveBeenCalled();
+  });
+
+  it("redacts cron_secret values for authenticated admins", async () => {
+    getSystemConfig.mockResolvedValue("super-secret");
+
+    const route = await importFresh<
+      typeof import("@/app/api/admin/system-config/[key]/route")
+    >("@/app/api/admin/system-config/[key]/route");
+
+    const response = await route.GET(
+      new Request("https://casey.test/api/admin/system-config/cron_secret"),
+      { params: Promise.resolve({ key: "cron_secret" }) },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson<{ configured: boolean; value?: string }>(response))
+      .resolves.toEqual({
+        key: "cron_secret",
+        configured: true,
+      });
+  });
+
+  it("rejects unauthenticated AI worker runs", async () => {
+    const route = await importFresh<
+      typeof import("@/app/api/internal/workers/statement-formalization/route")
+    >("@/app/api/internal/workers/statement-formalization/route");
+
+    const response = await route.POST(
+      new Request(
+        "https://casey.test/api/internal/workers/statement-formalization",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId: "job-1" }),
+        },
+      ),
+    );
+
+    expect(response.status).toBe(401);
   });
 
   it("bootstraps a demo statement and returns an intake URL", async () => {

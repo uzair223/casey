@@ -69,6 +69,10 @@ vi.mock("@/lib/api-utils/intake-access", () => ({
   getIntakeAccessError,
 }));
 
+vi.mock("@/lib/api-utils/persistent-rate-limit", () => ({
+  enforcePersistentRateLimit: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock("@/lib/observability/logger", () => ({
   logServerEvent,
 }));

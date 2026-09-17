@@ -17,10 +17,11 @@ export const logAuditEvent = async ({
   targetType = null,
   targetId = null,
   metadata = {},
-}: LogAuditEventParams) => {
+  required = false,
+}: LogAuditEventParams & { required?: boolean }) => {
   try {
     const supabase = getServiceClient("SERVERONLY_logAuditEvent");
-    await supabase.from("audit_logs").insert({
+    const { error } = await supabase.from("audit_logs").insert({
       tenant_id: tenantId,
       actor_user_id: actorUserId,
       action,
@@ -28,7 +29,13 @@ export const logAuditEvent = async ({
       target_id: targetId,
       metadata,
     });
-  } catch {
+    if (error && required) {
+      throw error;
+    }
+  } catch (error) {
+    if (required) {
+      throw error;
+    }
     // Never block primary business actions due to audit insert failures.
   }
 };

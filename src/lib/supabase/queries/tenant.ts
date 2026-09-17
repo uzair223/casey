@@ -1,7 +1,7 @@
 import { getSupabaseClient } from "../client";
 
 const TENANT_SETTINGS_SELECT =
-  "id, name, data_retention_days, soft_deleted_at, purge_after";
+  "id, name, data_retention_days, soft_deleted_at, purge_after, billing_status, seat_limit, dpa_signed_at";
 
 function requireTenantRecord<T>(data: T | null, error: unknown): T {
   if (error || !data) {

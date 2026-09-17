@@ -67,6 +67,7 @@ import type { FullStatementDataResponse } from "@/types";
 import { CaseNotesCard } from "../case/notes-card";
 import { StatementFollowUpCard } from "./follow-up-card";
 import { StatementSupportingDocumentsCard } from "./documents-card";
+import { SignatureCertificateCard } from "./signature-certificate-card";
 import { StatementReminderSettingsCard } from "./settings-card";
 import { TranscriptDialog } from "./transcript-dialog";
 import {
@@ -1082,6 +1083,7 @@ export function StatementDetailPanel({
             statementId={data.statement.id}
             readOnly={isContentLocked}
           />
+          <SignatureCertificateCard statementId={data.statement.id} />
         </TabsContent>
 
         <TabsContent value="collaboration" className="space-y-4">

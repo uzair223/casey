@@ -22,6 +22,10 @@ import { normalizeCaseAnalysis } from "@/lib/case-analysis/normalize";
 import { CaseAnalysisSchema } from "@/lib/schema/case-analysis";
 import type { CaseAnalysis } from "@/lib/schema/case-analysis";
 import type { StatementSupportingDocument, UploadedDocument } from "@/types";
+import {
+  claimGenerationJob,
+  completeGenerationJobFailure,
+} from "@/lib/ai-workers/claim";
 
 import { getSystemConfig } from "@/lib/supabase/system-config";
 
@@ -341,29 +345,16 @@ ${stringifySections(getStatementSections(statement))}`;
 
 export async function processCaseAnalysisJob(jobId: string) {
   const supabase = getServiceClient("case-analysis-worker");
+  const claimed = await claimGenerationJob(jobId);
+  const job = claimed.job;
 
-  const { data: job, error: jobError } = await supabase
-    .from("ai_generation_jobs")
-    .select("*")
-    .eq("id", jobId)
-    .maybeSingle();
-
-  if (jobError || !job) {
-    throw new Error("Job not found.");
-  }
-
-  if (job.status === "succeeded") {
-    return { ok: true, status: job.status };
+  if (claimed.skipped) {
+    return { ok: true, status: job.status, skipped: true };
   }
 
   if (job.kind !== "case_analysis") {
     throw new Error("Unsupported job kind.");
   }
-
-  await supabase
-    .from("ai_generation_jobs")
-    .update({ status: "running", started_at: new Date().toISOString() })
-    .eq("id", jobId);
 
   try {
     const { data: caseRecord, error: caseError } = await supabase
@@ -500,14 +491,12 @@ ${evidenceCorpus}`,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    await supabase
-      .from("ai_generation_jobs")
-      .update({
-        status: "failed",
-        completed_at: new Date().toISOString(),
-        error_message: message,
-      })
-      .eq("id", jobId);
+    await completeGenerationJobFailure({
+      jobId,
+      attemptCount:
+        typeof job.attempt_count === "number" ? job.attempt_count : 1,
+      message,
+    });
 
     logServerEvent("error", "api.case_analysis.worker_failed", {
       jobId,

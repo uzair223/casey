@@ -5,13 +5,23 @@ import {
   ok,
   serverError,
 } from "@/lib/api-utils";
-import { sendInvitationEmail } from "@/lib/email";
+import {
+  sendExistingUserSignInEmail,
+  sendInvitationEmail,
+} from "@/lib/email";
 import { getServiceClient } from "@/lib/supabase/server";
 
 const BodySchema = z.object({
   email: z.email().trim(),
   inviteCode: z.string().trim().optional(),
 });
+
+function isUnknownUserError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /user not found|unable to find|does not exist|not been registered/i.test(
+    message,
+  );
+}
 
 export async function POST(request: Request) {
   try {
@@ -56,12 +66,25 @@ export async function POST(request: Request) {
       if (invite.email && invite.email.toLowerCase() !== email) {
         return badRequest("Invite code does not match this email.");
       }
+
+      await sendInvitationEmail({
+        email,
+        token: inviteCode,
+      });
+
+      return ok({ success: true });
     }
 
-    await sendInvitationEmail({
-      email,
-      token: inviteCode ?? "",
-    });
+    try {
+      await sendExistingUserSignInEmail({
+        email,
+        token: "",
+      });
+    } catch (error) {
+      if (!isUnknownUserError(error)) {
+        throw error;
+      }
+    }
 
     return ok({ success: true });
   } catch (error) {

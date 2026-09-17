@@ -66,6 +66,8 @@ export type Database = {
       }
       ai_generation_jobs: {
         Row: {
+          attempt_count: number
+          claimed_at: string | null
           completed_at: string | null
           created_at: string
           error_message: string | null
@@ -81,6 +83,8 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          attempt_count?: number
+          claimed_at?: string | null
           completed_at?: string | null
           created_at?: string
           error_message?: string | null
@@ -96,6 +100,8 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          attempt_count?: number
+          claimed_at?: string | null
           completed_at?: string | null
           created_at?: string
           error_message?: string | null
@@ -1113,6 +1119,81 @@ export type Database = {
           },
         ]
       }
+      statement_signature_events: {
+        Row: {
+          created_at: string
+          dropbox_signature_id: string | null
+          dropbox_signature_request_id: string | null
+          docuseal_submission_id: string | null
+          docuseal_submitter_id: string | null
+          docuseal_submitter_slug: string | null
+          id: string
+          intent_attested: boolean
+          ip_address: string | null
+          method: string
+          signed_at: string
+          signed_document_sha256: string | null
+          signer_name: string
+          statement_id: string
+          tenant_id: string
+          unsigned_document_sha256: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          dropbox_signature_id?: string | null
+          dropbox_signature_request_id?: string | null
+          docuseal_submission_id?: string | null
+          docuseal_submitter_id?: string | null
+          docuseal_submitter_slug?: string | null
+          id?: string
+          intent_attested?: boolean
+          ip_address?: string | null
+          method: string
+          signed_at?: string
+          signed_document_sha256?: string | null
+          signer_name: string
+          statement_id: string
+          tenant_id: string
+          unsigned_document_sha256?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          dropbox_signature_id?: string | null
+          dropbox_signature_request_id?: string | null
+          docuseal_submission_id?: string | null
+          docuseal_submitter_id?: string | null
+          docuseal_submitter_slug?: string | null
+          id?: string
+          intent_attested?: boolean
+          ip_address?: string | null
+          method?: string
+          signed_at?: string
+          signed_document_sha256?: string | null
+          signer_name?: string
+          statement_id?: string
+          tenant_id?: string
+          unsigned_document_sha256?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "statement_signature_events_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "statement_signature_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       statement_supporting_documents: {
         Row: {
           case_id: string
@@ -1334,31 +1415,52 @@ export type Database = {
       }
       tenants: {
         Row: {
+          billing_status: string
           created_at: string
           data_retention_days: number
+          dpa_signed_at: string | null
           id: string
           name: string
+          order_firm_name: string | null
+          order_start_date: string | null
           purge_after: string | null
+          seat_limit: number
           soft_deleted_at: string | null
           soft_deleted_by_role: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
         }
         Insert: {
+          billing_status?: string
           created_at?: string
           data_retention_days?: number
+          dpa_signed_at?: string | null
           id?: string
           name: string
+          order_firm_name?: string | null
+          order_start_date?: string | null
           purge_after?: string | null
+          seat_limit?: number
           soft_deleted_at?: string | null
           soft_deleted_by_role?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
         }
         Update: {
+          billing_status?: string
           created_at?: string
           data_retention_days?: number
+          dpa_signed_at?: string | null
           id?: string
           name?: string
+          order_firm_name?: string | null
+          order_start_date?: string | null
           purge_after?: string | null
+          seat_limit?: number
           soft_deleted_at?: string | null
           soft_deleted_by_role?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
         }
         Relationships: []
       }

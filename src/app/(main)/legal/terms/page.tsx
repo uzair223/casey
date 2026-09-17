@@ -62,6 +62,9 @@ const limitations = [
   "Platform outputs are workflow aids and should not replace professional judgement",
   "Access to beta, preview, or early-access functionality may change as the product develops",
   "Service availability may depend on hosting, identity, database, storage, email, and other third-party providers",
+  "Paid seats are billed monthly in advance for the licensed user count on the order form",
+  "Fees are non-refundable except where required by law; unpaid invoices may suspend the workspace",
+  "Liability is limited to the fees paid for the affected subscription period, except for death, personal injury, or fraud",
 ] as const;
 
 export default function TermsPage() {
@@ -89,7 +92,7 @@ export default function TermsPage() {
               asChild
               className="rounded-full px-7"
             >
-              <Link href="/legal/security">Security overview</Link>
+              <Link href="/legal/dpa">Data processing addendum</Link>
             </Button>
           </div>
         </div>
@@ -201,7 +204,9 @@ export default function TermsPage() {
               <p>
                 These public terms are a general summary and may be superseded
                 by a signed agreement, order form, data-processing addendum, or
-                other written terms agreed with Casey.
+                other written terms agreed with Casey. Paid workspaces are
+                billed per licensed seat. Generated content must be reviewed by
+                a qualified legal professional before it is filed or relied on.
               </p>
             </CardContent>
           </Card>

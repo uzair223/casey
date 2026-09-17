@@ -2,7 +2,8 @@ import { env } from "@/lib/env";
 import { NextRequest } from "next/server";
 
 import { logAuditEvent } from "@/lib/observability/audit";
-import { ok, serverError, unauthorized } from "@/lib/api-utils/response";
+import { requireCronSecret } from "@/lib/api-utils/cron-auth";
+import { ok, serverError } from "@/lib/api-utils/response";
 import { sendStatementReminderEmail } from "@/lib/email";
 import { getServiceClient } from "@/lib/supabase/server";
 import type { Json } from "@/types";
@@ -48,24 +49,6 @@ type MagicLinkRow = {
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
 
-function getSchedulerSecret(request: NextRequest): string | null {
-  const fromHeader = request.headers.get("x-reminder-cron-secret");
-  if (fromHeader) {
-    return fromHeader;
-  }
-
-  const authHeader = request.headers.get("authorization") || "";
-  if (authHeader.toLowerCase().startsWith("bearer ")) {
-    return authHeader.slice(7).trim();
-  }
-
-  return null;
-}
-
-function getExpectedSecret(): string | null {
-  return env.CRON_SECRET || null;
-}
-
 function nextSendAtIso(from: Date, cadenceDays: number): string {
   return new Date(from.getTime() + cadenceDays * MS_IN_DAY).toISOString();
 }
@@ -95,12 +78,7 @@ async function createReminderEvent(input: {
 }
 
 async function runReminderJob(request: NextRequest) {
-  const expectedSecret = getExpectedSecret();
-  const providedSecret = getSchedulerSecret(request);
-
-  if (!expectedSecret || providedSecret !== expectedSecret) {
-    return unauthorized("Invalid scheduler secret");
-  }
+  requireCronSecret(request);
 
   const body = await request.json().catch(() => ({}));
   const batchSize = Math.max(1, Math.min(200, Number(body?.limit ?? 100)));
@@ -451,6 +429,7 @@ export async function GET(request: NextRequest) {
   try {
     return await runReminderJob(request);
   } catch (error) {
+    if (error instanceof Response) return error;
     return serverError(error);
   }
 }
@@ -459,6 +438,7 @@ export async function POST(request: NextRequest) {
   try {
     return await runReminderJob(request);
   } catch (error) {
+    if (error instanceof Response) return error;
     return serverError(error);
   }
 }

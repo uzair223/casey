@@ -18,7 +18,7 @@ import {
 import { randomUUID } from "crypto";
 import { CHAT_METADATA_MARKER, getLastMeta } from "@/lib/statement-utils";
 import { ResponseMetadataSchema } from "@/lib/schema";
-import { enforceRateLimit, getRateLimitKey } from "@/lib/api-utils/rate-limit";
+import { enforcePersistentRateLimit } from "@/lib/api-utils/persistent-rate-limit";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { Allow, parse } from "partial-json";
 import { z } from "zod";
@@ -187,21 +187,20 @@ export async function POST(
       });
     }
 
-    const rate = enforceRateLimit({
-      key: getRateLimitKey(request, `intake-chat:${token}`),
+    const rate = await enforcePersistentRateLimit({
+      request,
+      scope: "intake-chat",
+      identifier: token,
       limit: 30,
-      windowMs: 60_000,
+      windowSeconds: 60,
     });
 
-    if (!rate.ok) {
+    if (rate) {
       await logServerEvent("warn", "api.intake.chat.rate_limited", {
         requestId,
         key: `intake-chat:${token}`,
       });
-      return NextResponse.json(
-        "Too many requests. Please wait and try again.",
-        { status: 429 },
-      );
+      return rate;
     }
 
     const statement = await SERVERONLY_getStatementWithConfigFromToken(token);

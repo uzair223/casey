@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "casey",
+  "account_id": "8a14bbee799409978d0170d0bbf3e037",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-17",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "workers_dev": true,
+  "vars": {
+    "NEXT_PUBLIC_APP_NAME": "Casey",
+    "NEXT_PUBLIC_BASE_URL": "https://caseyhq.co.uk",
+    "NEXT_PUBLIC_DOCUSEAL_URL": "https://casey-docuseal.uzairpatel223.workers.dev",
+    "DOCUSEAL_URL": "https://casey-docuseal.uzairpatel223.workers.dev",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://tkkvksnmigchatjaodmm.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_rQ_umaVFvCFfbZHomZsteA_aRca_XDF",
+    "CSP_ENFORCE": "1"
+  },
+  "triggers": {
+    "crons": [
+      "* * * * *",
+      "0 * * * *"
+    ]
+  },
+  "routes": [
+    { "pattern": "caseyhq.co.uk", "custom_domain": true },
+    { "pattern": "www.caseyhq.co.uk", "custom_domain": true }
+  ],
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "casey"
+    }
+  ]
+}

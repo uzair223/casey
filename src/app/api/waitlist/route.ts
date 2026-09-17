@@ -1,9 +1,24 @@
 import { getServiceClient } from "@/lib/supabase/server";
 import { WaitlistSignupSchema } from "@/lib/schema";
-import { badRequest, ok, serverError } from "@/lib/api-utils";
+import {
+  badRequest,
+  enforcePersistentRateLimit,
+  ok,
+  serverError,
+} from "@/lib/api-utils";
 
 export async function POST(request: Request) {
   try {
+    const rateLimitResponse = await enforcePersistentRateLimit({
+      request,
+      scope: "waitlist:signup",
+      limit: 8,
+      windowSeconds: 60 * 60,
+    });
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const payload = await request.json();
     const parsed = WaitlistSignupSchema.safeParse(payload);
 

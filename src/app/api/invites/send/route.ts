@@ -1,15 +1,16 @@
 import { getServiceClient } from "@/lib/supabase/server";
 import { SERVERONLY_getUserProfile } from "@/lib/supabase/queries";
 import { sendInvitationEmail } from "@/lib/email";
-import { enforceRateLimit, getRateLimitKey } from "@/lib/api-utils/rate-limit";
 import { logAuditEvent } from "@/lib/observability/audit";
+import { assertTenantHasSeat } from "@/lib/billing/seats";
 import {
   badRequest,
+  conflict,
+  enforcePersistentRateLimit,
   forbidden,
   notFound,
   ok,
   serverError,
-  tooManyRequests,
   unauthorized,
 } from "@/lib/api-utils";
 
@@ -62,14 +63,14 @@ const requireInviteSender = async (request: Request) => {
 };
 
 export async function POST(request: Request) {
-  const rate = enforceRateLimit({
-    key: getRateLimitKey(request, "invite-send"),
+  const rateLimitResponse = await enforcePersistentRateLimit({
+    request,
+    scope: "invite-send",
     limit: 20,
-    windowMs: 60_000,
+    windowSeconds: 60,
   });
-
-  if (!rate.ok) {
-    return tooManyRequests("Too many invite sends. Please try again shortly.");
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   const auth = await requireInviteSender(request);
@@ -107,6 +108,19 @@ export async function POST(request: Request) {
       invite.email.toLowerCase() !== String(email).toLowerCase()
     ) {
       return badRequest("Invite email does not match recipient email");
+    }
+
+    try {
+      await assertTenantHasSeat({
+        tenantId: invite.tenant_id,
+        isAppAdmin,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Seat limit reached";
+      if ((error as { status?: number }).status === 409) {
+        return conflict(message);
+      }
+      throw error;
     }
 
     await sendInvitationEmail({ email, token });

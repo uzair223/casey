@@ -309,6 +309,9 @@ export const getTenantsWithCounts = async (): Promise<TenantWithCounts[]> => {
         createdAt: tenant.created_at,
         softDeletedAt: tenant.soft_deleted_at,
         purgeAfter: tenant.purge_after,
+        billingStatus: tenant.billing_status,
+        seatLimit: tenant.seat_limit,
+        dpaSignedAt: tenant.dpa_signed_at,
         userCount: userCount || 0,
         statementCount: statementCount || 0,
       };

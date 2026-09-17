@@ -6,97 +6,18 @@ import {
   SERVERONLY_updateStatementByToken,
   SERVERONLY_updateStatementStatus,
 } from "@/lib/supabase/mutations";
-import type { UploadedDocument } from "@/types";
 import { getServiceClient } from "@/lib/supabase/server";
-import { generateDoc, signDoc } from "@/lib/doc-gen";
-
-async function downloadStorageDocument(params: {
-  supabase: ReturnType<typeof getServiceClient>;
-  bucketId: string;
-  path: string;
-}) {
-  const { data, error } = await params.supabase.storage
-    .from(params.bucketId)
-    .download(params.path);
-
-  if (error || !data) {
-    throw error ?? new Error("Failed to download storage document");
-  }
-
-  return new Uint8Array(await data.arrayBuffer());
-}
-
-async function uploadStorageDocument(params: {
-  supabase: ReturnType<typeof getServiceClient>;
-  bucketId: string;
-  path: string;
-  file: Blob;
-  name: string;
-  description?: string;
-  contentType: string;
-}) {
-  const { data, error } = await params.supabase.storage
-    .from(params.bucketId)
-    .upload(params.path, params.file, {
-      contentType: params.contentType,
-      upsert: true,
-    });
-
-  if (error || !data) {
-    throw error ?? new Error("Failed to upload storage document");
-  }
-
-  return {
-    bucketId: params.bucketId,
-    name: params.name,
-    description: params.description,
-    path: data.path,
-    uploadedAt: new Date().toISOString(),
-    type: params.contentType,
-  } as UploadedDocument;
-}
-
-function getStatementDocumentName(data: {
-  case: { title: string };
-  statement: { witness_name: string };
-}) {
-  return `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;
-}
-
-async function renderUnsignedStatementDocument(params: {
-  data: NonNullable<Awaited<ReturnType<typeof SERVERONLY_getFullStatementFromToken>>>;
-  supabase: ReturnType<typeof getServiceClient>;
-}) {
-  const templateDocument = params.data.statement.template_document_snapshot
-    ? await downloadStorageDocument({
-        supabase: params.supabase,
-        bucketId:
-          params.data.statement.template_document_snapshot.bucketId ??
-          params.data.tenant_id,
-        path: params.data.statement.template_document_snapshot.path,
-      })
-    : null;
-
-  return generateDoc(
-    {
-      caseMetadata:
-        (params.data.case.case_metadata as Record<
-          string,
-          string | number | null | undefined
-        >) ?? {},
-      witnessName: params.data.statement.witness_name,
-      witnessEmail: params.data.statement.witness_email,
-      witnessMetadata:
-        (params.data.statement.witness_metadata as Record<
-          string,
-          string | number | null | undefined
-        >) ?? {},
-      sections: params.data.statement.sections,
-      config: params.data.statement.statement_config,
-    },
-    templateDocument,
-  );
-}
+import { signDoc } from "@/lib/doc-gen";
+import { getRequestIp, getRequestUserAgent, sha256Hex } from "@/lib/crypto/hash";
+import {
+  getOrRenderUnsignedStatementBytes,
+  getStatementDocumentName,
+  uploadStorageDocument,
+} from "@/lib/signing/statement-document";
+import {
+  getStatementSigningMethod,
+  recordSignatureEvent,
+} from "@/lib/signing/record";
 
 export async function GET(
   request: Request,
@@ -122,11 +43,17 @@ export async function GET(
       return accessError;
     }
 
+    const signingMethod = await getStatementSigningMethod({
+      tenantId: data.tenant_id,
+      statementStatus: data.statement.status,
+    });
+
     return NextResponse.json({
       tenantId: data.tenant_id,
       caseId: data.case.id,
       caseTitle: data.case.title,
       witnessName: data.statement.witness_name,
+      witnessEmail: data.statement.witness_email,
       statementId: data.statement.id,
       status: data.statement.status,
       sections: data.statement.sections,
@@ -140,6 +67,7 @@ export async function GET(
         data.statement.status === "finalized" ||
         data.statement.status === "demo_published",
       alreadyCompleted: data.statement.status === "completed",
+      signingMethod,
     });
   } catch (error) {
     const message =
@@ -184,9 +112,21 @@ export async function POST(
       );
     }
 
+    const signingMethod = await getStatementSigningMethod({
+      tenantId: data.tenant_id,
+      statementStatus: data.statement.status,
+    });
+    if (signingMethod !== "canvas") {
+      return NextResponse.json(
+        { error: "This statement must be signed with the certified provider." },
+        { status: 409 },
+      );
+    }
+
     const body = (await request.json()) as {
       signatureImageDataUrl?: unknown;
       signatureName?: string;
+      intentAttested?: unknown;
     };
 
     const signatureImageDataUrl =
@@ -195,10 +135,14 @@ export async function POST(
         : "";
     const signatureName =
       typeof body.signatureName === "string" ? body.signatureName.trim() : "";
+    const intentAttested = body.intentAttested === true;
 
-    if (!signatureImageDataUrl || !signatureName) {
+    if (!signatureImageDataUrl || !signatureName || !intentAttested) {
       return NextResponse.json(
-        { error: "signatureImageDataUrl and signatureName are required" },
+        {
+          error:
+            "signatureImageDataUrl, signatureName, and intent attestation are required",
+        },
         { status: 400 },
       );
     }
@@ -210,21 +154,21 @@ export async function POST(
       ),
     );
 
-    const existingSignedDocument = data.statement.signed_document;
-    const baseDocument = existingSignedDocument?.path
-      ? await downloadStorageDocument({
-        supabase,
-        bucketId: existingSignedDocument.bucketId ?? data.tenant_id,
-        path: existingSignedDocument.path,
-      })
-      : await renderUnsignedStatementDocument({ data, supabase });
+    const unsignedBytes = await getOrRenderUnsignedStatementBytes({
+      data,
+      supabase,
+    });
+    const unsignedHash = sha256Hex(unsignedBytes);
 
     const signedBlob = await signDoc({
-      file: baseDocument,
+      file: unsignedBytes,
       signatureImage,
       signatureDate: new Date().toLocaleDateString("en-GB"),
     });
+    const signedBytes = new Uint8Array(await signedBlob.arrayBuffer());
+    const signedHash = sha256Hex(signedBytes);
 
+    const existingSignedDocument = data.statement.signed_document;
     const finalDocName =
       existingSignedDocument?.name ?? getStatementDocumentName(data);
     const finalDocPath =
@@ -235,7 +179,7 @@ export async function POST(
       supabase,
       bucketId: existingSignedDocument?.bucketId ?? data.tenant_id,
       path: finalDocPath,
-      file: signedBlob,
+      file: signedBytes,
       name: finalDocName,
       description: `Final signed witness statement by ${signatureName}`,
       contentType:
@@ -247,6 +191,18 @@ export async function POST(
       witness_metadata: {
         final_signature_name: signatureName,
       },
+    });
+
+    await recordSignatureEvent({
+      tenantId: data.tenant_id,
+      statementId: data.statement.id,
+      signerName: signatureName,
+      intentAttested: true,
+      method: "canvas",
+      ipAddress: getRequestIp(request),
+      userAgent: getRequestUserAgent(request),
+      unsignedDocumentSha256: unsignedHash,
+      signedDocumentSha256: signedHash,
     });
 
     await SERVERONLY_updateStatementStatus(data.statement.id, "completed");

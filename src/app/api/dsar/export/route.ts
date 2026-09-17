@@ -49,6 +49,13 @@ const requireUser = async (request: Request) => {
   };
 };
 
+async function listBy<T>(
+  query: PromiseLike<{ data: T[] | null; error: unknown }>,
+) {
+  const result = await query;
+  return result.data ?? [];
+}
+
 export async function GET(request: Request) {
   const auth = await requireUser(request);
   if (auth.error) return auth.error;
@@ -83,90 +90,161 @@ export async function GET(request: Request) {
 
     const auditLogs =
       scope === "tenant"
-        ? ((
-            await supabase
+        ? await listBy(
+            supabase
               .from("audit_logs")
               .select("*")
               .eq("tenant_id", tenantId as string)
               .order("created_at", { ascending: false })
-              .limit(5000)
-          ).data ?? [])
-        : ((
-            await supabase
+              .limit(5000),
+          )
+        : await listBy(
+            supabase
               .from("audit_logs")
               .select("*")
               .eq("actor_user_id", auth.userId)
               .order("created_at", { ascending: false })
-              .limit(2000)
-          ).data ?? []);
+              .limit(2000),
+          );
 
     const deletionRequests =
       scope === "tenant"
-        ? ((
-            await supabase
+        ? await listBy(
+            supabase
               .from("account_deletion_requests")
               .select("*")
               .eq("tenant_id", tenantId as string)
-              .order("created_at", { ascending: false })
-          ).data ?? [])
-        : ((
-            await supabase
+              .order("created_at", { ascending: false }),
+          )
+        : await listBy(
+            supabase
               .from("account_deletion_requests")
               .select("*")
               .eq("requested_user_id", auth.userId)
-              .order("created_at", { ascending: false })
-          ).data ?? []);
+              .order("created_at", { ascending: false }),
+          );
 
     const invites =
       scope === "tenant"
-        ? ((
-            await supabase
+        ? await listBy(
+            supabase
               .from("invites")
               .select("*")
               .eq("tenant_id", tenantId as string)
-              .order("created_at", { ascending: false })
-          ).data ?? [])
-        : ((
-            await supabase
+              .order("created_at", { ascending: false }),
+          )
+        : await listBy(
+            supabase
               .from("invites")
               .select("*")
               .eq("created_by", auth.userId)
-              .order("created_at", { ascending: false })
-          ).data ?? []);
+              .order("created_at", { ascending: false }),
+          );
 
     const cases =
       scope === "tenant"
-        ? ((
-            await supabase
+        ? await listBy(
+            supabase
               .from("cases")
               .select("*")
               .eq("tenant_id", tenantId as string)
-              .order("created_at", { ascending: false })
-          ).data ?? [])
-        : ((
-            await supabase
+              .order("created_at", { ascending: false }),
+          )
+        : await listBy(
+            supabase
               .from("cases")
               .select("*")
               .contains("assigned_to_ids", [auth.userId])
-              .order("created_at", { ascending: false })
-          ).data ?? []);
+              .order("created_at", { ascending: false }),
+          );
 
     const witnessStatements =
       scope === "tenant"
-        ? ((
-            await supabase
+        ? await listBy(
+            supabase
               .from("statements")
               .select("*")
               .eq("tenant_id", tenantId as string)
-              .order("created_at", { ascending: false })
-          ).data ?? [])
-        : ((
-            await supabase
+              .order("created_at", { ascending: false }),
+          )
+        : await listBy(
+            supabase
               .from("statements")
               .select("*")
               .contains("assigned_to_ids", [auth.userId])
-              .order("created_at", { ascending: false })
-          ).data ?? []);
+              .order("created_at", { ascending: false }),
+          );
+
+    const statementIds = witnessStatements.map(
+      (statement) => (statement as { id: string }).id,
+    );
+
+    const conversationMessages = statementIds.length
+      ? await listBy(
+          supabase
+            .from("conversation_messages")
+            .select("id, statement_id, role, content, created_at, meta")
+            .in("statement_id", statementIds)
+            .order("created_at", { ascending: false })
+            .limit(5000),
+        )
+      : [];
+
+    const supportingDocuments =
+      scope === "tenant" && tenantId
+        ? await listBy(
+            supabase
+              .from("statement_supporting_documents")
+              .select(
+                "id, statement_id, title, document, created_at, uploaded_by_type",
+              )
+              .eq("tenant_id", tenantId)
+              .order("created_at", { ascending: false }),
+          )
+        : statementIds.length
+          ? await listBy(
+              supabase
+                .from("statement_supporting_documents")
+                .select(
+                  "id, statement_id, title, document, created_at, uploaded_by_type",
+                )
+                .in("statement_id", statementIds)
+                .order("created_at", { ascending: false }),
+            )
+          : [];
+
+    const signatureEvents =
+      scope === "tenant" && tenantId
+        ? await listBy(
+            supabase
+              .from("statement_signature_events")
+              .select("*")
+              .eq("tenant_id", tenantId)
+              .order("signed_at", { ascending: false }),
+          )
+        : statementIds.length
+          ? await listBy(
+              supabase
+                .from("statement_signature_events")
+                .select("*")
+                .in("statement_id", statementIds)
+                .order("signed_at", { ascending: false }),
+            )
+          : [];
+
+    const storageObjects = [];
+    if (scope === "tenant" && tenantId) {
+      const { data } = await supabase.storage.from(tenantId).list("", {
+        limit: 1000,
+      });
+      storageObjects.push(
+        ...(data ?? []).map((object) => ({
+          name: object.name,
+          updatedAt: object.updated_at,
+          downloadHint: `${envBaseUrl()}/storage/${tenantId}/${object.name}`,
+        })),
+      );
+    }
 
     const payload = {
       profile: profileExport,
@@ -175,6 +253,10 @@ export async function GET(request: Request) {
       invites,
       cases,
       witnessStatements,
+      conversationMessages,
+      supportingDocuments,
+      signatureEvents,
+      storageObjects,
     };
 
     await logAuditEvent({
@@ -200,4 +282,8 @@ export async function GET(request: Request) {
   } catch (error) {
     return serverError(error);
   }
+}
+
+function envBaseUrl() {
+  return process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 }

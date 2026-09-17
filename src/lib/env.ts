@@ -17,6 +17,7 @@ export const EnvSchema = z.looseObject({
   NEXT_PUBLIC_APP_NAME: z.string().trim().default("Casey"),
   NEXT_PUBLIC_BASE_URL: z.string().trim().default("http://localhost:3000"),
   NEXT_PUBLIC_VERCEL_URL: stringOrEmpty,
+  NEXT_PUBLIC_DOCUSEAL_URL: stringOrEmpty,
 
   NEXT_PUBLIC_SUPABASE_URL: stringOrEmpty,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: stringOrEmpty,
@@ -44,6 +45,15 @@ export const EnvSchema = z.looseObject({
   FORMALIZE_MAX_ATTEMPTS: z.string().optional().transform(parsePositiveInt(3)),
 
   CRON_SECRET: stringOrEmpty,
+  CSP_ENFORCE: stringOrEmpty,
+
+  STRIPE_SECRET_KEY: stringOrEmpty,
+  STRIPE_WEBHOOK_SECRET: stringOrEmpty,
+  STRIPE_SEAT_PRICE_ID: stringOrEmpty,
+
+  DOCUSEAL_URL: stringOrEmpty,
+  DOCUSEAL_API_KEY: stringOrEmpty,
+  DOCUSEAL_WEBHOOK_SECRET: stringOrEmpty,
 
   AXIOM_TOKEN: stringOrEmpty,
   AXIOM_DATASET: stringOrEmpty,
@@ -67,7 +77,16 @@ export const BuildEnvSchema = z.object({
   FORMALIZE_MAX_CHARS_PER_TURN: z.string().optional(),
   FORMALIZE_TIMEOUT_MS: z.string().optional(),
   FORMALIZE_MAX_ATTEMPTS: z.string().optional(),
-  CRON_SECRET: z.string().trim().optional(),
+  CRON_SECRET:
+    process.env.NODE_ENV === "production" ? nonEmpty : z.string().trim().optional(),
+  CSP_ENFORCE: z.string().trim().optional(),
+  STRIPE_SECRET_KEY: z.string().trim().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().trim().optional(),
+  STRIPE_SEAT_PRICE_ID: z.string().trim().optional(),
+  NEXT_PUBLIC_DOCUSEAL_URL: z.string().trim().optional(),
+  DOCUSEAL_URL: z.string().trim().optional(),
+  DOCUSEAL_API_KEY: z.string().trim().optional(),
+  DOCUSEAL_WEBHOOK_SECRET: z.string().trim().optional(),
   AXIOM_TOKEN: z.string().trim().optional(),
   AXIOM_DATASET: z.string().trim().optional(),
   AXIOM_BASE_URL: z.string().trim().optional(),
@@ -78,6 +97,7 @@ const envInput = {
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
   NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
   NEXT_PUBLIC_VERCEL_URL: process.env.NEXT_PUBLIC_VERCEL_URL,
+  NEXT_PUBLIC_DOCUSEAL_URL: process.env.NEXT_PUBLIC_DOCUSEAL_URL,
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
@@ -93,6 +113,13 @@ const envInput = {
   FORMALIZE_TIMEOUT_MS: process.env.FORMALIZE_TIMEOUT_MS,
   FORMALIZE_MAX_ATTEMPTS: process.env.FORMALIZE_MAX_ATTEMPTS,
   CRON_SECRET: process.env.CRON_SECRET,
+  CSP_ENFORCE: process.env.CSP_ENFORCE,
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+  STRIPE_SEAT_PRICE_ID: process.env.STRIPE_SEAT_PRICE_ID,
+  DOCUSEAL_URL: process.env.DOCUSEAL_URL,
+  DOCUSEAL_API_KEY: process.env.DOCUSEAL_API_KEY,
+  DOCUSEAL_WEBHOOK_SECRET: process.env.DOCUSEAL_WEBHOOK_SECRET,
   AXIOM_TOKEN: process.env.AXIOM_TOKEN,
   AXIOM_DATASET: process.env.AXIOM_DATASET,
   AXIOM_BASE_URL: process.env.AXIOM_BASE_URL,

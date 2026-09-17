@@ -6,6 +6,7 @@ const enforceRateLimit = vi.fn();
 const getRateLimitKey = vi.fn();
 const enforcePersistentRateLimit = vi.fn();
 const sendInvitationEmail = vi.fn();
+const sendExistingUserSignInEmail = vi.fn();
 const getServiceClient = vi.fn();
 const SERVERONLY_acceptInvite = vi.fn();
 const SERVERONLY_getUserProfile = vi.fn();
@@ -29,6 +30,7 @@ vi.mock("@/lib/api-utils", async () => {
 
 vi.mock("@/lib/email", () => ({
   sendInvitationEmail,
+  sendExistingUserSignInEmail,
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -227,6 +229,58 @@ describe("authentication and tenant flows", () => {
       email: "witness@firm.co.uk",
       token: "invite-123",
     });
+  });
+
+  it("does not provision unknown emails without an invite", async () => {
+    sendExistingUserSignInEmail.mockRejectedValue(new Error("User not found"));
+
+    const route = await importFresh<
+      typeof import("@/app/api/auth/magic-link/route")
+    >("@/app/api/auth/magic-link/route");
+
+    const response = await route.POST(
+      new Request("http://localhost/api/auth/magic-link", {
+        method: "POST",
+        body: JSON.stringify({
+          email: "unknown@firm.co.uk",
+        }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(sendInvitationEmail).not.toHaveBeenCalled();
+    expect(sendExistingUserSignInEmail).toHaveBeenCalledWith({
+      email: "unknown@firm.co.uk",
+      token: "",
+    });
+  });
+
+  it("rate-limits waitlist signups", async () => {
+    enforcePersistentRateLimit.mockResolvedValue(
+      new Response(JSON.stringify({ error: "Too many requests" }), {
+        status: 429,
+      }),
+    );
+
+    const route = await importFresh<
+      typeof import("@/app/api/waitlist/route")
+    >("@/app/api/waitlist/route");
+
+    const response = await route.POST(
+      new Request("http://localhost/api/waitlist", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Casey",
+          companyName: "Law Co",
+          email: "casey@law.co.uk",
+        }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(getServiceClient).not.toHaveBeenCalled();
   });
 
   it("surfaces invite details for an authenticated recipient", async () => {

@@ -81,7 +81,7 @@ export default function GdprPage() {
               asChild
               className="rounded-full px-7"
             >
-              <Link href="/legal/terms">Terms of service</Link>
+              <Link href="/legal/dpa">Data processing addendum</Link>
             </Button>
           </div>
         </div>
