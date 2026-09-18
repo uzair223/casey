@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useWitnessStatement } from "@/components/intake/intake-context";
 import { Loader2 } from "lucide-react";
 import { PageTitle } from "../page-title";
+import { WitnessSurveyCard } from "./witness-survey-card";
 import { generateDoc } from "@/lib/doc-gen";
 import { useAsync } from "@/hooks/useAsync";
 import { DocxEditor, DocxEditorPanel } from "../ui/docx-editor";
@@ -206,6 +207,10 @@ export function StatementView() {
             }
           />
         )}
+
+        {statementSubmission.data && !isDemo ? (
+          <WitnessSurveyCard token={token} />
+        ) : null}
 
         {doc ? (
           <DocxEditorPanel

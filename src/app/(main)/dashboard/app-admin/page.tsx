@@ -9,6 +9,7 @@ import { AppAdminOverviewTab } from "@/components/dashboard/app-admin/overview-t
 import { AppAdminTenantsTab } from "@/components/dashboard/app-admin/tenants-tab";
 import { AppAdminMembersTab } from "@/components/dashboard/app-admin/app-admin-tab";
 import { AppAdminWaitlistTab } from "@/components/dashboard/app-admin/waitlist-tab";
+import { AppAdminFeedbackTab } from "@/components/dashboard/app-admin/feedback-tab";
 
 export default function AppAdminDashboard() {
   const { user } = useUserProtected("app_admin");
@@ -53,6 +54,7 @@ export default function AppAdminDashboard() {
           <TabsTrigger value="tenants">Organisations</TabsTrigger>
           <TabsTrigger value="app_admin">App Admin</TabsTrigger>
           <TabsTrigger value="waitlist">Waitlist</TabsTrigger>
+          <TabsTrigger value="feedback">Feedback</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -69,6 +71,9 @@ export default function AppAdminDashboard() {
 
         <TabsContent value="waitlist" className="space-y-4">
           <AppAdminWaitlistTab userId={user.id} />
+        </TabsContent>
+        <TabsContent value="feedback" className="space-y-4">
+          <AppAdminFeedbackTab />
         </TabsContent>
       </Tabs>
     </section>

@@ -779,6 +779,73 @@ export type Database = {
           },
         ]
       }
+      product_feedback: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          message: string | null
+          page_path: string | null
+          rating: number | null
+          source: string
+          statement_id: string | null
+          submitted_by_user_id: string | null
+          tenant_id: string | null
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          message?: string | null
+          page_path?: string | null
+          rating?: number | null
+          source: string
+          statement_id?: string | null
+          submitted_by_user_id?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          message?: string | null
+          page_path?: string | null
+          rating?: number | null
+          source?: string
+          statement_id?: string | null
+          submitted_by_user_id?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_feedback_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_feedback_submitted_by_user_id_fkey"
+            columns: ["submitted_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "product_feedback_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

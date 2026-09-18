@@ -8,12 +8,14 @@ import {
   HouseIcon,
   LogOutIcon,
   MenuIcon,
+  MessageSquareIcon,
   SettingsIcon,
   UserRoundIcon,
   XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AsyncButton } from "@/components/ui/async-button";
+import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { useUser } from "@/contexts/user-context";
 import { getRoleLabel } from "@/lib/utils";
 import { getUnreadNotificationCount } from "@/lib/supabase/queries";
@@ -200,6 +202,7 @@ function UserMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const ignoreHoverRef = useRef(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const displayName = user.display_name ?? user.email;
@@ -247,9 +250,10 @@ function UserMenu({
   };
 
   return (
-    <div
-      ref={wrapRef}
-      className="relative"
+    <>
+      <div
+        ref={wrapRef}
+        className="relative"
       onPointerEnter={(event) => {
         if (event.pointerType !== "mouse" || ignoreHoverRef.current) return;
         setOpen(true);
@@ -323,6 +327,18 @@ function UserMenu({
               ) : null}
             </span>
           </Link>
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
+            onClick={() => {
+              closeMenu();
+              setFeedbackOpen(true);
+            }}
+          >
+            <MessageSquareIcon className="h-4 w-4 shrink-0" />
+            Feedback
+          </button>
           <Link
             href="/settings"
             role="menuitem"
@@ -347,6 +363,8 @@ function UserMenu({
           </AsyncButton>
         </div>
       ) : null}
-    </div>
+      </div>
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
+    </>
   );
 }

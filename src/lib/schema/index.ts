@@ -4,5 +4,6 @@ export * from "./case-analysis";
 export * from "./case-config";
 export * from "./statement";
 export * from "./statement-config";
+export * from "./feedback";
 export * from "./waitlist";
 export * from "./witness-statement";

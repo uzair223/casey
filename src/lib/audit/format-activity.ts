@@ -26,6 +26,7 @@ const HIDDEN_TABLES = new Set([
   "statement_reminder_events",
   "statement_signature_events",
   "waitlist_signups",
+  "product_feedback",
   "tenant_notification_preferences",
   "case_templates",
   "statement_templates",

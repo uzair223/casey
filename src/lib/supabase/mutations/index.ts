@@ -5,6 +5,7 @@ export * from "./case-template";
 export * from "./case";
 export * from "./collaboration";
 export * from "./demo-studio";
+export * from "./feedback";
 export * from "./invites";
 export * from "./notifications";
 export * from "./statement-template";

@@ -202,6 +202,16 @@ export type TenantCaseTemplatePreferences = Omit<
 
 export type WaitlistSignup = Tables<"waitlist_signups">;
 
+export type ProductFeedbackSource = "witness_survey" | "firm_feedback";
+export type ProductFeedbackKind = "survey" | "bug" | "idea";
+export type ProductFeedback = Omit<
+  Tables<"product_feedback">,
+  "source" | "kind"
+> & {
+  source: ProductFeedbackSource;
+  kind: ProductFeedbackKind;
+};
+
 export type StatementDetailed = Omit<Statement, "config_snapshot_id"> & {
   statement_config: StatementConfig;
   template_document_snapshot?: UploadedDocument | null;

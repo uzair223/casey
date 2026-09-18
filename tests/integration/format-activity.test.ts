@@ -101,6 +101,15 @@ describe("formatAuditTimelineEvent", () => {
       }),
     ).toBeNull();
   });
+
+  it("hides product_feedback inserts from solicitor timelines", () => {
+    expect(
+      formatAuditTimelineEvent({
+        action: "product_feedback.insert",
+        metadata: { message: "Created new product_feedback record" },
+      }),
+    ).toBeNull();
+  });
 });
 
 describe("assigneesToNotify", () => {

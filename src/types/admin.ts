@@ -1,4 +1,9 @@
-import type { Invite, Profile, WaitlistSignup } from "./common";
+import type {
+  Invite,
+  ProductFeedback,
+  Profile,
+  WaitlistSignup,
+} from "./common";
 import type {
   PlatformDashboardMetrics,
   PlatformDashboardTrendMetrics,
@@ -49,6 +54,12 @@ export type AppAdminMember = {
 };
 
 export type WaitlistSignupEntry = WaitlistSignup;
+
+export type ProductFeedbackEntry = ProductFeedback & {
+  tenant_name: string | null;
+  submitter_name: string | null;
+  submitter_role: string | null;
+};
 
 export type ProfileWithEmail = Profile & {
   email: string | null;
