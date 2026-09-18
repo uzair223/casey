@@ -16,7 +16,6 @@ export const EnvSchema = z.looseObject({
 
   NEXT_PUBLIC_APP_NAME: z.string().trim().default("Casey"),
   NEXT_PUBLIC_BASE_URL: z.string().trim().default("http://localhost:3000"),
-  NEXT_PUBLIC_VERCEL_URL: stringOrEmpty,
   NEXT_PUBLIC_DOCUSEAL_URL: stringOrEmpty,
 
   NEXT_PUBLIC_SUPABASE_URL: stringOrEmpty,
@@ -66,7 +65,6 @@ export const BuildEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]),
   NEXT_PUBLIC_APP_NAME: nonEmpty,
   NEXT_PUBLIC_BASE_URL: nonEmpty,
-  NEXT_PUBLIC_VERCEL_URL: z.string().trim().optional(),
   NEXT_PUBLIC_SUPABASE_URL: nonEmpty,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: nonEmpty,
   SUPABASE_SECRET_KEY: nonEmpty,
@@ -100,7 +98,6 @@ const envInput = {
   NODE_ENV: process.env.NODE_ENV,
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
   NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
-  NEXT_PUBLIC_VERCEL_URL: process.env.NEXT_PUBLIC_VERCEL_URL,
   NEXT_PUBLIC_DOCUSEAL_URL: process.env.NEXT_PUBLIC_DOCUSEAL_URL,
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
