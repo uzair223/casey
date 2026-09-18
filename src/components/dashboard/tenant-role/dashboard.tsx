@@ -18,7 +18,6 @@ export function TenantRoleDashboard() {
   return (
     <section className="space-y-4">
       <PageTitle
-        subtitle={user!.tenant_name}
         title={`${getRoleLabel(user!.role)} Dashboard`}
         description="Track firm work, manage the team, and review recent activity."
         actions={[

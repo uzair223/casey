@@ -175,6 +175,8 @@ export type NotificationChannel = "email" | "in_app" | "both" | "off";
 export type NotificationType =
   | "case_note_mention"
   | "statement_note_mention"
+  | "case_note_added"
+  | "statement_note_added"
   | "statement_submitted_for_review"
   | "statement_final_review_requested";
 export type UserNotification = {

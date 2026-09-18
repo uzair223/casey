@@ -1,11 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import {
+  BellIcon,
+  BriefcaseIcon,
+  FilePenLineIcon,
+  LockIcon,
+  PercentIcon,
+  SendIcon,
+  TimerIcon,
+} from "lucide-react";
+
 import { NotificationFeed } from "@/components/notifications";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTenant } from "@/contexts/tenant-context";
 import { buildParalegalDashboardMetrics } from "@/lib/dashboard/metrics";
 import { OverviewTabSkeleton } from "@/components/dashboard/shared/skeleton";
+import { StatCard } from "@/components/dashboard/shared/stat-card";
 import { useUser } from "@/contexts/user-context";
 
 export function ParalegalOverviewTab() {
@@ -19,12 +30,15 @@ export function ParalegalOverviewTab() {
   const metrics = buildParalegalDashboardMetrics(cases.data, user!.id);
 
   return (
-    <main className="grid grid-cols-[320px_1fr] gap-4">
-      <aside>
+    <main className="grid gap-4 md:grid-cols-[320px_1fr]">
+      <aside className="hidden md:block">
         <Card className="h-full">
           <CardHeader>
             <CardTitle className="text-xs uppercase tracking-[0.2em] text-accent-foreground hover:underline">
-              <Link href="/notifications">Notifications</Link>
+              <Link href="/notifications" className="inline-flex items-center gap-2">
+                <BellIcon className="h-3.5 w-3.5" />
+                Notifications
+              </Link>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -32,92 +46,43 @@ export function ParalegalOverviewTab() {
           </CardContent>
         </Card>
       </aside>
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Assigned Cases
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{metrics.assignedCases}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              cases assigned to you
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Draft
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{metrics.draftCases}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              assigned cases in draft
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              In Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{metrics.inProgressCases}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              assigned cases in progress
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Submitted
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{metrics.submittedCases}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              ready for review
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Locked
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{metrics.lockedCases}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              locked case files
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Witness Completion
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {metrics.witnessCompletionRate}%
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              witness statements completed
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <StatCard
+          label="Assigned Cases"
+          value={metrics.assignedCases}
+          hint="cases assigned to you"
+          icon={<BriefcaseIcon className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Draft"
+          value={metrics.draftCases}
+          hint="assigned cases in draft"
+          icon={<FilePenLineIcon className="h-4 w-4" />}
+        />
+        <StatCard
+          label="In Progress"
+          value={metrics.inProgressCases}
+          hint="assigned cases in progress"
+          icon={<TimerIcon className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Submitted"
+          value={metrics.submittedCases}
+          hint="ready for review"
+          icon={<SendIcon className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Locked"
+          value={metrics.lockedCases}
+          hint="locked case files"
+          icon={<LockIcon className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Witness Completion"
+          value={`${metrics.witnessCompletionRate}%`}
+          hint="witness statements completed"
+          icon={<PercentIcon className="h-4 w-4" />}
+        />
       </div>
     </main>
   );

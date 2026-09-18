@@ -196,7 +196,7 @@ function IntakeMock() {
           <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/10 text-primary/50">
             <Paperclip className="h-4 w-4" />
           </div>
-          <div className="flex h-10 items-center rounded-lg bg-brand px-3 text-sm font-medium text-brand-foreground">
+          <div className="flex h-10 items-center rounded-lg bg-brand-fill px-3 text-sm font-medium text-brand-foreground">
             Send
           </div>
         </div>
@@ -217,7 +217,7 @@ function DraftMock() {
               Review your statement
             </h3>
           </div>
-          <span className="hidden rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-brand-foreground sm:inline-flex">
+          <span className="hidden rounded-full bg-brand-fill px-3 py-1.5 text-xs font-medium text-brand-foreground sm:inline-flex">
             Submit statement
           </span>
         </div>

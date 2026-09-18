@@ -147,7 +147,7 @@ const testimonials = [
 export default function Home() {
   return (
     <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2">
-      <section className="relative isolate -mt-[var(--header-height)] flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-20 text-center">
+      <section className="relative isolate -mt-[calc(var(--header-height)+var(--header-gap))] flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-20 text-center">
         <HeroGlow />
         <Reveal eager>
           <Link
@@ -162,12 +162,12 @@ export default function Home() {
           </Link>
         </Reveal>
         <Reveal eager delay={80}>
-          <h1 className="mt-8 max-w-[11ch] font-display text-5xl font-normal leading-[1.1] tracking-tight text-primary sm:text-7xl lg:text-[96px] lg:leading-[1.1]">
-            Witness AI, ready for review.
+          <h1 className="mt-8 font-display text-5xl font-normal leading-tighter tracking-tight text-primary sm:text-7xl lg:text-[96px] lg:leading-[1.1]">
+            Witness AI,<br className="hidden md:block"/> ready for review.
           </h1>
         </Reveal>
         <Reveal eager delay={160}>
-          <p className="mt-8 max-w-2xl text-xl leading-8 text-primary/80 sm:text-[26px] sm:leading-8">
+          <p className="mt-6 max-w-2xl text-lg leading-tight text-primary/80 sm:text-xl">
             {env.NEXT_PUBLIC_APP_NAME} turns witness interviews into
             review-ready statements. Purpose-built for UK claimant firms.
           </p>

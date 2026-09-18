@@ -3,7 +3,9 @@ import { NextRequest } from "next/server";
 import { badRequest, ok, serverError } from "@/lib/api-utils/response";
 import { requireTenantUser } from "@/lib/api-utils/auth";
 import { sendMentionNotificationEmail } from "@/lib/email";
+import { assigneesToNotify } from "@/lib/notifications/note-assignees";
 import { SERVERONLY_getMentionNotificationDispatchContext } from "@/lib/supabase/queries";
+import { SERVERONLY_createUserNotifications } from "@/lib/supabase/mutations";
 import { getServiceClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
@@ -24,6 +26,31 @@ export async function POST(request: NextRequest) {
 
     if (context.tenantId !== auth.tenantId) {
       return badRequest("Note not found");
+    }
+
+    const assigneeRecipients = assigneesToNotify({
+      assignedUserIds: context.assignedUserIds,
+      mentionedUserIds: context.mentionedUserIds,
+      authorUserId: context.actorUserId,
+    });
+
+    if (assigneeRecipients.length) {
+      const isStatementNote = context.noteType === "statement_note";
+      await SERVERONLY_createUserNotifications({
+        tenantId: context.tenantId,
+        recipientUserIds: assigneeRecipients,
+        actorUserId: context.actorUserId,
+        notificationType: isStatementNote
+          ? "statement_note_added"
+          : "case_note_added",
+        entityType: context.noteType,
+        entityId: context.noteId,
+        title: isStatementNote ? "New statement note" : "New case note",
+        body: context.noteExcerpt
+          ? `${context.actorName} added a note: "${context.noteExcerpt}"`
+          : `${context.actorName} added a note.`,
+        linkPath: context.linkPath,
+      });
     }
 
     const supabase = getServiceClient("mention_notifications");

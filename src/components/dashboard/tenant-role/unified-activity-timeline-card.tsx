@@ -60,14 +60,9 @@ export function UnifiedActivityTimelineCard({
                 <TableRow key={event.id}>
                   <TableCell className="font-medium">{event.title}</TableCell>
                   <TableCell>
-                    <div className="space-y-1">
-                      <p className="line-clamp-2 text-ellipsis">
-                        {event.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {event.type}
-                      </p>
-                    </div>
+                    <p className="line-clamp-2 text-ellipsis">
+                      {event.description}
+                    </p>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {event.actorName || event.actorUserId || "System"}

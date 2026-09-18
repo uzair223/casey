@@ -28,25 +28,25 @@ export function OutstandingWorkCard(props: React.ComponentProps<typeof Card>) {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-md border p-3">
             <p className="text-xs text-muted-foreground">Waiting on witness</p>
-            <p className="mt-1 text-2xl font-bold">
+            <p className="mt-1 text-2xl font-bold text-primary">
               {outstanding.waitingOnWitnessCount}
             </p>
           </div>
           <div className="rounded-md border p-3">
             <p className="text-xs text-muted-foreground">Waiting on review</p>
-            <p className="mt-1 text-2xl font-bold">
+            <p className="mt-1 text-2xl font-bold text-primary">
               {outstanding.waitingOnReviewCount}
             </p>
           </div>
           <div className="rounded-md border p-3">
             <p className="text-xs text-muted-foreground">Overdue reminders</p>
-            <p className="mt-1 text-2xl font-bold">
+            <p className="mt-1 text-2xl font-bold text-primary">
               {outstanding.overdueReminderCount}
             </p>
           </div>
           <div className="rounded-md border p-3">
             <p className="text-xs text-muted-foreground">Stale cases</p>
-            <p className="mt-1 text-2xl font-bold">
+            <p className="mt-1 text-2xl font-bold text-primary">
               {outstanding.staleCaseCount}
             </p>
           </div>

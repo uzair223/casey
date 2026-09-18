@@ -451,7 +451,7 @@ async function getTemplateDoc(
   modules?: unknown[],
 ) {
   const templateBuffer = await toArrayBuffer(templateDocument);
-  const parser = expressionParser.configure({});
+  const parser = expressionParser.configure({ csp: true });
   const zip = new PizZip(templateBuffer);
   const doc = new Docxtemplater(zip, {
     parser,
@@ -557,6 +557,17 @@ async function extractDocxTemplateIdentifiers(
   return new Set(Object.keys(doc.getTags().document.tags));
 }
 
+function formatDocxtemplaterIssue(error: {
+  message?: unknown;
+  properties?: { explanation?: unknown };
+}): string {
+  const explanation = error.properties?.explanation;
+  if (typeof explanation === "string" && explanation.trim()) {
+    return explanation;
+  }
+  return String(error.message ?? "DOCX validation failed.");
+}
+
 function formatDocxtemplaterValidationError(error: unknown): string[] {
   if (!error || typeof error !== "object") {
     return ["DOCX validation failed."];
@@ -565,18 +576,18 @@ function formatDocxtemplaterValidationError(error: unknown): string[] {
   const docxError = error as {
     message?: unknown;
     properties?: {
-      id?: unknown;
       explanation?: unknown;
       errors?: Array<{
         message?: unknown;
-        properties?: { id?: unknown; explanation?: unknown };
+        properties?: { explanation?: unknown };
       }>;
     };
   };
 
-  return (
-    docxError.properties?.errors?.map((e) => String(e.message)) ?? [
-      "DOCX validation failed",
-    ]
-  );
+  const nested = docxError.properties?.errors?.map(formatDocxtemplaterIssue) ?? [];
+  if (nested.length > 0) {
+    return nested;
+  }
+
+  return [formatDocxtemplaterIssue(docxError)];
 }

@@ -151,7 +151,6 @@ export function CaseTemplateSettingsScreen() {
   return (
     <section className="space-y-4">
       <PageTitle
-        subtitle={user?.tenant_name ?? "Global"}
         title="Case Templates"
         description="Manage case templates, mapping to statement templates, and JSON configuration."
         actions={[

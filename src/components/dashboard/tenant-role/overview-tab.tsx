@@ -1,12 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import {
+  ActivityIcon,
+  BellIcon,
+  BriefcaseIcon,
+  FileTextIcon,
+  LayersIcon,
+  PercentIcon,
+  UsersIcon,
+} from "lucide-react";
+
 import { NotificationFeed } from "@/components/notifications";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAsync } from "@/hooks/useAsync";
 import { getTenantUserDashboardStats } from "@/lib/supabase/queries";
 import { buildTenantAdminDashboardMetrics } from "@/lib/dashboard/metrics";
 import { OverviewTabSkeleton } from "@/components/dashboard/shared/skeleton";
+import {
+  StatCard,
+  StatusBreakdownCard,
+} from "@/components/dashboard/shared/stat-card";
 import { OutstandingWorkCard } from "./outstanding-work-card";
 
 export function TenantRoleOverviewTab() {
@@ -23,12 +37,15 @@ export function TenantRoleOverviewTab() {
   const kpis = buildTenantAdminDashboardMetrics(stats);
 
   return (
-    <main className="grid md:grid-cols-[320px_1fr] gap-4">
+    <main className="grid gap-4 md:grid-cols-[320px_1fr]">
       <aside className="hidden md:block">
         <Card className="h-full">
           <CardHeader>
             <CardTitle className="text-xs uppercase tracking-[0.2em] text-accent-foreground hover:underline">
-              <Link href="/notifications">Notifications</Link>
+              <Link href="/notifications" className="inline-flex items-center gap-2">
+                <BellIcon className="h-3.5 w-3.5" />
+                Notifications
+              </Link>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -36,112 +53,53 @@ export function TenantRoleOverviewTab() {
           </CardContent>
         </Card>
       </aside>
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <OutstandingWorkCard className="col-span-full" />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Cases
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.cases}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats.recentActivity.cases} in last 7 days
-            </p>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Cases"
+          value={stats.cases}
+          hint={`${stats.recentActivity.cases} in last 7 days`}
+          icon={<BriefcaseIcon className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Statements"
+          value={stats.statements}
+          hint={`${stats.recentActivity.statements} in last 7 days`}
+          icon={<FileTextIcon className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Team Members"
+          value={stats.teamMembers}
+          hint={`${stats.pendingInvites} pending invites`}
+          icon={<UsersIcon className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Closure Rate"
+          value={`${kpis.closureRate}%`}
+          hint={`${kpis.closedCases} closed, ${kpis.activeCases} active`}
+          icon={<PercentIcon className="h-4 w-4" />}
+        />
+        <StatCard
+          label="Statements per Case"
+          value={kpis.statementsPerCase}
+          hint="platform-wide average"
+          icon={<LayersIcon className="h-4 w-4" />}
+        />
+        <StatCard
+          label="7 Day Throughput"
+          value={kpis.sevenDayThroughput}
+          hint="cases + statements created"
+          icon={<ActivityIcon className="h-4 w-4" />}
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Statements
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.statements}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats.recentActivity.statements} in last 7 days
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Team Members
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.teamMembers}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats.pendingInvites} pending invites
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Closure Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{kpis.closureRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {kpis.closedCases} closed, {kpis.activeCases} active
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Statements per Case
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{kpis.statementsPerCase}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              platform-wide average
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              7 Day Throughput
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{kpis.sevenDayThroughput}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              cases + statements created
-            </p>
-          </CardContent>
-        </Card>
-
-        {stats.casesByStatus && Object.keys(stats.casesByStatus).length > 0 && (
-          <Card className="col-span-full">
-            <CardHeader>
-              <CardTitle>Cases by Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                {Object.entries(stats.casesByStatus).map(([status, count]) => (
-                  <div key={status} className="flex flex-col">
-                    <span className="text-sm text-muted-foreground capitalize">
-                      {status.replace("_", " ")}
-                    </span>
-                    <span className="text-2xl font-bold">{count}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {stats.casesByStatus && Object.keys(stats.casesByStatus).length > 0 ? (
+          <StatusBreakdownCard
+            className="col-span-full"
+            title="Cases by Status"
+            items={Object.entries(stats.casesByStatus)}
+          />
+        ) : null}
       </div>
     </main>
   );

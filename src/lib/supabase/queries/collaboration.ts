@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "../client";
+import { formatAuditTimelineEvent } from "@/lib/audit/format-activity";
 import type {
   CollaborationNoteView,
   OutstandingWorkSummary,
@@ -434,31 +435,42 @@ export async function getUnifiedActivityTimeline(input: {
     actorUserId: item.created_by_user_id,
     caseId: input.caseId ?? null,
     statementId: item.statement_id,
-    title: `Reminder ${item.status}`,
-    description: `Type: ${item.send_type}`,
+    title:
+      item.status === "sent"
+        ? "Reminder sent"
+        : `Reminder ${item.status.replace(/_/g, " ")}`,
+    description: item.send_type
+      ? item.send_type.replace(/_/g, " ")
+      : "",
     metadata: (item.metadata ?? {}) as Record<string, unknown>,
   }));
 
   const auditEvents: UnifiedTimelineEvent[] = (auditRes.data ?? [])
     .filter(isRelevantAuditEvent)
-    .map((item) => ({
-      id: `audit:${item.id}`,
-      type: "audit",
-      createdAt: item.created_at,
-      actorUserId: item.actor_user_id,
-      caseId:
-        item.target_type === "case" ? item.target_id : (input.caseId ?? null),
-      statementId:
-        item.target_type === "statement"
-          ? item.target_id
-          : (input.statementId ?? null),
-      title: item.action,
-      description:
-        typeof (item.metadata as Record<string, unknown>)?.message === "string"
-          ? ((item.metadata as Record<string, unknown>).message as string)
-          : "Audit event",
-      metadata: (item.metadata ?? {}) as Record<string, unknown>,
-    }));
+    .flatMap((item) => {
+      const formatted = formatAuditTimelineEvent(item);
+      if (!formatted) return [];
+
+      return [
+        {
+          id: `audit:${item.id}`,
+          type: "audit" as const,
+          createdAt: item.created_at,
+          actorUserId: item.actor_user_id,
+          caseId:
+            item.target_type === "cases" || item.target_type === "case"
+              ? item.target_id
+              : (input.caseId ?? null),
+          statementId:
+            item.target_type === "statements" || item.target_type === "statement"
+              ? item.target_id
+              : (input.statementId ?? null),
+          title: formatted.title,
+          description: formatted.description,
+          metadata: (item.metadata ?? {}) as Record<string, unknown>,
+        },
+      ];
+    });
 
   const events = [...caseNoteEvents, ...reminderEvents, ...auditEvents]
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))

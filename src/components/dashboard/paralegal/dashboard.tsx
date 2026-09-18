@@ -16,7 +16,6 @@ export function ParalegalDashboard() {
   return (
     <section className="space-y-4">
       <PageTitle
-        subtitle={user!.tenant_name}
         title={`${getRoleLabel(user!.role)} Dashboard`}
         description="Track your assigned cases and recent progress."
         actions={[

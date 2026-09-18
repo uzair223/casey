@@ -16,6 +16,7 @@ export type MentionNotificationDispatchContext = {
   actorUserId: string;
   actorName: string;
   mentionedUserIds: string[];
+  assignedUserIds: string[];
   linkPath: string;
   noteExcerpt: string;
 };
@@ -45,7 +46,7 @@ export async function SERVERONLY_getMentionNotificationDispatchContext(
 
   const { data: caseRow, error: caseError } = await supabase
     .from("cases")
-    .select("id, title")
+    .select("id, title, assigned_to_ids")
     .eq("id", note.case_id)
     .maybeSingle();
 
@@ -95,6 +96,9 @@ export async function SERVERONLY_getMentionNotificationDispatchContext(
     actorName: actorProfile?.display_name || "A team member",
     mentionedUserIds: Array.from(
       new Set((mentions ?? []).map((row) => row.mentioned_user_id)),
+    ),
+    assignedUserIds: Array.from(
+      new Set((caseRow.assigned_to_ids ?? []).filter(Boolean)),
     ),
     linkPath: note.statement_id
       ? `/cases/${note.case_id}?statement=${note.statement_id}`

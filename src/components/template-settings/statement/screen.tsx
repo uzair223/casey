@@ -206,7 +206,6 @@ export function StatementTemplateSettingsScreen() {
   return (
     <section className="space-y-4">
       <PageTitle
-        subtitle={user?.tenant_name ?? "Global"}
         title="Statement Templates"
         description="Manage witness intake templates, advanced JSON configuration, and template DOCX files."
         actions={[

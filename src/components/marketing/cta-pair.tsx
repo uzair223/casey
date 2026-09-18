@@ -32,7 +32,7 @@ export function CtaPair({
       <Link
         href={primaryHref}
         className={cn(
-          "inline-flex items-center justify-center rounded-full bg-brand font-medium text-brand-foreground transition-opacity hover:opacity-90",
+          "inline-flex items-center justify-center rounded-full bg-brand-fill font-medium text-brand-foreground transition-opacity hover:opacity-90",
           hero
             ? "h-11 px-7 text-xl"
             : "h-[34px] px-4 text-[14px]",
@@ -46,7 +46,7 @@ export function CtaPair({
         rel={demoIsExternal ? "noreferrer" : undefined}
         className={cn(
           "inline-flex items-center justify-center rounded-full border font-medium transition-colors",
-          hero ? "h-11 px-7 text-xl" : "h-[34px] px-4 text-[14px]",
+          hero ? "h-11 px-7 text-lg" : "h-[34px] px-4 text-[14px]",
           onLight
             ? "border-[#101010]/25 text-[#101010] hover:bg-[#101010]/5"
             : "border-primary/30 text-primary hover:bg-primary/5",

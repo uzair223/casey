@@ -282,7 +282,6 @@ export default function TenantSettingsPage() {
   return (
     <section className="space-y-4">
       <PageTitle
-        subtitle={user?.tenant_name ?? undefined}
         title="Settings"
         description="Manage profile, organisation controls, and compliance exports."
       />

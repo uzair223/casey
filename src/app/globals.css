@@ -18,6 +18,7 @@
   --accent: #2a2a2a;
   --accent-foreground: #f4f5fb;
   --brand: #7357FF;
+  --brand-text: color-mix(in oklab, #7357FF 40%, #f4f5fb);
   --brand-foreground: #f4f5fb;
   --destructive: oklch(41% 0.159 10.272);
   --destructive-foreground: oklch(89.2% 0.058 10.001);
@@ -40,7 +41,9 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
-  --color-brand: var(--brand);
+  --color-brand: var(--brand-text);
+  --color-brand-fill: var(--brand);
+  --color-brand-text: var(--brand-text);
   --color-brand-foreground: var(--brand-foreground);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
@@ -63,7 +66,7 @@
 
 @media (max-width: 768px) {
   html {
-    font-size: 90%;
+    font-size: 80%;
   }
 }
 

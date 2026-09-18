@@ -1,12 +1,24 @@
 "use client";
 import { env } from "@/lib/env";
 import { BrandMark } from "@/components/brand-mark";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { BellIcon, MenuIcon, XIcon } from "lucide-react";
+import {
+  BellIcon,
+  HouseIcon,
+  LogOutIcon,
+  MenuIcon,
+  SettingsIcon,
+  UserRoundIcon,
+  XIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AsyncButton } from "@/components/ui/async-button";
 import { useUser } from "@/contexts/user-context";
+import { getRoleLabel } from "@/lib/utils";
+import { getUnreadNotificationCount } from "@/lib/supabase/queries";
+import { useAsync } from "@/hooks/useAsync";
+import type { User } from "@/types";
 
 const publicLinks = [
   { label: "Platform", href: "/platform" },
@@ -22,21 +34,6 @@ export default function Header() {
       await signOut();
     } catch (error) {
       console.error("Error signing out:", error);
-    }
-  };
-
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case "app_admin":
-        return "App Admin";
-      case "tenant_admin":
-        return "Firm Admin";
-      case "solicitor":
-        return "Solicitor";
-      case "paralegal":
-        return "Paralegal";
-      default:
-        return "";
     }
   };
 
@@ -66,39 +63,11 @@ export default function Header() {
           )}
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
-          {user ? (
-            <>
-              <Button size={null} variant="link" asChild>
-                <Link href="/dashboard">Dashboard</Link>
-              </Button>
-              <Button size={null} variant="link" asChild>
-                <Link href="/notifications">Notifications</Link>
-              </Button>
-              <Button size={null} variant="link" asChild>
-                <Link href="/settings">Settings</Link>
-              </Button>
-              <div className="relative -mt-4 flex flex-col items-end gap-0.5 text-sm">
-                {user.role && (
-                  <p className="text-xs text-muted-foreground">
-                    {getRoleLabel(user.role)}
-                  </p>
-                )}
-                <p className="font-medium text-foreground">
-                  {user.display_name ?? user.email}
-                </p>
-              </div>
-              <AsyncButton
-                size="sm"
-                variant="outline"
-                onClick={handleSignOut}
-                pendingText="Signing out..."
-              >
-                Sign out
-              </AsyncButton>
-            </>
-          ) : (
-            <>
+        {user ? (
+          <LoggedInNav user={user} onSignOut={handleSignOut} />
+        ) : (
+          <>
+            <nav className="hidden items-center gap-5 md:flex">
               {publicLinks.map((item) => (
                 <Link
                   key={item.href}
@@ -124,132 +93,260 @@ export default function Header() {
               </Link>
               <Link
                 href="/#early-access"
-                className="inline-flex h-[34px] items-center rounded-full bg-brand px-4 text-[14px] font-medium text-brand-foreground"
+                className="inline-flex h-[34px] items-center rounded-full bg-brand-fill px-4 text-[14px] font-medium text-brand-foreground"
               >
                 Get Started
               </Link>
-            </>
-          )}
-        </nav>
+            </nav>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
-          onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-        >
-          {isMobileMenuOpen ? (
-            <XIcon className="h-5 w-5" />
-          ) : (
-            <MenuIcon className="h-5 w-5" />
-          )}
-        </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+            >
+              {isMobileMenuOpen ? (
+                <XIcon className="h-5 w-5" />
+              ) : (
+                <MenuIcon className="h-5 w-5" />
+              )}
+            </Button>
+          </>
+        )}
       </div>
 
-      {isMobileMenuOpen ? (
+      {!user && isMobileMenuOpen ? (
         <div className="absolute inset-x-0 top-full rounded-b-xl bg-[#101010] md:hidden">
           <nav className="container flex flex-col gap-1 pb-6 text-sm">
-            {user ? (
-              <>
-                <Button
-                  variant="ghost"
-                  className="justify-start"
-                  asChild
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Link href="/dashboard">Dashboard</Link>
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="justify-start"
-                  asChild
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Link href="/notifications">
-                    <BellIcon />
-                    Notifications
-                  </Link>
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="justify-start"
-                  asChild
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Link href="/settings">Settings</Link>
-                </Button>
-                <div className="mt-3 border-t pt-3">
-                  <p className="text-sm font-medium text-foreground">
-                    {user.email}
-                  </p>
-                  {user.role ? (
-                    <p className="text-xs text-muted-foreground">
-                      {getRoleLabel(user.role)}
-                    </p>
-                  ) : null}
-                </div>
-                <AsyncButton
-                  size="sm"
-                  variant="outline"
-                  className="mt-2 w-full"
-                  onClick={async () => {
-                    await handleSignOut();
-                    setIsMobileMenuOpen(false);
-                  }}
-                  pendingText="Signing out..."
-                >
-                  Sign out
-                </AsyncButton>
-              </>
-            ) : (
-              <>
-                {publicLinks.map((item) => (
-                  <Button
-                    key={item.href}
-                    variant="ghost"
-                    className="justify-start"
-                    asChild
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <Link href={item.href}>{item.label}</Link>
-                  </Button>
-                ))}
-                <Button
-                  variant="ghost"
-                  className="justify-start"
-                  asChild
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Link href="/auth">Login</Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="mt-2 rounded-full"
-                  asChild
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Link
-                    href={demoHref}
-                    target={demoIsExternal ? "_blank" : undefined}
-                    rel={demoIsExternal ? "noreferrer" : undefined}
-                  >
-                    Book a demo
-                  </Link>
-                </Button>
-                <Button
-                  className="rounded-full bg-brand text-brand-foreground hover:bg-brand/90"
-                  asChild
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Link href="/#early-access">Get Started</Link>
-                </Button>
-              </>
-            )}
+            {publicLinks.map((item) => (
+              <Button
+                key={item.href}
+                variant="ghost"
+                className="justify-start"
+                asChild
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <Link href={item.href}>{item.label}</Link>
+              </Button>
+            ))}
+            <Button
+              variant="ghost"
+              className="justify-start"
+              asChild
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <Link href="/auth">Login</Link>
+            </Button>
+            <Button
+              variant="outline"
+              className="mt-2 rounded-full"
+              asChild
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <Link
+                href={demoHref}
+                target={demoIsExternal ? "_blank" : undefined}
+                rel={demoIsExternal ? "noreferrer" : undefined}
+              >
+                Book a demo
+              </Link>
+            </Button>
+            <Button
+              className="rounded-full bg-brand-fill text-brand-foreground hover:bg-brand-fill/90"
+              asChild
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <Link href="/#early-access">Get Started</Link>
+            </Button>
           </nav>
         </div>
       ) : null}
     </header>
+  );
+}
+
+function LoggedInNav({
+  user,
+  onSignOut,
+}: {
+  user: User;
+  onSignOut: () => Promise<void>;
+}) {
+  return (
+    <nav className="flex items-center gap-1">
+      <Button
+        size="icon"
+        variant="ghost"
+        className="text-primary/80 hover:text-primary"
+        asChild
+      >
+        <Link href="/dashboard" aria-label="Home">
+          <HouseIcon className="h-5 w-5" />
+        </Link>
+      </Button>
+      <UserMenu user={user} onSignOut={onSignOut} />
+    </nav>
+  );
+}
+
+function UserMenu({
+  user,
+  onSignOut,
+}: {
+  user: User;
+  onSignOut: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const ignoreHoverRef = useRef(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const displayName = user.display_name ?? user.email;
+  const roleLabel = user.role ? getRoleLabel(user.role) : "";
+
+  const { data: unreadCount, handler: refreshUnreadCount } = useAsync(
+    getUnreadNotificationCount,
+    [],
+    { initialState: 0, enabled: true },
+  );
+
+  useEffect(() => {
+    if (open) {
+      void refreshUnreadCount();
+    }
+  }, [open, refreshUnreadCount]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!wrapRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setPinned(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        setPinned(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const closeMenu = () => {
+    setOpen(false);
+    setPinned(false);
+  };
+
+  return (
+    <div
+      ref={wrapRef}
+      className="relative"
+      onPointerEnter={(event) => {
+        if (event.pointerType !== "mouse" || ignoreHoverRef.current) return;
+        setOpen(true);
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType !== "mouse") return;
+        ignoreHoverRef.current = false;
+        if (!pinned) setOpen(false);
+      }}
+    >
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        className="relative text-primary/80 hover:text-primary"
+        aria-label="Account menu"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => {
+          if (open) {
+            ignoreHoverRef.current = true;
+            setOpen(false);
+            setPinned(false);
+            return;
+          }
+          setPinned(true);
+          setOpen(true);
+        }}
+      >
+        <UserRoundIcon className="h-5 w-5" />
+        {unreadCount > 0 ? (
+          <span
+            aria-hidden
+            className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-fill"
+          />
+        ) : null}
+      </Button>
+
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-border bg-popover p-2 text-popover-foreground shadow-lg"
+        >
+          <div className="flex items-start gap-2.5 px-3 py-2">
+            <UserRoundIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium leading-none">
+                {displayName}
+              </p>
+              {roleLabel ? (
+                <p className="mt-1.5 text-xs leading-none text-muted-foreground">
+                  {roleLabel}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="my-1 h-px bg-border" />
+          <Link
+            href="/notifications"
+            role="menuitem"
+            className="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
+            onClick={closeMenu}
+          >
+            <BellIcon className="h-4 w-4 shrink-0" />
+            <span className="relative pr-5">
+              Notifications
+              {unreadCount > 0 ? (
+                <span className="absolute -right-1 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-fill px-1 text-[10px] font-semibold leading-none text-brand-foreground">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              ) : null}
+            </span>
+          </Link>
+          <Link
+            href="/settings"
+            role="menuitem"
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
+            onClick={closeMenu}
+          >
+            <SettingsIcon className="h-4 w-4 shrink-0" />
+            Settings
+          </Link>
+          <AsyncButton
+            size={null}
+            variant="ghost"
+            className="h-auto w-full justify-start gap-2.5 rounded-lg px-3 py-2 text-sm font-normal"
+            onClick={async () => {
+              closeMenu();
+              await onSignOut();
+            }}
+            pendingText="Signing out..."
+          >
+            <LogOutIcon className="h-4 w-4 shrink-0" />
+            Sign Out
+          </AsyncButton>
+        </div>
+      ) : null}
+    </div>
   );
 }

@@ -6,6 +6,7 @@ const requireTenantUser = vi.fn();
 const getServiceClient = vi.fn();
 const SERVERONLY_getMentionNotificationDispatchContext = vi.fn();
 const SERVERONLY_getUserProfile = vi.fn();
+const SERVERONLY_createUserNotifications = vi.fn();
 const sendMentionNotificationEmail = vi.fn();
 const logAuditEvent = vi.fn();
 
@@ -22,6 +23,10 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/supabase/queries", () => ({
   SERVERONLY_getMentionNotificationDispatchContext,
   SERVERONLY_getUserProfile,
+}));
+
+vi.mock("@/lib/supabase/mutations", () => ({
+  SERVERONLY_createUserNotifications,
 }));
 
 vi.mock("@/lib/email", () => ({
@@ -64,12 +69,15 @@ describe("compliance and notification flows", () => {
     SERVERONLY_getMentionNotificationDispatchContext.mockResolvedValue({
       tenantId: "tenant-1",
       tenantName: "Tenant Alpha",
+      actorUserId: "user-1",
       actorName: "Casey Solicitor",
       caseTitle: "Accident claim",
-      noteType: "statement note",
+      noteType: "statement_note",
+      noteId: "note-1",
       noteExcerpt: "Please check paragraph 4",
       linkPath: "/cases/case-1?statement=statement-1",
       mentionedUserIds: ["user-2", "user-3", "user-2"],
+      assignedUserIds: ["user-1", "user-2", "user-4"],
     });
 
     const preferences = createAwaitableBuilder({
@@ -114,10 +122,77 @@ describe("compliance and notification flows", () => {
 
     expect(response.status).toBe(200);
     expect(sendMentionNotificationEmail).toHaveBeenCalledTimes(2);
+    expect(SERVERONLY_createUserNotifications).toHaveBeenCalledWith({
+      tenantId: "tenant-1",
+      recipientUserIds: ["user-4"],
+      actorUserId: "user-1",
+      notificationType: "statement_note_added",
+      entityType: "statement_note",
+      entityId: "note-1",
+      title: "New statement note",
+      body: 'Casey Solicitor added a note: "Please check paragraph 4"',
+      linkPath: "/cases/case-1?statement=statement-1",
+    });
     await expect(readJson<{ ok: boolean; sent: number }>(response)).resolves.toEqual({
       ok: true,
       sent: 2,
     });
+  });
+
+  it("notifies assigned members about a case note without duplicating mentions or the author", async () => {
+    requireTenantUser.mockResolvedValue({
+      tenantId: "tenant-1",
+      userId: "user-1",
+    });
+    SERVERONLY_getMentionNotificationDispatchContext.mockResolvedValue({
+      tenantId: "tenant-1",
+      tenantName: "Tenant Alpha",
+      actorUserId: "author-1",
+      actorName: "Alex Rivers",
+      caseTitle: "Accident claim",
+      noteType: "case_note",
+      noteId: "note-2",
+      noteExcerpt: "Please review the chronology",
+      linkPath: "/cases/case-1",
+      mentionedUserIds: ["assignee-mentioned"],
+      assignedUserIds: ["author-1", "assignee-mentioned", "assignee-only"],
+    });
+
+    const preferences = createAwaitableBuilder({
+      data: { mention_channel: "in_app" },
+      error: null,
+    });
+    getServiceClient.mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "tenant_notification_preferences") {
+          return preferences;
+        }
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    });
+
+    const route = await importFresh<
+      typeof import("@/app/api/notifications/mentions/route")
+    >("@/app/api/notifications/mentions/route");
+
+    const response = await route.POST(
+      new Request("http://localhost/api/notifications/mentions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "case", noteId: "note-2" }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    expect(sendMentionNotificationEmail).not.toHaveBeenCalled();
+    expect(SERVERONLY_createUserNotifications).toHaveBeenCalledTimes(1);
+    expect(SERVERONLY_createUserNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notificationType: "case_note_added",
+        recipientUserIds: ["assignee-only"],
+        title: "New case note",
+      }),
+    );
   });
 
   it("generates a DSAR export for the current user", async () => {
