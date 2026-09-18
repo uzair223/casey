@@ -71,7 +71,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # NODE_ENV=production would omit esbuild/wrangler, which OpenNext needs to bundle.
+      - run: npm ci --include=dev
       - name: Apply Supabase migrations
         run: npm run supabase:push
       - name: Deploy Cloudflare Worker
