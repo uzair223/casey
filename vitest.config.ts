@@ -16,6 +16,7 @@ export default defineConfig({
     globals: true,
     include: ["tests/**/*.test.ts"],
     fileParallelism: false,
+    setupFiles: ["tests/integration/promise-try-polyfill.ts"],
     restoreMocks: true,
     clearMocks: true,
     testTimeout: 60000,
