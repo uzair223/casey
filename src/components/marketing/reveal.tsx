@@ -4,12 +4,23 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type ElementType,
   type ReactNode,
 } from "react";
 
 import { cn } from "@/lib/utils";
+
+function subscribeReducedMotion(onStoreChange: () => void) {
+  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+  media.addEventListener("change", onStoreChange);
+  return () => media.removeEventListener("change", onStoreChange);
+}
+
+function getReducedMotionSnapshot() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 type RevealProps = {
   children: ReactNode;
@@ -27,18 +38,17 @@ export function Reveal({
   eager = false,
 }: RevealProps) {
   const ref = useRef<HTMLElement>(null);
-  const [visible, setVisible] = useState(false);
+  const prefersReducedMotion = useSyncExternalStore(
+    subscribeReducedMotion,
+    getReducedMotionSnapshot,
+    () => false,
+  );
+  const [intersected, setIntersected] = useState(false);
+  const visible = prefersReducedMotion || eager || intersected;
 
   useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (media.matches) {
-      setVisible(true);
+    if (prefersReducedMotion || eager) {
       return;
-    }
-
-    if (eager) {
-      const frame = requestAnimationFrame(() => setVisible(true));
-      return () => cancelAnimationFrame(frame);
     }
 
     const node = ref.current;
@@ -47,7 +57,7 @@ export function Reveal({
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setVisible(true);
+          setIntersected(true);
           observer.disconnect();
         }
       },
@@ -56,7 +66,7 @@ export function Reveal({
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [eager]);
+  }, [eager, prefersReducedMotion]);
 
   return (
     <Tag

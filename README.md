@@ -193,11 +193,13 @@ Then set `DOCUSEAL_URL` / `NEXT_PUBLIC_DOCUSEAL_URL` to `http://localhost:3001` 
 
 ### Database
 
-Apply the migrations in `supabase/migrations` to the target Supabase project. For a linked remote project:
+Apply the migrations in `supabase/migrations` to the target Supabase project. Production deploys run this automatically. Locally:
 
 ```bash
-npx supabase db push
+npm run supabase:push
 ```
+
+That needs `SUPABASE_DB_PASSWORD` (the database password from the Supabase project settings, not `SUPABASE_SECRET_KEY`).
 
 The project can generate typed Supabase definitions with:
 
@@ -285,7 +287,7 @@ src/lib/                  AI, documents, evidence, email, security, and Supabase
 src/types/                Shared TypeScript and generated Supabase types
 supabase/migrations/     PostgreSQL schema, RLS policies, indexes, and lifecycle jobs
 tests/integration/       Vitest integration and security-flow tests
-scripts/                 Local test orchestration
+scripts/                 Local test orchestration, production migrate, and deploy helpers
 ```
 
 ## Deployment Notes
@@ -297,9 +299,13 @@ Keep Cloudflare credentials in two groups:
 - `CLOUDFLARE_ADMIN_ACCOUNT_ID` / `CLOUDFLARE_ADMIN_API_TOKEN` — Wrangler deploy, secret management, and other account APIs. `npm run deploy`, `npm run preview`, and `npm run deploy:docuseal` map these onto Wrangler's `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN`.
 - `CLOUDFLARE_AI_ACCOUNT_ID` / `CLOUDFLARE_AI_API_TOKEN` / `CLOUDFLARE_AI_GATEWAY_ID` — Casey runtime inference only. Copy `.dev.vars.example` to `.dev.vars` for local Workers preview, and put the AI token on the Worker with `npx wrangler secret put CLOUDFLARE_AI_API_TOKEN`.
 
+Pushes to `main` run GitHub Actions: lint/typecheck/tests, apply pending Supabase migrations, then deploy the Worker. `npm run deploy` does the same migrate-then-deploy sequence locally.
+
+Required GitHub Actions secrets: `SUPABASE_DB_PASSWORD`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `RESEND_API_KEY`, `RESEND_FROM`, `CLOUDFLARE_AI_ACCOUNT_ID`, `CLOUDFLARE_AI_API_TOKEN`, `CLOUDFLARE_ADMIN_ACCOUNT_ID`, `CLOUDFLARE_ADMIN_API_TOKEN`, and `CRON_SECRET`. Optional: `SUPABASE_ACCESS_TOKEN`, Stripe, DocuSeal, and Axiom values.
+
 ```bash
 npm run preview   # OpenNext build + local Workers runtime
-npm run deploy    # OpenNext build + wrangler deploy
+npm run deploy    # migrate production Supabase, then OpenNext build + wrangler deploy
 ```
 
 Workers cron triggers call `/api/internal/workers/run` every minute and `/api/internal/reminders/run` hourly, authenticated with `CRON_SECRET`.
