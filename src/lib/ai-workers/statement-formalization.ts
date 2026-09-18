@@ -18,7 +18,7 @@ import {
   getStatementSupportingDocumentsWithClient,
   getUploadedDocumentsFromSupportingRows,
 } from "@/lib/supabase/queries/statement-supporting-documents";
-import { getOpenRouterClientOptions } from "@/lib/utils";
+import { getCloudflareAiClientOptions } from "@/lib/llm/cloudflare";
 import { createEvidenceExhibits } from "@/lib/evidence";
 import type { EvidenceExhibit } from "@/lib/evidence";
 import type { StatementConfig } from "@/types";
@@ -253,7 +253,7 @@ export async function processFormalizationJob(jobId: string) {
       : "No evidence files attached.";
 
     const model = selectModel("formalize");
-    const client = new OpenAI(getOpenRouterClientOptions());
+    const client = new OpenAI(getCloudflareAiClientOptions());
     const modelTimeout = createModelRequestTimeout(
       FORMALIZE_TIMEOUT_MS,
       "Statement formalization model request",

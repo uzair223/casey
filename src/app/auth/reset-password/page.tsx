@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Loading from "@/components/loading";
+import { AuthShell } from "@/components/auth-shell";
 import { AsyncButton } from "@/components/ui/async-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -177,13 +178,15 @@ function ResetPasswordPageContent() {
   }
 
   return (
-    <section className="relative container min-h-screen py-6">
-      <Card className="mx-auto max-w-2xl border-border/70 bg-card/85">
+    <Card className="mx-auto max-w-lg rounded-2xl border-primary/10 bg-primary/[0.03] shadow-none">
         <CardHeader>
-          <CardTitle className="text-2xl font-display">
+          <p className="text-[14px] uppercase tracking-[0.15em] text-brand">
+            Account
+          </p>
+          <CardTitle className="mt-2 font-display text-3xl font-normal tracking-tight text-primary">
             Reset your password
           </CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm leading-6 text-muted-foreground">
             Choose a new password for your account.
           </p>
         </CardHeader>
@@ -198,25 +201,28 @@ function ResetPasswordPageContent() {
         </CardContent>
         <CardFooter className="gap-2">
           <AsyncButton
+            className="rounded-full"
+            variant="brand"
             onClick={handleResetPassword}
             pendingText="Resetting..."
             disabled={isSubmitting}
           >
             Reset password
           </AsyncButton>
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="rounded-full">
             <Link href="/auth">Back to sign in</Link>
           </Button>
         </CardFooter>
       </Card>
-    </section>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<Loading />}>
-      <ResetPasswordPageContent />
-    </Suspense>
+    <AuthShell>
+      <Suspense fallback={<Loading />}>
+        <ResetPasswordPageContent />
+      </Suspense>
+    </AuthShell>
   );
 }

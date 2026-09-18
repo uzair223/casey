@@ -1,22 +1,22 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  BadgeCheck,
   CircleAlert,
   FileCheck2,
   Scale,
   ShieldCheck,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { PageTitle } from "@/components/page-title";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  MarketingCheckList,
+  MarketingFeatureCard,
+  MarketingPage,
+  MarketingPageCta,
+  MarketingPageHero,
+  MarketingPageSection,
+} from "@/components/marketing/page";
+import { Reveal } from "@/components/marketing/reveal";
+import { Button } from "@/components/ui/button";
 import { env } from "@/lib/env";
 
 export const metadata = {
@@ -69,149 +69,117 @@ const limitations = [
 
 export default function TermsPage() {
   return (
-    <>
-      <section className="rounded-4xl border border-border/70 bg-background px-6 py-12 sm:px-10 sm:py-16 lg:px-14">
-        <div className="max-w-4xl">
-          <PageTitle
-            subtitle="Terms of service"
-            title="Clear terms for using Casey in legal practice."
-            description={`These terms explain the expected use of ${env.NEXT_PUBLIC_APP_NAME}, the responsibilities of firms and authorised users, and the limits of the platform. They should be read alongside any signed order form, data-processing terms, or written agreement with Casey.`}
-            titleClassName="mt-4 text-4xl sm:text-5xl"
-            descriptionClassName="mt-5 max-w-3xl text-base leading-7 sm:text-lg"
-          />
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button size="lg" asChild className="rounded-full px-7">
-              <Link href="/legal/privacy">
-                Privacy policy
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              asChild
-              className="rounded-full px-7"
+    <MarketingPage>
+      <MarketingPageHero
+        eyebrow="Terms of service"
+        title="Clear terms for using Casey in legal practice."
+        description={`These terms explain the expected use of ${env.NEXT_PUBLIC_APP_NAME}, the responsibilities of firms and authorised users, and the limits of the platform. They should be read alongside any signed order form, data-processing terms, or written agreement with Casey.`}
+      >
+        <div className="mt-10 flex flex-wrap justify-center gap-3">
+          <Button size="lg" variant="brand" asChild className="rounded-full px-7">
+            <Link href="/legal/privacy">
+              Privacy policy
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            asChild
+            className="rounded-full px-7"
+          >
+            <Link href="/legal/dpa">Data processing addendum</Link>
+          </Button>
+        </div>
+      </MarketingPageHero>
+
+      <MarketingPageSection
+        eyebrow="Highlights"
+        title="What using Casey means for a firm."
+      >
+        <div className="grid gap-5 md:grid-cols-3">
+          {highlights.map((item, index) => (
+            <Reveal key={item.title} delay={index * 70}>
+              <MarketingFeatureCard
+                icon={<item.icon className="h-4 w-4" />}
+                title={item.title}
+                body={item.body}
+              />
+            </Reveal>
+          ))}
+        </div>
+      </MarketingPageSection>
+
+      <MarketingPageSection
+        eyebrow="Use rules"
+        title="Acceptable use and firm responsibilities"
+        description="Casey is intended for professional legal workflows. Firms control how the platform is configured, who is invited, and how matter data is reviewed and retained."
+      >
+        <div className="grid gap-5 lg:grid-cols-2">
+          <Reveal>
+            <MarketingFeatureCard title="Acceptable use">
+              <MarketingCheckList className="mt-6" items={acceptableUse} />
+            </MarketingFeatureCard>
+          </Reveal>
+          <Reveal delay={90}>
+            <MarketingFeatureCard title="Firm responsibilities">
+              <MarketingCheckList className="mt-6" items={firmResponsibilities} />
+            </MarketingFeatureCard>
+          </Reveal>
+        </div>
+      </MarketingPageSection>
+
+      <MarketingPageSection
+        eyebrow="Limits"
+        title="The platform supports the work. It does not replace it."
+      >
+        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          <Reveal>
+            <MarketingFeatureCard
+              title="Service limits"
+              body="The platform supports legal workflows but does not make legal, evidential, procedural, or strategic decisions for the firm."
             >
-              <Link href="/legal/dpa">Data processing addendum</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto mt-16 grid max-w-6xl gap-4 lg:grid-cols-3">
-        {highlights.map((item) => (
-          <Card key={item.title} className="rounded-3xl bg-card/75">
-            <CardHeader>
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent-foreground">
-                <item.icon className="h-5 w-5" />
+              <MarketingCheckList className="mt-6" items={limitations} />
+            </MarketingFeatureCard>
+          </Reveal>
+          <Reveal delay={90}>
+            <MarketingFeatureCard
+              icon={<CircleAlert className="h-4 w-4" />}
+              title="Beta and early access"
+            >
+              <div className="mt-6 space-y-4 text-sm leading-7 text-muted-foreground">
+                <p>
+                  Early-access features may be updated, limited, suspended, or
+                  removed while Casey develops. Firms should avoid using preview
+                  functionality for live matters unless they have agreed the
+                  appropriate terms and risk controls.
+                </p>
+                <p>
+                  These public terms are a general summary and may be superseded
+                  by a signed agreement, order form, data-processing addendum,
+                  or other written terms agreed with Casey. Paid workspaces are
+                  billed per licensed seat. Generated content must be reviewed
+                  by a qualified legal professional before it is filed or relied
+                  on.
+                </p>
               </div>
-              <CardTitle className="mt-3 text-lg text-foreground">
-                {item.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-sm leading-6">
-                {item.body}
-              </CardDescription>
-            </CardContent>
-          </Card>
-        ))}
-      </section>
-
-      <section className="mx-auto mt-24 max-w-6xl space-y-8">
-        <PageTitle
-          subtitle="Use rules"
-          title="Acceptable use and firm responsibilities"
-          description="Casey is intended for professional legal workflows. Firms control how the platform is configured, who is invited, and how matter data is reviewed and retained."
-          titleTag="h2"
-          titleClassName="mt-2 text-3xl"
-          descriptionClassName="mt-3 text-sm leading-6"
-        />
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="rounded-3xl bg-card/75">
-            <CardHeader>
-              <CardTitle className="text-lg text-foreground">
-                Acceptable use
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {acceptableUse.map((item) => (
-                <div key={item} className="flex items-start gap-2 text-sm">
-                  <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground" />
-                  <span className="text-muted-foreground">{item}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-3xl bg-card/75">
-            <CardHeader>
-              <CardTitle className="text-lg text-foreground">
-                Firm responsibilities
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {firmResponsibilities.map((item) => (
-                <div key={item} className="flex items-start gap-2 text-sm">
-                  <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground" />
-                  <span className="text-muted-foreground">{item}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+            </MarketingFeatureCard>
+          </Reveal>
         </div>
-      </section>
+      </MarketingPageSection>
 
-      <section className="mx-auto mt-24 max-w-6xl">
-        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <Card className="rounded-3xl bg-card/85">
-            <CardHeader>
-              <CardTitle className="font-display text-2xl text-primary">
-                Service limits
-              </CardTitle>
-              <CardDescription className="text-sm leading-6">
-                The platform supports legal workflows but does not make legal,
-                evidential, procedural, or strategic decisions for the firm.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
-              {limitations.map((item) => (
-                <div key={item} className="flex items-start gap-2 text-sm">
-                  <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground" />
-                  <span className="text-muted-foreground">{item}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-3xl bg-card/75">
-            <CardHeader>
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent-foreground">
-                <CircleAlert className="h-5 w-5" />
-              </div>
-              <CardTitle className="mt-3 text-lg text-foreground">
-                Beta and early access
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm leading-6 text-muted-foreground">
-              <p>
-                Early-access features may be updated, limited, suspended, or
-                removed while Casey develops. Firms should avoid using preview
-                functionality for live matters unless they have agreed the
-                appropriate terms and risk controls.
-              </p>
-              <p>
-                These public terms are a general summary and may be superseded
-                by a signed agreement, order form, data-processing addendum, or
-                other written terms agreed with Casey. Paid workspaces are
-                billed per licensed seat. Generated content must be reviewed by
-                a qualified legal professional before it is filed or relied on.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-    </>
+      <MarketingPageCta
+        title="Ready to map Casey to your intake process?"
+        description="These terms should be read alongside any signed order form, data-processing terms, or written agreement with Casey."
+      >
+        <Link
+          href="/legal/privacy"
+          className="mt-8 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-brand"
+        >
+          Read the privacy policy
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </MarketingPageCta>
+    </MarketingPage>
   );
 }

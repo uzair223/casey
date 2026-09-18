@@ -7,6 +7,10 @@
   "observability": {
     "enabled": true
   },
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "sign.caseyhq.co.uk", "custom_domain": true }
+  ],
   "containers": [
     {
       "class_name": "DocusealContainer",

@@ -7,7 +7,6 @@ const requireUser = vi.fn();
 const SERVERONLY_getDemoStudioBootstrapOptions = vi.fn();
 const SERVERONLY_createDemoStudioStatement = vi.fn();
 const SERVERONLY_listDemoStudioStatements = vi.fn();
-const getOpenRouterClientOptions = vi.fn();
 const logServerEvent = vi.fn();
 const getSystemConfig = vi.fn();
 const setSystemConfig = vi.fn();
@@ -28,18 +27,15 @@ vi.mock("@/lib/supabase/mutations", () => ({
   SERVERONLY_createDemoStudioStatement,
 }));
 
-vi.mock("@/lib/utils", () => ({
-  getOpenRouterClientOptions,
-}));
-
 vi.mock("@/lib/observability/logger", () => ({
   logServerEvent,
 }));
 
 vi.mock("@/lib/env", () => ({
   env: {
-    OPENROUTER_API_KEY: "test-key",
-    OPENROUTER_MODEL: "openai/gpt-4o-mini",
+    CLOUDFLARE_AI_ACCOUNT_ID: "test-account",
+    CLOUDFLARE_AI_API_TOKEN: "test-token",
+    CLOUDFLARE_AI_GATEWAY_ID: "default",
     CRON_SECRET: "cron-secret",
   },
 }));

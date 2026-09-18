@@ -19,11 +19,16 @@
   "vars": {
     "NEXT_PUBLIC_APP_NAME": "Casey",
     "NEXT_PUBLIC_BASE_URL": "https://caseyhq.co.uk",
-    "NEXT_PUBLIC_DOCUSEAL_URL": "https://casey-docuseal.uzairpatel223.workers.dev",
-    "DOCUSEAL_URL": "https://casey-docuseal.uzairpatel223.workers.dev",
+    "NEXT_PUBLIC_DOCUSEAL_URL": "https://sign.caseyhq.co.uk",
+    "DOCUSEAL_URL": "https://sign.caseyhq.co.uk",
     "NEXT_PUBLIC_SUPABASE_URL": "https://tkkvksnmigchatjaodmm.supabase.co",
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_rQ_umaVFvCFfbZHomZsteA_aRca_XDF",
-    "CSP_ENFORCE": "1"
+    "NEXT_PUBLIC_SUPPORT_EMAIL": "support@caseyhq.co.uk",
+    "NEXT_PUBLIC_CALENDLY_LINK": "https://calendly.com/caseyhq/casey-demo-call",
+    "AXIOM_DATASET": "casey",
+    "CSP_ENFORCE": "1",
+    "CLOUDFLARE_AI_ACCOUNT_ID": "8a14bbee799409978d0170d0bbf3e037",
+    "CLOUDFLARE_AI_GATEWAY_ID": "default"
   },
   "triggers": {
     "crons": [
@@ -33,7 +38,8 @@
   },
   "routes": [
     { "pattern": "caseyhq.co.uk", "custom_domain": true },
-    { "pattern": "www.caseyhq.co.uk", "custom_domain": true }
+    { "pattern": "www.caseyhq.co.uk", "custom_domain": true },
+    { "pattern": "app.caseyhq.co.uk", "custom_domain": true }
   ],
   "services": [
     {

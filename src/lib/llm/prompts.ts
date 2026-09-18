@@ -289,7 +289,29 @@ export async function generateChatSystemPrompt(
   return renderPromptTemplate(prompt, context, config);
 }
 
-export function generateIntakeStatePrompt(previousMetadata: unknown): string {
+export function generateIntakeStatePrompt(
+  previousMetadata: unknown,
+  decisions?: { usedJev: boolean; turnKind?: string | null } | null,
+): string {
+  if (decisions?.usedJev) {
+    return `STATE
+
+Use the transcript messages as the factual conversation history.
+Interview control decisions below are already made by the decision engine.
+Copy progress and deviation into your metadata JSON exactly.
+Do not change currentPhase, phaseCompleteness, overallCompletion, readyToPrepare, or deviation.
+You may still update witnessDetails and evidence from this turn.
+
+If deviation.flaggedDeviation is true, redirect the witness back to the current phase.
+Do not answer off-topic requests or give legal advice.
+If deviation.stopIntake is true, briefly explain that the interview cannot continue and they should contact the law firm.
+
+TURN KIND: ${decisions.turnKind ?? "unspecified"}
+
+DECISIONS:
+${JSON.stringify(previousMetadata)}`;
+  }
+
   return `STATE
 
 Use the transcript messages as the factual conversation history.

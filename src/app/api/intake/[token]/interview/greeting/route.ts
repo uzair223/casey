@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
 
-import { env } from "@/lib/env";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { logServerEvent } from "@/lib/observability/logger";
 import { SERVERONLY_getFullStatementFromToken } from "@/lib/supabase/queries";
@@ -12,9 +11,12 @@ import {
   getMissingWitnessFieldLabels,
 } from "@/lib/llm/prompts";
 import { selectModel } from "@/lib/llm/model-config";
-import { getOpenRouterClientOptions } from "@/lib/utils";
+import {
+  getCloudflareAiClientOptions,
+  isCloudflareAiConfigured,
+} from "@/lib/llm/cloudflare";
 
-const client = new OpenAI(getOpenRouterClientOptions());
+const client = new OpenAI(getCloudflareAiClientOptions());
 
 const greetingQuestionSchema = z.object({
   question: z.string().trim().min(1),
@@ -48,7 +50,7 @@ export async function POST(
 
     if (
       (missing.required.length === 0 && missing.optional.length === 0) ||
-      !env.OPENROUTER_API_KEY
+      !isCloudflareAiConfigured()
     ) {
       return NextResponse.json(fallback);
     }

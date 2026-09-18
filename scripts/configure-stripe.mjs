@@ -92,8 +92,9 @@ if (!price) {
 }
 
 const cfAccountId =
-  fileEnv.CLOUDFLARE_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID;
-const cfToken = fileEnv.CLOUDFLARE_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
+  fileEnv.CLOUDFLARE_ADMIN_ACCOUNT_ID || process.env.CLOUDFLARE_ADMIN_ACCOUNT_ID;
+const cfToken =
+  fileEnv.CLOUDFLARE_ADMIN_API_TOKEN || process.env.CLOUDFLARE_ADMIN_API_TOKEN;
 let caseyUrl = fileEnv.NEXT_PUBLIC_BASE_URL || "";
 let docusealUrl = fileEnv.DOCUSEAL_URL || "";
 if (cfAccountId && cfToken) {

@@ -1,6 +1,6 @@
 import { env } from "@/lib/env";
 import type { Metadata } from "next";
-import { Fraunces, Manrope } from "next/font/google";
+import { Instrument_Serif, Inter } from "next/font/google";
 
 import { UserProvider } from "@/contexts/user-context";
 import { TenantProvider } from "@/contexts/tenant-context";
@@ -8,19 +8,21 @@ import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const display = Instrument_Serif({
+  variable: "--font-display",
   subsets: ["latin"],
+  weight: "400",
 });
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+const sans = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: env.NEXT_PUBLIC_APP_NAME,
-  description: `${env.NEXT_PUBLIC_APP_NAME} helps UK claimant firms turn guided witness intake, structured evidence, and case intelligence into review-ready statement workflows.`,
+  description: `${env.NEXT_PUBLIC_APP_NAME} turns witness interviews into review-ready statements. Purpose-built for UK claimant firms.`,
+  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({
@@ -31,9 +33,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${fraunces.variable} ${manrope.variable} min-h-screen antialiased`}
+        className={`${display.variable} ${sans.variable} min-h-screen bg-background antialiased`}
       >
-        <div className="fixed inset-0 w-screen h-screen bg-aurora -z-50" />
         <UserProvider>
           <TenantProvider>{children}</TenantProvider>
         </UserProvider>

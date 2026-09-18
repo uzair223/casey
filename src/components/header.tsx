@@ -1,17 +1,16 @@
 "use client";
 import { env } from "@/lib/env";
+import { BrandMark } from "@/components/brand-mark";
 import { useState } from "react";
 import Link from "next/link";
 import { BellIcon, MenuIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AsyncButton } from "@/components/ui/async-button";
 import { useUser } from "@/contexts/user-context";
-import { cn } from "@/lib/utils";
 
 const publicLinks = [
   { label: "Platform", href: "/platform" },
   { label: "Security", href: "/legal/security" },
-  { label: "Early access", href: "/#beta" },
 ] as const;
 
 export default function Header() {
@@ -41,86 +40,117 @@ export default function Header() {
     }
   };
 
-  return (
-    <header
-      className={cn(
-        "relative h-(--header-height) flex container items-center justify-between z-50",
-        isMobileMenuOpen &&
-          "max-md:sticky max-md:bg-background/95 max-md:top-0",
-      )}
-    >
-      <Link href="/">
-        {user?.tenant_name && (
-          <p className="text-sm uppercase leading-[0.8em] tracking-[0.2em] text-muted-foreground">
-            {user.tenant_name}
-          </p>
-        )}
-        <p className="font-display text-xl">{env.NEXT_PUBLIC_APP_NAME}</p>
-      </Link>
+  const demoHref = env.NEXT_PUBLIC_CALENDLY_LINK || "/#early-access";
+  const demoIsExternal = Boolean(env.NEXT_PUBLIC_CALENDLY_LINK);
 
-      <nav className="hidden md:flex items-center gap-6 text-sm font-semibold">
-        {user ? (
-          <>
-            <Button size={null} variant="link" asChild>
-              <Link href="/dashboard">Dashboard</Link>
-            </Button>
-            <Button size={null} variant="link" asChild>
-              <Link href="/notifications">Notifications</Link>
-            </Button>
-            <Button size={null} variant="link" asChild>
-              <Link href="/settings">Settings</Link>
-            </Button>
-            <div className="relative flex flex-col items-end gap-0.5 text-sm -mt-4">
-              {user.role && (
-                <p className="text-xs text-muted-foreground">
-                  {getRoleLabel(user.role)}
-                </p>
-              )}
-              <p className="font-medium text-foreground">
-                {user.display_name ?? user.email}
+  return (
+    <header className="fixed inset-x-0 top-0 z-50 h-[var(--header-height)] bg-[#101010]">
+      <div className="container flex h-full items-center justify-between">
+        <Link href="/" className="flex items-center gap-2.5">
+          {user?.tenant_name ? (
+            <div>
+              <p className="text-[11px] uppercase leading-none tracking-[0.18em] text-muted-foreground">
+                {user.tenant_name}
+              </p>
+              <p className="font-display text-[22px] leading-none tracking-tight">
+                {env.NEXT_PUBLIC_APP_NAME}
               </p>
             </div>
-            <AsyncButton
-              size="sm"
-              variant="outline"
-              onClick={handleSignOut}
-              pendingText="Signing out..."
-            >
-              Sign out
-            </AsyncButton>
-          </>
-        ) : (
-          <>
-            {publicLinks.map((item) => (
-              <Button key={item.href} size={null} variant="link" asChild>
-                <Link href={item.href}>{item.label}</Link>
-              </Button>
-            ))}
-            <Button size="sm" variant="outline" asChild>
-              <Link href="/auth">Sign in</Link>
-            </Button>
-          </>
-        )}
-      </nav>
+          ) : (
+            <>
+              <BrandMark />
+              <p className="font-display text-[22px] leading-none tracking-tight">
+                {env.NEXT_PUBLIC_APP_NAME}
+              </p>
+            </>
+          )}
+        </Link>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="md:hidden"
-        aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
-        onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-      >
-        {isMobileMenuOpen ? (
-          <XIcon className="h-5 w-5" />
-        ) : (
-          <MenuIcon className="h-5 w-5" />
-        )}
-      </Button>
+        <nav className="hidden items-center gap-1 md:flex">
+          {user ? (
+            <>
+              <Button size={null} variant="link" asChild>
+                <Link href="/dashboard">Dashboard</Link>
+              </Button>
+              <Button size={null} variant="link" asChild>
+                <Link href="/notifications">Notifications</Link>
+              </Button>
+              <Button size={null} variant="link" asChild>
+                <Link href="/settings">Settings</Link>
+              </Button>
+              <div className="relative -mt-4 flex flex-col items-end gap-0.5 text-sm">
+                {user.role && (
+                  <p className="text-xs text-muted-foreground">
+                    {getRoleLabel(user.role)}
+                  </p>
+                )}
+                <p className="font-medium text-foreground">
+                  {user.display_name ?? user.email}
+                </p>
+              </div>
+              <AsyncButton
+                size="sm"
+                variant="outline"
+                onClick={handleSignOut}
+                pendingText="Signing out..."
+              >
+                Sign out
+              </AsyncButton>
+            </>
+          ) : (
+            <>
+              {publicLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-[10px] px-3 py-2 text-[13px] text-primary/60 transition-colors hover:text-primary"
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <Link
+                href="/auth"
+                className="rounded-[10px] px-3 py-2 text-[13px] text-primary/60 transition-colors hover:text-primary"
+              >
+                Login
+              </Link>
+              <Link
+                href={demoHref}
+                target={demoIsExternal ? "_blank" : undefined}
+                rel={demoIsExternal ? "noreferrer" : undefined}
+                className="ml-1 inline-flex h-[34px] items-center rounded-full border border-primary/30 px-4 text-[14px] font-medium text-primary"
+              >
+                Book a demo
+              </Link>
+              <Link
+                href="/#early-access"
+                className="inline-flex h-[34px] items-center rounded-full bg-brand px-4 text-[14px] font-medium text-brand-foreground"
+              >
+                Get Started
+              </Link>
+            </>
+          )}
+        </nav>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+          onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+        >
+          {isMobileMenuOpen ? (
+            <XIcon className="h-5 w-5" />
+          ) : (
+            <MenuIcon className="h-5 w-5" />
+          )}
+        </Button>
+      </div>
 
       {isMobileMenuOpen ? (
-        <div className="absolute left-0 right-0 top-full border-b bg-background rounded-b-xl md:hidden">
-          <nav className="container pb-6 flex flex-col gap-1 text-sm">
+        <div className="absolute inset-x-0 top-full rounded-b-xl bg-[#101010] md:hidden">
+          <nav className="container flex flex-col gap-1 pb-6 text-sm">
             {user ? (
               <>
                 <Button
@@ -187,12 +217,33 @@ export default function Header() {
                   </Button>
                 ))}
                 <Button
-                  variant="outline"
-                  className="mt-2"
+                  variant="ghost"
+                  className="justify-start"
                   asChild
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <Link href="/auth">Sign in</Link>
+                  <Link href="/auth">Login</Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="mt-2 rounded-full"
+                  asChild
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Link
+                    href={demoHref}
+                    target={demoIsExternal ? "_blank" : undefined}
+                    rel={demoIsExternal ? "noreferrer" : undefined}
+                  >
+                    Book a demo
+                  </Link>
+                </Button>
+                <Button
+                  className="rounded-full bg-brand text-brand-foreground hover:bg-brand/90"
+                  asChild
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Link href="/#early-access">Get Started</Link>
                 </Button>
               </>
             )}

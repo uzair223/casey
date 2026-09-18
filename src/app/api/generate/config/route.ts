@@ -7,12 +7,14 @@ import { z } from "zod";
 
 import { requireUser } from "@/lib/api-utils/auth";
 import { badRequest } from "@/lib/api-utils/response";
-import { env } from "@/lib/env";
 import { logServerEvent } from "@/lib/observability/logger";
 import { selectModel } from "@/lib/llm/model-config";
-import { getOpenRouterClientOptions } from "@/lib/utils";
+import {
+  getCloudflareAiClientOptions,
+  isCloudflareAiConfigured,
+} from "@/lib/llm/cloudflare";
 
-const client = new OpenAI(getOpenRouterClientOptions());
+const client = new OpenAI(getCloudflareAiClientOptions());
 
 const RequestBodySchema = z.object({
   input: z.string().trim().min(1, "input is required"),
@@ -72,14 +74,14 @@ function safeParsePartialObject(raw: string): Record<string, unknown> | null {
 export async function POST(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? randomUUID();
 
-  if (!env.OPENROUTER_API_KEY) {
+  if (!isCloudflareAiConfigured()) {
     await logServerEvent("error", "api.generate.config.misconfigured", {
       requestId,
-      reason: "missing_openrouter_api_key",
+      reason: "missing_cloudflare_ai_credentials",
     });
     return NextResponse.json(
       {
-        error: "OpenRouter API key not configured.",
+        error: "Cloudflare AI is not configured.",
       },
       { status: 500 },
     );

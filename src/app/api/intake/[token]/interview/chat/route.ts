@@ -1,4 +1,3 @@
-import { env } from "@/lib/env";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
@@ -25,14 +24,21 @@ import { z } from "zod";
 import { logServerEvent } from "@/lib/observability/logger";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { selectModel } from "@/lib/llm/model-config";
-import { getOpenRouterClientOptions } from "@/lib/utils";
+import {
+  getCloudflareAiClientOptions,
+  isCloudflareAiConfigured,
+} from "@/lib/llm/cloudflare";
+import {
+  evaluateIntakeTurnWithJev,
+  overlayJevControlMetadata,
+} from "@/lib/llm/jev/interview-turn";
 import {
   buildIntakeChatFileParts,
   type IntakeChatContentPart,
 } from "@/lib/files";
 import type { EvidenceDocument } from "@/lib/evidence";
 
-const client = new OpenAI(getOpenRouterClientOptions());
+const client = new OpenAI(getCloudflareAiClientOptions());
 
 function isRateLimitError(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
@@ -78,13 +84,13 @@ export async function POST(
 ) {
   const requestId = request.headers.get("x-request-id") ?? randomUUID();
 
-  if (!env.OPENROUTER_API_KEY) {
+  if (!isCloudflareAiConfigured()) {
     await logServerEvent("error", "api.intake.chat.misconfigured", {
       requestId,
-      reason: "missing_openrouter_api_key",
+      reason: "missing_cloudflare_ai_credentials",
     });
     return NextResponse.json(
-      { error: "OpenRouter API key not configured." },
+      { error: "Cloudflare AI is not configured." },
       {
         status: 500,
       },
@@ -287,7 +293,18 @@ export async function POST(
 
     const statementConfig = statement.statement_config;
 
-    const lastMetadata = getLastMeta(conversationHistory, statementConfig);
+    const previousMetadata = getLastMeta(conversationHistory, statementConfig);
+    const jevDecisions = await evaluateIntakeTurnWithJev({
+      previousMetadata,
+      statementConfig,
+      conversationHistory,
+      userMessage: userMessageForLogging,
+      attachedFileNames: [
+        ...attachedFiles.map((file) => file.name),
+        ...persistedAttachments.map((file) => file.name),
+      ].filter((name) => name.trim().length > 0),
+    });
+    const lastMetadata = jevDecisions.metadata;
     const modelMessages: Array<{
       role: "system" | "user" | "assistant";
       content: string | IntakeChatContentPart[];
@@ -325,6 +342,8 @@ export async function POST(
       model: selectedModel,
       transcriptLength: contextCharLength,
       temperature: 0.7,
+      jevUsed: jevDecisions.usedJev,
+      jevTurnKind: jevDecisions.turnKind,
     });
 
     try {
@@ -346,22 +365,11 @@ export async function POST(
           },
           {
             role: "system",
-            content: generateIntakeStatePrompt(lastMetadata),
+            content: generateIntakeStatePrompt(lastMetadata, jevDecisions),
           },
-          // @ts-expect-error OpenRouter accepts multimodal message content here.
+          // @ts-expect-error Cloudflare's OpenAI-compatible API accepts multimodal message content here.
           ...modelMessages,
         ],
-        plugins: userInput.requiresPdfPlugin
-          ? [
-              {
-                id: "file-parser",
-                pdf: {
-                  engine: "pdf-text",
-                },
-              },
-            ]
-          : undefined,
-
         stream: true,
       });
 
@@ -435,7 +443,9 @@ export async function POST(
 
           try {
             const parsed = responseSchema.parse(JSON.parse(rawResponse));
-            metadata = parsed.metadata;
+            metadata = jevDecisions.usedJev
+              ? overlayJevControlMetadata(parsed.metadata, jevDecisions.metadata)
+              : parsed.metadata;
 
             // Ensure persisted content exactly matches parsed schema content.
             if (parsed.content.startsWith(streamedContent)) {

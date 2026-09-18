@@ -30,7 +30,7 @@ flowchart TD
 		Api --> Auth["Supabase Auth"]
 		Api --> Database["Supabase PostgreSQL"]
 		Api --> Storage["Supabase Storage"]
-		Api --> AI["OpenRouter / LLM provider"]
+		Api --> AI["Cloudflare AI Gateway"]
 		Api --> Email["Resend"]
 		Api --> Signing["Self-hosted DocuSeal"]
 		Api --> Logging["Axiom-compatible logging"]
@@ -102,7 +102,7 @@ Template configuration is versioned through snapshots. Cases also capture config
 
 ### AI-assisted workflows
 
-- AI-guided witness interviewing through OpenRouter-compatible models.
+- AI-guided witness interviewing through Cloudflare AI Gateway, with Jev decisions for interview routing and case-analysis scoring.
 - Streaming interview responses and progress metadata.
 - Response formalization into structured statement sections.
 - AI-generated statement configuration and template updates from natural-language requests.
@@ -141,7 +141,8 @@ Template configuration is versioned through snapshots. Cases also capture config
 - React 19 and TypeScript
 - Supabase Auth, PostgreSQL, Row Level Security, Storage, and scheduled jobs
 - Self-hosted DocuSeal for certified electronic signatures
-- OpenRouter through the OpenAI SDK for AI model access
+- Cloudflare AI Gateway through the OpenAI SDK for chat, formalization, and analysis
+- TypeSafe Jev via Cloudflare (`typesafe/jev`) for interview routing and case-analysis scoring
 - Resend for transactional email
 - DOCX generation and editing with `docx`, Docxtemplater, and the DOCX editor packages
 - Zod for input and environment validation
@@ -155,7 +156,7 @@ Template configuration is versioned through snapshots. Cases also capture config
 - Node.js compatible with the versions used by the project toolchain
 - npm
 - A Supabase project for development or the Supabase CLI and Docker for local development
-- Credentials for OpenRouter and Resend when using AI and email features
+- Credentials for Cloudflare AI and Resend when using AI and email features
 
 ### Installation
 
@@ -175,9 +176,12 @@ At minimum, configure:
 - `SUPABASE_SECRET_KEY`
 - `RESEND_API_KEY`
 - `RESEND_FROM`
-- `OPENROUTER_API_KEY`
+- `CLOUDFLARE_AI_ACCOUNT_ID`
+- `CLOUDFLARE_AI_API_TOKEN`
 
-Optional configuration includes support and scheduling links, `CRON_SECRET`, formalization limits, Axiom logging, Stripe seats, self-hosted DocuSeal, and Cloudflare deploy credentials. See `.env.example` for the complete list.
+Wrangler deploy uses a separate admin pair, `CLOUDFLARE_ADMIN_ACCOUNT_ID` and `CLOUDFLARE_ADMIN_API_TOKEN`. Do not point Wrangler at `CLOUDFLARE_AI_API_TOKEN`.
+
+Optional configuration includes `CLOUDFLARE_AI_GATEWAY_ID` (defaults to `default`), support and scheduling links, `CRON_SECRET`, formalization limits, Axiom logging, Stripe seats, and self-hosted DocuSeal. See `.env.example` for the complete list.
 
 To run DocuSeal locally:
 
@@ -286,9 +290,12 @@ scripts/                 Local test orchestration
 
 ## Deployment Notes
 
-Casey targets Cloudflare Workers. The Next.js build requires the variables defined by `BuildEnvSchema` in `src/lib/env.ts`. Configure Supabase, Resend, OpenRouter, `NEXT_PUBLIC_BASE_URL`, and `CRON_SECRET` before building.
+Casey targets Cloudflare Workers. The Next.js build requires the variables defined by `BuildEnvSchema` in `src/lib/env.ts`. Configure Supabase, Resend, Cloudflare AI (`CLOUDFLARE_AI_ACCOUNT_ID` / `CLOUDFLARE_AI_API_TOKEN`), `NEXT_PUBLIC_BASE_URL`, and `CRON_SECRET` before building.
 
-Wrangler reads `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` from the environment. Copy `.dev.vars.example` to `.dev.vars` for local Workers preview, and put production secrets on the Worker with `npx wrangler secret put <NAME>`.
+Keep Cloudflare credentials in two groups:
+
+- `CLOUDFLARE_ADMIN_ACCOUNT_ID` / `CLOUDFLARE_ADMIN_API_TOKEN` — Wrangler deploy, secret management, and other account APIs. `npm run deploy`, `npm run preview`, and `npm run deploy:docuseal` map these onto Wrangler's `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN`.
+- `CLOUDFLARE_AI_ACCOUNT_ID` / `CLOUDFLARE_AI_API_TOKEN` / `CLOUDFLARE_AI_GATEWAY_ID` — Casey runtime inference only. Copy `.dev.vars.example` to `.dev.vars` for local Workers preview, and put the AI token on the Worker with `npx wrangler secret put CLOUDFLARE_AI_API_TOKEN`.
 
 ```bash
 npm run preview   # OpenNext build + local Workers runtime
@@ -300,10 +307,10 @@ Workers cron triggers call `/api/internal/workers/run` every minute and `/api/in
 DocuSeal runs beside Casey:
 
 - Local: `docker compose --env-file .env -f deploy/docuseal/docker-compose.yml up -d` then `http://localhost:3001`
-- Production: `npm run deploy:docuseal` deploys the `casey-docuseal` Cloudflare Container. The API token needs Workers **and** Cloudflare Containers edit permission.
+- Production: `npm run deploy:docuseal` deploys the `casey-docuseal` Cloudflare Container. `CLOUDFLARE_ADMIN_API_TOKEN` needs Workers **and** Cloudflare Containers edit permission.
 
 After the first DocuSeal admin signup, paste the API key into `DOCUSEAL_API_KEY` and create a webhook to `https://casey.<subdomain>.workers.dev/api/webhooks/docuseal` using `DOCUSEAL_WEBHOOK_SECRET`.
 
 Seat billing is a live Stripe monthly price with a 7-day Checkout trial. Re-run `npm run configure:stripe` if the price or webhook needs to be recreated.
 
-Do not expose `SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `OPENROUTER_API_KEY`, `AXIOM_TOKEN`, `DOCUSEAL_API_KEY`, `DOCUSEAL_WEBHOOK_SECRET`, `CLOUDFLARE_API_TOKEN`, or `SUPABASE_DB_PASSWORD` to client-side code.
+Do not expose `SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `CLOUDFLARE_ADMIN_API_TOKEN`, `CLOUDFLARE_AI_API_TOKEN`, `AXIOM_TOKEN`, `DOCUSEAL_API_KEY`, `DOCUSEAL_WEBHOOK_SECRET`, or `SUPABASE_DB_PASSWORD` to client-side code.

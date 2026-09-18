@@ -6,14 +6,16 @@ import { z } from "zod";
 
 import { requireUser } from "@/lib/api-utils/auth";
 import { badRequest } from "@/lib/api-utils/response";
-import { env } from "@/lib/env";
 import { logServerEvent } from "@/lib/observability/logger";
 import { selectModel } from "@/lib/llm/model-config";
-import { getOpenRouterClientOptions } from "@/lib/utils";
+import {
+  getCloudflareAiClientOptions,
+  isCloudflareAiConfigured,
+} from "@/lib/llm/cloudflare";
 import { DocxReviewer } from "@eigenpal/docx-editor-agents";
 import { zodResponseFormat } from "openai/helpers/zod.mjs";
 
-const client = new OpenAI(getOpenRouterClientOptions());
+const client = new OpenAI(getCloudflareAiClientOptions());
 
 const RequestBodySchema = z.object({
   bufferBase64: z.string().min(1, "bufferBase64 is required"),
@@ -136,14 +138,14 @@ function clampToKnownParagraph(
 export async function POST(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? randomUUID();
 
-  if (!env.OPENROUTER_API_KEY) {
+  if (!isCloudflareAiConfigured()) {
     await logServerEvent("error", "api.generate.docx_review.misconfigured", {
       requestId,
-      reason: "missing_openrouter_api_key",
+      reason: "missing_cloudflare_ai_credentials",
     });
     return NextResponse.json(
       {
-        error: "OpenRouter API key not configured.",
+        error: "Cloudflare AI is not configured.",
       },
       { status: 500 },
     );

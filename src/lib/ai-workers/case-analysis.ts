@@ -17,10 +17,10 @@ import {
   getUploadedDocumentsFromSupportingRows,
 } from "@/lib/supabase/queries/statement-supporting-documents";
 import { createEvidenceExhibits } from "@/lib/evidence";
-import { getOpenRouterClientOptions } from "@/lib/utils";
+import { getCloudflareAiClientOptions } from "@/lib/llm/cloudflare";
 import { normalizeCaseAnalysis } from "@/lib/case-analysis/normalize";
-import { CaseAnalysisSchema } from "@/lib/schema/case-analysis";
-import type { CaseAnalysis } from "@/lib/schema/case-analysis";
+import { evaluateCaseAnalysisDraftWithJev } from "@/lib/llm/jev/case-analysis";
+import { CaseAnalysisDraftSchema } from "@/lib/schema/case-analysis";
 import type { StatementSupportingDocument, UploadedDocument } from "@/types";
 import {
   claimGenerationJob,
@@ -394,7 +394,7 @@ export async function processCaseAnalysisJob(jobId: string) {
     const evidenceCorpus = buildEvidenceCorpus(evidenceContexts);
 
     const model = selectModel("case-analysis");
-    const client = new OpenAI(getOpenRouterClientOptions());
+    const client = new OpenAI(getCloudflareAiClientOptions());
     const modelTimeout = createModelRequestTimeout(
       CASE_ANALYSIS_TIMEOUT_MS,
       "Case analysis model request",
@@ -439,7 +439,7 @@ ${evidenceCorpus}`,
             },
           ],
           response_format: zodResponseFormat(
-            CaseAnalysisSchema,
+            CaseAnalysisDraftSchema,
             "case_analysis",
           ),
         },
@@ -452,7 +452,15 @@ ${evidenceCorpus}`,
     }
 
     const content = getStructuredResponseJson(response);
-    const analysis = normalizeCaseAnalysis(JSON.parse(content) as CaseAnalysis);
+    const drafted = normalizeCaseAnalysis(
+      CaseAnalysisDraftSchema.parse(JSON.parse(content)),
+    );
+    const analysis = await evaluateCaseAnalysisDraftWithJev({
+      caseTitle: caseRecord.title,
+      caseMetadata: caseRecord.case_metadata,
+      statementIds: sourceStatements.map((statement) => statement.id),
+      analysis: drafted,
+    });
     const sourceStatementVersions = sourceStatements.map((statement) => ({
       statementId: statement.id,
       updatedAt: statement.updated_at,

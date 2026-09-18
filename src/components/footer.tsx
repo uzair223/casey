@@ -1,116 +1,107 @@
 import { env } from "@/lib/env";
 import Link from "next/link";
+import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
-import { WaitlistSignupForm } from "./waitlist/waitlist-form";
 import { LinkList } from "./ui/link-list";
 
 export default function Footer() {
   return (
-    <footer className="mt-8 border-t bg-background/60 pt-8 pb-4">
-      <div className="container flex gap-x-24 gap-y-12 justify-center flex-wrap">
-        <div className="min-w-md max-w-xl flex-1 space-y-6">
-          <div>
-            <p className="font-display text-xl">
-              Stop letting witness statements begin in the inbox.
+    <footer className="border-t border-border/50 pt-20 pb-10">
+      <div className="container grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.15fr_repeat(4,minmax(0,1fr))]">
+        <div className="max-w-sm space-y-3">
+          <Link href="/" className="flex items-center gap-2.5">
+            <BrandMark />
+            <p className="font-display text-[22px] leading-none tracking-tight">
+              {env.NEXT_PUBLIC_APP_NAME}
             </p>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {env.NEXT_PUBLIC_APP_NAME} helps UK legal teams capture witness
-              accounts, prepare review-ready drafts, and surface case
-              intelligence across facts, gaps, chronology, and evidence in one
-              secure workflow.
-            </p>
-          </div>
+          </Link>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Witness interviews into review-ready statements. Built for UK
+            claimant firms.
+          </p>
+        </div>
 
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-accent-foreground">
-              Demo
-            </p>
-            <p className="font-display text-xl">Map Casey to your workflow</p>
-            <p className="text-sm leading-6 text-muted-foreground mb-4">
-              Bring your current intake process, templates, and review
-              bottlenecks. We&apos;ll show how the workflow changes once witness
-              evidence and case analysis live together.
-            </p>
-            <WaitlistSignupForm id="waitlist" disableCalendly />
+        <div className="space-y-3">
+          <p className="text-sm text-foreground">Product</p>
+          <div className="flex flex-col gap-1 text-muted-foreground">
+            <LinkList
+              items={[
+                { label: "Platform", href: "/platform" },
+                { label: "Security", href: "/legal/security" },
+                { label: "Early access", href: "/#early-access" },
+                { label: "Witness intake demo", href: "/intake/demo" },
+              ]}
+            />
           </div>
         </div>
 
-        <div className="md:ml-auto flex gap-12">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.2em] text-accent-foreground">
-              Support
-            </p>
-            <div className="flex flex-col gap-1 text-muted-foreground">
-              {env.NEXT_PUBLIC_CALENDLY_LINK && (
-                <Button
-                  size={null}
-                  variant="link"
-                  className="justify-start px-0"
-                  asChild
-                >
-                  <Link href={env.NEXT_PUBLIC_CALENDLY_LINK} target="_blank">
-                    Book a demo call
-                  </Link>
-                </Button>
-              )}
-              {env.NEXT_PUBLIC_SUPPORT_EMAIL && (
-                <Button
-                  size={null}
-                  variant="link"
-                  className="justify-start px-0"
-                  asChild
-                >
-                  <Link href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}>
-                    {env.NEXT_PUBLIC_SUPPORT_EMAIL}
-                  </Link>
-                </Button>
-              )}
-            </div>
+        <div className="space-y-3">
+          <p className="text-sm text-foreground">Company</p>
+          <div className="flex flex-col gap-1 text-muted-foreground">
+            <LinkList
+              items={[
+                { label: "Home", href: "/" },
+                { label: "Dashboard", href: "/dashboard" },
+                { label: "Sign in", href: "/auth" },
+              ]}
+            />
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.2em] text-accent-foreground">
-              Compliance
-            </p>
-            <div className="flex flex-col gap-1 text-muted-foreground">
-              {[
-                { label: "Privacy Policy", href: "/legal/privacy" },
-                { label: "GDPR Notice", href: "/legal/gdpr" },
+        <div className="space-y-3">
+          <p className="text-sm text-foreground">Support</p>
+          <div className="flex flex-col gap-1 text-muted-foreground">
+            {env.NEXT_PUBLIC_CALENDLY_LINK ? (
+              <Button
+                size={null}
+                variant="link"
+                className="justify-start px-0"
+                asChild
+              >
+                <Link href={env.NEXT_PUBLIC_CALENDLY_LINK} target="_blank">
+                  Book a demo
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                size={null}
+                variant="link"
+                className="justify-start px-0"
+                asChild
+              >
+                <Link href="/#early-access">Book a demo</Link>
+              </Button>
+            )}
+            {env.NEXT_PUBLIC_SUPPORT_EMAIL ? (
+              <Button
+                size={null}
+                variant="link"
+                className="justify-start px-0"
+                asChild
+              >
+                <Link href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}>
+                  Contact
+                </Link>
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-sm text-foreground">Legal</p>
+          <div className="flex flex-col gap-1 text-muted-foreground">
+            <LinkList
+              items={[
+                { label: "Terms of service", href: "/legal/terms" },
+                { label: "Privacy policy", href: "/legal/privacy" },
+                { label: "GDPR notice", href: "/legal/gdpr" },
                 { label: "DPA", href: "/legal/dpa" },
-                { label: "Security Policy", href: "/legal/security" },
-                { label: "Terms of Service", href: "/legal/terms" },
-              ].map((item) => (
-                <Button
-                  key={item.label}
-                  size={null}
-                  variant="link"
-                  className="justify-start px-0"
-                  asChild
-                >
-                  <Link href={item.href}>{item.label}</Link>
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.2em] text-accent-foreground">
-              Product
-            </p>
-            <div className="flex flex-col gap-1 text-muted-foreground">
-              <LinkList
-                items={[
-                  { label: "Home", href: "/" },
-                  { label: "Platform", href: "/platform" },
-                  { label: "Witness Intake Demo", href: "/intake/demo" },
-                  { label: "Dashboard", href: "/dashboard" },
-                ]}
-              />
-            </div>
+              ]}
+            />
           </div>
         </div>
       </div>
-      <p className="mt-8 text-center text-sm text-muted-foreground">
+      <p className="container mt-16 text-sm text-muted-foreground">
         &copy; {new Date().getFullYear()} {env.NEXT_PUBLIC_APP_NAME}. All rights
         reserved.
       </p>

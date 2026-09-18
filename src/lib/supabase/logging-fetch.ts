@@ -31,6 +31,24 @@ function redactSupabaseQuery(search: string) {
   return search;
 }
 
+function headersWithoutOpaqueApiKeyBearer(
+  input: string | URL | Request,
+  init?: RequestInit,
+) {
+  const headers = new Headers(
+    init?.headers || (input instanceof Request ? input.headers : undefined),
+  );
+  const authorization = headers.get("Authorization");
+  if (
+    authorization?.startsWith("Bearer sb_publishable_") ||
+    authorization?.startsWith("Bearer sb_secret_")
+  ) {
+    // New Supabase keys are not JWTs. PostgREST rejects them on Authorization.
+    headers.delete("Authorization");
+  }
+  return headers;
+}
+
 export function createSupabaseLoggedFetch(
   source: SupabaseFetchSource,
   sourceName?: string,
@@ -40,9 +58,10 @@ export function createSupabaseLoggedFetch(
     const requestUrl = toUrl(input);
     const method =
       init?.method || (input instanceof Request ? input.method : "GET");
+    const headers = headersWithoutOpaqueApiKeyBearer(input, init);
 
     try {
-      const response = await fetch(input, init);
+      const response = await fetch(input, { ...init, headers });
       const durationMs = Date.now() - startedAt;
 
       await logServerEvent("info", "supabase.request", {

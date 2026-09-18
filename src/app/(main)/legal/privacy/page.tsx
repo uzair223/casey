@@ -1,22 +1,16 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  BadgeCheck,
-  Database,
-  FileText,
-  LockKeyhole,
-  UserCheck,
-} from "lucide-react";
+import { ArrowRight, Database, FileText, LockKeyhole, UserCheck } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { PageTitle } from "@/components/page-title";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  MarketingCheckList,
+  MarketingFeatureCard,
+  MarketingPage,
+  MarketingPageCta,
+  MarketingPageHero,
+  MarketingPageSection,
+} from "@/components/marketing/page";
+import { Reveal } from "@/components/marketing/reveal";
+import { Button } from "@/components/ui/button";
 import { env } from "@/lib/env";
 
 export const metadata = {
@@ -58,137 +52,117 @@ const commitments = [
 
 export default function PrivacyPage() {
   return (
-    <>
-      <section className="rounded-4xl border border-border/70 bg-background px-6 py-12 sm:px-10 sm:py-16 lg:px-14">
-        <div className="max-w-4xl">
-          <PageTitle
-            subtitle="Privacy policy"
-            title="How Casey handles witness, case, and firm data."
-            description={`${env.NEXT_PUBLIC_APP_NAME} is designed for UK legal practices that need to collect, review, and store witness statement data securely. This policy explains what data is processed, why it is used, and how responsibility is shared with the firm using the platform.`}
-            titleClassName="mt-4 text-4xl sm:text-5xl"
-            descriptionClassName="mt-5 max-w-3xl text-base leading-7 sm:text-lg"
-          />
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button size="lg" asChild className="rounded-full px-7">
-              <Link href="/legal/gdpr">
-                Read the UK GDPR notice
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              asChild
-              className="rounded-full px-7"
+    <MarketingPage>
+      <MarketingPageHero
+        eyebrow="Privacy policy"
+        title="How Casey handles witness, case, and firm data."
+        description={`${env.NEXT_PUBLIC_APP_NAME} is designed for UK legal practices that need to collect, review, and store witness statement data securely. This policy explains what data is processed, why it is used, and how responsibility is shared with the firm using the platform.`}
+      >
+        <div className="mt-10 flex flex-wrap justify-center gap-3">
+          <Button size="lg" variant="brand" asChild className="rounded-full px-7">
+            <Link href="/legal/gdpr">
+              Read the UK GDPR notice
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            asChild
+            className="rounded-full px-7"
+          >
+            <Link href="/legal/security">Security overview</Link>
+          </Button>
+        </div>
+      </MarketingPageHero>
+
+      <MarketingPageSection
+        eyebrow="Commitments"
+        title="How responsibility is shared."
+      >
+        <div className="grid gap-5 md:grid-cols-3">
+          {commitments.map((item, index) => (
+            <Reveal key={item.title} delay={index * 70}>
+              <MarketingFeatureCard
+                icon={<item.icon className="h-4 w-4" />}
+                title={item.title}
+                body={item.body}
+              />
+            </Reveal>
+          ))}
+        </div>
+      </MarketingPageSection>
+
+      <MarketingPageSection
+        eyebrow="Personal data"
+        title="What is collected and how it is used"
+        description="Casey only processes personal data to provide the service, support legal case handling, and meet contractual, security, and compliance obligations."
+      >
+        <div className="grid gap-5 lg:grid-cols-2">
+          <Reveal>
+            <MarketingFeatureCard
+              icon={<FileText className="h-4 w-4" />}
+              title="Data we process"
             >
-              <Link href="/legal/security">Security overview</Link>
-            </Button>
-          </div>
+              <MarketingCheckList className="mt-6" items={dataCategories} />
+            </MarketingFeatureCard>
+          </Reveal>
+          <Reveal delay={90}>
+            <MarketingFeatureCard
+              icon={<ArrowRight className="h-4 w-4" />}
+              title="How data is used"
+            >
+              <MarketingCheckList className="mt-6" items={uses} />
+            </MarketingFeatureCard>
+          </Reveal>
         </div>
-      </section>
+      </MarketingPageSection>
 
-      <section className="mx-auto mt-16 grid max-w-6xl gap-4 lg:grid-cols-3">
-        {commitments.map((item) => (
-          <Card key={item.title} className="rounded-3xl bg-card/75">
-            <CardHeader>
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent-foreground">
-                <item.icon className="h-5 w-5" />
-              </div>
-              <CardTitle className="mt-3 text-lg text-foreground">
-                {item.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription className="text-sm leading-6">
-                {item.body}
-              </CardDescription>
-            </CardContent>
-          </Card>
-        ))}
-      </section>
+      <MarketingPageSection
+        eyebrow="Rights"
+        title="Retention, sharing, and witness rights"
+      >
+        <Reveal>
+          <MarketingFeatureCard title="What stays with the firm">
+            <div className="mt-6 space-y-4 text-sm leading-7 text-muted-foreground">
+              <p>
+                Data should only be retained for as long as necessary for the
+                legal matter, the firm&apos;s retention policy, contractual
+                obligations, or other applicable legal requirements. Casey does
+                not sell witness data.
+              </p>
+              <p>
+                We only share data with service providers and legal users where
+                that is needed to operate the service, secure the platform, or
+                support the firm&apos;s instructions. For witness intake, Casey
+                shows a privacy notice before the witness can proceed, and that
+                acknowledgement can be recorded against the statement.
+              </p>
+              <p>
+                If you are a witness and want to understand how your personal
+                data is handled, please contact the firm that invited you. If
+                you are a legal practice evaluating {env.NEXT_PUBLIC_APP_NAME},
+                review this policy alongside your own privacy notices,
+                client-care wording, retention rules, and supplier
+                due-diligence process.
+              </p>
+            </div>
+          </MarketingFeatureCard>
+        </Reveal>
+      </MarketingPageSection>
 
-      <section className="mx-auto mt-24 max-w-6xl space-y-8">
-        <PageTitle
-          subtitle="Personal data"
-          title="What is collected and how it is used"
-          description="Casey only processes personal data to provide the service, support legal case handling, and meet contractual, security, and compliance obligations."
-          titleTag="h2"
-          titleClassName="mt-2 text-3xl"
-          descriptionClassName="mt-3 text-sm leading-6"
-        />
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="rounded-3xl bg-card/75">
-            <CardHeader>
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent-foreground">
-                <FileText className="h-5 w-5" />
-              </div>
-              <CardTitle className="mt-3 text-lg text-foreground">
-                Data we process
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {dataCategories.map((item) => (
-                <div key={item} className="flex items-start gap-2 text-sm">
-                  <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground" />
-                  <span className="text-muted-foreground">{item}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-3xl bg-card/75">
-            <CardHeader>
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent-foreground">
-                <ArrowRight className="h-5 w-5" />
-              </div>
-              <CardTitle className="mt-3 text-lg text-foreground">
-                How data is used
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {uses.map((item) => (
-                <div key={item} className="flex items-start gap-2 text-sm">
-                  <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground" />
-                  <span className="text-muted-foreground">{item}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      <section className="mx-auto mt-24 max-w-6xl">
-        <Card className="rounded-3xl bg-card/85">
-          <CardHeader>
-            <CardTitle className="font-display text-2xl text-primary">
-              Retention, sharing, and witness rights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm leading-6 text-muted-foreground">
-            <p>
-              Data should only be retained for as long as necessary for the
-              legal matter, the firm&apos;s retention policy, contractual
-              obligations, or other applicable legal requirements. Casey does
-              not sell witness data.
-            </p>
-            <p>
-              We only share data with service providers and legal users where
-              that is needed to operate the service, secure the platform, or
-              support the firm&apos;s instructions. For witness intake, Casey
-              shows a privacy notice before the witness can proceed, and that
-              acknowledgement can be recorded against the statement.
-            </p>
-            <p>
-              If you are a witness and want to understand how your personal data
-              is handled, please contact the firm that invited you. If you are a
-              legal practice evaluating {env.NEXT_PUBLIC_APP_NAME}, review this
-              policy alongside your own privacy notices, client-care wording,
-              retention rules, and supplier due-diligence process.
-            </p>
-          </CardContent>
-        </Card>
-      </section>
-    </>
+      <MarketingPageCta
+        title="Ready to map Casey to your intake process?"
+        description="Read this policy alongside the security overview and your own notices before using the service for live matters."
+      >
+        <Link
+          href="/legal/security"
+          className="mt-8 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-brand"
+        >
+          Review the security policy
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </MarketingPageCta>
+    </MarketingPage>
   );
 }

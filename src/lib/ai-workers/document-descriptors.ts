@@ -17,7 +17,7 @@ import type {
   StatementDocumentDescriptors,
   StatementSupportingDocument,
 } from "@/types";
-import { getOpenRouterClientOptions } from "@/lib/utils";
+import { getCloudflareAiClientOptions } from "@/lib/llm/cloudflare";
 
 const DOCUMENT_DESCRIPTOR_TIMEOUT_MS = Number(
   process.env.DOCUMENT_DESCRIPTOR_TIMEOUT_MS ?? 30_000,
@@ -84,7 +84,7 @@ Upload source: ${params.documentRow.uploaded_by_type}`,
     }
 
     const model = selectModel("document-descriptor");
-    const client = new OpenAI(getOpenRouterClientOptions());
+    const client = new OpenAI(getCloudflareAiClientOptions());
     const modelTimeout = createModelRequestTimeout(
       DOCUMENT_DESCRIPTOR_TIMEOUT_MS,
       "Document descriptor model request",

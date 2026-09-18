@@ -1,271 +1,159 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  BadgeCheck,
-  BrainCircuit,
-  Clock3,
-  FileCheck2,
-  FileCog,
-  FileText,
-  Fingerprint,
-  Link2,
-  LockKeyhole,
-  MessageSquareText,
-  Users,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
-import { PageTitle } from "@/components/page-title";
-import { Button } from "@/components/ui/button";
+import { BentoCard } from "@/components/marketing/bento";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  platformVisuals,
+  type PlatformVisualKind,
+} from "@/components/marketing/platform-visuals";
+import {
+  MarketingFeatureCard,
+  MarketingPage,
+  MarketingPageCta,
+  MarketingPageHero,
+  MarketingPageSection,
+} from "@/components/marketing/page";
+import { Reveal } from "@/components/marketing/reveal";
 import { env } from "@/lib/env";
 
-const pillars = [
-  {
-    icon: Link2,
-    title: "Witness intake",
-    body: "Open a secure, tokenised intake journey from the case. Witnesses acknowledge the privacy notice, answer guided questions, attach evidence, and submit a complete account.",
-  },
-  {
-    icon: BrainCircuit,
-    title: "AI-guided evidence capture",
-    body: "The interview adapts to the witness account, asking for chronology, missing details, supporting documents, and clarification before formal drafting begins.",
-  },
-  {
-    icon: FileText,
-    title: "Statement drafting",
-    body: "Turn the interview transcript into structured statement sections, then refine wording, order, and evidential clarity in the editor while source context stays attached.",
-  },
-  {
-    icon: BrainCircuit,
-    title: "Case intelligence",
-    body: "Generate a matter-level view of chronology, agreed facts, disputed points, missing information, and evidence references across formalized statements.",
-  },
-  {
-    icon: FileCog,
-    title: "Template governance",
-    body: "Manage firm defaults, draft/published/archive states, DOCX placeholders, shared templates, and controlled publishing for repeatable statement quality.",
-  },
-  {
-    icon: Users,
-    title: "Team collaboration",
-    body: "Keep case and statement notes, mentions, pinned context, notifications, and activity history beside the work they relate to.",
-  },
-  {
-    icon: Fingerprint,
-    title: "Security and compliance",
-    body: "Support adoption with scoped access, audit-event coverage, lifecycle hooks, DSAR export support, and firm boundaries.",
-  },
-] as const;
+export const metadata = {
+  title: `Platform | ${env.NEXT_PUBLIC_APP_NAME}`,
+  description: `${env.NEXT_PUBLIC_APP_NAME} connects witness intake, drafting, evidence, and case intelligence so statement work lives in one place.`,
+};
 
-const teamViews = [
+const pillars: {
+  label: string;
+  title: string;
+  body: string;
+  span: string;
+  visual: PlatformVisualKind;
+}[] = [
+  {
+    label: "Intake",
+    title: "A secure link, not another inbox thread",
+    body: "Open a time-limited journey from the matter. Witnesses acknowledge the privacy notice, answer guided questions, and attach evidence as the account develops.",
+    span: "md:col-span-4 md:row-span-2",
+    visual: "intake",
+  },
+  {
+    label: "Capture",
+    title: "Questions that know what a lawyer needs next",
+    body: "The interview adapts to the account, asking for chronology, missing details, and supporting documents before anyone starts drafting.",
+    span: "md:col-span-2",
+    visual: "capture",
+  },
+  {
+    label: "Drafting",
+    title: "A first draft with the source still attached",
+    body: "Turn the transcript into structured statement sections, then refine wording in the editor without losing the evidence trail.",
+    span: "md:col-span-2",
+    visual: "drafting",
+  },
+  {
+    label: "Intelligence",
+    title: "See the file, not just the narrative",
+    body: "Chronology, agreed facts, disputes, missing information, and exhibit references sit beside the draft.",
+    span: "md:col-span-3",
+    visual: "timeline",
+  },
+  {
+    label: "Templates",
+    title: "Firm standards, not a blank page",
+    body: "Manage defaults, publishing, DOCX placeholders, and shared templates so every matter starts from the same quality bar.",
+    span: "md:col-span-3",
+    visual: "templates",
+  },
+  {
+    label: "Team",
+    title: "Notes, mentions, and a trail of what happened",
+    body: "Keep collaboration next to the statement it relates to, with notifications and activity history for the people who need them.",
+    span: "md:col-span-6",
+    visual: "team",
+  },
+];
+
+const roles = [
   {
     title: "Paralegals",
-    body: "Launch intake, monitor outstanding work, request follow-up, and prepare cleaner drafts for review.",
+    body: "Launch intake, watch outstanding work, request follow-up, and hand over a cleaner draft.",
   },
   {
     title: "Solicitors",
-    body: "Review statement drafts with source context, inspect chronology and gaps, refine the legal wording, and keep matter activity visible.",
+    body: "Review with source context, inspect chronology and gaps, and mark up the legal wording.",
   },
   {
     title: "Admins",
-    body: "Control templates, users, firm settings, and governance policies from one operational surface.",
+    body: "Control templates, users, and governance from one operational surface.",
   },
 ] as const;
 
 export default function PlatformPage() {
-  const primaryCta = env.NEXT_PUBLIC_CALENDLY_LINK
-    ? {
-        href: env.NEXT_PUBLIC_CALENDLY_LINK,
-        label: "Book a demo",
-        external: true,
-      }
-    : { href: "/#beta", label: "Request early access", external: false };
-
   return (
-    <>
-      <section className="rounded-4xl border border-border/70 bg-background px-6 py-12 sm:px-10 sm:py-16 lg:px-14">
-        <div className="max-w-4xl">
-          <PageTitle
-            subtitle="Platform"
-            title="A governed workspace for witness evidence and case intelligence."
-            description={`${env.NEXT_PUBLIC_APP_NAME} connects witness intake, AI-assisted drafting, descriptor-backed evidence, case analysis, template controls, collaboration, and compliance support so firms can manage statement preparation as one workflow.`}
-            titleClassName="mt-4 text-4xl sm:text-5xl"
-            descriptionClassName="mt-5 max-w-3xl text-base leading-7 sm:text-lg"
-          />
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button size="lg" asChild className="rounded-full px-7">
-              <Link
-                href={primaryCta.href}
-                target={primaryCta.external ? "_blank" : undefined}
-                rel={primaryCta.external ? "noreferrer" : undefined}
-              >
-                {primaryCta.label}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              asChild
-              className="rounded-full px-7"
-            >
-              <Link href="/legal/security">Security policy</Link>
-            </Button>
-          </div>
+    <MarketingPage>
+      <MarketingPageHero
+        eyebrow="Platform"
+        title="A workspace for witness evidence, not another drafting tool."
+        description={`${env.NEXT_PUBLIC_APP_NAME} connects intake, drafting, evidence, case analysis, templates, and review so statement work lives in one place.`}
+      />
+
+      <MarketingPageSection
+        eyebrow="Capabilities"
+        title="Built around the work legal teams already do."
+      >
+        <div className="grid gap-5 md:grid-cols-6">
+          {pillars.map((item, index) => {
+            const Visual = platformVisuals[item.visual];
+            return (
+              <Reveal key={item.title} delay={index * 70} className={item.span}>
+                <BentoCard className="flex h-full min-h-[22rem] flex-col p-0">
+                  <Visual />
+                  <div className="space-y-3 p-8 pt-2 sm:p-10 sm:pt-2">
+                    <p className="text-sm text-brand">{item.label}</p>
+                    <h3 className="text-2xl leading-snug text-primary">
+                      {item.title}
+                    </h3>
+                    <p className="text-sm leading-7 text-muted-foreground">
+                      {item.body}
+                    </p>
+                  </div>
+                </BentoCard>
+              </Reveal>
+            );
+          })}
         </div>
-      </section>
+      </MarketingPageSection>
 
-      <section className="mx-auto mt-24 max-w-6xl space-y-8 sm:mt-28">
-        <PageTitle
-          subtitle="Capabilities"
-          title="Built around the work legal teams actually do"
-          titleTag="h2"
-        />
+      <MarketingPageSection
+        eyebrow="Operating model"
+        title="One workflow from link to final review."
+        description="Secure link, interview, evidence, first draft, analysis, follow-up, and witness review stay connected. Nothing important lives only in someone's inbox."
+      />
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          {pillars.map((item) => (
-            <Card key={item.title} className="rounded-3xl bg-card/75">
-              <CardHeader>
-                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent-foreground">
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <CardTitle className="mt-3 text-lg text-foreground">
-                  {item.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-sm leading-6">
-                  {item.body}
-                </CardDescription>
-              </CardContent>
-            </Card>
+      <MarketingPageSection
+        eyebrow="Teams"
+        title="Clear surfaces for each role."
+      >
+        <div className="grid gap-5 md:grid-cols-3">
+          {roles.map((item, index) => (
+            <Reveal key={item.title} delay={index * 90}>
+              <MarketingFeatureCard title={item.title} body={item.body} />
+            </Reveal>
           ))}
         </div>
-      </section>
+      </MarketingPageSection>
 
-      <section className="mx-auto mt-24 max-w-6xl space-y-8 sm:mt-28">
-        <PageTitle
-          subtitle="Operating model"
-          title="One workflow across intake, review, and follow-through"
-          titleTag="h2"
-        />
-
-        <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-          <Card className="rounded-3xl bg-card/75">
-            <CardHeader>
-              <CardTitle className="font-display text-2xl text-primary">
-                From link to final review
-              </CardTitle>
-              <CardDescription className="text-sm leading-6">
-                Casey keeps each stage connected: secure link issue, witness
-                interview, evidence collection, AI formalization, inline review,
-                case intelligence, follow-up, and final witness review.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
-              {[
-                "Time-limited witness links",
-                "Privacy acknowledgement before intake",
-                "Evidence requests inside the interview",
-                "Draft formalization with source context",
-                "Chronology, facts, conflicts, and gaps",
-                "Descriptor-backed exhibit context",
-                "Follow-up and final-review channels",
-                "Event history for operational oversight",
-              ].map((item) => (
-                <div key={item} className="flex items-center gap-2 text-sm">
-                  <BadgeCheck className="h-4 w-4 text-accent-foreground" />
-                  <span className="text-muted-foreground">{item}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-3xl bg-card/75">
-            <CardHeader>
-              <CardTitle className="text-lg text-foreground">
-                Governance controls
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                { icon: LockKeyhole, label: "Role-based access" },
-                { icon: Fingerprint, label: "Audit-event coverage" },
-                { icon: FileCheck2, label: "DOCX validation" },
-                { icon: Clock3, label: "Lifecycle and reminders" },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-3">
-                  <item.icon className="h-4 w-4 text-accent-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    {item.label}
-                  </span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      <section className="mx-auto mt-24 max-w-6xl space-y-8 sm:mt-28">
-        <PageTitle
-          subtitle="Teams"
-          title="Clear surfaces for each role"
-          titleTag="h2"
-        />
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          {teamViews.map((item) => (
-            <Card key={item.title} className="rounded-3xl bg-card/75">
-              <CardHeader>
-                <CardTitle className="text-lg text-foreground">
-                  {item.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-sm leading-6">
-                  {item.body}
-                </CardDescription>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      <section className="mx-auto mt-24 max-w-6xl">
-        <Card className="rounded-3xl bg-card/85">
-          <CardHeader>
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent-foreground">
-              <MessageSquareText className="h-5 w-5" />
-            </div>
-            <CardTitle className="mt-3 font-display text-2xl text-primary">
-              Ready to map Casey to your intake process?
-            </CardTitle>
-            <CardDescription className="max-w-2xl text-sm leading-6">
-              Bring a real witness workflow, a template, or a current pain
-              point. We will show how the platform handles intake, drafting,
-              evidence descriptors, and case intelligence.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild className="rounded-full">
-              <Link
-                href={primaryCta.href}
-                target={primaryCta.external ? "_blank" : undefined}
-                rel={primaryCta.external ? "noreferrer" : undefined}
-              >
-                {primaryCta.label}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </section>
-    </>
+      <MarketingPageCta
+        title="Ready to map Casey to your intake process?"
+        description="Bring a real witness workflow, a template, or a current pain point. We will show how the platform handles it."
+      >
+        <Link
+          href="/legal/security"
+          className="mt-8 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-brand"
+        >
+          Or read the security policy
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </MarketingPageCta>
+    </MarketingPage>
   );
 }

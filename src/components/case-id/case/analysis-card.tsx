@@ -147,6 +147,21 @@ function EmptySection({ label }: { label: string }) {
   return <p className="text-sm text-muted-foreground">{label}</p>;
 }
 
+function completenessLabel(
+  level: NonNullable<CaseAnalysis["completeness"]>["level"],
+) {
+  switch (level) {
+    case "thin":
+      return "Thin";
+    case "partial":
+      return "Partial";
+    case "mostly":
+      return "Mostly complete";
+    case "trial-ready":
+      return "Trial-ready";
+  }
+}
+
 function SummaryTab({ analysis }: { analysis: CaseAnalysis }) {
   const stats = [
     { label: "Shared facts", value: analysis.agreedFacts.length },
@@ -160,6 +175,14 @@ function SummaryTab({ analysis }: { analysis: CaseAnalysis }) {
       <p className="text-sm leading-6 text-muted-foreground">
         {analysis.executiveSummary}
       </p>
+      {analysis.completeness ? (
+        <div className="rounded-md border px-3 py-2">
+          <p className="text-lg font-semibold">
+            {completenessLabel(analysis.completeness.level)}
+          </p>
+          <p className="text-xs text-muted-foreground">Case completeness</p>
+        </div>
+      ) : null}
       <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
         {stats.map((item) => (
           <div key={item.label} className="rounded-md border px-3 py-2">

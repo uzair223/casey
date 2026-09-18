@@ -28,7 +28,9 @@ export const EnvSchema = z.looseObject({
   NEXT_PUBLIC_SUPPORT_EMAIL: stringOrEmpty,
   NEXT_PUBLIC_CALENDLY_LINK: stringOrEmpty,
 
-  OPENROUTER_API_KEY: stringOrEmpty,
+  CLOUDFLARE_AI_ACCOUNT_ID: stringOrEmpty,
+  CLOUDFLARE_AI_API_TOKEN: stringOrEmpty,
+  CLOUDFLARE_AI_GATEWAY_ID: stringOrEmpty,
 
   FORMALIZE_MAX_USER_TURNS: z
     .string()
@@ -72,7 +74,9 @@ export const BuildEnvSchema = z.object({
   RESEND_FROM: nonEmpty,
   NEXT_PUBLIC_SUPPORT_EMAIL: z.string().optional(),
   NEXT_PUBLIC_CALENDLY_LINK: z.string().optional(),
-  OPENROUTER_API_KEY: nonEmpty,
+  CLOUDFLARE_AI_ACCOUNT_ID: nonEmpty,
+  CLOUDFLARE_AI_API_TOKEN: nonEmpty,
+  CLOUDFLARE_AI_GATEWAY_ID: z.string().trim().optional(),
   FORMALIZE_MAX_USER_TURNS: z.string().optional(),
   FORMALIZE_MAX_CHARS_PER_TURN: z.string().optional(),
   FORMALIZE_TIMEOUT_MS: z.string().optional(),
@@ -106,8 +110,9 @@ const envInput = {
   RESEND_FROM: process.env.RESEND_FROM,
   NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
   NEXT_PUBLIC_CALENDLY_LINK: process.env.NEXT_PUBLIC_CALENDLY_LINK,
-  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
-  OPENROUTER_MODEL: process.env.OPENROUTER_MODEL,
+  CLOUDFLARE_AI_ACCOUNT_ID: process.env.CLOUDFLARE_AI_ACCOUNT_ID,
+  CLOUDFLARE_AI_API_TOKEN: process.env.CLOUDFLARE_AI_API_TOKEN,
+  CLOUDFLARE_AI_GATEWAY_ID: process.env.CLOUDFLARE_AI_GATEWAY_ID,
   FORMALIZE_MAX_USER_TURNS: process.env.FORMALIZE_MAX_USER_TURNS,
   FORMALIZE_MAX_CHARS_PER_TURN: process.env.FORMALIZE_MAX_CHARS_PER_TURN,
   FORMALIZE_TIMEOUT_MS: process.env.FORMALIZE_TIMEOUT_MS,

@@ -19,18 +19,16 @@ import type { InviteWithTenantName } from "@/types";
 import { apiFetch } from "@/lib/api-utils";
 import { getRoleLabel, getURL } from "@/lib/utils";
 import { WaitlistSignupForm } from "@/components/waitlist/waitlist-form";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import {
   BadgeCheck,
   Building2,
   ChevronDown,
   ChevronUp,
-  ChevronLeft,
   MailCheck,
   ShieldCheck,
 } from "lucide-react";
 import Loading from "@/components/loading";
+import { AuthShell } from "@/components/auth-shell";
 import { toast } from "@/lib/toast";
 
 function AuthPageContent() {
@@ -344,83 +342,75 @@ function AuthPageContent() {
   };
 
   return (
-    <section className="relative container min-h-screen py-6">
-      <div className="grid gap-6 md:grid-cols-[0.9fr_1.1fr] md:items-start">
-        <aside>
-          <div className="max-md:hidden rounded-3xl border border-border/70 bg-card/75 p-6 backdrop-blur">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent-foreground">
-              {env.NEXT_PUBLIC_APP_NAME}
-            </p>
-            <h1 className="mt-3 font-display text-3xl leading-tight text-primary">
-              Sign in, join your firm workspace, and start intake in minutes.
-            </h1>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              Built for legal teams that need secure witness intake, clean
-              handoffs, auditable workflows, and case intelligence from first
-              account to final review.
-            </p>
+    <div className="grid gap-12 md:grid-cols-[0.95fr_1.05fr] md:items-start lg:gap-16">
+        <aside className="max-md:order-last">
+          <p className="text-[14px] uppercase tracking-[0.15em] text-brand">
+            Sign in
+          </p>
+          <h1 className="mt-2 max-w-[14ch] font-display text-4xl leading-[1.1] tracking-tight text-primary sm:text-5xl">
+            Sign in and get back to the statement.
+          </h1>
+          <p className="mt-6 max-w-md text-lg leading-8 text-muted-foreground">
+            Magic-link access for legal teams. Join a firm workspace, then pick
+            up intake, drafts, and review in one place.
+          </p>
 
-            <div className="mt-6 space-y-3">
-              {[
-                {
-                  icon: MailCheck,
-                  title: "Magic link first",
-                  body: "Use your work email for one-click sign-in. Password is optional.",
-                },
-                {
-                  icon: Building2,
-                  title: "Firm workspace onboarding",
-                  body: "Join an existing firm or set up a new firm-admin workspace.",
-                },
-                {
-                  icon: ShieldCheck,
-                  title: "Intelligence with governance",
-                  body: "Structured facts, evidence descriptors, and review context stay firm-isolated and auditable.",
-                },
-              ].map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-2xl border border-border/60 bg-background/60 p-3"
-                >
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <item.icon className="h-4 w-4 text-accent-foreground" />
-                    {item.title}
-                  </div>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    {item.body}
-                  </p>
+          <div className="mt-10 space-y-3">
+            {[
+              {
+                icon: MailCheck,
+                title: "Magic link first",
+                body: "Use your work email. Password is optional.",
+              },
+              {
+                icon: Building2,
+                title: "Firm workspace",
+                body: "Join an existing firm or set up a new one.",
+              },
+              {
+                icon: ShieldCheck,
+                title: "Review with a trail",
+                body: "Facts, evidence, and notes stay firm-isolated and auditable.",
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="rounded-2xl border border-primary/10 bg-primary/[0.03] p-4"
+              >
+                <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                  <item.icon className="h-4 w-4 text-brand" />
+                  {item.title}
                 </div>
-              ))}
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-2 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-3 py-1">
-                <BadgeCheck className="h-3.5 w-3.5 text-accent-foreground" />
-                UK legal workflow focused
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-3 py-1">
-                <BadgeCheck className="h-3.5 w-3.5 text-accent-foreground" />
-                Invite-led access control
-              </span>
-            </div>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  {item.body}
+                </p>
+              </div>
+            ))}
           </div>
-          <Button asChild className="mt-4 pl-2" variant="ghost">
-            <Link href="/">
-              <ChevronLeft className="h-4 w-4" />
-              Homepage
-            </Link>
-          </Button>
+
+          <div className="mt-8 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1 rounded-full border border-primary/10 px-3 py-1">
+              <BadgeCheck className="h-3.5 w-3.5 text-brand" />
+              UK claimant workflow
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-primary/10 px-3 py-1">
+              <BadgeCheck className="h-3.5 w-3.5 text-brand" />
+              Invite-led access control
+            </span>
+          </div>
         </aside>
 
         <div className="space-y-6">
           {!user ? (
-            <Card className="border-border/70 bg-card/85">
+            <Card className="rounded-2xl border-primary/10 bg-primary/[0.03] shadow-none">
               <CardHeader>
-                <span className="mb-0 text-xs uppercase tracking-[0.2em] text-accent-foreground">
+                <span className="mb-0 text-[14px] uppercase tracking-[0.15em] text-brand">
                   Step 1
                 </span>
-                <h2 className="text-2xl font-display">Secure sign-in</h2>
-                <p className="text-sm text-muted-foreground">
+                <h2 className="font-display text-2xl text-primary">
+                  Secure sign-in
+                </h2>
+                <p className="text-sm leading-6 text-muted-foreground">
                   Magic links are recommended. Open the password dropdown if you
                   prefer password login.
                 </p>
@@ -498,7 +488,8 @@ function AuthPageContent() {
                   </CardContent>
                   <CardFooter>
                     <AsyncButton
-                      className="w-full"
+                      className="w-full rounded-full"
+                      variant="brand"
                       type="submit"
                       pendingText={
                         isPasswordDropdownOpen ? "Logging in..." : "Sending..."
@@ -513,9 +504,9 @@ function AuthPageContent() {
           ) : null}
 
           {user && tenantLifecycle ? (
-            <Card variant="warning">
+            <Card variant="warning" className="rounded-2xl shadow-none">
               <CardHeader>
-                <CardTitle className="text-sm uppercase tracking-[0.2em]">
+                <CardTitle className="text-[14px] uppercase tracking-[0.15em]">
                   Organisation archived
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
@@ -530,7 +521,8 @@ function AuthPageContent() {
               {tenantLifecycle.canRestore ? (
                 <CardFooter>
                   <AsyncButton
-                    className="w-full"
+                    className="w-full rounded-full"
+                    variant="brand"
                     onClick={handleRestoreTenant}
                     pendingText="Restoring..."
                   >
@@ -553,16 +545,16 @@ function AuthPageContent() {
                 <form
                   onSubmit={lookupInviteForm.handleSubmit(handleLookupInvite)}
                 >
-                  <Card className="border-border/70 bg-card/85">
+                  <Card className="rounded-2xl border-primary/10 bg-primary/[0.03] shadow-none">
                     <CardHeader>
-                      <CardTitle className="text-sm uppercase tracking-[0.2em]">
+                      <CardTitle className="text-[14px] uppercase tracking-[0.15em] text-brand">
                         Step 2: Join your firm workspace
                       </CardTitle>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm leading-6 text-muted-foreground">
                         Enter the invite code sent by your firm admin.
                       </p>
                     </CardHeader>
-                    <CardContent className="space-y-2 border-t pt-4">
+                    <CardContent className="space-y-2 border-t border-primary/10 pt-4">
                       <RhfField
                         form={lookupInviteForm}
                         name="inviteCode"
@@ -584,9 +576,9 @@ function AuthPageContent() {
                     </CardContent>
                     <CardFooter>
                       <AsyncButton
-                        className="w-full"
+                        className="w-full rounded-full"
                         type="submit"
-                        variant="secondary"
+                        variant="brand"
                         pendingText="Looking up..."
                       >
                         Look up invite
@@ -600,9 +592,9 @@ function AuthPageContent() {
                 <form
                   onSubmit={acceptInviteForm.handleSubmit(handleAcceptInvite)}
                 >
-                  <Card className="border-border/70 bg-card/85">
+                  <Card className="rounded-2xl border-primary/10 bg-primary/[0.03] shadow-none">
                     <CardHeader>
-                      <CardTitle className="text-sm uppercase tracking-[0.2em]">
+                      <CardTitle className="text-[14px] uppercase tracking-[0.15em] text-brand">
                         Step 3: Confirm access
                       </CardTitle>
                       {inviteInfo.tenant_id ? (
@@ -623,7 +615,7 @@ function AuthPageContent() {
                         Role: {getRoleLabel(inviteInfo.role)}
                       </p>
                     </CardHeader>
-                    <CardContent className="space-y-4 border-t pt-4">
+                    <CardContent className="space-y-4 border-t border-primary/10 pt-4">
                       <RhfField
                         form={acceptInviteForm}
                         name="displayName"
@@ -669,7 +661,8 @@ function AuthPageContent() {
                     </CardContent>
                     <CardFooter>
                       <AsyncButton
-                        className="w-full"
+                        className="w-full rounded-full"
+                        variant="brand"
                         type="submit"
                         pendingText="Joining..."
                       >
@@ -683,12 +676,15 @@ function AuthPageContent() {
           ) : null}
 
           {!user ? (
-            <Card id="waitlist" className="border-border/70 bg-card/85">
+            <Card
+              id="waitlist"
+              className="rounded-2xl border-primary/10 bg-primary/[0.03] shadow-none"
+            >
               <CardHeader>
-                <CardTitle className="text-sm uppercase tracking-[0.2em]">
+                <CardTitle className="text-[14px] uppercase tracking-[0.15em] text-brand">
                   Join the waiting list
                 </CardTitle>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm leading-6 text-muted-foreground">
                   New to {env.NEXT_PUBLIC_APP_NAME}? Register your interest and
                   we&apos;ll invite your firm to onboard.
                 </p>
@@ -700,14 +696,15 @@ function AuthPageContent() {
           ) : null}
         </div>
       </div>
-    </section>
   );
 }
 
 export default function AuthPage() {
   return (
-    <Suspense fallback={<Loading />}>
-      <AuthPageContent />
-    </Suspense>
+    <AuthShell>
+      <Suspense fallback={<Loading />}>
+        <AuthPageContent />
+      </Suspense>
+    </AuthShell>
   );
 }

@@ -9,7 +9,9 @@ const REDACTED_KEYS = [
   "access_token",
   "refresh_token",
   "set-cookie",
-  "openrouter_api_key",
+  "cloudflare_api_token",
+  "cloudflare_admin_api_token",
+  "cloudflare_ai_api_token",
   "supabase_secret_key",
 ];
 

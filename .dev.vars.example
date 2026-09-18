@@ -1,1 +1,3 @@
 NEXTJS_ENV=development
+# Worker runtime AI token. Do not put CLOUDFLARE_ADMIN_API_TOKEN here.
+CLOUDFLARE_AI_API_TOKEN=

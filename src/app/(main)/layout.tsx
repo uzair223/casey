@@ -3,9 +3,9 @@ import Footer from "@/components/footer";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="[--header-height:80px] relative min-h-screen flex flex-col">
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden [--header-height:68px]">
       <Header />
-      <main className="min-h-[calc(100vh-var(--header-height))] container pb-6 flex flex-col flex-1">
+      <main className="container flex min-h-[calc(100vh-var(--header-height))] flex-1 flex-col pb-24 pt-[var(--header-height)]">
         {children}
       </main>
       <Footer />
