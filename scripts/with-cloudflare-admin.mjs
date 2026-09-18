@@ -39,13 +39,25 @@ if (command.length === 0) {
   process.exit(1);
 }
 
+const binDir = resolve(process.cwd(), "node_modules/.bin");
+const pathKey = process.env.PATH !== undefined || process.platform !== "win32" ? "PATH" : "Path";
+const pathValue = process.env.PATH || process.env.Path || "";
+
 const child = spawn(command[0], command.slice(1), {
   stdio: "inherit",
   env: {
     ...process.env,
     CLOUDFLARE_ACCOUNT_ID: accountId,
     CLOUDFLARE_API_TOKEN: adminToken,
+    [pathKey]: `${binDir}${process.platform === "win32" ? ";" : ":"}${pathValue}`,
   },
+});
+
+child.on("error", (error) => {
+  console.error(
+    `Failed to run ${command[0]}: ${error.message}. Is it installed (npm ci)?`,
+  );
+  process.exit(1);
 });
 
 child.on("exit", (code, signal) => {
