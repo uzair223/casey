@@ -103,6 +103,7 @@ type CreateEmbeddedParams = {
   statementId: string;
   tenantId: string;
   title: string;
+  redirectUrl?: string;
 };
 
 export async function createEmbeddedSignatureRequest(
@@ -114,6 +115,9 @@ export async function createEmbeddedSignatureRequest(
     body: JSON.stringify({
       name: params.title,
       send_email: false,
+      ...(params.redirectUrl
+        ? { completed_redirect_url: params.redirectUrl }
+        : {}),
       documents: [
         {
           name: params.fileName,

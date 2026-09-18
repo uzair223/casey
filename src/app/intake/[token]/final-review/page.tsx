@@ -269,7 +269,39 @@ export default function FinalReviewPage({
   const onDocusealComplete = useCallback(() => {
     setCertifiedComplete(true);
     void finalReview.handler();
-  }, [finalReview]);
+  }, [finalReview.handler]);
+
+  const embedSrc = startCertifiedSigning.data?.embedSrc ?? null;
+
+  useEffect(() => {
+    if (finalReview.data?.alreadyCompleted) {
+      setCertifiedComplete(true);
+      return;
+    }
+    if (!embedSrc) {
+      return;
+    }
+
+    let cancelled = false;
+    let attempts = 0;
+    const poll = async () => {
+      attempts += 1;
+      await finalReview.handler();
+    };
+
+    const timer = window.setInterval(() => {
+      if (cancelled || attempts >= 60) {
+        window.clearInterval(timer);
+        return;
+      }
+      void poll();
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [embedSrc, finalReview.data?.alreadyCompleted, finalReview.handler]);
 
   if (finalReview.isLoading) {
     return (
@@ -312,7 +344,6 @@ export default function FinalReviewPage({
     finalReview.data.alreadyCompleted ||
     Boolean(submitFinalReview.data) ||
     certifiedComplete;
-  const embedSrc = startCertifiedSigning.data?.embedSrc ?? null;
   const documentIsPdf =
     Boolean(documentBlob?.type.includes("pdf")) ||
     finalReview.data.documentName.toLowerCase().endsWith(".pdf");
@@ -336,7 +367,13 @@ export default function FinalReviewPage({
           )}
         </CardHeader>
         <CardContent className="space-y-5">
-          {!signedOff && !embedSrc ? (
+          {!signedOff && embedSrc ? (
+            <DocusealEmbed
+              src={embedSrc}
+              email={finalReview.data.witnessEmail}
+              onComplete={onDocusealComplete}
+            />
+          ) : !signedOff ? (
             <div className="space-y-3">
               <label className="flex items-start gap-2 text-sm">
                 <input
@@ -364,7 +401,7 @@ export default function FinalReviewPage({
                 >
                   {startCertifiedSigning.isLoading
                     ? "Opening signature..."
-                    : "Sign with DocuSeal"}
+                    : "Sign statement"}
                 </Button>
               ) : (
                 <SignaturePadProvider>
@@ -383,12 +420,6 @@ export default function FinalReviewPage({
                 </SignaturePadProvider>
               )}
             </div>
-          ) : !signedOff && embedSrc ? (
-            <DocusealEmbed
-              src={embedSrc}
-              email={finalReview.data.witnessEmail}
-              onComplete={onDocusealComplete}
-            />
           ) : finalReview.data.canSign ? null : (
             <Card variant="warning">
               <CardHeader>
