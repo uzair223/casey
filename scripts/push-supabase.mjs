@@ -3,8 +3,15 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
-const DEFAULT_DB_REGION = "eu-west-2";
+const DEFAULT_DB_REGION = "eu-west-1";
 const FIRST_UNVERIFIED_VERSION = "20260917120000";
+const POOLER_CLUSTER_INDEXES = [0, 1, 2];
+const FALLBACK_POOLER_REGIONS = [
+  "eu-west-1",
+  "eu-west-2",
+  "eu-west-3",
+  "eu-central-1",
+];
 
 function loadEnvFile(path) {
   const values = {};
@@ -139,12 +146,42 @@ function parseRemoteVersions(stdout) {
   return [...new Set(versions)];
 }
 
-function buildDbUrls({ password, projectRef, region }) {
+function sessionPoolerUrl(projectRef, encodedPassword, host) {
+  return `postgresql://postgres.${projectRef}:${encodedPassword}@${host}:5432/postgres?sslmode=require`;
+}
+
+function buildDbUrls({ password, projectRef, region, poolerHost }) {
   const encoded = encodeURIComponent(password);
-  return {
-    pooler: `postgresql://postgres.${projectRef}:${encoded}@aws-0-${region}.pooler.supabase.com:5432/postgres?sslmode=require`,
-    direct: `postgresql://postgres:${encoded}@db.${projectRef}.supabase.co:5432/postgres?sslmode=require`,
-  };
+  const urls = {};
+
+  if (poolerHost) {
+    urls.pooler = sessionPoolerUrl(projectRef, encoded, poolerHost);
+  } else {
+    const regions = [
+      region,
+      ...FALLBACK_POOLER_REGIONS.filter((item) => item !== region),
+    ];
+    for (const currentRegion of regions) {
+      for (const index of POOLER_CLUSTER_INDEXES) {
+        const host = `aws-${index}-${currentRegion}.pooler.supabase.com`;
+        urls[`pooler-aws-${index}-${currentRegion}`] = sessionPoolerUrl(
+          projectRef,
+          encoded,
+          host,
+        );
+      }
+    }
+  }
+
+  urls.direct = `postgresql://postgres:${encoded}@db.${projectRef}.supabase.co:5432/postgres?sslmode=require`;
+  return urls;
+}
+
+function isRetryableDbHostError(error) {
+  const combined = `${error.stderr || ""}\n${error.stdout || ""}\n${error.message || ""}`;
+  return /tenant\/user .* not found|Tenant or user not found|ECONNREFUSED|ENETUNREACH|ETIMEDOUT|could not (translate|connect)|connection refused|timeout expired|failed to connect to `host=/i.test(
+    combined,
+  );
 }
 
 function isAlreadyApplied(version, probe) {
@@ -203,12 +240,7 @@ async function withDbUrl(dbUrls, secrets, fn) {
       return await fn(dbUrl);
     } catch (error) {
       lastError = error;
-      const combined = `${error.stderr || ""}\n${error.stdout || ""}\n${error.message || ""}`;
-      const looksLikeConnection =
-        /could not (translate|connect)|connection refused|timeout|no pg_hba|SSL/i.test(
-          combined,
-        );
-      if (!looksLikeConnection) {
+      if (!isRetryableDbHostError(error)) {
         throw error;
       }
       console.warn(
@@ -229,6 +261,7 @@ async function main() {
   const region = envValue(fileEnv, "SUPABASE_DB_REGION") || DEFAULT_DB_REGION;
   const password = envValue(fileEnv, "SUPABASE_DB_PASSWORD");
   const explicitDbUrl = envValue(fileEnv, "SUPABASE_DB_URL");
+  const poolerHost = envValue(fileEnv, "SUPABASE_DB_POOLER_HOST");
 
   if (accessToken) {
     process.env.SUPABASE_ACCESS_TOKEN = accessToken;
@@ -248,7 +281,7 @@ async function main() {
 
   const dbUrls = explicitDbUrl
     ? { supplied: explicitDbUrl }
-    : buildDbUrls({ password, projectRef, region });
+    : buildDbUrls({ password, projectRef, region, poolerHost });
   const secrets = [password, explicitDbUrl, ...Object.values(dbUrls)].filter(
     Boolean,
   );
