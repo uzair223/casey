@@ -41,6 +41,22 @@ type IntakeContextData = Omit<
   statement: Omit<StatementDataResponse<true>["statement"], "sections">;
 };
 
+function demoWordCount(content: string) {
+  return content.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function demoThinkingDelay(message: IntakeChatMessage) {
+  return Math.min(2400, Math.max(1200, 800 + demoWordCount(message.content) * 22));
+}
+
+function demoComposeDelay(message: IntakeChatMessage) {
+  return Math.min(1600, Math.max(600, 400 + demoWordCount(message.content) * 24));
+}
+
+function demoHoldDelay() {
+  return 520;
+}
+
 export type IntakeTabs = "chat" | "evidence" | "statement";
 
 export type IntakeContextValue = {
@@ -101,6 +117,9 @@ export function IntakeProvider({
   const hasBootstrappedGreetingRef = useRef(false);
   const demoPlaybackSourceRef = useRef<IntakeChatMessage[]>([]);
   const demoPlaybackTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const demoPlaybackCancelRef = useRef(false);
+  const demoPlaybackStartedRef = useRef(false);
+  const demoPlaybackCompletedRef = useRef(false);
   const [messages, setMessages] = useState<
     (IntakeChatMessage & { raw?: string })[]
   >([]);
@@ -148,6 +167,8 @@ export function IntakeProvider({
       setStatementSections(sections || {});
       if (isDemoStatement && initialMessages.length > 0) {
         demoPlaybackSourceRef.current = initialMessages.map(withCompleteStatus);
+        demoPlaybackStartedRef.current = false;
+        demoPlaybackCompletedRef.current = false;
         setMessages([]);
       } else {
         demoPlaybackSourceRef.current = [];
@@ -220,6 +241,9 @@ export function IntakeProvider({
       return;
     }
 
+    demoPlaybackCancelRef.current = true;
+    demoPlaybackStartedRef.current = true;
+    demoPlaybackCompletedRef.current = true;
     clearDemoPlaybackTimeouts();
     setMessages(demoPlaybackSourceRef.current);
     setIsDemoPlaybackActive(false);
@@ -237,42 +261,86 @@ export function IntakeProvider({
       return;
     }
 
-    if (isDemoPlaybackActive || messages.length > 0) {
-      return;
-    }
-
     const source = demoPlaybackSourceRef.current;
-    if (!source.length) {
+    if (
+      !source.length ||
+      demoPlaybackStartedRef.current ||
+      demoPlaybackCompletedRef.current
+    ) {
       return;
     }
 
+    demoPlaybackStartedRef.current = true;
+    demoPlaybackCancelRef.current = false;
     clearDemoPlaybackTimeouts();
+
+    const wait = (ms: number) =>
+      new Promise<void>((resolve) => {
+        const timeout = setTimeout(resolve, ms);
+        demoPlaybackTimeoutsRef.current.push(timeout);
+      });
+
+    const stillPlaying = () => !demoPlaybackCancelRef.current;
+
     queueMicrotask(() => {
-      setIsDemoPlaybackActive(true);
+      if (stillPlaying()) {
+        setIsDemoPlaybackActive(true);
+      }
     });
 
-    let cumulativeDelay = 0;
-    demoPlaybackTimeoutsRef.current = source.map((message, index) => {
-      const words = message.content.trim().split(/\s+/).filter(Boolean).length;
-      const minDelay = message.role === "assistant" ? 700 : 450;
-      const stepDelay = Math.min(2200, Math.max(minDelay, words * 28));
-      cumulativeDelay += stepDelay;
-
-      return setTimeout(() => {
-        setMessages((prev) => [...prev, message]);
-        if (index === source.length - 1) {
-          setIsDemoPlaybackActive(false);
-          clearDemoPlaybackTimeouts();
+    void (async () => {
+      for (let index = 0; index < source.length; index += 1) {
+        if (!stillPlaying()) {
+          return;
         }
-      }, cumulativeDelay);
-    });
-  }, [
-    data,
-    hasAcknowledgedPrivacyNotice,
-    isDemo,
-    isDemoPlaybackActive,
-    messages.length,
-  ]);
+
+        const message = source[index];
+        if (message.role === "assistant") {
+          setMessages((prev) => [
+            ...prev,
+            { ...message, content: "", status: "pending" },
+          ]);
+          await wait(demoThinkingDelay(message));
+          if (!stillPlaying()) {
+            return;
+          }
+          setMessages((prev) => {
+            const next = [...prev];
+            const pendingIndex = next.findLastIndex(
+              (item) => item.role === "assistant" && item.status === "pending",
+            );
+            if (pendingIndex >= 0) {
+              next[pendingIndex] = message;
+            } else {
+              next.push(message);
+            }
+            return next;
+          });
+          if (index < source.length - 1) {
+            await wait(demoHoldDelay());
+          }
+        } else {
+          await wait(demoComposeDelay(message));
+          if (!stillPlaying()) {
+            return;
+          }
+          setMessages((prev) => [...prev, message]);
+        }
+      }
+
+      if (stillPlaying()) {
+        demoPlaybackCompletedRef.current = true;
+        setIsDemoPlaybackActive(false);
+        clearDemoPlaybackTimeouts();
+      }
+    })();
+
+    return () => {
+      demoPlaybackCancelRef.current = true;
+      demoPlaybackStartedRef.current = false;
+      clearDemoPlaybackTimeouts();
+    };
+  }, [data, hasAcknowledgedPrivacyNotice, isDemo]);
 
   useEffect(() => {
     if (isDemo) {

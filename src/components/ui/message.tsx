@@ -58,6 +58,7 @@ export function MessageCard({
   message,
   children,
   avatar,
+  avatarAnchor,
 }: {
   message: {
     role: string;
@@ -66,6 +67,7 @@ export function MessageCard({
   };
   children?: React.ReactNode;
   avatar?: React.ReactNode;
+  avatarAnchor?: "user" | "assistant";
 }) {
   const isUser = message.role === "user";
   const showPendingIndicator = message.status === "pending" && !isUser;
@@ -136,15 +138,24 @@ export function MessageCard({
   return (
     <div
       className={cn(
-        "flex w-full items-end gap-2",
+        "flex w-full items-end gap-4",
         isUser ? "flex-row-reverse" : "flex-row",
       )}
     >
-      <div className="mb-0.5 shrink-0">{avatar}</div>
+      <div
+        className="mb-0.5 shrink-0"
+        {...(avatarAnchor
+          ? { "data-chat-avatar-anchor": avatarAnchor }
+          : {})}
+      >
+        {avatar}
+      </div>
       <div
         className={cn(
           "flex min-w-0 flex-col gap-1",
-          isUser ? "items-end" : "items-start",
+          isUser
+            ? "items-end animate-slide-in-user"
+            : "items-start animate-slide-in-assistant",
         )}
       >
         {bubble}

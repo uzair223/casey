@@ -149,6 +149,44 @@ body {
     animation: slideInAssistant 0.3s ease-out;
   }
 
+  @keyframes avatar-bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-2px);
+    }
+  }
+
+  @keyframes avatar-thinking {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    32% {
+      transform: translateY(-6px);
+    }
+    58% {
+      transform: translateY(-1px);
+    }
+  }
+
+  .avatar-bob {
+    animation: avatar-bob 2.8s ease-in-out infinite;
+  }
+
+  .avatar-thinking {
+    animation: avatar-thinking 0.62s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .avatar-bob,
+    .avatar-thinking {
+      animation: none;
+    }
+  }
+
   .transition-smooth {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useLayoutEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageCard } from "../ui/message";
@@ -15,7 +15,10 @@ import { AttachmentPreviewCard } from "@/components/ui/attachment-preview-card";
 import { getMessageResponseMeta } from "@/lib/statement-utils";
 import { useWitnessStatement } from "@/components/intake/intake-context";
 import { CheckIcon, Paperclip, SkipForwardIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { EvidenceDocument } from "@/lib/evidence";
+
+const AVATAR_SIZE = 40;
 
 function getAttachedFiles(message: { meta?: Record<string, unknown> | null }) {
   if (!message.meta || typeof message.meta !== "object") {
@@ -27,6 +30,93 @@ function getAttachedFiles(message: { meta?: Record<string, unknown> | null }) {
     ? (attachedFiles as EvidenceDocument[])
     : [];
 }
+
+function MovingChatAvatar({
+  side,
+  containerRef,
+  layoutKey,
+  children,
+}: {
+  side: "user" | "assistant";
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  layoutKey: string;
+  children: React.ReactNode;
+}) {
+  const [top, setTop] = useState<number | null>(null);
+  const [canMove, setCanMove] = useState(false);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const update = () => {
+      const slot = container.querySelector(
+        `[data-chat-avatar-anchor="${side}"]`,
+      );
+      if (!(slot instanceof HTMLElement)) {
+        setTop(null);
+        return;
+      }
+
+      const nextTop =
+        slot.getBoundingClientRect().top - container.getBoundingClientRect().top;
+      setTop(nextTop);
+    };
+
+    update();
+    const frame = requestAnimationFrame(() => {
+      update();
+      setCanMove(true);
+    });
+
+    const observer = new ResizeObserver(update);
+    observer.observe(container);
+    const slot = container.querySelector(`[data-chat-avatar-anchor="${side}"]`);
+    if (slot instanceof HTMLElement) {
+      observer.observe(slot);
+    }
+
+    const mutations = new MutationObserver(update);
+    mutations.observe(container, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      mutations.disconnect();
+    };
+  }, [containerRef, layoutKey, side]);
+
+  if (top === null) {
+    return null;
+  }
+
+  return (
+    <div
+      className={cn(
+        "pointer-events-none absolute z-10",
+        side === "user" ? "right-0" : "left-0",
+        canMove && "transition-[top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+      )}
+      style={{ top, width: AVATAR_SIZE }}
+    >
+      {children}
+    </div>
+  );
+}
+
+const avatarSpacer = (
+  <span
+    className="block shrink-0"
+    style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
+    aria-hidden
+  />
+);
 
 export function ChatAreaContent() {
   const {
@@ -42,6 +132,7 @@ export function ChatAreaContent() {
   } = useWitnessStatement();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -56,6 +147,10 @@ export function ChatAreaContent() {
   );
   const showPendingAssistant =
     sendMessage.isLoading && !hasPendingAssistantMessage;
+  const caseyThinking = showPendingAssistant || hasPendingAssistantMessage;
+  const avatarLayoutKey = messages
+    .map((message) => `${message.role}:${message.status}:${message.content.length}`)
+    .join("|");
   const lastUserIndex = messages.findLastIndex(
     (message) => message.role === "user",
   );
@@ -63,26 +158,9 @@ export function ChatAreaContent() {
     (message) => message.role === "assistant",
   );
 
-  const messageAvatar = (role: string) =>
-    role === "user" ? (
-      <PersonAvatar
-        name={data.statement.id}
-        title={data.statement.witness_name || "Witness"}
-      />
-    ) : (
-      <CaseyAvatar />
-    );
-
-  const chatAvatar = (role: string, isLatest: boolean) =>
-    isLatest ? (
-      messageAvatar(role)
-    ) : (
-      <span className="block size-8 shrink-0" aria-hidden />
-    );
-
   return (
     <>
-      <div className="space-y-2">
+      <div ref={threadRef} className="relative space-y-2">
         {messages.map((message, idx) => {
           const responseMeta = getMessageResponseMeta(
             message,
@@ -90,24 +168,24 @@ export function ChatAreaContent() {
           );
           const attachedFiles =
             message.role === "user" ? getAttachedFiles(message) : [];
+          const isLatest =
+            message.role === "user"
+              ? idx === lastUserIndex
+              : idx === lastAssistantIndex && !showPendingAssistant;
 
           return (
             <React.Fragment key={idx}>
-              <div
-                className={`space-y-1 ${
-                  message.role === "user"
-                    ? "animate-slide-in-user"
-                    : "animate-slide-in-assistant"
-                }`}
-              >
+              <div className="space-y-1">
                 <MessageCard
                   message={message}
-                  avatar={chatAvatar(
-                    message.role,
-                    message.role === "user"
-                      ? idx === lastUserIndex
-                      : idx === lastAssistantIndex && !showPendingAssistant,
-                  )}
+                  avatar={avatarSpacer}
+                  avatarAnchor={
+                    isLatest
+                      ? message.role === "user"
+                        ? "user"
+                        : "assistant"
+                      : undefined
+                  }
                 >
                   {message.role === "assistant" ? (
                     <>
@@ -156,7 +234,8 @@ export function ChatAreaContent() {
         {showPendingAssistant && (
           <MessageCard
             message={{ role: "assistant", content: "", status: "pending" }}
-            avatar={messageAvatar("assistant")}
+            avatar={avatarSpacer}
+            avatarAnchor="assistant"
           />
         )}
         {hasIntakeStopped && (
@@ -166,6 +245,24 @@ export function ChatAreaContent() {
             </div>
           </div>
         )}
+        <MovingChatAvatar
+          side="assistant"
+          containerRef={threadRef}
+          layoutKey={`${avatarLayoutKey}-assistant-${showPendingAssistant}`}
+        >
+          <CaseyAvatar size={AVATAR_SIZE} thinking={caseyThinking} />
+        </MovingChatAvatar>
+        <MovingChatAvatar
+          side="user"
+          containerRef={threadRef}
+          layoutKey={`${avatarLayoutKey}-user`}
+        >
+          <PersonAvatar
+            name={data.statement.id}
+            title={data.statement.witness_name || "Witness"}
+            size={AVATAR_SIZE}
+          />
+        </MovingChatAvatar>
       </div>
       <div ref={messagesEndRef} />
     </>
