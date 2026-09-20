@@ -32,6 +32,35 @@ function stringifyProviderError(error: unknown) {
   }
 }
 
+export function unwrapStructuredJson(value: unknown, schemaName?: string) {
+  if (
+    !schemaName ||
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value)
+  ) {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record);
+  if (keys.length === 1 && keys[0] === schemaName) {
+    return record[schemaName];
+  }
+
+  return value;
+}
+
+export function parseStructuredJson(
+  response: StructuredResponse,
+  schemaName?: string,
+) {
+  return unwrapStructuredJson(
+    JSON.parse(getStructuredResponseJson(response)) as unknown,
+    schemaName,
+  );
+}
+
 export function getStructuredResponseJson(response: StructuredResponse) {
   const choice = response.choices?.[0];
   const message = choice?.message;

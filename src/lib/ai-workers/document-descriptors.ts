@@ -10,7 +10,8 @@ import {
   createModelRequestTimeout,
   getModelRequestError,
 } from "@/lib/llm/request";
-import { getStructuredResponseJson } from "@/lib/llm/responses";
+import { attachedMediaPlaceholder } from "@/lib/llm/inline-media";
+import { parseStructuredJson } from "@/lib/llm/responses";
 import { getServiceClient } from "@/lib/supabase/server";
 import { SERVERONLY_updateStatementSupportingDocumentDescriptors } from "@/lib/supabase/mutations/statement-supporting-documents";
 import type {
@@ -53,10 +54,7 @@ export async function generateStatementDocumentDescriptor(params: {
     }
 
     const extracted = await extractDocumentContent(data, document);
-    const contentParts: Array<
-      | { type: "text"; text: string }
-      | { type: "image_url"; image_url: { url: string } }
-    > = [
+    const contentParts: Array<{ type: "text"; text: string }> = [
       {
         type: "text",
         text: `File name: ${document.name}
@@ -73,8 +71,12 @@ Upload source: ${params.documentRow.uploaded_by_type}`,
       });
     } else if (extracted.type === "image_url") {
       contentParts.push({
-        type: "image_url",
-        image_url: { url: extracted.url },
+        type: "text",
+        text: attachedMediaPlaceholder({
+          kind: "image",
+          name: document.name,
+          type: document.type,
+        }),
       });
     } else if (extracted.warning) {
       contentParts.push({
@@ -120,9 +122,9 @@ Upload source: ${params.documentRow.uploaded_by_type}`,
       modelTimeout.clear();
     }
 
-    const descriptor = JSON.parse(
-      getStructuredResponseJson(response),
-    ) as StatementDocumentDescriptors;
+    const descriptor = DocumentDescriptorSchema.parse(
+      parseStructuredJson(response, "statement_document_descriptor"),
+    );
 
     await SERVERONLY_updateStatementSupportingDocumentDescriptors({
       documentId: params.documentRow.id,

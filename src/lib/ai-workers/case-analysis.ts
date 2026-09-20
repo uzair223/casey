@@ -10,7 +10,7 @@ import {
   createModelRequestTimeout,
   getModelRequestError,
 } from "@/lib/llm/request";
-import { getStructuredResponseJson } from "@/lib/llm/responses";
+import { parseStructuredJson } from "@/lib/llm/responses";
 import { extractDocumentContent } from "@/lib/files";
 import {
   getStatementSupportingDocumentsWithClient,
@@ -451,9 +451,10 @@ ${evidenceCorpus}`,
       modelTimeout.clear();
     }
 
-    const content = getStructuredResponseJson(response);
     const drafted = normalizeCaseAnalysis(
-      CaseAnalysisDraftSchema.parse(JSON.parse(content)),
+      CaseAnalysisDraftSchema.parse(
+        parseStructuredJson(response, "case_analysis"),
+      ),
     );
     const analysis = await evaluateCaseAnalysisDraftWithJev({
       caseTitle: caseRecord.title,

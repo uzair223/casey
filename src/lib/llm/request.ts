@@ -18,5 +18,17 @@ export function getModelRequestError(error: unknown, label: string) {
     return new Error(`${label} timed out. Please try again.`);
   }
 
-  return error;
+  const status =
+    error && typeof error === "object" && "status" in error
+      ? Number((error as { status?: unknown }).status)
+      : null;
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (status === 400 && message.includes("no body")) {
+    return new Error(
+      `${label} failed with an empty 400 from the model gateway.`,
+    );
+  }
+
+  return error instanceof Error ? error : new Error(message);
 }

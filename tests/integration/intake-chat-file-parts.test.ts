@@ -27,8 +27,11 @@ describe("buildIntakeChatFileParts", () => {
     ]);
     expect(result.requiresPdfPlugin).toBe(false);
 
-    const parts = result.content as Array<{ type: string }>;
-    expect(parts.some((part) => part.type === "image_url")).toBe(true);
-    expect(parts.some((part) => part.type === "text")).toBe(true);
+    const parts = result.content as Array<{ type: string; text?: string }>;
+    expect(parts.every((part) => part.type === "text")).toBe(true);
+    expect(
+      parts.some((part) => part.text?.includes("Attached image: photo.png")),
+    ).toBe(true);
+    expect(parts.some((part) => part.text?.includes("notes.txt"))).toBe(true);
   });
 });

@@ -1,15 +1,13 @@
 import { logServerEvent } from "@/lib/observability/logger";
+import { attachedMediaPlaceholder } from "@/lib/llm/inline-media";
 
 import {
-  getAudioFormat,
   getFileExtension,
   isAudioFile,
   isImageFile,
   isPdfFile,
   isPlainTextLikeFile,
   isVideoFile,
-  toBase64,
-  toDataUrl,
   truncateText,
 } from "./core";
 import { extractDocxText, extractPdfText } from "./extraction";
@@ -23,12 +21,7 @@ export type IntakeChatAttachmentSummary = {
   inlineText?: string;
 };
 
-export type IntakeChatContentPart =
-  | { type: "text"; text: string }
-  | { type: "image_url"; image_url: { url: string } }
-  | { type: "input_audio"; input_audio: { data: string; format: string } }
-  | { type: "video_url"; video_url: { url: string } }
-  | { type: "file"; file: { filename: string; file_data: string } };
+export type IntakeChatContentPart = { type: "text"; text: string };
 
 export type BuiltIntakeChatFileParts = {
   content: string | IntakeChatContentPart[];
@@ -60,18 +53,20 @@ export async function buildIntakeChatUserContent(args: {
 
   for (const file of files) {
     if (isImageFile(file)) {
-      const base64 = toBase64(await file.arrayBuffer());
       contentParts.push({
-        type: "image_url",
-        image_url: {
-          url: toDataUrl(file.type || "image/png", base64),
-        },
+        type: "text",
+        text: attachedMediaPlaceholder({
+          kind: "image",
+          name: file.name,
+          type: file.type,
+        }),
       });
       attachmentSummaries.push({
         name: file.name,
         type: file.type || "image/*",
         size: file.size,
         handledAs: "image",
+        warning: "Image contents were not sent to the model.",
       });
       continue;
     }
@@ -113,47 +108,39 @@ export async function buildIntakeChatUserContent(args: {
     }
 
     if (isAudioFile(file)) {
-      const format = getAudioFormat(file);
-      if (format) {
-        const base64 = toBase64(await file.arrayBuffer());
-        contentParts.push({
-          type: "input_audio",
-          input_audio: {
-            data: base64,
-            format,
-          },
-        });
-        attachmentSummaries.push({
+      contentParts.push({
+        type: "text",
+        text: attachedMediaPlaceholder({
+          kind: "audio",
           name: file.name,
-          type: file.type || "audio/*",
-          size: file.size,
-          handledAs: "audio",
-        });
-      } else {
-        attachmentSummaries.push({
-          name: file.name,
-          type: file.type || "audio/*",
-          size: file.size,
-          handledAs: "metadata_only",
-          warning: "Unsupported audio format for inline model input.",
-        });
-      }
+          type: file.type,
+        }),
+      });
+      attachmentSummaries.push({
+        name: file.name,
+        type: file.type || "audio/*",
+        size: file.size,
+        handledAs: "audio",
+        warning: "Audio contents were not sent to the model.",
+      });
       continue;
     }
 
     if (isVideoFile(file)) {
-      const base64 = toBase64(await file.arrayBuffer());
       contentParts.push({
-        type: "video_url",
-        video_url: {
-          url: toDataUrl(file.type || "video/mp4", base64),
-        },
+        type: "text",
+        text: attachedMediaPlaceholder({
+          kind: "video",
+          name: file.name,
+          type: file.type,
+        }),
       });
       attachmentSummaries.push({
         name: file.name,
         type: file.type || "video/*",
         size: file.size,
         handledAs: "video",
+        warning: "Video contents were not sent to the model.",
       });
       continue;
     }

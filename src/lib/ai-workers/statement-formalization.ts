@@ -12,7 +12,8 @@ import {
   createModelRequestTimeout,
   getModelRequestError,
 } from "@/lib/llm/request";
-import { getStructuredResponseJson } from "@/lib/llm/responses";
+import { attachedMediaPlaceholder } from "@/lib/llm/inline-media";
+import { parseStructuredJson } from "@/lib/llm/responses";
 import { extractDocumentContent, type UploadedDocument } from "@/lib/files";
 import {
   getStatementSupportingDocumentsWithClient,
@@ -88,10 +89,7 @@ async function buildEvidenceInputs(params: {
   tenantId: string;
   documents: UploadedDocument[];
 }) {
-  const contentParts: Array<
-    | { type: "text"; text: string }
-    | { type: "image_url"; image_url: { url: string } }
-  > = [];
+  const contentParts: Array<{ type: "text"; text: string }> = [];
   const summaries: EvidenceSummary[] = [];
 
   for (const document of params.documents) {
@@ -109,13 +107,18 @@ async function buildEvidenceInputs(params: {
 
       if (extracted.type === "image_url") {
         contentParts.push({
-          type: "image_url",
-          image_url: { url: extracted.url },
+          type: "text",
+          text: attachedMediaPlaceholder({
+            kind: "image",
+            name: document.name,
+            type: document.type,
+          }),
         });
         summaries.push({
           name: document.name,
           type: document.type,
-          handledAs: "image",
+          handledAs: "metadata_only",
+          warning: "Image contents were not sent to the model.",
         });
       } else if (extracted.type === "text") {
         contentParts.push({
@@ -313,9 +316,11 @@ export async function processFormalizationJob(jobId: string) {
       modelTimeout.clear();
     }
 
-    const content = getStructuredResponseJson(response);
     const parsed = applyProgrammaticEvidenceSection(
-      normalizeFormalizedSections(JSON.parse(content), config),
+      normalizeFormalizedSections(
+        parseStructuredJson(response, "witness_statement"),
+        config,
+      ),
       {
         config,
         rows: supportingDocumentRows,

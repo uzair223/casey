@@ -367,7 +367,6 @@ export async function POST(
             role: "system",
             content: generateIntakeStatePrompt(lastMetadata, jevDecisions),
           },
-          // @ts-expect-error Cloudflare's OpenAI-compatible API accepts multimodal message content here.
           ...modelMessages,
         ],
         stream: true,
