@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { processCaseAnalysisJob } from "@/lib/ai-workers/case-analysis";
+import { isAiJobKind, processAiJob } from "@/lib/ai-workers/jobs";
 import { listJobsForSweeper } from "@/lib/ai-workers/claim";
-import { processFormalizationJob } from "@/lib/ai-workers/statement-formalization";
 import { requireCronSecret } from "@/lib/api-utils/cron-auth";
 import { logServerEvent } from "@/lib/observability/logger";
 
@@ -21,11 +20,10 @@ export async function POST(request: Request) {
 
     for (const job of jobs) {
       try {
-        if (job.kind === "statement_formalization") {
-          await processFormalizationJob(job.id);
-        } else if (job.kind === "case_analysis") {
-          await processCaseAnalysisJob(job.id);
+        if (!isAiJobKind(job.kind)) {
+          throw new Error(`Unsupported job kind: ${job.kind}`);
         }
+        await processAiJob({ jobId: job.id, kind: job.kind });
         results.push({ jobId: job.id, kind: job.kind, ok: true });
       } catch (error) {
         const message =

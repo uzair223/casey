@@ -11,6 +11,7 @@ const SERVERONLY_saveConversationMessage = vi.fn();
 const getServiceClient = vi.fn();
 const getIntakeAccessError = vi.fn();
 const logServerEvent = vi.fn();
+const enqueueAiJob = vi.fn();
 const generateGreeting = vi.fn();
 const getMissingWitnessFieldLabels = vi.fn();
 const generateChatSystemPrompt = vi.fn();
@@ -38,13 +39,9 @@ vi.mock("openai/helpers/zod", () => ({
   zodResponseFormat: vi.fn(() => ({ type: "json_schema" })),
 }));
 
-vi.mock("next/server", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("next/server")>();
-  return {
-    ...actual,
-    after: vi.fn(),
-  };
-});
+vi.mock("@/lib/ai-workers/jobs", () => ({
+  enqueueAiJob,
+}));
 
 vi.mock("@/lib/env", () => ({
   env: {
@@ -103,6 +100,7 @@ vi.mock("@/lib/llm/jev/client", () => ({
 describe("intake interview flows", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    enqueueAiJob.mockResolvedValue(undefined);
     getIntakeAccessError.mockResolvedValue(null);
     SERVERONLY_getConversationHistory.mockResolvedValue([
       {
@@ -304,6 +302,10 @@ describe("intake interview flows", () => {
     );
 
     expect(response.status).toBe(202);
+    expect(enqueueAiJob).toHaveBeenCalledWith({
+      jobId: "job-1",
+      kind: "statement_formalization",
+    });
     expect(existingJobLookup.insert).toHaveBeenCalledWith({
       tenant_id: "tenant-1",
       kind: "statement_formalization",
@@ -384,6 +386,7 @@ describe("intake interview flows", () => {
 
     expect(response.status).toBe(202);
     expect(existingJobLookup.insert).not.toHaveBeenCalled();
+    expect(enqueueAiJob).not.toHaveBeenCalled();
     await expect(readJson<typeof existingJob>(response)).resolves.toEqual({
       id: "job-existing",
       status: "running",

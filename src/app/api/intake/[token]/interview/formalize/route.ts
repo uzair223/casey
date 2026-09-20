@@ -1,10 +1,9 @@
 import { randomUUID } from "crypto";
 
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
+import { enqueueAiJob } from "@/lib/ai-workers/jobs";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
-import { getWorkerFailureMessage } from "@/lib/api-utils/worker-error";
-import { processFormalizationJob } from "@/lib/ai-workers/statement-formalization";
 import { logServerEvent } from "@/lib/observability/logger";
 import { getServiceClient } from "@/lib/supabase/server";
 import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
@@ -206,41 +205,19 @@ export async function POST(request: Request, { params }: RouteContext) {
     }
 
     if (!existingJob) {
-      after(async () => {
-        try {
-          await processFormalizationJob(job.id);
-        } catch (error) {
-          const responseBody =
-            error instanceof Error
-              ? JSON.stringify({ error: error.message })
-              : JSON.stringify({ error: "Unknown worker error" });
-          const workerErrorMessage = getWorkerFailureMessage({
-            fallback: "Failed to start statement formalization worker.",
-            responseBody,
-            status: 500,
-          });
-          await logServerEvent(
-            "error",
-            "api.intake.formalize.worker_invoke_failed",
-            {
-              requestId,
-              statementId: statement.id,
-              jobId: job.id,
-              status: 500,
-              responseBody,
-              workerErrorMessage,
-            },
-          );
-          await service
-            .from("ai_generation_jobs")
-            .update({
-              status: "failed",
-              completed_at: new Date().toISOString(),
-              error_message: workerErrorMessage,
-            })
-            .eq("id", job.id);
-        }
-      });
+      try {
+        await enqueueAiJob({
+          jobId: job.id,
+          kind: "statement_formalization",
+        });
+      } catch (error) {
+        await logServerEvent("error", "api.intake.formalize.enqueue_failed", {
+          requestId,
+          statementId: statement.id,
+          jobId: job.id,
+          error,
+        });
+      }
     }
 
     await logServerEvent("info", "api.intake.formalize.queued", {

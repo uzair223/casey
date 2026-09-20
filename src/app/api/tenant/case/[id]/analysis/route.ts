@@ -1,11 +1,10 @@
 import { randomUUID } from "crypto";
 
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
+import { enqueueAiJob } from "@/lib/ai-workers/jobs";
 import { requireTenantUser } from "@/lib/api-utils/auth";
 import { forbidden, notFound } from "@/lib/api-utils/response";
-import { getWorkerFailureMessage } from "@/lib/api-utils/worker-error";
-import { processCaseAnalysisJob } from "@/lib/ai-workers/case-analysis";
 import { logServerEvent } from "@/lib/observability/logger";
 import { getServiceClient } from "@/lib/supabase/server";
 
@@ -60,45 +59,19 @@ export async function POST(request: Request, context: RouteContext) {
       throw jobError ?? new Error("Failed to enqueue case analysis job.");
     }
 
-    after(async () => {
-      try {
-        await processCaseAnalysisJob(job.id);
-      } catch (error) {
-        const responseBody =
-          error instanceof Error
-            ? JSON.stringify({ error: error.message })
-            : JSON.stringify({ error: "Unknown worker error" });
-        const workerErrorMessage = getWorkerFailureMessage({
-          fallback: "Failed to start case analysis worker.",
-          responseBody,
-          status: 500,
-        });
-        console.error("Failed to invoke case analysis worker:", {
-          status: 500,
-          body: responseBody,
-        });
-        await logServerEvent(
-          "error",
-          "api.case_analysis.worker_invoke_failed",
-          {
-            requestId,
-            caseId,
-            jobId: job.id,
-            status: 500,
-            responseBody,
-            workerErrorMessage,
-          },
-        );
-        await service
-          .from("ai_generation_jobs")
-          .update({
-            status: "failed",
-            completed_at: new Date().toISOString(),
-            error_message: workerErrorMessage,
-          })
-          .eq("id", job.id);
-      }
-    });
+    try {
+      await enqueueAiJob({
+        jobId: job.id,
+        kind: "case_analysis",
+      });
+    } catch (error) {
+      await logServerEvent("error", "api.case_analysis.enqueue_failed", {
+        requestId,
+        caseId,
+        jobId: job.id,
+        error,
+      });
+    }
 
     return NextResponse.json(
       {

@@ -15,12 +15,17 @@ const sendStatementFinalReviewRequestEmail = vi.fn();
 const sendStatementReminderEmail = vi.fn();
 const logAuditEvent = vi.fn();
 const enforcePersistentRateLimit = vi.fn();
+const enqueueAiJob = vi.fn();
 
 vi.mock("@/lib/env", () => ({
   env: {
     NEXT_PUBLIC_BASE_URL: "https://casey.test",
     CRON_SECRET: "cron-secret",
   },
+}));
+
+vi.mock("@/lib/ai-workers/jobs", () => ({
+  enqueueAiJob,
 }));
 
 vi.mock("@/lib/api-utils/auth", () => ({
@@ -88,6 +93,7 @@ function createAwaitableBuilder(result: unknown) {
 describe("statement operation flows", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    enqueueAiJob.mockResolvedValue(undefined);
     enforcePersistentRateLimit.mockResolvedValue(null);
     requireTenantUser.mockResolvedValue({
       userId: "user-1",
@@ -373,6 +379,58 @@ describe("statement operation flows", () => {
         sent: 1,
         failed: 0,
       }),
+    );
+  });
+
+  it("queues case analysis instead of running it after the response", async () => {
+    enqueueAiJob.mockResolvedValue(undefined);
+    requireTenantUser.mockResolvedValue({
+      userId: "user-1",
+      email: "solicitor@firm.co.uk",
+      tenantId: "tenant-1",
+      role: "solicitor",
+      profile: { display_name: "Casey Solicitor" },
+      supabase: {
+        from: vi.fn(() =>
+          createAwaitableBuilder({
+            data: { id: "case-1", tenant_id: "tenant-1" },
+            error: null,
+          }),
+        ),
+      },
+    });
+
+    const pendingJob = {
+      id: "job-analysis-1",
+      status: "queued",
+      created_at: "2026-04-23T12:00:00.000Z",
+    };
+    getServiceClient.mockReturnValue({
+      from: vi.fn(() => ({
+        insert: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: pendingJob, error: null }),
+      })),
+    });
+
+    const route = await importFresh<
+      typeof import("@/app/api/tenant/case/[id]/analysis/route")
+    >("@/app/api/tenant/case/[id]/analysis/route");
+
+    const response = await route.POST(
+      new Request("http://localhost/api/tenant/case/case-1/analysis", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id: "case-1" }) },
+    );
+
+    expect(response.status).toBe(202);
+    expect(enqueueAiJob).toHaveBeenCalledWith({
+      jobId: "job-analysis-1",
+      kind: "case_analysis",
+    });
+    await expect(readJson<typeof pendingJob>(response)).resolves.toEqual(
+      pendingJob,
     );
   });
 });

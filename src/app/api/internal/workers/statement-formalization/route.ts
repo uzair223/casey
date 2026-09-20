@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { processAiJob } from "@/lib/ai-workers/jobs";
 import { requireCronSecret } from "@/lib/api-utils/cron-auth";
-import { processFormalizationJob } from "@/lib/ai-workers/statement-formalization";
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +14,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await processFormalizationJob(jobId);
+    const result = await processAiJob({
+      jobId,
+      kind: "statement_formalization",
+    });
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof Response) return error;
