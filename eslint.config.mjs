@@ -15,6 +15,7 @@ const eslintConfig = defineConfig([
     "coverage/**",
     ".open-next/**",
     ".wrangler/**",
+    "promo/**",
   ]),
 ]);
 

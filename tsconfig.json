@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-    "exclude": ["node_modules", "gstack", ".open-next", "worker.js", "deploy/docuseal"]
+    "exclude": ["node_modules", "gstack", ".open-next", "worker.js", "deploy/docuseal", "promo"]
 }
