@@ -163,7 +163,7 @@ export default function Home() {
         </Reveal>
         <Reveal eager delay={80}>
           <h1 className="mt-8 font-display text-5xl font-normal leading-tighter tracking-tight text-primary sm:text-7xl lg:text-[96px] lg:leading-[1.1]">
-            Witness AI,<br className="hidden md:block"/> ready for review.
+            Witness statements<br className="hidden md:block"/> without the chasing.
           </h1>
         </Reveal>
         <Reveal eager delay={160}>
