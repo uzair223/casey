@@ -1,7 +1,10 @@
 "use client";
 
 import { Blobatar } from "@blobatar/react";
+import { useGaze } from "@blobatar/react/gaze";
 import { cn } from "@/lib/utils";
+import "blobatar/motion.css";
+import "blobatar/gaze.css";
 
 const CASEY_SEED = "casey";
 const CASEY_HUE = 250;
@@ -21,14 +24,18 @@ export function PersonAvatar({
   hue,
   className,
 }: PersonAvatarProps) {
+  const { ref } = useGaze({ travel: 4, lookAt: "pointer" });
+
   return (
     <Blobatar
+      ref={ref}
       name={name}
       title={title}
       size={size}
       background="circle"
+      animate="always"
       {...(hue !== undefined ? { hue } : {})}
-      className={cn("shrink-0", className)}
+      className={cn("shrink-0 overflow-visible", className)}
     />
   );
 }

@@ -54,6 +54,14 @@ export function ChatAreaContent() {
   const hasPendingAssistantMessage = messages.some(
     (message) => message.role === "assistant" && message.status === "pending",
   );
+  const showPendingAssistant =
+    sendMessage.isLoading && !hasPendingAssistantMessage;
+  const lastUserIndex = messages.findLastIndex(
+    (message) => message.role === "user",
+  );
+  const lastAssistantIndex = messages.findLastIndex(
+    (message) => message.role === "assistant",
+  );
 
   const messageAvatar = (role: string) =>
     role === "user" ? (
@@ -63,6 +71,13 @@ export function ChatAreaContent() {
       />
     ) : (
       <CaseyAvatar />
+    );
+
+  const chatAvatar = (role: string, isLatest: boolean) =>
+    isLatest ? (
+      messageAvatar(role)
+    ) : (
+      <span className="block size-8 shrink-0" aria-hidden />
     );
 
   return (
@@ -87,7 +102,12 @@ export function ChatAreaContent() {
               >
                 <MessageCard
                   message={message}
-                  avatar={messageAvatar(message.role)}
+                  avatar={chatAvatar(
+                    message.role,
+                    message.role === "user"
+                      ? idx === lastUserIndex
+                      : idx === lastAssistantIndex && !showPendingAssistant,
+                  )}
                 >
                   {message.role === "assistant" ? (
                     <>
@@ -133,7 +153,7 @@ export function ChatAreaContent() {
             </React.Fragment>
           );
         })}
-        {sendMessage.isLoading && !hasPendingAssistantMessage && (
+        {showPendingAssistant && (
           <MessageCard
             message={{ role: "assistant", content: "", status: "pending" }}
             avatar={messageAvatar("assistant")}

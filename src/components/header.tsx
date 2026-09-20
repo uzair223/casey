@@ -268,7 +268,7 @@ function UserMenu({
         type="button"
         size="icon"
         variant="ghost"
-        className="relative text-primary/80 hover:text-primary"
+        className="relative text-primary/80 hover:text-primary [&_svg]:size-7"
         aria-label="Account menu"
         aria-expanded={open}
         aria-haspopup="menu"
