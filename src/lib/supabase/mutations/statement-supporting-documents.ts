@@ -87,25 +87,26 @@ async function refreshProgrammaticEvidenceSection(
     return;
   }
 
+  if (!statement.formalization_snapshot_id) {
+    return;
+  }
+
   const rows = await getStatementSupportingDocumentsWithClient(
     supabase,
     statementId,
   );
 
-  let existingSections: Record<string, string> = {};
-  if (statement.formalization_snapshot_id) {
-    const { data: snapshot, error: snapshotError } = await supabase
-      .from("statement_formalization_snapshots")
-      .select("sections")
-      .eq("id", statement.formalization_snapshot_id)
-      .maybeSingle();
+  const { data: snapshot, error: snapshotError } = await supabase
+    .from("statement_formalization_snapshots")
+    .select("sections")
+    .eq("id", statement.formalization_snapshot_id)
+    .maybeSingle();
 
-    if (snapshotError) {
-      throw snapshotError;
-    }
-
-    existingSections = normalizeSnapshotSections(snapshot?.sections);
+  if (snapshotError) {
+    throw snapshotError;
   }
+
+  const existingSections = normalizeSnapshotSections(snapshot?.sections);
 
   const nextSections = applyProgrammaticEvidenceSection(existingSections, {
     config,

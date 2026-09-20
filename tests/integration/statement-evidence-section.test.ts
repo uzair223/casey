@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildProgrammaticEvidenceSection } from "@/lib/statement-utils";
+import { buildProgrammaticEvidenceSection, hasNarrativeStatementSections } from "@/lib/statement-utils";
 import type { StatementConfig, StatementSupportingDocument } from "@/types";
 
 const config = {
@@ -110,5 +110,24 @@ describe("programmatic statement evidence section", () => {
 
     expect(section?.content).toContain("Exhibit JD1: repair estimates");
     expect(section?.content).toContain("Exhibit JD2: photographs");
+  });
+
+  it("does not treat evidence-only drafts as a prepared statement", () => {
+    expect(
+      hasNarrativeStatementSections(
+        { supportingEvidence: "Exhibit JD1: photographs" },
+        config,
+      ),
+    ).toBe(false);
+
+    expect(
+      hasNarrativeStatementSections(
+        {
+          incident: "The pallet collapsed in aisle B.",
+          supportingEvidence: "Exhibit JD1: photographs",
+        },
+        config,
+      ),
+    ).toBe(true);
   });
 });

@@ -25,6 +25,7 @@ import {
 import {
   CHAT_METADATA_MARKER,
   getMessageResponseMeta,
+  hasNarrativeStatementSections,
 } from "@/lib/statement-utils";
 import { useAsync, UseAsyncReturn } from "@/hooks/useAsync";
 import Loading from "@/components/loading";
@@ -900,14 +901,12 @@ export function IntakeProvider({
 
   const hasFormalizedStatement = useMemo(
     () =>
-      Boolean(data?.statement.formalization_snapshot_id) ||
       Boolean(statementFormalization.data) ||
-      Object.values(statementSections).some((section) => section.trim()),
-    [
-      data?.statement.formalization_snapshot_id,
-      statementFormalization.data,
-      statementSections,
-    ],
+      hasNarrativeStatementSections(
+        statementSections,
+        statementConfig ?? undefined,
+      ),
+    [statementFormalization.data, statementSections, statementConfig],
   );
 
   const statementSubmission = useAsync(

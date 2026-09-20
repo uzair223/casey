@@ -110,6 +110,20 @@ export function buildProgrammaticEvidenceSection(params: {
   };
 }
 
+export function hasNarrativeStatementSections(
+  sections: Record<string, string> | null | undefined,
+  config: Pick<StatementConfig, "sections"> | null | undefined,
+) {
+  const evidenceId = getProgrammaticEvidenceSection(config ?? { sections: [] })
+    ?.id;
+  return (config?.sections ?? []).some((section) => {
+    if (section.id === evidenceId) {
+      return false;
+    }
+    return Boolean(sections?.[section.id]?.trim());
+  });
+}
+
 export function applyProgrammaticEvidenceSection(
   sections: Record<string, unknown>,
   params: {
