@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageCard } from "../ui/message";
+import { CaseyAvatar, PersonAvatar } from "@/components/person-avatar";
 import { ProgressIndicator } from "./progress-indicator";
 import {
   FileInput,
@@ -54,6 +55,16 @@ export function ChatAreaContent() {
     (message) => message.role === "assistant" && message.status === "pending",
   );
 
+  const messageAvatar = (role: string) =>
+    role === "user" ? (
+      <PersonAvatar
+        name={data.statement.id}
+        title={data.statement.witness_name || "Witness"}
+      />
+    ) : (
+      <CaseyAvatar />
+    );
+
   return (
     <>
       <div className="space-y-2">
@@ -74,7 +85,10 @@ export function ChatAreaContent() {
                     : "animate-slide-in-assistant"
                 }`}
               >
-                <MessageCard message={message}>
+                <MessageCard
+                  message={message}
+                  avatar={messageAvatar(message.role)}
+                >
                   {message.role === "assistant" ? (
                     <>
                       {responseMeta?.progress && (
@@ -122,6 +136,7 @@ export function ChatAreaContent() {
         {sendMessage.isLoading && !hasPendingAssistantMessage && (
           <MessageCard
             message={{ role: "assistant", content: "", status: "pending" }}
+            avatar={messageAvatar("assistant")}
           />
         )}
         {hasIntakeStopped && (

@@ -57,6 +57,7 @@ export function MarkdownMessage({ content }: MarkdownMessageProps) {
 export function MessageCard({
   message,
   children,
+  avatar,
 }: {
   message: {
     role: string;
@@ -64,18 +65,14 @@ export function MessageCard({
     status?: "pending" | "complete" | "error";
   };
   children?: React.ReactNode;
+  avatar?: React.ReactNode;
 }) {
   const isUser = message.role === "user";
   const showPendingIndicator = message.status === "pending" && !isUser;
   const hasContent = message.content.trim().length > 0;
 
-  return (
-    <div
-      className={cn(
-        "flex flex-col gap-1",
-        isUser ? "items-end" : "items-start",
-      )}
-    >
+  const bubble = (
+    <>
       {hasContent ? (
         <Card
           size="sm"
@@ -120,6 +117,38 @@ export function MessageCard({
       ) : null}
 
       {children}
+    </>
+  );
+
+  if (!avatar) {
+    return (
+      <div
+        className={cn(
+          "flex flex-col gap-1",
+          isUser ? "items-end" : "items-start",
+        )}
+      >
+        {bubble}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex w-full items-end gap-2",
+        isUser ? "flex-row-reverse" : "flex-row",
+      )}
+    >
+      <div className="mb-0.5 shrink-0">{avatar}</div>
+      <div
+        className={cn(
+          "flex min-w-0 flex-col gap-1",
+          isUser ? "items-end" : "items-start",
+        )}
+      >
+        {bubble}
+      </div>
     </div>
   );
 }

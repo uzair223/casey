@@ -10,11 +10,11 @@ import {
   MenuIcon,
   MessageSquareIcon,
   SettingsIcon,
-  UserRoundIcon,
   XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AsyncButton } from "@/components/ui/async-button";
+import { PersonAvatar } from "@/components/person-avatar";
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { useUser } from "@/contexts/user-context";
 import { getRoleLabel } from "@/lib/utils";
@@ -205,7 +205,7 @@ function UserMenu({
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const ignoreHoverRef = useRef(false);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const displayName = user.display_name ?? user.email;
+  const displayName = user.display_name ?? user.email ?? "Account";
   const roleLabel = user.role ? getRoleLabel(user.role) : "";
 
   const { data: unreadCount, handler: refreshUnreadCount } = useAsync(
@@ -283,7 +283,7 @@ function UserMenu({
           setOpen(true);
         }}
       >
-        <UserRoundIcon className="h-5 w-5" />
+        <PersonAvatar name={user.id} title={displayName} size={28} />
         {unreadCount > 0 ? (
           <span
             aria-hidden
@@ -297,8 +297,8 @@ function UserMenu({
           role="menu"
           className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-border bg-popover p-2 text-popover-foreground shadow-lg"
         >
-          <div className="flex items-start gap-2.5 px-3 py-2">
-            <UserRoundIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="flex items-center gap-2.5 px-3 py-2">
+            <PersonAvatar name={user.id} title={displayName} size={28} />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium leading-none">
                 {displayName}
