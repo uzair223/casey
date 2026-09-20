@@ -375,6 +375,10 @@ function buildTemplateData(
 ): DocxTemplateRenderData {
   const sectionMap: Record<string, string> = {};
 
+  for (const section of data.config.sections ?? []) {
+    sectionMap[section.id] = "";
+  }
+
   for (const [key, value] of Object.entries(data.sections)) {
     sectionMap[key] = value ?? "";
   }
@@ -458,6 +462,7 @@ async function getTemplateDoc(
     modules: (modules ?? []) as never[],
     paragraphLoop: true,
     linebreaks: true,
+    nullGetter: () => "",
   });
   return doc as unknown as DocxtemplaterWithTags;
 }
