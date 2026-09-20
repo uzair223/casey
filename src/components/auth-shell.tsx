@@ -7,8 +7,10 @@ import { env } from "@/lib/env";
 
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-background">
-      <HeroGlow />
+    <div className="relative min-h-screen bg-background">
+      <div className="absolute inset-0 overflow-hidden">
+        <HeroGlow />
+      </div>
       <header className="relative z-10 flex h-[68px] items-center justify-between px-6 sm:px-10 lg:px-12">
         <Link href="/" className="flex items-center gap-2.5">
           <BrandMark />
