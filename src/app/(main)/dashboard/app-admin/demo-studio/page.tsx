@@ -1306,11 +1306,6 @@ export default function DemoStudioPage() {
                     {message.content}
                   </p>
                 )}
-                {message.meta && (
-                  <pre className="overflow-auto rounded bg-muted p-2 text-xs">
-                    {JSON.stringify(message.meta, null, 2)}
-                  </pre>
-                )}
               </div>
             ))}
             {sendChatAction.isLoading && streamingAssistant && (
