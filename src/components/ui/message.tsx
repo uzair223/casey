@@ -138,7 +138,7 @@ export function MessageCard({
   return (
     <div
       className={cn(
-        "flex w-full items-end gap-4",
+        "flex w-full items-end gap-3 md:gap-4",
         isUser ? "flex-row-reverse" : "flex-row",
       )}
     >

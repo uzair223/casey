@@ -28,7 +28,7 @@ type PersonAvatarProps = {
 export function PersonAvatar({
   name,
   title,
-  size = 32,
+  size,
   hue,
   palette,
   thinking = false,
@@ -48,20 +48,20 @@ export function PersonAvatar({
         ref={ref}
         name={name}
         title={title}
-        size={size}
         background={false}
         animate="always"
         expression={thinking ? thinkingExpression : undefined}
+        {...(size !== undefined ? { size } : {})}
         {...(hue !== undefined ? { hue } : {})}
         {...(palette ? { palette } : {})}
-        className="shrink-0 overflow-visible"
+        className="size-full shrink-0 overflow-visible"
       />
     </span>
   );
 }
 
 export function CaseyAvatar({
-  size = 32,
+  size,
   thinking = false,
   className,
 }: {

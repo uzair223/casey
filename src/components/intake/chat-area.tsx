@@ -18,7 +18,7 @@ import { CheckIcon, Paperclip, SkipForwardIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EvidenceDocument } from "@/lib/evidence";
 
-const AVATAR_SIZE = 40;
+const chatAvatarBoxClass = "h-[28px] w-[28px] md:h-[40px] md:w-[40px]";
 
 function getAttachedFiles(message: { meta?: Record<string, unknown> | null }) {
   if (!message.meta || typeof message.meta !== "object") {
@@ -100,10 +100,11 @@ function MovingChatAvatar({
     <div
       className={cn(
         "pointer-events-none absolute z-10",
+        chatAvatarBoxClass,
         side === "user" ? "right-0" : "left-0",
         canMove && "transition-[top] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
       )}
-      style={{ top, width: AVATAR_SIZE }}
+      style={{ top }}
     >
       {children}
     </div>
@@ -111,11 +112,7 @@ function MovingChatAvatar({
 }
 
 const avatarSpacer = (
-  <span
-    className="block shrink-0"
-    style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
-    aria-hidden
-  />
+  <span className={cn("block shrink-0", chatAvatarBoxClass)} aria-hidden />
 );
 
 export function ChatAreaContent() {
@@ -250,7 +247,10 @@ export function ChatAreaContent() {
           containerRef={threadRef}
           layoutKey={`${avatarLayoutKey}-assistant-${showPendingAssistant}`}
         >
-          <CaseyAvatar size={AVATAR_SIZE} thinking={caseyThinking} />
+          <CaseyAvatar
+            className={cn(chatAvatarBoxClass, "[&_svg]:size-full")}
+            thinking={caseyThinking}
+          />
         </MovingChatAvatar>
         <MovingChatAvatar
           side="user"
@@ -260,7 +260,7 @@ export function ChatAreaContent() {
           <PersonAvatar
             name={data.statement.id}
             title={data.statement.witness_name || "Witness"}
-            size={AVATAR_SIZE}
+            className={cn(chatAvatarBoxClass, "[&_svg]:size-full")}
           />
         </MovingChatAvatar>
       </div>
