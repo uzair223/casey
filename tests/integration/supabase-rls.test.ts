@@ -554,6 +554,72 @@ const suite = describe.skipIf(!hasLocalSupabaseEnv())("local Supabase RLS", () =
       `rls/${seed.runId}/member.txt`,
     ]);
   });
+
+  it("blocks profile owners from changing role or tenant", async () => {
+    const solicitorA = await signInAs(seed.emails.solicitorA, seed.passwords.solicitorA);
+    const solicitorUser = seed.authUsers.find(
+      (user) => user.email === seed.emails.solicitorA,
+    );
+    if (!solicitorUser) {
+      throw new Error("Missing solicitor test user");
+    }
+
+    const escalateRole = await solicitorA
+      .from("profiles")
+      .update({ role: "app_admin" })
+      .eq("user_id", solicitorUser.id);
+
+    expect(escalateRole.error).not.toBeNull();
+
+    const switchTenant = await solicitorA
+      .from("profiles")
+      .update({ tenant_id: seed.tenantBId })
+      .eq("user_id", solicitorUser.id);
+
+    expect(switchTenant.error).not.toBeNull();
+
+    const profile = await solicitorA
+      .from("profiles")
+      .select("role, tenant_id")
+      .eq("user_id", solicitorUser.id)
+      .maybeSingle();
+
+    expect(profile.error).toBeNull();
+    expect(profile.data).toEqual({
+      role: "solicitor",
+      tenant_id: seed.tenantAId,
+    });
+  });
+
+  it("hides tenant data from soft-deleted members", async () => {
+    const paralegalA = await signInAs(seed.emails.paralegalA, seed.passwords.paralegalA);
+    const paralegalUser = seed.authUsers.find(
+      (user) => user.email === seed.emails.paralegalA,
+    );
+    if (!paralegalUser) {
+      throw new Error("Missing paralegal test user");
+    }
+
+    const revoke = await service
+      .from("profiles")
+      .update({ soft_deleted_at: new Date().toISOString() })
+      .eq("user_id", paralegalUser.id);
+    if (revoke.error) throw revoke.error;
+
+    const cases = await paralegalA.from("cases").select("id");
+    const statements = await paralegalA.from("statements").select("id");
+
+    expect(cases.error).toBeNull();
+    expect(statements.error).toBeNull();
+    expect(cases.data).toEqual([]);
+    expect(statements.data).toEqual([]);
+
+    const restore = await service
+      .from("profiles")
+      .update({ soft_deleted_at: null })
+      .eq("user_id", paralegalUser.id);
+    if (restore.error) throw restore.error;
+  });
 });
 
 export default suite;

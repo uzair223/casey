@@ -147,12 +147,27 @@ export async function POST(
       );
     }
 
-    const signatureImage = Uint8Array.from(
-      Buffer.from(
-        signatureImageDataUrl.replace(/^data:image\/png;base64,/, ""),
-        "base64",
-      ),
+    const MAX_SIGNATURE_IMAGE_BYTES = 500 * 1024;
+    const signatureBase64 = signatureImageDataUrl.replace(
+      /^data:image\/png;base64,/,
+      "",
     );
+    const maxBase64Length = Math.ceil((MAX_SIGNATURE_IMAGE_BYTES * 4) / 3) + 64;
+    if (signatureBase64.length > maxBase64Length) {
+      return NextResponse.json(
+        { error: "Signature image is too large." },
+        { status: 400 },
+      );
+    }
+    const signatureImage = Uint8Array.from(
+      Buffer.from(signatureBase64, "base64"),
+    );
+    if (signatureImage.byteLength > MAX_SIGNATURE_IMAGE_BYTES) {
+      return NextResponse.json(
+        { error: "Signature image is too large." },
+        { status: 400 },
+      );
+    }
 
     const unsignedBytes = await getOrRenderUnsignedStatementBytes({
       data,

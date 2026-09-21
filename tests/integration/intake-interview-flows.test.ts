@@ -144,7 +144,7 @@ describe("intake interview flows", () => {
     });
     SERVERONLY_getFullStatementFromToken.mockResolvedValue({
       case: { title: "Accident claim" },
-      statement: { status: "draft" },
+      statement: { id: "statement-1", status: "draft" },
     });
 
     const route = await importFresh<
@@ -166,6 +166,21 @@ describe("intake interview flows", () => {
       ],
     );
     expect(chatCompletionsCreate).not.toHaveBeenCalled();
+    expect(SERVERONLY_saveConversationMessage).toHaveBeenCalledTimes(2);
+    expect(SERVERONLY_saveConversationMessage).toHaveBeenNthCalledWith(
+      1,
+      "statement-1",
+      "assistant",
+      "Welcome.",
+      null,
+    );
+    expect(SERVERONLY_saveConversationMessage).toHaveBeenNthCalledWith(
+      2,
+      "statement-1",
+      "assistant",
+      "What happened?",
+      null,
+    );
   });
 
   it("blocks interview chat until the privacy notice is acknowledged", async () => {
@@ -197,24 +212,10 @@ describe("intake interview flows", () => {
     );
   });
 
-  it("avoids duplicating assistant transcript saves", async () => {
+  it("rejects client-supplied assistant transcript saves", async () => {
     SERVERONLY_getStatementWithConfigFromToken.mockResolvedValue({
       id: "statement-1",
       status: "in_progress",
-    });
-
-    const existingLookup = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: { id: "message-1" },
-        error: null,
-      }),
-    };
-
-    getServiceClient.mockReturnValue({
-      from: vi.fn(() => existingLookup),
     });
 
     const route = await importFresh<
@@ -233,7 +234,7 @@ describe("intake interview flows", () => {
       { params: Promise.resolve({ token: "token-1" }) },
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(400);
     expect(SERVERONLY_saveConversationMessage).not.toHaveBeenCalled();
   });
 

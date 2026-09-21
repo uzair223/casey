@@ -2,7 +2,7 @@ import { env } from "@/lib/env";
 import { NextRequest } from "next/server";
 
 import { logAuditEvent } from "@/lib/observability/audit";
-import { requireTenantUser } from "@/lib/api-utils/auth";
+import { requireTenantManager } from "@/lib/api-utils/auth";
 import { badRequest, ok, serverError } from "@/lib/api-utils/response";
 import { sendStatementFollowUpRequestEmail } from "@/lib/email";
 import { SERVERONLY_getStatementForSendLink } from "@/lib/supabase/queries";
@@ -14,7 +14,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const auth = await requireTenantUser(request);
+    const auth = await requireTenantManager(request);
     const { id: statementId } = await params;
 
     const body = await request.json().catch(() => ({}));

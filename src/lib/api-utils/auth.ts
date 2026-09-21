@@ -121,6 +121,16 @@ export const requireTenantUser = async (request: Request) => {
   };
 };
 
+export const requireTenantManager = async (request: Request) => {
+  const auth = await requireTenantUser(request);
+  if (auth.role !== "tenant_admin" && auth.role !== "solicitor") {
+    throw forbidden(
+      "Only firm admins and solicitors can perform this action",
+    );
+  }
+  return auth;
+};
+
 export const getAuthenticatedUserProfile = async (request: Request) => {
   const auth = await getAuthenticatedUser(
     request,

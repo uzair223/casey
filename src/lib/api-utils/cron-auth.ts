@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { env } from "@/lib/env";
 import { unauthorized } from "./response";
 
@@ -17,11 +18,17 @@ export function getCronSecretFromRequest(request: Request): string | null {
   return null;
 }
 
+function secretsEqual(expected: string, provided: string) {
+  const expectedHash = createHash("sha256").update(expected).digest();
+  const providedHash = createHash("sha256").update(provided).digest();
+  return timingSafeEqual(expectedHash, providedHash);
+}
+
 export function requireCronSecret(request: Request) {
   const expected = env.CRON_SECRET?.trim() || null;
   const provided = getCronSecretFromRequest(request);
 
-  if (!expected || provided !== expected) {
+  if (!expected || !provided || !secretsEqual(expected, provided)) {
     throw unauthorized("Invalid scheduler secret");
   }
 }

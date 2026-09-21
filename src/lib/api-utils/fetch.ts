@@ -16,7 +16,7 @@ export const getAccessToken = async () => {
 };
 
 type ApiFetchOptions = RequestInit & {
-  requireAuth?: boolean;
+  requireAuth?: boolean | "optional";
   returnType?: "json" | "response";
 };
 
@@ -37,12 +37,21 @@ export async function apiFetch(
   const isFormDataBody =
     typeof FormData !== "undefined" && options.body instanceof FormData;
 
+  let authorization: Record<string, string> = {};
+  if (requireAuth === true) {
+    authorization = { Authorization: `Bearer ${await getAccessToken()}` };
+  } else if (requireAuth === "optional") {
+    try {
+      authorization = { Authorization: `Bearer ${await getAccessToken()}` };
+    } catch {
+      authorization = {};
+    }
+  }
+
   const headers = {
     ...(isFormDataBody ? {} : { "Content-Type": "application/json" }),
     ...(options?.headers ?? {}),
-    ...(requireAuth
-      ? { Authorization: `Bearer ${await getAccessToken()}` }
-      : {}),
+    ...authorization,
   };
   const response = await fetch(url, {
     ...options,

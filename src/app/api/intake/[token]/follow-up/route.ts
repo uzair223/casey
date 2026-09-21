@@ -13,6 +13,7 @@ import {
   SERVERONLY_saveConversationMessage,
 } from "@/lib/supabase/mutations";
 import { getServiceClient } from "@/lib/supabase/server";
+import { isAllowedEvidenceType } from "@/lib/evidence";
 
 const MAX_FOLLOW_UP_FILES = 5;
 const MAX_FOLLOW_UP_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -125,6 +126,17 @@ export async function POST(
 ) {
   try {
     const { token } = await params;
+    const rateLimitResponse = await enforcePersistentRateLimit({
+      request,
+      scope: "intake:follow-up:post",
+      identifier: token,
+      limit: 20,
+      windowSeconds: 60 * 60,
+    });
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
 
     if (!statement) {
@@ -182,6 +194,15 @@ export async function POST(
             if (fileData.size > MAX_FOLLOW_UP_FILE_SIZE_BYTES) {
               return NextResponse.json(
                 { error: `${fileData.name} exceeds the 25MB file size limit.` },
+                { status: 400 },
+              );
+            }
+
+            if (!isAllowedEvidenceType(fileData)) {
+              return NextResponse.json(
+                {
+                  error: `${fileData.name} is not an allowed evidence file type.`,
+                },
                 { status: 400 },
               );
             }

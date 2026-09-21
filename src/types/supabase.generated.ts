@@ -1658,6 +1658,10 @@ export type Database = {
         Returns: number
       }
       restore_tenant: { Args: { tenant_id_param: string }; Returns: undefined }
+      revoke_user_sessions: {
+        Args: { target_user_id: string }
+        Returns: undefined
+      }
       run_retention_purge_job: { Args: never; Returns: number }
       run_statement_reminders_job: { Args: never; Returns: number }
       set_system_config: {

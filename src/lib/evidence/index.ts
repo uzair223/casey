@@ -2,6 +2,22 @@ import type { StatementSupportingDocument, UploadedDocument } from "@/types";
 
 import { isAudioFile, isImageFile, isVideoFile } from "@/lib/files";
 
+export const ALLOWED_EVIDENCE_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/",
+  "audio/",
+  "video/",
+] as const;
+
+export function isAllowedEvidenceType(file: Pick<File, "type">) {
+  const type = file.type || "application/octet-stream";
+  return ALLOWED_EVIDENCE_TYPES.some((allowed) =>
+    allowed.endsWith("/") ? type.startsWith(allowed) : type === allowed,
+  );
+}
+
 export type EvidenceDocument = UploadedDocument & {
   group?: string;
 };

@@ -6,12 +6,11 @@ import { sendStatementLinkEmail } from "@/lib/email";
 import {
   badRequest,
   enforcePersistentRateLimit,
-  forbidden,
   notFound,
   ok,
   serverError,
-  unauthorized,
 } from "@/lib/api-utils";
+import { requireTenantManager } from "@/lib/api-utils/auth";
 
 /**
  * POST /api/cases/[id]/send-link
@@ -35,45 +34,13 @@ export async function POST(
       return rateLimitResponse;
     }
 
+    const auth = await requireTenantManager(request);
+
     const supabase = getServiceClient();
-    const authHeader = request.headers.get("authorization") || "";
-    const token = authHeader.toLowerCase().startsWith("bearer ")
-      ? authHeader.slice(7)
-      : "";
-
-    // Authenticate user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return unauthorized();
-    }
-
-    // Get user profile with tenant_id
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("tenant_id, role")
-      .eq("user_id", user.id)
-      .single();
-
-    if (profileError || !profile?.tenant_id) {
-      return notFound("User profile not found");
-    }
-
-    const canSendLinks =
-      profile.role === "tenant_admin" || profile.role === "solicitor";
-    if (!canSendLinks) {
-      return forbidden(
-        "Only firm admins and solicitors can send witness links",
-      );
-    }
-
     const { data: tenant, error: tenantError } = await supabase
       .from("tenants")
       .select("name")
-      .eq("id", profile.tenant_id)
+      .eq("id", auth.tenantId)
       .single();
 
     if (tenantError || !tenant?.name) {
@@ -82,14 +49,13 @@ export async function POST(
 
     const statement = await SERVERONLY_getStatementForSendLink(
       statementId,
-      profile.tenant_id,
+      auth.tenantId,
     );
 
     if (!statement) {
       return notFound("Statement not found");
     }
 
-    // Check if witness email exists
     if (!statement.witness_email) {
       return badRequest("Witness email not set on this case");
     }
@@ -103,7 +69,6 @@ export async function POST(
       return badRequest("Message must be 2000 characters or less");
     }
 
-    // Build statement link URL
     const baseUrl = env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
     const statementUrl = `${baseUrl}/intake/${statement.token}`;
 
@@ -121,6 +86,9 @@ export async function POST(
       message: "Statement link email sent successfully",
     });
   } catch (error) {
+    if (error instanceof Response) {
+      return error;
+    }
     console.error("Send statement link error:", error);
     return serverError(error);
   }

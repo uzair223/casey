@@ -1,6 +1,5 @@
 import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
 import { SERVERONLY_saveConversationMessage } from "@/lib/supabase/mutations";
-import { getServiceClient } from "@/lib/supabase/server";
 import { IntakeChatMessage } from "@/types";
 import { NextResponse } from "next/server";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
@@ -27,29 +26,20 @@ export async function POST(
 
     const message = (await request.json()) as IntakeChatMessage;
 
-    if (message.role === "assistant") {
-      const supabase = getServiceClient();
-      const { data: existing, error: existingError } = await supabase
-        .from("conversation_messages")
-        .select("id")
-        .eq("statement_id", statement.id)
-        .eq("role", "assistant")
-        .eq("content", message.content)
-        .limit(1)
-        .maybeSingle();
+    if (message.role !== "user") {
+      return NextResponse.json(
+        "Only user messages can be saved from the client.",
+        { status: 400 },
+      );
+    }
 
-      if (existingError) {
-        throw existingError;
-      }
-
-      if (existing) {
-        return NextResponse.json("ok");
-      }
+    if (typeof message.content !== "string" || !message.content.trim()) {
+      return NextResponse.json("Message content is required.", { status: 400 });
     }
 
     await SERVERONLY_saveConversationMessage(
       statement.id,
-      message.role,
+      "user",
       message.content,
       message.meta,
     );
