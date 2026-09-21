@@ -10,30 +10,16 @@ import { getServiceClient } from "@/lib/supabase/server";
 import type { UploadedDocument } from "@/types";
 import {
   getEvidenceDocuments,
+  isAllowedEvidenceType,
   normalizeEvidenceGroup,
   sanitizeEvidenceGroupForPath,
 } from "@/lib/evidence";
 
 const MAX_EVIDENCE_FILES = 10;
 const MAX_EVIDENCE_FILE_SIZE_BYTES = 25 * 1024 * 1024;
-const ALLOWED_EVIDENCE_TYPES = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "image/",
-  "audio/",
-  "video/",
-] as const;
 
 function sanitizeFilename(name: string) {
   return name.replace(/[^\w.\- ]+/g, "_").trim() || "file";
-}
-
-function isAllowedEvidenceType(file: File) {
-  const type = file.type || "application/octet-stream";
-  return ALLOWED_EVIDENCE_TYPES.some((allowed) =>
-    allowed.endsWith("/") ? type.startsWith(allowed) : type === allowed,
-  );
 }
 
 function getEvidencePathPrefix(statement: {

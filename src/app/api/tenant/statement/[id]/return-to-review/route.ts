@@ -3,11 +3,10 @@ import { NextRequest } from "next/server";
 
 import {
   badRequest,
-  forbidden,
   ok,
   serverError,
 } from "@/lib/api-utils/response";
-import { requireTenantUser } from "@/lib/api-utils/auth";
+import { requireTenantManager } from "@/lib/api-utils/auth";
 import { sendStatementLinkEmail } from "@/lib/email";
 import { SERVERONLY_getStatementForSendLink } from "@/lib/supabase/queries";
 import { SERVERONLY_returnStatementToReview } from "@/lib/supabase/mutations";
@@ -20,11 +19,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const auth = await requireTenantUser(request);
+    const auth = await requireTenantManager(request);
     const { id: statementId } = await params;
-    if (auth.role !== "tenant_admin" && auth.role !== "solicitor") {
-      return forbidden("Only firm admins and solicitors can return statements.");
-    }
     const body = (await request.json().catch(() => ({}))) as {
       status?: unknown;
       notifyWitness?: unknown;

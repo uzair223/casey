@@ -49,7 +49,7 @@ export default function FollowUpPage({
     async () =>
       apiFetch<FollowUpData>(`/api/intake/${token}/follow-up`, {
         method: "GET",
-        requireAuth: false,
+        requireAuth: "optional",
       }),
     [token],
     {
@@ -75,7 +75,7 @@ export default function FollowUpPage({
 
       await apiFetch(`/api/intake/${token}/follow-up`, {
         method: "POST",
-        requireAuth: false,
+        requireAuth: "optional",
         body: formData,
       });
 

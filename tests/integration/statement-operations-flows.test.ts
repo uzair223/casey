@@ -30,6 +30,7 @@ vi.mock("@/lib/ai-workers/jobs", () => ({
 
 vi.mock("@/lib/api-utils/auth", () => ({
   requireTenantUser,
+  requireTenantManager: requireTenantUser,
 }));
 
 vi.mock("@/lib/supabase/server", () => ({

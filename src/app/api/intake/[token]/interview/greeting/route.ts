@@ -6,10 +6,12 @@ import { z } from "zod";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { logServerEvent } from "@/lib/observability/logger";
 import { SERVERONLY_getFullStatementFromToken } from "@/lib/supabase/queries";
+import { SERVERONLY_saveConversationMessage } from "@/lib/supabase/mutations";
 import {
   generateGreeting,
   getMissingWitnessFieldLabels,
 } from "@/lib/llm/prompts";
+import type { IntakeChatMessage } from "@/types";
 import { selectModel } from "@/lib/llm/model-config";
 import {
   getCloudflareAiClientOptions,
@@ -45,6 +47,17 @@ export async function POST(
       return accessError;
     }
 
+    const persistGreeting = async (messages: IntakeChatMessage[]) => {
+      for (const message of messages) {
+        await SERVERONLY_saveConversationMessage(
+          data.statement.id,
+          message.role,
+          message.content,
+          (message.meta ?? null) as Record<string, unknown> | null,
+        );
+      }
+    };
+
     const fallback = generateGreeting(data.case, data.statement);
     const missing = getMissingWitnessFieldLabels(data.statement);
 
@@ -52,6 +65,7 @@ export async function POST(
       (missing.required.length === 0 && missing.optional.length === 0) ||
       !isCloudflareAiConfigured()
     ) {
+      await persistGreeting(fallback);
       return NextResponse.json(fallback);
     }
 
@@ -87,6 +101,7 @@ export async function POST(
       );
 
       if (!parsed.success) {
+        await persistGreeting(fallback);
         return NextResponse.json(fallback);
       }
 
@@ -98,6 +113,7 @@ export async function POST(
         };
       }
 
+      await persistGreeting(result);
       return NextResponse.json(result);
     } catch (modelError) {
       await logServerEvent("warn", "api.intake.greeting.llm_fallback", {
@@ -105,6 +121,7 @@ export async function POST(
         tokenSuffix: token.slice(-6),
         error: modelError,
       });
+      await persistGreeting(fallback);
       return NextResponse.json(fallback);
     }
   } catch (error) {

@@ -104,8 +104,6 @@ export function IntakeProvider({
   token: string;
   children: ReactNode;
 }) {
-  const requiresDemoAuth = token.startsWith("demo-");
-
   const [tab, setTab] = useState<IntakeTabs>("chat");
   const [statementSections, setStatementSections] = useState<
     Record<string, string>
@@ -148,7 +146,7 @@ export function IntakeProvider({
     async () => {
       const data = await apiFetch<StatementDataResponse<true>>(
         `/api/intake/${token}/shared`,
-        { method: "GET", requireAuth: requiresDemoAuth },
+        { method: "GET", requireAuth: "optional" },
       );
 
       const {
@@ -177,7 +175,7 @@ export function IntakeProvider({
 
       return { statement, case: caseData, ...rest };
     },
-    [token, requiresDemoAuth],
+    [token],
     { initialLoading: true },
   );
 
@@ -195,7 +193,7 @@ export function IntakeProvider({
         `/api/intake/${token}/shared/template-document`,
         {
           method: "GET",
-          requireAuth: requiresDemoAuth,
+          requireAuth: "optional",
           returnType: "response",
         },
       );
@@ -209,21 +207,21 @@ export function IntakeProvider({
       console.warn("Template document unavailable for intake preview", error);
       return null;
     }
-  }, [data?.statement.template_document_snapshot, token, requiresDemoAuth]);
+  }, [data?.statement.template_document_snapshot, token]);
 
   const acknowledgePrivacyNotice = useAsync(
     async () => {
       try {
         await apiFetch(`/api/intake/${token}/shared/consent`, {
           method: "POST",
-          requireAuth: requiresDemoAuth,
+          requireAuth: "optional",
         });
         return true;
       } catch {
         throw new Error("Failed to acknowledge privacy notice");
       }
     },
-    [token, requiresDemoAuth],
+    [token],
     {
       initialState: false,
       onlyFirstLoad: false,
@@ -485,7 +483,7 @@ export function IntakeProvider({
       {
         method: "POST",
         body: formData,
-        requireAuth: requiresDemoAuth,
+        requireAuth: "optional",
       },
     );
 
@@ -583,7 +581,7 @@ export function IntakeProvider({
     await apiFetch(`/api/intake/${token}/shared/evidence`, {
       method: "DELETE",
       body: JSON.stringify({ path }),
-      requireAuth: requiresDemoAuth,
+      requireAuth: "optional",
     });
 
     removeEvidenceDocument(path);
@@ -677,7 +675,7 @@ export function IntakeProvider({
       const response = await apiFetch(`/api/intake/${token}/interview/chat`, {
         method: "POST",
         body: requestBody,
-        requireAuth: requiresDemoAuth,
+        requireAuth: "optional",
         returnType: "response",
       });
 
@@ -799,7 +797,6 @@ export function IntakeProvider({
       token,
       messages,
       hasAcknowledgedPrivacyNotice,
-      requiresDemoAuth,
       reversed,
       statementConfig,
     ],
@@ -879,7 +876,7 @@ export function IntakeProvider({
       if (patchDetails && Object.keys(patchDetails).length > 0) {
         // yield "Updating witness details...";
         await apiFetch(`/api/intake/${token}/interview/submit`, {
-          requireAuth: requiresDemoAuth,
+          requireAuth: "optional",
           method: "PUT",
           body: JSON.stringify({
             witnessDetails: patchDetails,
@@ -909,7 +906,7 @@ export function IntakeProvider({
 
       await apiFetch(`/api/intake/${token}/interview/formalize`, {
         method: "POST",
-        requireAuth: requiresDemoAuth,
+        requireAuth: "optional",
       });
 
       type FormalizePollResponse = {
@@ -930,7 +927,7 @@ export function IntakeProvider({
           `/api/intake/${token}/interview/formalize`,
           {
             method: "GET",
-            requireAuth: requiresDemoAuth,
+            requireAuth: "optional",
           },
         );
 
@@ -959,7 +956,7 @@ export function IntakeProvider({
 
       return true;
     },
-    [token, messages, requiresDemoAuth],
+    [token, messages],
     {
       onlyFirstLoad: false,
       initialLoading: false,
@@ -1010,11 +1007,11 @@ export function IntakeProvider({
       await apiFetch(`/api/intake/${token}/interview/submit`, {
         method: "POST",
         body: JSON.stringify({ sections: statementSections }),
-        requireAuth: requiresDemoAuth,
+        requireAuth: "optional",
       });
       return true;
     },
-    [token, statementSections, persistedEvidenceDocuments, requiresDemoAuth],
+    [token, statementSections, persistedEvidenceDocuments],
     {
       initialLoading: false,
       onlyFirstLoad: false,
@@ -1116,7 +1113,7 @@ export function IntakeProvider({
         `/api/intake/${token}/interview/greeting`,
         {
           method: "POST",
-          requireAuth: requiresDemoAuth,
+          requireAuth: "optional",
         },
       ).catch((error) => {
         console.error("Error generating greeting:", error);
@@ -1137,18 +1134,6 @@ export function IntakeProvider({
           }
 
           setMessages((prev) => [...prev, message]);
-          await apiFetch(`/api/intake/${token}/interview/chat/save`, {
-            method: "POST",
-            body: JSON.stringify({
-              role: message.role,
-              content: message.content,
-              meta: message.meta,
-              order: index,
-            }),
-            requireAuth: requiresDemoAuth,
-          }).catch((error) => {
-            console.error("Error saving greeting message:", error);
-          });
 
           if (index === greetingMessages.length - 1) {
             setSendMessageLoading(false);
@@ -1166,7 +1151,6 @@ export function IntakeProvider({
     };
   }, [
     token,
-    requiresDemoAuth,
     isDemo,
     data,
     hasAcknowledgedPrivacyNotice,

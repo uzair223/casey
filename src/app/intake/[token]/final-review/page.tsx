@@ -64,7 +64,7 @@ export default function FinalReviewPage({
     async () =>
       apiFetch<FinalReviewData>(`/api/intake/${token}/final-review`, {
         method: "GET",
-        requireAuth: false,
+        requireAuth: "optional",
       }),
     [token],
     {
@@ -83,7 +83,7 @@ export default function FinalReviewPage({
         `/api/intake/${token}/final-review/embedded`,
         {
           method: "POST",
-          requireAuth: false,
+          requireAuth: "optional",
           body: JSON.stringify({
             signatureName: finalReviewData.witnessName,
             intentAttested: true,
@@ -110,7 +110,7 @@ export default function FinalReviewPage({
 
       await apiFetch(`/api/intake/${token}/final-review`, {
         method: "POST",
-        requireAuth: false,
+        requireAuth: "optional",
         body: JSON.stringify({
           signatureImageDataUrl,
           signatureName: finalReviewData.witnessName,

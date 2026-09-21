@@ -1,6 +1,7 @@
 import { getServiceClient } from "../server";
 import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
 import type { Json, TemplateScope } from "@/types";
+import { generateSecureToken } from "@/lib/security";
 
 const TEMPLATE_FIELDS =
   "id, tenant_id, name, status, template_scope, published_config, published_docx_template_document";
@@ -254,8 +255,10 @@ export async function SERVERONLY_createDemoStudioStatement(
     throw statementError ?? new Error("Failed to create demo statement");
   }
 
-  const token = `demo-${statement.id}`;
-  const expiresAt = "9999-12-31T23:59:59.999Z";
+  const token = generateSecureToken();
+  const expiresAtDate = new Date();
+  expiresAtDate.setDate(expiresAtDate.getDate() + 30);
+  const expiresAt = expiresAtDate.toISOString();
 
   const { error: linkError } = await supabase.from("magic_links").insert({
     token,

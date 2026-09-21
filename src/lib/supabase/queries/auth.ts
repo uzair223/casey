@@ -15,6 +15,7 @@ export async function getCurrentUserProfile(
     .from("profiles")
     .select("tenant_id, role, display_name, tenants(name)")
     .eq("user_id", user_id)
+    .is("soft_deleted_at", null)
     .maybeSingle();
 
   if (error) {
@@ -53,6 +54,7 @@ export async function SERVERONLY_getUserProfile(
     .from("profiles")
     .select("tenant_id, role, display_name, tenants(name)")
     .eq("user_id", user_id)
+    .is("soft_deleted_at", null)
     .maybeSingle();
 
   if (error) {

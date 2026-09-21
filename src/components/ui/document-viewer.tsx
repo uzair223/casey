@@ -68,30 +68,29 @@ function useDocumentViewerContext() {
 
 function inferPreviewKind(document: UploadedDocument) {
   const lowerName = document.name.toLowerCase();
+  const type = document.type.toLowerCase();
 
-  if (
-    document.type.startsWith("image/") ||
-    /\.(png|jpe?g|gif|webp|avif|svg)$/.test(lowerName)
-  ) {
+  if (type.includes("svg") || lowerName.endsWith(".svg")) {
+    return "unsupported";
+  }
+
+  if (type.startsWith("image/") || /\.(png|jpe?g|gif|webp|avif)$/.test(lowerName)) {
     return "image";
   }
 
-  if (document.type === "application/pdf" || lowerName.endsWith(".pdf")) {
+  if (type === "application/pdf" || lowerName.endsWith(".pdf")) {
     return "pdf";
   }
 
   if (
-    document.type ===
+    type ===
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     lowerName.endsWith(".docx")
   ) {
     return "docx";
   }
 
-  if (
-    document.type.startsWith("text/") ||
-    /\.(txt|md|csv|json|xml|log)$/.test(lowerName)
-  ) {
+  if (type === "text/plain" || (lowerName.endsWith(".txt") && !type.startsWith("text/"))) {
     return "text";
   }
 

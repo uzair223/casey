@@ -208,6 +208,13 @@ export async function DELETE(request: Request) {
       throw deleteError;
     }
 
+    const { error: sessionError } = await supabase.rpc("revoke_user_sessions", {
+      target_user_id: userId,
+    });
+    if (sessionError) {
+      throw sessionError;
+    }
+
     await logAuditEvent({
       tenantId: auth.tenant_id,
       actorUserId: auth.user_id,
