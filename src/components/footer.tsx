@@ -16,8 +16,7 @@ export default function Footer() {
             </p>
           </Link>
           <p className="text-sm leading-6 text-muted-foreground">
-            Witness interviews into review-ready statements. Built for UK
-            claimant firms.
+            Witness statements without the chasing. Built for UK claimant firms.
           </p>
         </div>
 

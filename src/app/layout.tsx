@@ -21,7 +21,7 @@ const sans = Inter({
 
 export const metadata: Metadata = {
   title: env.NEXT_PUBLIC_APP_NAME,
-  description: `${env.NEXT_PUBLIC_APP_NAME} turns witness interviews into review-ready statements. Purpose-built for UK claimant firms.`,
+  description: `Casey interviews witnesses, gathers evidence and finds what's missing, so your solicitors start with a review-ready first draft.`,
   icons: { icon: "/favicon.svg" },
 };
 

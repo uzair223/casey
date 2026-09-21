@@ -3,7 +3,7 @@ import {
   ArrowRight,
   Check,
   FileText,
-  Link2,
+  ListChecks,
   MessageSquareText,
 } from "lucide-react";
 
@@ -30,60 +30,32 @@ const practiceTypes = [
 
 const steps = [
   {
-    title: "Intake",
-    body: "Send a secure, time-limited link from the matter. The witness sees the privacy notice and can start in minutes.",
-    icon: Link2,
-  },
-  {
-    title: "Capture",
-    body: "Casey asks the next useful question, requests evidence in context, and keeps the account moving until it is usable.",
+    title: "Fill the gaps before you have to chase",
+    body: "Casey interviews the witness, asks the follow-up questions, and collects supporting evidence while the account is still coming in.",
     icon: MessageSquareText,
   },
   {
-    title: "Draft",
-    body: "Turn the transcript into structured statement sections, with chronology, exhibits, and source context still attached.",
+    title: "Turn the evidence into a first draft",
+    body: "Interviews, transcripts and exhibits are condensed into a statement. Your solicitors tweak it instead of writing from scratch.",
     icon: FileText,
   },
   {
-    title: "Close",
-    body: "Follow up on gaps, send final review, and keep outstanding witness work visible without a spreadsheet.",
+    title: "Find what's missing before review",
+    body: "Missing dates, unsupported detail and conflicting accounts show up on the gap list before a solicitor sits down.",
+    icon: ListChecks,
+  },
+  {
+    title: "Give solicitors more time for their best thinking",
+    body: "Review starts with a first draft, the evidence trail, and the gaps in view. Judgement stays with you.",
     icon: Check,
-  },
-] as const;
-
-const features = [
-  {
-    label: "Speed",
-    title: "From first account to a draft worth reviewing",
-    body: "Casey handles the interview, the write-up, and the gap list so solicitors start with something they can mark up.",
-  },
-  {
-    label: "Preparation",
-    title: "Walk into review already knowing the holes",
-    body: "Chronology, agreed facts, disputes, and missing evidence are surfaced before a fee-earner spends time reconstructing them.",
-  },
-  {
-    label: "Quality",
-    title: "Catch thin accounts before they become write-offs",
-    body: "Missing dates, unsupported detail, and absent witnesses show up at intake, not at 4pm before a deadline.",
-  },
-  {
-    label: "Templates",
-    title: "Your firm's style, every time",
-    body: "Publish statement templates once. Every matter starts from the same standard, instead of another blank page.",
-  },
-  {
-    label: "Scale",
-    title: "Grow the team, not the chasing",
-    body: "Shared templates, role-based access, and one place for outstanding witness work keep quality consistent as the caseload grows.",
   },
 ] as const;
 
 const deeperLinks = [
   {
     label: "Platform",
-    title: "Witness intake to final review",
-    body: "See how Casey connects interviews, drafts, evidence, and case intelligence in one workflow.",
+    title: "Casey removes the chasing from witness statements",
+    body: "See how interviews, evidence, first drafts and gaps stay in one place, from the intake link to review.",
     href: "/platform",
   },
   {
@@ -94,8 +66,8 @@ const deeperLinks = [
   },
   {
     label: "Early access",
-    title: "Map it to your workflow",
-    body: "Bring a real template and a live intake pain. We will show where the chasing drops out.",
+    title: "Bring a live chasing pain",
+    body: "Show us a matter that still needs chasing. We will show where Casey takes that work off your solicitors.",
     href: "/#early-access",
   },
 ] as const;
@@ -127,18 +99,18 @@ const testimonials = [
   {
     quote:
       "The valuable part is not just the draft. It is seeing what is still missing before a solicitor spends time reviewing it.",
-    attribution: "Early workflow review",
+    attribution: "Early product review",
     firm: "Claimant PI team",
   },
   {
     quote:
-      "This matches the way our team already thinks about statements: get the account, chase the gaps, then prepare something worth reviewing.",
+      "Get the account, fill the gaps, then review a statement. That is how the work should feel.",
     attribution: "Practice operations",
     firm: "Product discovery",
   },
   {
     quote:
-      "If the first draft arrived with chronology and exhibits already attached, review would start in a completely different place.",
+      "If the first draft arrived with chronology and exhibits attached, review would start in a completely different place.",
     attribution: "Fee earner session",
     firm: "Personal injury",
   },
@@ -168,8 +140,8 @@ export default function Home() {
         </Reveal>
         <Reveal eager delay={160}>
           <p className="mt-6 max-w-2xl text-lg leading-tight text-primary/80 sm:text-xl">
-            {env.NEXT_PUBLIC_APP_NAME} turns witness interviews into
-            review-ready statements. Purpose-built for UK claimant firms.
+            Casey interviews witnesses, gathers evidence and finds what&apos;s
+            missing, so your solicitors start with a review-ready first draft.
           </p>
         </Reveal>
         <Reveal eager delay={240}>
@@ -198,9 +170,9 @@ export default function Home() {
       <MarketingSection>
         <Reveal>
           <MarketingHeading
-            eyebrow="The Platform"
-            title="Everything you need, in one place."
-            description="Send a link, capture the account, and Casey drafts the statement. Chronology, gaps, and evidence stay attached."
+            eyebrow="The promise"
+            title="Casey removes the chasing from witness statements."
+            description="Casey asks the follow-up questions, collects supporting evidence, spots missing information before review, and turns everything into a review-ready first draft."
           />
         </Reveal>
         <Reveal delay={120} className="mt-14">
@@ -215,26 +187,26 @@ export default function Home() {
             <MarketingHeading
               align="left"
               eyebrow={`About ${env.NEXT_PUBLIC_APP_NAME}`}
-              title={`${env.NEXT_PUBLIC_APP_NAME} turns witness interviews into statements your solicitors can actually review.`}
-              description="Our goal is simple: give claimant teams back the hours lost to chasing, reconstructing, and rewriting. Casey handles the intake, the first draft, and the gap list, so every interview ends with something worth reading."
+              title="Fill the gaps before you have to chase."
+              description="Casey interviews witnesses, gathers evidence and finds what is missing, so your solicitors start with a review-ready first draft instead of a pile of transcripts."
             />
             <div className="mt-10 grid gap-6 sm:grid-cols-2">
               {[
                 {
                   title: "Interview",
-                  body: "A guided account, not a blank form. Casey asks the next useful question until the story holds.",
+                  body: "Casey asks the follow-up questions until the account holds. You do not have to chase the next answer.",
                 },
                 {
                   title: "Evidence",
-                  body: "Photos, records, and exhibits attach to the fact they support, instead of sitting in a side email.",
+                  body: "Photos, records and exhibits come in with the account, attached to the facts they support.",
                 },
                 {
                   title: "Draft",
-                  body: "Structured statement sections, with chronology and source context still sitting next to the wording.",
+                  body: "That material is condensed into a first-person statement your solicitors can tweak.",
                 },
                 {
                   title: "Gaps",
-                  body: "Missing dates, names, and documents surface before a solicitor spends time reconstructing them.",
+                  body: "Missing dates, names and documents show up before review, not after a solicitor has started reconstructing them.",
                 },
               ].map((item) => (
                 <div key={item.title}>
@@ -256,10 +228,10 @@ export default function Home() {
         <Reveal>
           <MarketingHeading
             eyebrow="How Casey works"
-            title="From intake link to a review-ready statement"
+            title="Casey removes the chasing. Solicitors keep the judgement."
           />
         </Reveal>
-        <div className="mt-14 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-14 grid gap-4 md:grid-cols-2">
           {steps.map((step, index) => (
             <Reveal key={step.title} delay={index * 80}>
               <div className="h-full rounded-2xl border border-primary/10 bg-transparent p-8">
@@ -285,9 +257,9 @@ export default function Home() {
           <Reveal>
             <MarketingHeading
               align="left"
-              eyebrow="More than an interview"
-              title="Bring every source into one statement."
-              description="Recordings and answers are not the whole file. Drop in photos, records, and exhibits and Casey folds them into the same draft, chronology, and gap list."
+              eyebrow="The first draft"
+              title="Turn the evidence into a first draft."
+              description="Interviews, transcripts, photos and records are condensed into a statement. Your solicitors mark it up instead of writing from scratch."
             />
           </Reveal>
           <Reveal delay={120} className="w-full">
@@ -299,34 +271,8 @@ export default function Home() {
       <MarketingSection>
         <Reveal>
           <MarketingHeading
-            align="left"
-            eyebrow="Built for claimant firms"
-            title="The draft is the easy part. The rest is the work."
-            className="max-w-3xl"
-          />
-        </Reveal>
-        <div className="mt-14 grid gap-4 md:grid-cols-2">
-          {features.map((item, index) => (
-            <Reveal key={item.title} delay={index * 70}>
-              <div className="h-full rounded-2xl border border-primary/10 bg-primary/[0.03] p-8">
-                <p className="text-sm text-brand">{item.label}</p>
-                <h3 className="mt-4 text-2xl leading-snug text-primary">
-                  {item.title}
-                </h3>
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                  {item.body}
-                </p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </MarketingSection>
-
-      <MarketingSection>
-        <Reveal>
-          <MarketingHeading
             eyebrow="Go Deeper"
-            title="Explore how Casey works for your firm."
+            title="See how the chasing drops out."
           />
         </Reveal>
         <div className="mt-14 grid gap-4 lg:grid-cols-3">
@@ -391,7 +337,7 @@ export default function Home() {
           <Reveal>
             <MarketingHeading
               eyebrow="Wall of love"
-              title="Shaped with real claimant-firm workflows."
+              title="Shaped with claimant firms who were tired of chasing."
             />
           </Reveal>
         </MarketingShell>
@@ -431,13 +377,16 @@ export default function Home() {
               Start early access
             </p>
             <h2 className="mx-auto mt-3 max-w-4xl font-display text-4xl leading-[1.1] sm:text-5xl lg:text-[48px]">
-              Your solicitors deserve their best thinking, not more chasing.
+              Give solicitors more time for their best thinking.
             </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#101010]/70">
+              Your solicitors deserve their best thinking, not more chasing.
+            </p>
             <CtaPair className="mt-10 justify-center" tone="light" />
             <div className="mx-auto mt-16 grid max-w-3xl grid-cols-1 gap-8 sm:grid-cols-3">
               {[
-                { value: "One", label: "workflow" },
-                { value: "UK", label: "claimant firms" },
+                { value: "Less", label: "chasing" },
+                { value: "More", label: "judgement" },
                 { value: "Now", label: "in early access" },
               ].map((item) => (
                 <div key={item.label}>

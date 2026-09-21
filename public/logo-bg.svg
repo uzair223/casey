@@ -1,0 +1,26 @@
+<svg width="2048" height="2048" viewBox="0 0 2048 2048" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Casey avatar</title>
+  <desc id="desc">Optically centred Casey icon on a subtle light lavender background, designed for circular social profile cropping.</desc>
+  <defs>
+    <linearGradient id="bg" x1="1024" y1="0" x2="1024" y2="2048" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F4F5FB"/>
+      <stop offset="1" stop-color="#E2E4F9"/>
+    </linearGradient>
+    <linearGradient id="caseyGradient" x1="88" y1="398" x2="420" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7357FF"/>
+      <stop offset="0.55" stop-color="#4E4BFF"/>
+      <stop offset="1" stop-color="#2D35E8"/>
+    </linearGradient>
+  </defs>
+  <rect width="2048" height="2048" fill="url(#bg)"/>
+
+  <!-- Shifted slightly right/up to compensate for the speech tail and open C -->
+  <g transform="translate(358 268) scale(3)">
+    <path d="M379 162C342 112 286 91 221 96C132 103 72 162 72 254C72 344 133 402 225 409C295 414 350 389 384 334"
+      stroke="url(#caseyGradient)" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M103 331L76 428L176 397L141 363L103 331Z" fill="url(#caseyGradient)"/>
+    <path d="M174 211H254" stroke="#07122E" stroke-width="25" stroke-linecap="round"/>
+    <path d="M174 258H309" stroke="#07122E" stroke-width="25" stroke-linecap="round"/>
+    <path d="M174 305H252" stroke="#07122E" stroke-width="25" stroke-linecap="round"/>
+  </g>
+</svg>

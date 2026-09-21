@@ -18,7 +18,8 @@ import { env } from "@/lib/env";
 
 export const metadata = {
   title: `Platform | ${env.NEXT_PUBLIC_APP_NAME}`,
-  description: `${env.NEXT_PUBLIC_APP_NAME} connects witness intake, drafting, evidence, and case intelligence so statement work lives in one place.`,
+  description:
+    "Casey interviews witnesses, gathers evidence and finds what's missing, so your solicitors start with a review-ready first draft.",
 };
 
 const pillars: {
@@ -30,43 +31,43 @@ const pillars: {
 }[] = [
   {
     label: "Intake",
-    title: "A secure link, not another inbox thread",
-    body: "Open a time-limited journey from the matter. Witnesses acknowledge the privacy notice, answer guided questions, and attach evidence as the account develops.",
+    title: "Fill the gaps before you have to chase",
+    body: "Send a private link from the matter. Casey interviews the witness, asks the follow-up questions, and collects supporting evidence while the account is still coming in.",
     span: "md:col-span-4 md:row-span-2",
     visual: "intake",
   },
   {
     label: "Capture",
-    title: "Questions that know what a lawyer needs next",
-    body: "The interview adapts to the account, asking for chronology, missing details, and supporting documents before anyone starts drafting.",
+    title: "The next useful question, not another chase",
+    body: "The interview asks for chronology, missing details, and supporting documents before anyone on your team has to follow up.",
     span: "md:col-span-2",
     visual: "capture",
   },
   {
-    label: "Drafting",
-    title: "A first draft with the source still attached",
-    body: "Turn the transcript into structured statement sections, then refine wording in the editor without losing the evidence trail.",
+    label: "Draft",
+    title: "Turn the evidence into a first draft",
+    body: "Interviews, transcripts and exhibits are condensed into a statement. Your solicitors tweak it instead of writing from scratch.",
     span: "md:col-span-2",
     visual: "drafting",
   },
   {
-    label: "Intelligence",
-    title: "See the file, not just the narrative",
-    body: "Chronology, agreed facts, disputes, missing information, and exhibit references sit beside the draft.",
+    label: "Gaps",
+    title: "Find what's missing before review",
+    body: "Chronology, conflicting accounts and missing evidence sit beside the draft, so solicitors see the gaps before they sit down.",
     span: "md:col-span-3",
     visual: "timeline",
   },
   {
-    label: "Templates",
-    title: "Firm standards, not a blank page",
-    body: "Manage defaults, publishing, DOCX placeholders, and shared templates so every matter starts from the same quality bar.",
+    label: "Review",
+    title: "Start from a statement you can mark up",
+    body: "Wording, source context and exhibits stay together. Review is markup, not reconstruction.",
     span: "md:col-span-3",
     visual: "templates",
   },
   {
     label: "Team",
-    title: "Notes, mentions, and a trail of what happened",
-    body: "Keep collaboration next to the statement it relates to, with notifications and activity history for the people who need them.",
+    title: "Give solicitors more time for their best thinking",
+    body: "Outstanding witness work, notes and a trail of what happened stay on the matter. Judgement stays with you. The chasing does not.",
     span: "md:col-span-6",
     visual: "team",
   },
@@ -75,15 +76,15 @@ const pillars: {
 const roles = [
   {
     title: "Paralegals",
-    body: "Launch intake, watch outstanding work, request follow-up, and hand over a cleaner draft.",
+    body: "Send the link, watch the account come in, and hand over a first draft instead of a chase list.",
   },
   {
     title: "Solicitors",
-    body: "Review with source context, inspect chronology and gaps, and mark up the legal wording.",
+    body: "Review a statement with the evidence and the gaps in view. Spend the time on judgement.",
   },
   {
     title: "Admins",
-    body: "Control templates, users, and governance from one operational surface.",
+    body: "Keep templates, users and access in one place so the chasing does not leak into inboxes.",
   },
 ] as const;
 
@@ -92,13 +93,13 @@ export default function PlatformPage() {
     <MarketingPage>
       <MarketingPageHero
         eyebrow="Platform"
-        title="A workspace for witness evidence, not another drafting tool."
-        description={`${env.NEXT_PUBLIC_APP_NAME} connects intake, drafting, evidence, case analysis, templates, and review so statement work lives in one place.`}
+        title="Witness statements without the chasing."
+        description="Casey interviews witnesses, gathers evidence and finds what's missing, so your solicitors start with a review-ready first draft."
       />
 
       <MarketingPageSection
-        eyebrow="Capabilities"
-        title="Built around the work legal teams already do."
+        eyebrow="What Casey does"
+        title="Casey removes the chasing from witness statements."
       >
         <div className="grid gap-5 md:grid-cols-6">
           {pillars.map((item, index) => {
@@ -124,14 +125,14 @@ export default function PlatformPage() {
       </MarketingPageSection>
 
       <MarketingPageSection
-        eyebrow="Operating model"
-        title="One workflow from link to final review."
-        description="Secure link, interview, evidence, first draft, analysis, follow-up, and witness review stay connected. Nothing important lives only in someone's inbox."
+        eyebrow="From link to review"
+        title="Ask. Gather. Find the gaps. Draft."
+        description="Casey asks the follow-up questions, collects supporting evidence, spots missing information before review, and turns everything into a review-ready first draft."
       />
 
       <MarketingPageSection
         eyebrow="Teams"
-        title="Clear surfaces for each role."
+        title="Give solicitors more time for their best thinking."
       >
         <div className="grid gap-5 md:grid-cols-3">
           {roles.map((item, index) => (
@@ -143,8 +144,8 @@ export default function PlatformPage() {
       </MarketingPageSection>
 
       <MarketingPageCta
-        title="Ready to map Casey to your intake process?"
-        description="Bring a real witness workflow, a template, or a current pain point. We will show how the platform handles it."
+        title="Your solicitors deserve their best thinking, not more chasing."
+        description="Bring a matter that still needs chasing. We will show where Casey takes that work off your team."
       >
         <Link
           href="/legal/security"
