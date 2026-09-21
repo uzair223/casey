@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# remotion renders
+/promo/out/
+
 # production
 /build
 
