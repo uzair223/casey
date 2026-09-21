@@ -352,7 +352,7 @@ function AuthPageContent() {
           </h1>
           <p className="mt-6 max-w-md text-lg leading-8 text-muted-foreground">
             Magic-link access for legal teams. Join a firm workspace, then pick
-            up intake, drafts, and review in one place.
+            up the statement instead of another chase.
           </p>
 
           <div className="mt-10 space-y-3">
@@ -391,7 +391,7 @@ function AuthPageContent() {
           <div className="mt-8 flex flex-wrap gap-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1 rounded-full border border-primary/10 px-3 py-1">
               <BadgeCheck className="h-3.5 w-3.5 text-brand" />
-              UK claimant workflow
+              UK claimant firms
             </span>
             <span className="inline-flex items-center gap-1 rounded-full border border-primary/10 px-3 py-1">
               <BadgeCheck className="h-3.5 w-3.5 text-brand" />
@@ -428,6 +428,7 @@ function AuthPageContent() {
                         <Input
                           id="auth-email"
                           type="email"
+                          autoComplete="username"
                           placeholder="name@firm.co.uk"
                           required={required}
                           {...registration}
@@ -455,36 +456,44 @@ function AuthPageContent() {
                       <span className="h-px flex-1 bg-border" />
                     </button>
 
-                    {isPasswordDropdownOpen ? (
-                      <div id="auth-password-dropdown" className="space-y-2">
-                        <RhfField
-                          form={authForm}
-                          name="password"
-                          controlId="auth-password"
-                          label="Password"
-                          registerOptions={{ required: true }}
-                          renderControl={(registration, required) => (
-                            <Input
-                              id="auth-password"
-                              type="password"
-                              autoComplete="current-password"
-                              placeholder="********"
-                              required={required}
-                              {...registration}
-                            />
-                          )}
-                        />
-                        <AsyncButton
-                          type="button"
-                          variant="ghost"
-                          className="h-auto px-0 py-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
-                          onClick={handleForgotPassword}
-                          pendingText="Sending reset email..."
-                        >
-                          Forgot password?
-                        </AsyncButton>
-                      </div>
-                    ) : null}
+                    <div
+                      id="auth-password-dropdown"
+                      className={
+                        isPasswordDropdownOpen ? "space-y-2" : "sr-only"
+                      }
+                      inert={!isPasswordDropdownOpen ? true : undefined}
+                    >
+                      <RhfField
+                        form={authForm}
+                        name="password"
+                        controlId="auth-password"
+                        label="Password"
+                        registerOptions={{
+                          required: isPasswordDropdownOpen,
+                        }}
+                        renderControl={(registration, required) => (
+                          <Input
+                            id="auth-password"
+                            type="password"
+                            autoComplete="current-password"
+                            placeholder="********"
+                            required={required}
+                            tabIndex={isPasswordDropdownOpen ? undefined : -1}
+                            {...registration}
+                          />
+                        )}
+                      />
+                      <AsyncButton
+                        type="button"
+                        variant="ghost"
+                        className="h-auto px-0 py-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
+                        onClick={handleForgotPassword}
+                        pendingText="Sending reset email..."
+                        tabIndex={isPasswordDropdownOpen ? undefined : -1}
+                      >
+                        Forgot password?
+                      </AsyncButton>
+                    </div>
                   </CardContent>
                   <CardFooter>
                     <AsyncButton

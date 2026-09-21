@@ -30,8 +30,8 @@ export function ParalegalOverviewTab() {
   const metrics = buildParalegalDashboardMetrics(cases.data, user!.id);
 
   return (
-    <main className="grid gap-4 md:grid-cols-[320px_1fr]">
-      <aside className="hidden md:block">
+    <div className="grid gap-4 md:grid-cols-[320px_1fr]">
+      <div className="hidden md:block">
         <Card className="h-full">
           <CardHeader>
             <CardTitle className="text-xs uppercase tracking-[0.2em] text-accent-foreground hover:underline">
@@ -45,7 +45,7 @@ export function ParalegalOverviewTab() {
             <NotificationFeed limit={5} />
           </CardContent>
         </Card>
-      </aside>
+      </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatCard
           label="Assigned Cases"
@@ -84,6 +84,6 @@ export function ParalegalOverviewTab() {
           icon={<PercentIcon className="h-4 w-4" />}
         />
       </div>
-    </main>
+    </div>
   );
 }

@@ -19,7 +19,7 @@
   --accent-foreground: #f4f5fb;
   --brand: #7357FF;
   --brand-text: color-mix(in oklab, #7357FF 40%, #f4f5fb);
-  --brand-foreground: #f4f5fb;
+  --brand-foreground: #ffffff;
   --destructive: oklch(41% 0.159 10.272);
   --destructive-foreground: oklch(89.2% 0.058 10.001);
   --warning: oklch(47.3% 0.137 46.201);

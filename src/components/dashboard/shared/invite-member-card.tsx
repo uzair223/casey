@@ -200,6 +200,7 @@ export function InviteMemberCard({
                   <Input
                     id="admin-invite-email"
                     type="email"
+                    autoComplete="off"
                     placeholder="admin@example.com"
                     required={required}
                     {...registration}
@@ -218,9 +219,17 @@ export function InviteMemberCard({
                   <>
                     <input
                       type="hidden"
-                      id="admin-invite-role"
-                      required={required}
-                      {...registration}
+                      aria-hidden
+                      name={registration.name}
+                      value={
+                        typeof registration.value === "string" ||
+                        typeof registration.value === "number"
+                          ? registration.value
+                          : ""
+                      }
+                      onBlur={registration.onBlur}
+                      onChange={registration.onChange}
+                      ref={registration.ref}
                     />
                     <Select
                       value={selectedRole}
@@ -232,8 +241,11 @@ export function InviteMemberCard({
                       }}
                     >
                       <SelectTrigger
+                        id="admin-invite-role"
                         className="w-full"
                         aria-required={required}
+                        aria-invalid={registration["aria-invalid"]}
+                        aria-describedby={registration["aria-describedby"]}
                       >
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>

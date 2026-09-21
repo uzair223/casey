@@ -37,8 +37,8 @@ export function TenantRoleOverviewTab() {
   const kpis = buildTenantAdminDashboardMetrics(stats);
 
   return (
-    <main className="grid gap-4 md:grid-cols-[320px_1fr]">
-      <aside className="hidden md:block">
+    <div className="grid gap-4 md:grid-cols-[320px_1fr]">
+      <div className="hidden md:block">
         <Card className="h-full">
           <CardHeader>
             <CardTitle className="text-xs uppercase tracking-[0.2em] text-accent-foreground hover:underline">
@@ -52,7 +52,7 @@ export function TenantRoleOverviewTab() {
             <NotificationFeed limit={5} />
           </CardContent>
         </Card>
-      </aside>
+      </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <OutstandingWorkCard className="col-span-full" />
 
@@ -101,6 +101,6 @@ export function TenantRoleOverviewTab() {
           />
         ) : null}
       </div>
-    </main>
+    </div>
   );
 }

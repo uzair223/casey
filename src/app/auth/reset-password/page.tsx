@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { toast } from "@/lib/toast";
 
@@ -30,6 +31,7 @@ function ResetPasswordPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [newPassword, setNewPassword] = useState("");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [recoveryState, setRecoveryState] = useState<RecoveryState>("loading");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,6 +103,7 @@ function ResetPasswordPageContent() {
         }
 
         if (!cancelled) {
+          setRecoveryEmail(user.email ?? "");
           setRecoveryState("ready");
         }
       } catch (error) {
@@ -118,7 +121,10 @@ function ResetPasswordPageContent() {
     };
   }, [recoveryParams]);
 
-  const handleResetPassword = async () => {
+  const handleResetPassword = async (
+    event?: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event?.preventDefault();
     const password = newPassword.trim();
     if (password.length < 8) {
       toast.error("Password must be at least 8 characters long.");
@@ -179,6 +185,7 @@ function ResetPasswordPageContent() {
 
   return (
     <Card className="mx-auto max-w-lg rounded-2xl border-primary/10 bg-primary/[0.03] shadow-none">
+      <form onSubmit={(event) => void handleResetPassword(event)}>
         <CardHeader>
           <p className="text-[14px] uppercase tracking-[0.15em] text-brand">
             Account
@@ -191,19 +198,36 @@ function ResetPasswordPageContent() {
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Input
-            type="password"
-            autoComplete="new-password"
-            placeholder="New password"
-            value={newPassword}
-            onChange={(event) => setNewPassword(event.target.value)}
+          <input
+            type="email"
+            name="username"
+            autoComplete="username"
+            value={recoveryEmail}
+            readOnly
+            tabIndex={-1}
+            aria-hidden
+            className="sr-only"
           />
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="reset-password">New password</Label>
+            <Input
+              id="reset-password"
+              type="password"
+              name="new-password"
+              autoComplete="new-password"
+              placeholder="New password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              required
+              minLength={8}
+            />
+          </div>
         </CardContent>
         <CardFooter className="gap-2">
           <AsyncButton
             className="rounded-full"
             variant="brand"
-            onClick={handleResetPassword}
+            type="submit"
             pendingText="Resetting..."
             disabled={isSubmitting}
           >
@@ -213,7 +237,8 @@ function ResetPasswordPageContent() {
             <Link href="/auth">Back to sign in</Link>
           </Button>
         </CardFooter>
-      </Card>
+      </form>
+    </Card>
   );
 }
 

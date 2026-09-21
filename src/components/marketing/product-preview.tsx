@@ -1,9 +1,9 @@
 "use client";
 
 import {
-  BrainCircuit,
   Check,
   FileText,
+  ListChecks,
   Paperclip,
   SendHorizonal,
 } from "lucide-react";
@@ -131,7 +131,7 @@ function WitnessRail({
   ];
 
   return (
-    <aside className="hidden h-full w-[220px] shrink-0 border-r border-primary/10 bg-[#101010] p-3 sm:block">
+    <div className="hidden h-full w-[220px] shrink-0 border-r border-primary/10 bg-[#101010] p-3 sm:block">
       <p className="px-2 pb-2 text-[11px] uppercase tracking-[0.16em] text-primary/40">
         Witnesses
       </p>
@@ -156,7 +156,7 @@ function WitnessRail({
           </div>
         ))}
       </div>
-    </aside>
+    </div>
   );
 }
 
@@ -250,7 +250,7 @@ function AnalysisMock() {
         <div className="flex items-center justify-between gap-3 border-b border-primary/10 px-4 py-3">
           <div>
             <p className="flex items-center gap-2 text-sm font-medium text-primary">
-              <BrainCircuit className="h-4 w-4" />
+              <ListChecks className="h-4 w-4" />
               Facts & gaps
             </p>
             <p className="mt-0.5 text-[11px] text-primary/45">

@@ -205,9 +205,17 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
               <>
                 <input
                   type="hidden"
-                  id="case_status"
-                  required={required}
-                  {...registration}
+                  aria-hidden
+                  name={registration.name}
+                  value={
+                    typeof registration.value === "string" ||
+                    typeof registration.value === "number"
+                      ? registration.value
+                      : ""
+                  }
+                  onBlur={registration.onBlur}
+                  onChange={registration.onChange}
+                  ref={registration.ref}
                 />
                 <Select
                   value={selectedStatus}
@@ -219,7 +227,12 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
                     );
                   }}
                 >
-                  <SelectTrigger aria-required={required}>
+                  <SelectTrigger
+                    id="case_status"
+                    aria-required={required}
+                    aria-invalid={registration["aria-invalid"]}
+                    aria-describedby={registration["aria-describedby"]}
+                  >
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -240,7 +253,20 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
             label="Case template"
             renderControl={(registration) => (
               <>
-                <input type="hidden" id="case_template_id" {...registration} />
+                <input
+                  type="hidden"
+                  aria-hidden
+                  name={registration.name}
+                  value={
+                    typeof registration.value === "string" ||
+                    typeof registration.value === "number"
+                      ? registration.value
+                      : ""
+                  }
+                  onBlur={registration.onBlur}
+                  onChange={registration.onChange}
+                  ref={registration.ref}
+                />
                 <Select
                   value={selectedCaseTemplateId ?? "none"}
                   onValueChange={(value) => {
@@ -251,7 +277,11 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
                     );
                   }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger
+                    id="case_template_id"
+                    aria-invalid={registration["aria-invalid"]}
+                    aria-describedby={registration["aria-describedby"]}
+                  >
                     <SelectValue placeholder="Select case template" />
                   </SelectTrigger>
                   <SelectContent>

@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 
 type RhfDomControlValue = string | number | readonly string[] | undefined;
 
-type RhfFieldControlProps<
+export type RhfFieldControlProps<
   TFieldValues extends FieldValues,
   TName extends FieldPath<TFieldValues>,
 > = Pick<
@@ -21,6 +21,8 @@ type RhfFieldControlProps<
   "name" | "onBlur" | "onChange" | "ref"
 > & {
   value: RhfDomControlValue;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
 };
 
 type RhfFieldProps<
@@ -88,27 +90,34 @@ export function RhfField<
       name={name}
       rules={registerOptions}
       render={({ field, fieldState }) => {
+        const id = controlId || field.name;
+        const errorId = `${id}-error`;
+        const message = fieldState.error?.message
+          ? String(fieldState.error.message)
+          : "";
         const registration: RhfFieldControlProps<TFieldValues, TName> = {
           name: field.name,
           onBlur: field.onBlur,
           onChange: field.onChange,
           ref: field.ref,
           value: toDomControlValue(field.value),
+          "aria-invalid": fieldState.invalid || undefined,
+          "aria-describedby": message ? errorId : undefined,
         };
-        const message = fieldState.error?.message
-          ? String(fieldState.error.message)
-          : "";
 
         return (
           <div className="flex flex-col gap-1">
             {renderControl(registration, required)}
             {message ? (
-              <p className="text-xs text-destructive">{message}</p>
+              <p
+                id={errorId}
+                role="alert"
+                className="text-xs text-destructive"
+              >
+                {message}
+              </p>
             ) : null}
-            <Label
-              className="order-first"
-              htmlFor={controlId || registration.name}
-            >
+            <Label className="order-first" htmlFor={id}>
               {label}
             </Label>
           </div>

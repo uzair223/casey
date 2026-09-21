@@ -150,6 +150,7 @@ export const FileInputTrigger = React.forwardRef<
           multiple={multiple}
           accept={accept}
           className="sr-only"
+          tabIndex={-1}
           onChange={(e) => {
             addFiles(e.target.files ?? []);
             e.target.value = ""; // reset to allow re-uploading same file
@@ -203,6 +204,7 @@ export const FileInputList: React.FC<FileInputListProps> = React.memo(() => {
       className="group/btn w-full items-center justify-between"
       onClick={() => removeFile(idx)}
       size="sm"
+      aria-label={`Remove ${file.name}`}
     >
       <span className="truncate">{file.name}</span>
       <TrashIcon className="opacity-0 group-hover/btn:opacity-100 transition-opacity" />
@@ -242,6 +244,7 @@ export const FileInputThumbnails: React.FC = React.memo(() => {
           className="absolute top-0.5 right-0.5 h-4 w-4 active:scale-95"
           onClick={() => removeFile(idx)}
           size={null}
+          aria-label={`Remove ${file.name}`}
         >
           &times;
         </Button>

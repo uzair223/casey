@@ -463,7 +463,6 @@ export function DocumentViewer({
 
           <DialogContent
             className="max-w-4xl overflow-x-hidden"
-            aria-describedby="Document viewer"
             onInteractOutside={(event) => {
               const target = event.target as HTMLElement | null;
               if (

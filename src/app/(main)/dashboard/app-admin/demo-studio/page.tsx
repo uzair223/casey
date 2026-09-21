@@ -147,6 +147,8 @@ type RhfControlRegistration = {
   onChange: (...event: unknown[]) => void;
   ref: (instance: HTMLInputElement | null) => void;
   value: string | number | readonly string[] | undefined;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
 };
 
 const DEFAULT_BOOTSTRAP_VALUES: BootstrapFormValues = {
@@ -1022,6 +1024,7 @@ export default function DemoStudioPage() {
                     <Input
                       id="demo-witness-name"
                       placeholder="Jane Doe"
+                      autoComplete="off"
                       {...registration}
                     />
                   )}
@@ -1035,7 +1038,9 @@ export default function DemoStudioPage() {
                   renderControl={(registration: RhfControlRegistration) => (
                     <Input
                       id="demo-witness-email"
+                      type="email"
                       placeholder="witness@example.com"
+                      autoComplete="off"
                       {...registration}
                     />
                   )}

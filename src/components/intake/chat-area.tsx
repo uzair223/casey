@@ -381,6 +381,7 @@ export function ChatAreaFooter() {
                     ? "Conversation ended"
                     : "Type your response, attach files, or both..."
                 }
+                aria-label="Interview response"
                 disabled={isInputDisabled}
                 className="min-h-0 flex-1 resize-none overflow-hidden"
                 rows={1}
@@ -388,6 +389,7 @@ export function ChatAreaFooter() {
               />
               <FileInputTrigger
                 title="Attach files"
+                aria-label="Attach files"
                 size="icon"
                 indicator={false}
                 variant="outline"

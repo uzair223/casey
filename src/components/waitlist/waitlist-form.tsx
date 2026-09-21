@@ -100,6 +100,7 @@ export function WaitlistSignupForm({
               id="waitlist-company"
               type="text"
               placeholder="Acme Legal"
+              autoComplete="organization"
               required={required}
               {...registration}
             />
@@ -126,6 +127,8 @@ export function WaitlistSignupForm({
 
         {feedback ? (
           <p
+            role="status"
+            aria-live="polite"
             className={`text-sm ${
               feedback.type === "success"
                 ? "text-muted-foreground"

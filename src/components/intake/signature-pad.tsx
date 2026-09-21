@@ -2,7 +2,7 @@
 
 import { createContext, useRef, useEffect, useState, useContext } from "react";
 import { Button } from "../ui/button";
-import { Slot } from "@radix-ui/react-slot";
+import { Label } from "../ui/label";
 
 const SignaturePadContext = createContext<{
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -24,6 +24,7 @@ const SignaturePadContext = createContext<{
       | React.TouchEvent<HTMLCanvasElement>,
   ) => void;
   clearSignature: () => void;
+  applyTypedName: (name: string) => void;
 } | null>(null);
 
 type SignaturePadProviderProps = React.PropsWithChildren<{
@@ -133,6 +134,27 @@ export function SignaturePadProvider({
     setHasSignature(false);
   };
 
+  const applyTypedName = (name: string) => {
+    const context = contextRef.current;
+    const canvas = canvasRef.current;
+    if (!context || !canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    context.fillStyle = "white";
+    context.fillRect(0, 0, rect.width, rect.height);
+
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setHasSignature(false);
+      return;
+    }
+
+    context.fillStyle = "#000000";
+    context.font = "32px Georgia, 'Times New Roman', serif";
+    context.fillText(trimmed, 16, rect.height / 2 + 10);
+    setHasSignature(true);
+  };
+
   return (
     <SignaturePadContext.Provider
       value={{
@@ -141,6 +163,7 @@ export function SignaturePadProvider({
         startDrawing,
         stopDrawing,
         clearSignature,
+        applyTypedName,
         hasSignature,
         disabled: !!disabled,
       }}
@@ -167,14 +190,18 @@ export function SignaturePad() {
     startDrawing,
     stopDrawing,
     clearSignature,
+    applyTypedName,
     disabled: isDisabled,
     hasSignature,
   } = useSignaturePad();
+  const [typedName, setTypedName] = useState("");
 
   return (
-    <div>
+    <div className="space-y-2">
       <canvas
         ref={canvasRef}
+        role="img"
+        aria-label="Signature drawing area"
         onMouseDown={startDrawing}
         onMouseMove={draw}
         onMouseUp={stopDrawing}
@@ -190,8 +217,32 @@ export function SignaturePad() {
           pointerEvents: isDisabled ? "none" : "auto",
         }}
       />
+      <p className="text-xs text-muted-foreground">
+        Draw your signature with a pointer, or type your name below if you
+        cannot draw.
+      </p>
+      <div className="space-y-1">
+        <Label htmlFor="typed-signature">Type your name</Label>
+        <input
+          id="typed-signature"
+          type="text"
+          autoComplete="off"
+          value={typedName}
+          disabled={isDisabled}
+          onChange={(event) => {
+            const next = event.target.value;
+            setTypedName(next);
+            applyTypedName(next);
+          }}
+          className="flex h-9 w-full max-w-[600px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        />
+      </div>
       <button
-        onClick={clearSignature}
+        type="button"
+        onClick={() => {
+          setTypedName("");
+          clearSignature();
+        }}
         disabled={!hasSignature || isDisabled}
         className="text-xs text-muted-foreground hover:text-foreground mt-1 underline disabled:opacity-50"
       >

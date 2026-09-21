@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { AsyncButton } from "@/components/ui/async-button";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -127,7 +128,7 @@ export function NotificationPreferencesCard({
       </CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-2">
         <div className="space-y-1">
-          <p className="text-sm font-medium">Reminders</p>
+          <Label htmlFor="notification-reminders">Reminders</Label>
           <Select
             value={prefs.remindersChannel}
             onValueChange={(value) =>
@@ -138,7 +139,7 @@ export function NotificationPreferencesCard({
             }
             disabled={isLoading}
           >
-            <SelectTrigger>
+            <SelectTrigger id="notification-reminders">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -152,7 +153,7 @@ export function NotificationPreferencesCard({
         </div>
 
         <div className="space-y-1">
-          <p className="text-sm font-medium">Follow-up requests</p>
+          <Label htmlFor="notification-follow-ups">Follow-up requests</Label>
           <Select
             value={prefs.followUpRequestsChannel}
             onValueChange={(value) =>
@@ -163,7 +164,7 @@ export function NotificationPreferencesCard({
             }
             disabled={isLoading}
           >
-            <SelectTrigger>
+            <SelectTrigger id="notification-follow-ups">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -177,7 +178,7 @@ export function NotificationPreferencesCard({
         </div>
 
         <div className="space-y-1">
-          <p className="text-sm font-medium">Submission updates</p>
+          <Label htmlFor="notification-submissions">Submission updates</Label>
           <Select
             value={prefs.submissionsChannel}
             onValueChange={(value) =>
@@ -188,7 +189,7 @@ export function NotificationPreferencesCard({
             }
             disabled={isLoading}
           >
-            <SelectTrigger>
+            <SelectTrigger id="notification-submissions">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -202,7 +203,7 @@ export function NotificationPreferencesCard({
         </div>
 
         <div className="space-y-1">
-          <p className="text-sm font-medium">Mentions</p>
+          <Label htmlFor="notification-mentions">Mentions</Label>
           <Select
             value={prefs.mentionChannel}
             onValueChange={(value) =>
@@ -213,7 +214,7 @@ export function NotificationPreferencesCard({
             }
             disabled={isLoading}
           >
-            <SelectTrigger>
+            <SelectTrigger id="notification-mentions">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -227,7 +228,7 @@ export function NotificationPreferencesCard({
         </div>
 
         <div className="space-y-1 md:col-span-2">
-          <p className="text-sm font-medium">Digest frequency</p>
+          <Label htmlFor="notification-digest">Digest frequency</Label>
           <Select
             value={prefs.digestFrequency}
             onValueChange={(value) =>
@@ -238,7 +239,7 @@ export function NotificationPreferencesCard({
             }
             disabled={isLoading}
           >
-            <SelectTrigger>
+            <SelectTrigger id="notification-digest">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

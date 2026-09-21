@@ -111,9 +111,17 @@ export function EditCaseForm(props: EditCaseFormProps) {
               <>
                 <input
                   type="hidden"
-                  id="case_status"
-                  required={required}
-                  {...registration}
+                  aria-hidden
+                  name={registration.name}
+                  value={
+                    typeof registration.value === "string" ||
+                    typeof registration.value === "number"
+                      ? registration.value
+                      : ""
+                  }
+                  onBlur={registration.onBlur}
+                  onChange={registration.onChange}
+                  ref={registration.ref}
                 />
                 <Select
                   value={selectedStatus}
@@ -125,7 +133,12 @@ export function EditCaseForm(props: EditCaseFormProps) {
                     );
                   }}
                 >
-                  <SelectTrigger aria-required={required}>
+                  <SelectTrigger
+                    id="case_status"
+                    aria-required={required}
+                    aria-invalid={registration["aria-invalid"]}
+                    aria-describedby={registration["aria-describedby"]}
+                  >
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>

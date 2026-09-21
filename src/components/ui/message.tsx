@@ -103,17 +103,24 @@ export function MessageCard({
         <Card size="sm" className="w-min rounded-md!">
           <CardHeader className="flex flex-row justify-center gap-1">
             <div
-              className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
-              style={{ animationDelay: "0ms" }}
-            ></div>
-            <div
-              className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
-              style={{ animationDelay: "150ms" }}
-            ></div>
-            <div
-              className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
-              style={{ animationDelay: "300ms" }}
-            ></div>
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-1"
+            >
+              <span className="sr-only">Casey is typing</span>
+              <div
+                className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
+                style={{ animationDelay: "0ms" }}
+              ></div>
+              <div
+                className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
+                style={{ animationDelay: "150ms" }}
+              ></div>
+              <div
+                className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
+                style={{ animationDelay: "300ms" }}
+              ></div>
+            </div>
           </CardHeader>
         </Card>
       ) : null}

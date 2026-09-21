@@ -11,6 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AsyncButton } from "@/components/ui/async-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { RhfField } from "@/components/ui/rhf-field";
 import {
   Select,
@@ -241,12 +242,12 @@ export function CreateStatementForm({
                 </p>
               ) : (
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">Template</p>
+                  <Label htmlFor="statement-template">Template</Label>
                   <Select
                     value={selectedTemplateId}
                     onValueChange={(value) => setSelectedTemplateId(value)}
                   >
-                    <SelectTrigger aria-required>
+                    <SelectTrigger id="statement-template" aria-required>
                       <SelectValue placeholder="Select template" />
                     </SelectTrigger>
                     <SelectContent>
@@ -293,6 +294,7 @@ export function CreateStatementForm({
                 renderControl={(registration, required) => (
                   <Input
                     id="witness_name"
+                    autoComplete="off"
                     required={required}
                     {...registration}
                   />
@@ -309,6 +311,7 @@ export function CreateStatementForm({
                   <Input
                     id="witness_email"
                     type="email"
+                    autoComplete="off"
                     required={required}
                     {...registration}
                   />

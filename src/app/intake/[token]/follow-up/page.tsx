@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   FileInput,
   FileInputTrigger,
@@ -168,9 +169,9 @@ export default function FollowUpPage({
           )}
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">
+            <Label htmlFor="follow-up-files">
               Upload supporting files (optional)
-            </label>
+            </Label>
             <FileInput
               multiple
               accept="application/pdf,image/*,video/*,.doc,.docx"
@@ -178,7 +179,7 @@ export default function FollowUpPage({
               value={uploadedFiles}
               onChange={(files) => setUploadedFiles(files)}
             >
-              <FileInputTrigger>
+              <FileInputTrigger id="follow-up-files">
                 {uploadedFiles.length > 0 ? "Change files" : "Upload files"}
               </FileInputTrigger>
               <div className="mt-2 space-y-1.5">
@@ -188,8 +189,9 @@ export default function FollowUpPage({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Your response</label>
+            <Label htmlFor="follow-up-response">Your response</Label>
             <Textarea
+              id="follow-up-response"
               value={response}
               onChange={(event) => setResponse(event.target.value)}
               rows={6}

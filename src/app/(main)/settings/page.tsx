@@ -16,6 +16,7 @@ import {
 import { AsyncButton } from "@/components/ui/async-button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -330,97 +331,139 @@ export default function TenantSettingsPage() {
         )}
 
         <Card className="col-span-2">
-          <CardHeader>
-            <CardTitle>Profile</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Display name</p>
-              <Input
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-                placeholder="Your display name"
-              />
-            </div>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+            }}
+          >
+            <CardHeader>
+              <CardTitle>Profile</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="settings-display-name">Display name</Label>
+                <Input
+                  id="settings-display-name"
+                  autoComplete="nickname"
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  placeholder="Your display name"
+                />
+              </div>
 
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Role</p>
-              <Input value={user?.role ?? ""} disabled />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <AsyncButton onClick={handleSaveProfile} pendingText="Saving...">
-              Save profile
-            </AsyncButton>
-          </CardFooter>
+              <div className="space-y-1">
+                <Label htmlFor="settings-role">Role</Label>
+                <Input id="settings-role" value={user?.role ?? ""} disabled />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <AsyncButton
+                type="submit"
+                onClick={async (event) => {
+                  event.preventDefault();
+                  await handleSaveProfile();
+                }}
+                pendingText="Saving..."
+              >
+                Save profile
+              </AsyncButton>
+            </CardFooter>
+          </form>
         </Card>
 
         <Card className="col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle>Authentication</CardTitle>
-              <Badge variant={hasPassword ? "accent" : "secondary"}>
-                {hasPassword ? "Password set" : "Password not set"}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            {hasPassword ? (
-              <div className="space-y-1 md:col-span-2">
-                <p className="text-sm font-medium">Current password</p>
-                <Input
-                  type="password"
-                  autoComplete="current-password"
-                  value={currentPassword}
-                  onChange={(event) => setCurrentPassword(event.target.value)}
-                  placeholder="Enter your current password"
-                />
-                <AsyncButton
-                  type="button"
-                  variant="ghost"
-                  className="h-auto px-0 py-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
-                  onClick={handleForgotPassword}
-                  pendingText="Sending reset email..."
-                >
-                  Forgot password?
-                </AsyncButton>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+            }}
+          >
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle>Authentication</CardTitle>
+                <Badge variant={hasPassword ? "accent" : "secondary"}>
+                  {hasPassword ? "Password set" : "Password not set"}
+                </Badge>
               </div>
-            ) : null}
-
-            <div className="space-y-1">
-              <p className="text-sm font-medium">New password</p>
-              <Input
-                type="password"
-                autoComplete="new-password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                placeholder="At least 8 characters"
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              <input
+                type="email"
+                name="username"
+                autoComplete="username"
+                value={user.email ?? ""}
+                readOnly
+                tabIndex={-1}
+                aria-hidden
+                className="sr-only"
               />
-            </div>
+              {hasPassword ? (
+                <div className="space-y-1 md:col-span-2">
+                  <Label htmlFor="settings-current-password">
+                    Current password
+                  </Label>
+                  <Input
+                    id="settings-current-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    placeholder="Enter your current password"
+                  />
+                  <AsyncButton
+                    type="button"
+                    variant="ghost"
+                    className="h-auto px-0 py-0 text-xs text-muted-foreground underline-offset-4 hover:underline"
+                    onClick={handleForgotPassword}
+                    pendingText="Sending reset email..."
+                  >
+                    Forgot password?
+                  </AsyncButton>
+                </div>
+              ) : null}
 
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Confirm new password</p>
-              <Input
-                type="password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                placeholder="Re-enter new password"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground md:col-span-2">
-              Magic links are the recommended sign-in method. Password login is
-              optional.
-            </p>
-          </CardContent>
-          <CardFooter>
-            <AsyncButton
-              onClick={handleSavePassword}
-              pendingText="Updating password..."
-            >
-              {hasPassword ? "Update password" : "Set password"}
-            </AsyncButton>
-          </CardFooter>
+              <div className="space-y-1">
+                <Label htmlFor="settings-new-password">New password</Label>
+                <Input
+                  id="settings-new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  placeholder="At least 8 characters"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="settings-confirm-password">
+                  Confirm new password
+                </Label>
+                <Input
+                  id="settings-confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  placeholder="Re-enter new password"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground md:col-span-2">
+                Magic links are the recommended sign-in method. Password login is
+                optional.
+              </p>
+            </CardContent>
+            <CardFooter>
+              <AsyncButton
+                type="submit"
+                onClick={async (event) => {
+                  event.preventDefault();
+                  await handleSavePassword();
+                }}
+                pendingText="Updating password..."
+              >
+                {hasPassword ? "Update password" : "Set password"}
+              </AsyncButton>
+            </CardFooter>
+          </form>
         </Card>
 
         {canManageNotifications && (
@@ -432,47 +475,67 @@ export default function TenantSettingsPage() {
 
         {canManageTenant && (
           <Card className="col-span-2">
-            <CardHeader>
-              <CardTitle>Organisation</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Organisation name</p>
-                <Input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Organisation name"
-                />
-              </div>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+              }}
+            >
+              <CardHeader>
+                <CardTitle>Organisation</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="settings-org-name">Organisation name</Label>
+                  <Input
+                    id="settings-org-name"
+                    autoComplete="organization"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Organisation name"
+                  />
+                </div>
 
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Data retention (days)</p>
-                <Input
-                  type="number"
-                  min={30}
-                  max={3650}
-                  value={dataRetentionDays}
-                  onChange={(event) => setDataRetentionDays(event.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Used only after the organisation is archived. Live matter
-                  files are not deleted on this timer.
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Seats</p>
-                <p className="text-sm text-muted-foreground">
-                  {seatLimit == null
-                    ? "Seat limit is managed by Casey."
-                    : `${seatLimit} licensed seats. Billing status: ${billingStatus ?? "trial"}.`}
-                </p>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <AsyncButton onClick={handleSaveTenant} pendingText="Saving...">
-                Save organisation settings
-              </AsyncButton>
-            </CardFooter>
+                <div className="space-y-1">
+                  <Label htmlFor="settings-retention">
+                    Data retention (days)
+                  </Label>
+                  <Input
+                    id="settings-retention"
+                    type="number"
+                    min={30}
+                    max={3650}
+                    value={dataRetentionDays}
+                    onChange={(event) =>
+                      setDataRetentionDays(event.target.value)
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used only after the organisation is archived. Live matter
+                    files are not deleted on this timer.
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Seats</p>
+                  <p className="text-sm text-muted-foreground">
+                    {seatLimit == null
+                      ? "Seat limit is managed by Casey."
+                      : `${seatLimit} licensed seats. Billing status: ${billingStatus ?? "trial"}.`}
+                  </p>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <AsyncButton
+                  type="submit"
+                  onClick={async (event) => {
+                    event.preventDefault();
+                    await handleSaveTenant();
+                  }}
+                  pendingText="Saving..."
+                >
+                  Save organisation settings
+                </AsyncButton>
+              </CardFooter>
+            </form>
           </Card>
         )}
 
