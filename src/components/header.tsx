@@ -22,6 +22,9 @@ import { getUnreadNotificationCount } from "@/lib/supabase/queries";
 import { useAsync } from "@/hooks/useAsync";
 import type { User } from "@/types";
 
+const NAV_LINK_CLASS =
+  "rounded-[10px] px-3 py-2 text-[13px] text-primary/60 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
 const publicLinks = [
   { label: "Platform", href: "/platform" },
   { label: "Security", href: "/legal/security" },
@@ -30,6 +33,8 @@ const publicLinks = [
 export default function Header() {
   const { user, signOut } = useUser();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleSignOut = async () => {
     try {
@@ -42,10 +47,30 @@ export default function Header() {
   const demoHref = env.NEXT_PUBLIC_CALENDLY_LINK || "/#early-access";
   const demoIsExternal = Boolean(env.NEXT_PUBLIC_CALENDLY_LINK);
 
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const firstLink = mobileMenuRef.current?.querySelector("a");
+    firstLink?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMobileMenuOpen(false);
+        mobileMenuButtonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isMobileMenuOpen]);
+
   return (
     <header className="fixed inset-x-0 top-0 z-50 h-[var(--header-height)] bg-[#101010]">
       <div className="container flex h-full items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5">
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
           {user?.tenant_name ? (
             <div>
               <p className="text-[11px] uppercase leading-none tracking-[0.18em] text-muted-foreground">
@@ -71,42 +96,38 @@ export default function Header() {
           <>
             <nav className="hidden items-center gap-5 md:flex">
               {publicLinks.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="rounded-[10px] px-3 py-2 text-[13px] text-primary/60 transition-colors hover:text-primary"
-                >
+                <Link key={item.href} href={item.href} className={NAV_LINK_CLASS}>
                   {item.label}
                 </Link>
               ))}
-              <Link
-                href="/auth"
-                className="rounded-[10px] px-3 py-2 text-[13px] text-primary/60 transition-colors hover:text-primary"
-              >
+              <Link href="/auth" className={NAV_LINK_CLASS}>
                 Login
               </Link>
               <Link
                 href={demoHref}
                 target={demoIsExternal ? "_blank" : undefined}
                 rel={demoIsExternal ? "noreferrer" : undefined}
-                className="ml-1 inline-flex h-[34px] items-center rounded-full border border-primary/30 px-4 text-[14px] font-medium text-primary"
+                className="ml-1 inline-flex h-[34px] items-center rounded-full border border-primary/30 px-4 text-[14px] font-medium text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Book a demo
               </Link>
               <Link
                 href="/#early-access"
-                className="inline-flex h-[34px] items-center rounded-full bg-brand-fill px-4 text-[14px] font-medium text-brand-foreground"
+                className="inline-flex h-[34px] items-center rounded-full bg-brand-fill px-4 text-[14px] font-medium text-brand-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Get Started
               </Link>
             </nav>
 
             <Button
+              ref={mobileMenuButtonRef}
               type="button"
               variant="ghost"
               size="icon"
               className="md:hidden"
               aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-nav"
               onClick={() => setIsMobileMenuOpen((prev) => !prev)}
             >
               {isMobileMenuOpen ? (
@@ -120,7 +141,11 @@ export default function Header() {
       </div>
 
       {!user && isMobileMenuOpen ? (
-        <div className="absolute inset-x-0 top-full rounded-b-xl bg-[#101010] md:hidden">
+        <div
+          ref={mobileMenuRef}
+          id="mobile-nav"
+          className="absolute inset-x-0 top-full rounded-b-xl bg-[#101010] md:hidden"
+        >
           <nav className="container flex flex-col gap-1 pb-6 text-sm">
             {publicLinks.map((item) => (
               <Button
@@ -201,10 +226,9 @@ function UserMenu({
   onSignOut: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const [pinned, setPinned] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const ignoreHoverRef = useRef(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const displayName = user.display_name ?? user.email ?? "Account";
   const roleLabel = user.role ? getRoleLabel(user.role) : "";
 
@@ -226,13 +250,12 @@ function UserMenu({
     const onPointerDown = (event: PointerEvent) => {
       if (!wrapRef.current?.contains(event.target as Node)) {
         setOpen(false);
-        setPinned(false);
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setOpen(false);
-        setPinned(false);
+        buttonRef.current?.focus();
       }
     };
 
@@ -244,61 +267,53 @@ function UserMenu({
     };
   }, [open]);
 
-  const closeMenu = () => {
-    setOpen(false);
-    setPinned(false);
-  };
+  const closeMenu = () => setOpen(false);
 
   return (
     <>
-      <div
-        ref={wrapRef}
-        className="relative"
-      onPointerEnter={(event) => {
-        if (event.pointerType !== "mouse" || ignoreHoverRef.current) return;
-        setOpen(true);
-      }}
-      onPointerLeave={(event) => {
-        if (event.pointerType !== "mouse") return;
-        ignoreHoverRef.current = false;
-        if (!pinned) setOpen(false);
-      }}
-    >
+      <div ref={wrapRef} className="relative">
       <Button
+        ref={buttonRef}
         type="button"
         size="icon"
         variant="ghost"
-        className="relative overflow-visible text-primary/80 hover:text-primary [&_svg]:size-7"
-        aria-label="Account menu"
+        className="relative size-10 overflow-visible rounded-full text-primary/80 hover:text-primary [&_svg]:size-9"
+        aria-label={
+          unreadCount > 0
+            ? `Account menu, ${unreadCount} unread notifications`
+            : "Account menu"
+        }
         aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={() => {
-          if (open) {
-            ignoreHoverRef.current = true;
-            setOpen(false);
-            setPinned(false);
-            return;
-          }
-          setPinned(true);
-          setOpen(true);
-        }}
+        aria-haspopup="true"
+        aria-controls="account-menu"
+        onClick={() => setOpen((current) => !current)}
       >
-        <PersonAvatar name={user.id} title={displayName} size={28} />
+        <PersonAvatar
+          name={user.id}
+          title={displayName}
+          size={36}
+          background="circle"
+        />
         {unreadCount > 0 ? (
           <span
             aria-hidden
-            className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-fill"
+            className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-fill"
           />
         ) : null}
       </Button>
 
       {open ? (
         <div
-          role="menu"
+          id="account-menu"
           className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-border bg-popover p-2 text-popover-foreground shadow-lg"
         >
           <div className="flex items-center gap-2.5 px-3 py-2">
-            <PersonAvatar name={user.id} title={displayName} size={28} />
+            <PersonAvatar
+              name={user.id}
+              title={displayName}
+              size={32}
+              background="circle"
+            />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium leading-none">
                 {displayName}
@@ -313,8 +328,7 @@ function UserMenu({
           <div className="my-1 h-px bg-border" />
           <Link
             href="/notifications"
-            role="menuitem"
-            className="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
+            className="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             onClick={closeMenu}
           >
             <BellIcon className="h-4 w-4 shrink-0" />
@@ -329,8 +343,7 @@ function UserMenu({
           </Link>
           <button
             type="button"
-            role="menuitem"
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             onClick={() => {
               closeMenu();
               setFeedbackOpen(true);
@@ -341,8 +354,7 @@ function UserMenu({
           </button>
           <Link
             href="/settings"
-            role="menuitem"
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             onClick={closeMenu}
           >
             <SettingsIcon className="h-4 w-4 shrink-0" />

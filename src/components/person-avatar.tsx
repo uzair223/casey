@@ -23,6 +23,7 @@ type PersonAvatarProps = {
   };
   thinking?: boolean;
   className?: string;
+  background?: boolean | "square" | "circle" | "squircle";
 };
 
 export function PersonAvatar({
@@ -33,6 +34,7 @@ export function PersonAvatar({
   palette,
   thinking = false,
   className,
+  background = false,
 }: PersonAvatarProps) {
   const { ref } = useGaze({ travel: 4, lookAt: "pointer" });
 
@@ -48,7 +50,7 @@ export function PersonAvatar({
         ref={ref}
         name={name}
         title={title}
-        background={false}
+        background={background}
         animate="always"
         expression={thinking ? thinkingExpression : undefined}
         {...(size !== undefined ? { size } : {})}
