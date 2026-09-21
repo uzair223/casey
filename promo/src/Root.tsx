@@ -4,17 +4,7 @@ import { CaseyHoles } from "./CaseyHoles";
 import { CaseyHook } from "./CaseyHook";
 import { CaseyIntake } from "./CaseyIntake";
 import { CaseyJourney } from "./CaseyJourney";
-import { EndCard } from "./components/EndCard";
-import { CreateCase } from "./scenes/CreateCase";
-import { FormalizeDraft } from "./scenes/FormalizeDraft";
-import { Headline } from "./scenes/Headline";
-import { Interview } from "./scenes/Interview";
-import { InviteWitness } from "./scenes/InviteWitness";
-import { Logo } from "./scenes/Logo";
-import { ReviewGaps } from "./scenes/ReviewGaps";
-import { SignClose } from "./scenes/SignClose";
-import { SourcesMerge } from "./scenes/SourcesMerge";
-import { Thumbnail } from "./Thumbnail";
+import { AdStill } from "./ads/AdStill";
 import { VIDEO } from "./video";
 
 const clip = {
@@ -52,72 +42,41 @@ export const RemotionRoot: React.FC = () => {
           {...clip}
         />
       </Folder>
-      <Still
-        id="Thumbnail"
-        component={Thumbnail}
-        width={VIDEO.width}
-        height={VIDEO.height}
-      />
-      <Folder name="Casey-Promo-Scenes">
-        <Composition
-          id="Logo"
-          component={Logo}
-          durationInFrames={75}
-          {...clip}
+      <Folder name="Ads">
+        <Still
+          id="Ad-Chasing"
+          component={AdStill}
+          width={VIDEO.width}
+          height={VIDEO.height}
+          defaultProps={{ variant: "chasing" }}
         />
-        <Composition
-          id="Headline"
-          component={Headline}
-          durationInFrames={180}
-          {...clip}
+        <Still
+          id="Ad-Thinking"
+          component={AdStill}
+          width={VIDEO.width}
+          height={VIDEO.height}
+          defaultProps={{ variant: "thinking" }}
         />
-        <Composition
-          id="CreateCase"
-          component={CreateCase}
-          durationInFrames={150}
-          {...clip}
+        <Still
+          id="Ad-Gaps"
+          component={AdStill}
+          width={VIDEO.width}
+          height={VIDEO.height}
+          defaultProps={{ variant: "gaps" }}
         />
-        <Composition
-          id="InviteWitness"
-          component={InviteWitness}
-          durationInFrames={120}
-          {...clip}
+        <Still
+          id="Ad-Markup"
+          component={AdStill}
+          width={VIDEO.width}
+          height={VIDEO.height}
+          defaultProps={{ variant: "markup" }}
         />
-        <Composition
-          id="Interview"
-          component={Interview}
-          durationInFrames={150}
-          {...clip}
-        />
-        <Composition
-          id="SourcesMerge"
-          component={SourcesMerge}
-          durationInFrames={165}
-          {...clip}
-        />
-        <Composition
-          id="FormalizeDraft"
-          component={FormalizeDraft}
-          durationInFrames={135}
-          {...clip}
-        />
-        <Composition
-          id="ReviewGaps"
-          component={ReviewGaps}
-          durationInFrames={120}
-          {...clip}
-        />
-        <Composition
-          id="SignClose"
-          component={SignClose}
-          durationInFrames={90}
-          {...clip}
-        />
-        <Composition
-          id="EndCard"
-          component={EndCard}
-          durationInFrames={100}
-          {...clip}
+        <Still
+          id="Ad-Intake"
+          component={AdStill}
+          width={VIDEO.width}
+          height={VIDEO.height}
+          defaultProps={{ variant: "intake" }}
         />
       </Folder>
     </>

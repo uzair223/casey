@@ -43,7 +43,7 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
       <ProductStage
         entrance="tilt"
         tilt="fromLeft"
-        caption="Cross-check every witness on one timeline and expose the holes."
+        caption="Cross-check every witness on one timeline and expose the gaps."
         captionEntrance="in"
       >
         <ProductFrame title="app.casey / cases / WA-2026-0314 / analysis">

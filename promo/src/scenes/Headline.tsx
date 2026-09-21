@@ -80,9 +80,9 @@ export const Headline: React.FC = () => {
               )}deg)`,
             }}
           >
-            Give them a statement to mark up
+            Let the evidence write
             <br />
-            instead of reconstructing one.
+            the first draft.
           </div>
         </Interactive.Div>
       </AbsoluteFill>
