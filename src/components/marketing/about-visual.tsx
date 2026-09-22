@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 
-import { BrandMarkGradient, BrandMarkGlyph } from "@/components/brand-mark";
+import { BrandMarkGlyph } from "@/components/brand-mark";
 import { MessageCard } from "@/components/ui/message";
 
 const intakeMessages = [
@@ -20,33 +20,18 @@ const intakeMessages = [
 
 export function AboutInterviewVisual() {
   return (
-    <div className="overflow-hidden rounded-2xl border border-primary/10 bg-[#0c0c0c] shadow-[0_40px_80px_-40px_rgba(0,0,0,0.8)]">
-      <div className="flex items-center gap-2 border-b border-primary/10 px-4 py-3">
-        <span className="h-2.5 w-2.5 rounded-full bg-primary/20" />
-        <span className="h-2.5 w-2.5 rounded-full bg-primary/20" />
-        <span className="h-2.5 w-2.5 rounded-full bg-primary/20" />
-        <p className="mx-auto font-mono text-[11px] text-primary/40">
-          app.casey / intake
-        </p>
-      </div>
-      <div className="pointer-events-none bg-background p-5">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-brand">
-          Witness intake
-        </p>
-        <p className="mt-1 font-display text-xl text-primary">
-          Workplace accident — 14 March 2026
-        </p>
-        <div className="mt-4 space-y-3 rounded-xl border border-primary/10 bg-card/50 p-4">
-          {intakeMessages.map((message, index) => (
-            <MessageCard
-              key={index}
-              message={{ role: message.role, content: message.content }}
-            />
-          ))}
-          <div className="flex items-center gap-2 rounded-lg border border-primary/10 bg-background px-3 py-2.5 text-sm text-primary/35">
-            Type your response...
-          </div>
-        </div>
+    <div className="rounded-2xl border border-primary/15 bg-card/40 p-5 sm:p-7">
+      <p className="font-display text-lg italic text-brand">Witness intake</p>
+      <p className="mt-1 font-display text-2xl text-primary">
+        Workplace accident — 14 March 2026
+      </p>
+      <div className="mt-6 space-y-3">
+        {intakeMessages.map((message, index) => (
+          <MessageCard
+            key={index}
+            message={{ role: message.role, content: message.content }}
+          />
+        ))}
       </div>
     </div>
   );
@@ -66,7 +51,9 @@ type Glyph = {
 
 const icons = {
   videos: [
-    { d: "m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" },
+    {
+      d: "m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5",
+    },
     { x: 2, y: 6, w: 14, h: 12, rx: 2 },
   ],
   files: [
@@ -108,17 +95,21 @@ function spacedX(index: number, count: number) {
   return (800 / count) * (index + 0.5);
 }
 
-const sources: { label: string; color: string; x: number; icon: IconName }[] = (
-  [
-    { label: "Videos", color: "#34d399", icon: "videos" },
-    { label: "Files", color: "#38bdf8", icon: "files" },
-    { label: "Images", color: "#fb7185", icon: "images" },
-    { label: "Transcript", color: "#f59e0b", icon: "transcript" },
-  ] as const
-).map((source, index, list) => ({
-  ...source,
-  x: spacedX(index, list.length),
-}));
+const PAPER = "#f3efe6";
+const WAX = "#9a4034";
+
+const sources: { label: string; color: string; x: number; icon: IconName }[] =
+  (
+    [
+      { label: "Videos", color: "#34d399", icon: "videos" },
+      { label: "Files", color: "#38bdf8", icon: "files" },
+      { label: "Images", color: "#fb7185", icon: "images" },
+      { label: "Transcript", color: "#f59e0b", icon: "transcript" },
+    ] as const
+  ).map((source, index, list) => ({
+    ...source,
+    x: spacedX(index, list.length),
+  }));
 
 const outputs: { label: string; x: number; icon: IconName }[] = (
   [
@@ -138,7 +129,6 @@ const SOURCE_LINE_START = 126;
 const HUB_IN = 271.4;
 const HUB_OUT = 348.6;
 const OUTPUT_LINE_END = 534;
-const BRAND = "#7357FF";
 
 function sourcePath(x: number) {
   return `M ${x} ${SOURCE_LINE_START} C ${x} 198.7, 400 198.7, 400 ${HUB_IN}`;
@@ -148,13 +138,7 @@ function outputPath(x: number) {
   return `M 400 ${HUB_OUT} C 400 441.3, ${x} 441.3, ${x} ${OUTPUT_LINE_END}`;
 }
 
-function NodeGlyph({
-  icon,
-  color,
-}: {
-  icon: IconName;
-  color: string;
-}) {
+function NodeGlyph({ icon, color }: { icon: IconName; color: string }) {
   return (
     <>
       {(icons[icon] as Glyph[]).map((shape, index) =>
@@ -210,11 +194,11 @@ function FlowNode({
         height="60"
         rx="14"
         fill={`url(#${frameId})`}
-        stroke="#ffffff"
-        strokeOpacity="0.12"
+        stroke={PAPER}
+        strokeOpacity="0.14"
         strokeWidth="1"
       />
-      <circle cx={x} cy={y} r="26" fill={color} fillOpacity="0.12" />
+      <circle cx={x} cy={y} r="26" fill={color} fillOpacity="0.16" />
       <g
         transform={`translate(${x - 18} ${y - 18}) scale(1.5)`}
         strokeWidth="1.5"
@@ -227,11 +211,11 @@ function FlowNode({
         x={x}
         y={y + 48}
         textAnchor="middle"
-        fill="#f4f5fb"
-        fillOpacity="0.6"
+        fill={PAPER}
+        fillOpacity="0.72"
         fontSize="12"
         letterSpacing="0.05em"
-        fontFamily="ui-sans-serif, system-ui, sans-serif"
+        fontFamily="Source Sans 3, ui-sans-serif, system-ui, sans-serif"
       >
         {label}
       </text>
@@ -244,21 +228,15 @@ export function SourcesMergeAnimation() {
   const sourceLine = `${rawId}-source-line`;
   const outputLine = `${rawId}-output-line`;
   const iconFrame = `${rawId}-icon-frame`;
-  const markGradient = `${rawId}-casey-mark`;
 
   return (
     <div className="relative mx-auto w-full max-w-xl">
-      <svg
-        viewBox="0 0 800 640"
-        className="h-auto w-full"
-        role="img"
-      >
+      <svg viewBox="0 0 800 640" className="h-auto w-full" role="img">
         <title>Witness information sources flowing into Casey outputs</title>
         <defs>
-          <BrandMarkGradient id={markGradient} />
           <linearGradient id={iconFrame} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.08" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0.02" />
+            <stop offset="0%" stopColor={PAPER} stopOpacity="0.08" />
+            <stop offset="100%" stopColor={PAPER} stopOpacity="0.02" />
           </linearGradient>
           <linearGradient
             id={sourceLine}
@@ -269,7 +247,7 @@ export function SourcesMergeAnimation() {
             y2={HUB_IN}
           >
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.1" />
-            <stop offset="100%" stopColor={BRAND} stopOpacity="0.8" />
+            <stop offset="100%" stopColor={WAX} stopOpacity="0.8" />
           </linearGradient>
           <linearGradient
             id={outputLine}
@@ -279,8 +257,8 @@ export function SourcesMergeAnimation() {
             x2="0"
             y2={OUTPUT_LINE_END}
           >
-            <stop offset="0%" stopColor={BRAND} stopOpacity="0.8" />
-            <stop offset="100%" stopColor={BRAND} stopOpacity="0.15" />
+            <stop offset="0%" stopColor={WAX} stopOpacity="0.8" />
+            <stop offset="100%" stopColor={WAX} stopOpacity="0.15" />
           </linearGradient>
         </defs>
 
@@ -325,8 +303,11 @@ export function SourcesMergeAnimation() {
           </circle>
         ))}
 
-        <g transform="translate(400 310) scale(0.11) translate(-256 -256)">
-          <BrandMarkGlyph gradientId={markGradient} />
+        <g
+          color={PAPER}
+          transform="translate(400 310) scale(0.11) translate(-256 -256)"
+        >
+          <BrandMarkGlyph />
         </g>
 
         {outputs.map((output) => (
@@ -347,7 +328,7 @@ export function SourcesMergeAnimation() {
             key={`${output.label}-dot`}
             className="sources-merge-dot"
             r="2.5"
-            fill={BRAND}
+            fill={WAX}
           >
             <animateMotion
               dur={`${2.4 + index * 0.3}s`}
@@ -363,7 +344,7 @@ export function SourcesMergeAnimation() {
             key={output.label}
             x={output.x}
             y={OUTPUT_Y}
-            color={BRAND}
+            color={WAX}
             label={output.label}
             icon={output.icon}
             frameId={iconFrame}

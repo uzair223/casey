@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
-import { PencilIcon } from "lucide-react";
+import { PencilIcon } from "@/components/icons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {

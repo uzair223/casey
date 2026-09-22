@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
 import { enqueueAiJob } from "@/lib/ai-workers/jobs";
+import { paidAiDenial } from "@/lib/billing/paid-plan";
 import { requireTenantUser } from "@/lib/api-utils/auth";
 import { forbidden, notFound } from "@/lib/api-utils/response";
 import { logServerEvent } from "@/lib/observability/logger";
@@ -40,6 +41,9 @@ export async function POST(request: Request, context: RouteContext) {
     if (caseRecord.tenant_id !== auth.tenantId) {
       return forbidden();
     }
+
+    const denied = await paidAiDenial(auth.userId);
+    if (denied) return denied;
 
     const service = getServiceClient("api.case_analysis.enqueue");
     const { data: job, error: jobError } = await service

@@ -1,226 +1,188 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  Check,
-  FileText,
-  ListChecks,
-  MessageSquareText,
-} from "lucide-react";
+import { Fragment } from "react";
 
+import { ArrowRight, Check } from "@/components/icons";
+import { HeroGlow } from "@/components/marketing/hero-glow";
 import {
   AboutInterviewVisual,
   SourcesMergeAnimation,
 } from "@/components/marketing/about-visual";
 import { CtaPair } from "@/components/marketing/cta-pair";
 import { MarketingHeading } from "@/components/marketing/heading";
-import { HeroGlow } from "@/components/marketing/hero-glow";
 import { ProductPreview } from "@/components/marketing/product-preview";
 import { Reveal } from "@/components/marketing/reveal";
 import { MarketingSection, MarketingShell } from "@/components/marketing/shell";
 import { WaitlistSignupForm } from "@/components/waitlist/waitlist-form";
 import { env } from "@/lib/env";
 
-const practiceTypes = [
-  "Personal injury",
-  "Road traffic",
-  "Employers' liability",
-  "Public liability",
-  "Clinical negligence",
-];
-
 const steps = [
   {
-    title: "Fill the gaps before you have to chase",
+    title: "Fill the gaps",
     body: "Casey interviews the witness, asks the follow-up questions, and collects supporting evidence while the account is still coming in.",
-    icon: MessageSquareText,
   },
   {
     title: "Turn the evidence into a first draft",
     body: "Interviews, transcripts and exhibits are condensed into a statement. Your solicitors tweak it instead of writing from scratch.",
-    icon: FileText,
   },
   {
     title: "Find what's missing before review",
     body: "Missing dates, unsupported detail and conflicting accounts show up on the gap list before a solicitor sits down.",
-    icon: ListChecks,
   },
   {
     title: "Give solicitors more time for their best thinking",
     body: "Review starts with a first draft, the evidence trail, and the gaps in view. Judgement stays with you.",
-    icon: Check,
   },
 ] as const;
 
 const deeperLinks = [
   {
     label: "Platform",
-    title: "Casey removes the chasing from witness statements",
+    title: "Ask. Gather. Find the gaps. Draft.",
     body: "See how interviews, evidence, first drafts and gaps stay in one place, from the intake link to review.",
     href: "/platform",
   },
   {
     label: "Security",
     title: "Built for sensitive files",
-    body: "Firm-scoped access, tokenised witness links, and an audit trail you can explain to a practice manager.",
+    body: "E-signatures, tokenised witness links, and an audit trail you can explain to a practice manager.",
     href: "/legal/security",
   },
   {
     label: "Early access",
-    title: "Bring a live chasing pain",
-    body: "Show us a matter that still needs chasing. We will show where Casey takes that work off your solicitors.",
+    title: "Bring a live matter",
+    body: "Show us a matter. We will show where Casey takes that work off your solicitors.",
     href: "/#early-access",
   },
 ] as const;
 
-const securityCards = [
-  {
-    label: "Privacy",
-    title: "Consent before anything is captured",
-    body: "Witnesses acknowledge the privacy notice before intake continues. Public links stay scoped to one task.",
-  },
-  {
-    label: "Access",
-    title: "Firm-scoped by default",
-    body: "Roles, row-level security, and time-bound witness links keep matters inside the right firm.",
-  },
-  {
-    label: "Audit",
-    title: "A trail you can explain",
-    body: "Intake, drafting, follow-up, and review leave an operational record, not a pile of inbox forwards.",
-  },
-  {
-    label: "Control",
-    title: "Your data, your rules",
-    body: "DSAR export, lifecycle controls, and firm boundaries are built in so adoption does not mean losing the file.",
-  },
-] as const;
-
-const testimonials = [
-  {
-    quote:
-      "The valuable part is not just the draft. It is seeing what is still missing before a solicitor spends time reviewing it.",
-    attribution: "Early product review",
-    firm: "Claimant PI team",
-  },
-  {
-    quote:
-      "Get the account, fill the gaps, then review a statement. That is how the work should feel.",
-    attribution: "Practice operations",
-    firm: "Product discovery",
-  },
-  {
-    quote:
-      "If the first draft arrived with chronology and exhibits attached, review would start in a completely different place.",
-    attribution: "Fee earner session",
-    firm: "Personal injury",
-  },
-] as const;
-
 const pricingPlans = [
-  {
-    name: "Trial",
-    price: "Free",
-    people: "Up to five",
-    cases: "Three",
-  },
-  {
-    name: "Practice",
-    price: "£149 per month",
-    people: "Five",
-    cases: "Thirty per month",
-  },
-  {
-    name: "Firm",
-    price: "£49 per seat",
-    people: "From six",
-    cases: "Eight per seat",
-  },
+  { name: "Trial", amount: "Free", unit: "" },
+  { name: "Practice", amount: "£149", unit: "/month" },
+  { name: "Firm", amount: "£49", unit: "/seat/month" },
 ] as const;
 
-const pricingRows = [
-  { label: "People", key: "people" },
-  { label: "Cases", key: "cases" },
+const pricingGroups = [
+  {
+    label: "Allowance",
+    rows: [
+      { label: "People", cells: ["Up to five", "Five", "From six"] },
+      {
+        label: "Cases",
+        cells: ["Three", "Thirty per month", "Eight per seat"],
+      },
+      { label: "Witnesses", cells: ["Three per case", "Unlimited", "Unlimited"] },
+      { label: "Additional case", cells: ["—", "£12", "£12"] },
+    ],
+  },
+  {
+    label: "Witness work",
+    rows: [
+      "Witness interviews",
+      "Follow-up questions",
+      "Supporting documents",
+      "Witness statement generation",
+      "Markup and review",
+    ].map((label) => ({
+      label,
+      cells: ["Included", "Included", "Included"] as const,
+    })),
+  },
+  {
+    label: "Templates",
+    rows: ["Case template creation", "Statement template creation"].map(
+      (label) => ({
+        label,
+        cells: ["—", "Included", "Included"] as const,
+      }),
+    ),
+  },
+  {
+    label: "AI",
+    rows: [
+      "AI case analysis",
+      "AI document review",
+      "Evidence descriptions",
+      "AI template drafting",
+    ].map((label) => ({
+      label,
+      cells: ["—", "Included", "Included"] as const,
+    })),
+  },
+  {
+    label: "Record",
+    rows: [
+      "Activity trail",
+      "Signature certificates",
+      "Notes",
+      "Reminders",
+    ].map((label) => ({
+      label,
+      cells: ["Included", "Included", "Included"] as const,
+    })),
+  },
 ] as const;
 
 export default function Home() {
   return (
-    <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2">
-      <section className="relative isolate -mt-[calc(var(--header-height)+var(--header-gap))] flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-20 text-center">
+    <div className="marketing-grain relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2">
+      <section className="relative pb-8 pt-16 lg:pt-28">
         <HeroGlow />
-        <Reveal eager>
-          <Link
-            href="/#early-access"
-            className="inline-flex items-center gap-2 rounded-full border border-primary/20 px-4 py-1.5 text-base text-primary"
-          >
-            <span aria-hidden className="text-brand">
-              ✦
-            </span>
-            Early access for claimant teams
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </Reveal>
-        <Reveal eager delay={80}>
-          <h1 className="mt-8 font-display text-5xl font-normal leading-tighter tracking-tight text-primary sm:text-7xl lg:text-[96px] lg:leading-[1.1]">
-            Witness statements<br className="hidden md:block"/> without the chasing.
-          </h1>
-        </Reveal>
-        <Reveal eager delay={160}>
-          <p className="mt-6 max-w-2xl text-lg leading-tight text-primary/80 sm:text-xl">
-            Casey interviews witnesses, gathers evidence and finds what&apos;s
-            missing, so your solicitors start with a review-ready first draft.
-          </p>
-        </Reveal>
-        <Reveal eager delay={240}>
-          <CtaPair className="mt-10 justify-center" />
-        </Reveal>
+        <MarketingShell className="relative">
+          <Reveal eager>
+            <h1 className="max-w-[11ch] font-display text-5xl font-normal leading-[1.05] text-primary sm:text-7xl lg:text-[92px]">
+              Witness statements without the chasing.
+            </h1>
+            <svg
+              viewBox="0 0 220 16"
+              className="mt-3 h-4 w-40 text-brand"
+              aria-hidden
+            >
+              <path
+                d="M2 10 C 40 4, 70 14, 110 8 S 180 12, 218 6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </Reveal>
+          <Reveal eager>
+            <p className="mt-8 max-w-md text-lg leading-8 text-primary/80 lg:ml-[42%]">
+              Casey interviews witnesses, gathers evidence and finds what&apos;s
+              missing, so your solicitors start with a review-ready first draft.
+            </p>
+          </Reveal>
+          <Reveal eager>
+            <CtaPair className="mt-10" />
+          </Reveal>
+        </MarketingShell>
       </section>
 
-      <div className="overflow-hidden py-6">
-        <div className="flex h-16 w-max animate-marquee items-center">
-          {[0, 1].map((copy) => (
-            <div
-              key={copy}
-              className="flex items-center gap-16 px-8 text-lg tracking-wide text-primary/35"
-              aria-hidden={copy === 1}
-            >
-              {practiceTypes.map((item) => (
-                <span key={`${copy}-${item}`} className="whitespace-nowrap">
-                  {item}
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <MarketingSection>
+      <MarketingSection className="pt-8">
         <Reveal>
           <MarketingHeading
             eyebrow="The promise"
-            title="Casey removes the chasing from witness statements."
-            description="Casey asks the follow-up questions, collects supporting evidence, spots missing information before review, and turns everything into a review-ready first draft."
+            title="Casey asks the follow-up questions, collects supporting evidence, spots missing information before review, and turns everything into a review-ready first draft."
           />
         </Reveal>
-        <Reveal delay={120} className="mt-14">
+        <Reveal className="mt-14">
           <ProductPreview />
         </Reveal>
       </MarketingSection>
 
-      <MarketingSection className="relative overflow-hidden">
-        <div aria-hidden className="hero-ring-glow opacity-40" />
-        <div className="grid items-center gap-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+      <MarketingSection className="lg:py-28">
+        <div className="grid items-start gap-16 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <Reveal>
             <MarketingHeading
-              align="left"
               eyebrow={`About ${env.NEXT_PUBLIC_APP_NAME}`}
-              title="Fill the gaps before you have to chase."
+              title="Fill the gaps."
               description="Casey interviews witnesses, gathers evidence and finds what is missing, so your solicitors start with a review-ready first draft instead of a pile of transcripts."
             />
-            <div className="mt-10 grid gap-6 sm:grid-cols-2">
+            <div className="mt-10 grid gap-8 sm:grid-cols-2">
               {[
                 {
                   title: "Interview",
-                  body: "Casey asks the follow-up questions until the account holds. You do not have to chase the next answer.",
+                  body: "Casey asks the follow-up questions until the account holds. You do not have to go back for the next answer.",
                 },
                 {
                   title: "Evidence",
@@ -236,7 +198,9 @@ export default function Home() {
                 },
               ].map((item) => (
                 <div key={item.title}>
-                  <p className="text-sm text-brand">{item.title}</p>
+                  <p className="font-display text-lg italic text-brand">
+                    {item.title}
+                  </p>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     {item.body}
                   </p>
@@ -244,7 +208,7 @@ export default function Home() {
               ))}
             </div>
           </Reveal>
-          <Reveal delay={120} className="relative">
+          <Reveal className="lg:mt-16">
             <AboutInterviewVisual />
           </Reveal>
         </div>
@@ -254,41 +218,42 @@ export default function Home() {
         <Reveal>
           <MarketingHeading
             eyebrow="How Casey works"
-            title="Casey removes the chasing. Solicitors keep the judgement."
+            title="Solicitors keep the judgement."
           />
         </Reveal>
-        <div className="mt-14 grid gap-4 md:grid-cols-2">
+        <ol className="mt-12 border-t border-primary/15">
           {steps.map((step, index) => (
-            <Reveal key={step.title} delay={index * 80}>
-              <div className="h-full rounded-2xl border border-primary/10 bg-transparent p-8">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-brand/40 text-brand">
-                  <step.icon className="h-4 w-4" />
-                </div>
-                <h3 className="mt-6 text-xl text-primary">{step.title}</h3>
+            <li
+              key={step.title}
+              className="grid gap-3 border-b border-primary/15 py-8 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-8"
+            >
+              <p className="font-display text-3xl text-brand">
+                {String(index + 1).padStart(2, "0")}
+              </p>
+              <div className="max-w-2xl">
+                <h3 className="text-xl text-primary">{step.title}</h3>
                 <p className="mt-3 text-sm leading-7 text-muted-foreground">
                   {step.body}
                 </p>
               </div>
-            </Reveal>
+            </li>
           ))}
-        </div>
-        <Reveal delay={200} className="mt-10">
+        </ol>
+        <Reveal className="mt-10">
           <CtaPair />
         </Reveal>
       </MarketingSection>
 
-      <MarketingSection className="relative overflow-hidden">
-        <div aria-hidden className="hero-ring opacity-50" />
+      <MarketingSection className="lg:py-28">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <Reveal>
             <MarketingHeading
-              align="left"
               eyebrow="The first draft"
               title="Turn the evidence into a first draft."
               description="Interviews, transcripts, photos and records are condensed into a statement. Your solicitors mark it up instead of writing from scratch."
             />
           </Reveal>
-          <Reveal delay={120} className="w-full">
+          <Reveal>
             <SourcesMergeAnimation />
           </Reveal>
         </div>
@@ -301,99 +266,35 @@ export default function Home() {
             title="See how the chasing drops out."
           />
         </Reveal>
-        <div className="mt-14 grid gap-4 lg:grid-cols-3">
-          {deeperLinks.map((item, index) => (
-            <Reveal key={item.title} delay={index * 90}>
-              <Link
-                href={item.href}
-                className="group flex h-full flex-col rounded-2xl border border-primary/10 bg-primary/[0.03] p-8"
-              >
-                <p className="text-sm text-brand">{item.label}</p>
-                <h3 className="mt-4 text-2xl leading-snug text-primary">
-                  {item.title}
-                </h3>
-                <p className="mt-3 flex-1 text-sm leading-7 text-muted-foreground">
-                  {item.body}
-                </p>
-                <p className="mt-6 inline-flex items-center gap-1 text-sm text-primary">
-                  Learn more
-                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                </p>
-              </Link>
-            </Reveal>
-          ))}
-        </div>
-      </MarketingSection>
-
-      <MarketingSection>
-        <Reveal>
-          <MarketingHeading
-            eyebrow="Security & Privacy"
-            title="Witness data deserves the highest protection."
-          />
-        </Reveal>
-        <div className="mt-14 grid gap-4 md:grid-cols-2">
-          {securityCards.map((item, index) => (
-            <Reveal key={item.title} delay={index * 70}>
-              <div className="h-full rounded-2xl border border-primary/10 bg-primary/[0.03] p-8">
-                <p className="text-sm text-brand">{item.label}</p>
-                <h3 className="mt-4 text-2xl leading-snug text-primary">
-                  {item.title}
-                </h3>
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                  {item.body}
-                </p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-        <Reveal className="mt-10">
-          <Link
-            href="/legal/security"
-            className="inline-flex items-center gap-1 text-sm text-primary hover:text-brand"
-          >
-            Review the security policy
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </Reveal>
-      </MarketingSection>
-
-      <section className="overflow-hidden py-32">
-        <MarketingShell>
-          <Reveal>
-            <MarketingHeading
-              eyebrow="Wall of love"
-              title="Shaped with claimant firms who were tired of chasing."
-            />
-          </Reveal>
-        </MarketingShell>
-        <div className="mt-14 flex w-max animate-marquee gap-4">
-          {[0, 1].map((copy) => (
-            <div
-              key={copy}
-              className="flex gap-4 px-2"
-              aria-hidden={copy === 1}
+        <div className="mt-10 border-t border-primary/15">
+          {deeperLinks.map((item) => (
+            <Link
+              key={item.title}
+              href={item.href}
+              className="group grid gap-3 border-b border-primary/15 py-8 md:grid-cols-[9rem_minmax(0,1fr)_auto] md:items-baseline md:gap-8"
             >
-              {testimonials.map((item) => (
-                <blockquote
-                  key={`${copy}-${item.attribution}`}
-                  className="w-[min(90vw,420px)] shrink-0 rounded-2xl border border-primary/10 bg-primary/[0.03] p-8"
-                >
-                  <p className="font-display text-2xl leading-9 text-primary">
-                    &ldquo;{item.quote}&rdquo;
+              <p className="font-display text-lg italic text-brand">
+                {item.label}
+              </p>
+              <div>
+                <h3 className="text-2xl leading-snug text-primary">
+                  {item.title}
+                </h3>
+                {"body" in item ? (
+                  <p className="mt-2 max-w-xl text-sm leading-7 text-muted-foreground">
+                    {item.body}
                   </p>
-                  <footer className="mt-8 text-sm text-muted-foreground">
-                    <p className="text-primary">{item.attribution}</p>
-                    <p className="mt-1">{item.firm}</p>
-                  </footer>
-                </blockquote>
-              ))}
-            </div>
+                ) : null}
+              </div>
+              <p className="text-sm text-primary underline decoration-primary/30 underline-offset-4 group-hover:decoration-brand">
+                Learn more
+              </p>
+            </Link>
           ))}
         </div>
-      </section>
+      </MarketingSection>
 
-      <MarketingSection id="billing" className="scroll-mt-24">
+      <MarketingSection id="billing" className="scroll-mt-24 lg:py-28">
         <Reveal>
           <MarketingHeading
             eyebrow="Pricing"
@@ -401,85 +302,108 @@ export default function Home() {
             description="Open three cases for completely free. See how it fits into your workflow."
           />
         </Reveal>
-        <Reveal className="mt-14">
-          <div className="overflow-x-auto rounded-2xl border border-primary/10">
-            <table className="w-full min-w-[640px] border-collapse text-left">
+        <Reveal className="mt-12">
+          <div className="overflow-x-auto rounded-2xl border border-primary/15">
+            <table className="w-full min-w-[720px] table-fixed border-collapse text-left">
+              <colgroup>
+                <col className="w-1/4" />
+                <col className="w-1/4" />
+                <col className="w-1/4" />
+                <col className="w-1/4" />
+              </colgroup>
               <thead>
                 <tr>
-                  <th className="w-[18%] p-6" />
+                  <th className="border-b border-primary/15 p-5" />
                   {pricingPlans.map((plan) => (
                     <th
                       key={plan.name}
-                      className={`p-6 align-bottom ${plan.name === "Practice" ? "bg-primary/[0.04]" : ""}`}
+                      className={`border-b border-primary/15 p-5 text-center align-bottom ${plan.name === "Practice" ? "bg-primary/[0.04]" : ""}`}
                     >
-                      <p className="text-sm text-brand">{plan.name}</p>
-                      <p className="mt-3 font-display text-2xl leading-snug text-primary">
-                        {plan.price}
+                      <p className="font-display text-xl text-white">
+                        {plan.name}
+                      </p>
+                      <p className="mt-2 font-display text-3xl text-white">
+                        {plan.amount}
+                        {plan.unit ? (
+                          <span className="ml-1 text-base font-sans text-white/50">
+                            {plan.unit}
+                          </span>
+                        ) : null}
                       </p>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {pricingRows.map((row) => (
-                  <tr key={row.label} className="border-t border-primary/10">
-                    <th className="p-6 text-sm font-medium text-primary">
-                      {row.label}
-                    </th>
-                    {pricingPlans.map((plan) => (
-                      <td
-                        key={plan.name}
-                        className={`p-6 text-sm leading-6 text-muted-foreground ${plan.name === "Practice" ? "bg-primary/[0.04]" : ""}`}
+                {pricingGroups.map((group) => (
+                  <Fragment key={group.label}>
+                    <tr className="border-t border-primary/15">
+                      <th
+                        colSpan={4}
+                        className="bg-primary/[0.03] px-5 py-3 text-left font-display text-lg italic text-white"
                       >
-                        {plan[row.key]}
-                      </td>
+                        {group.label}
+                      </th>
+                    </tr>
+                    {group.rows.map((row) => (
+                      <tr key={row.label} className="border-t border-primary/10">
+                        <th className="p-5 text-sm font-medium text-white">
+                          {row.label}
+                        </th>
+                        {row.cells.map((cell, index) => (
+                          <td
+                            key={`${row.label}-${pricingPlans[index].name}`}
+                            className={`p-5 text-sm leading-6 text-white ${pricingPlans[index].name === "Practice" ? "bg-primary/[0.04]" : ""}`}
+                          >
+                            {cell === "Included" ? (
+                              <Check
+                                className="h-4 w-4 text-white"
+                                aria-label="Included"
+                              />
+                            ) : (
+                              cell
+                            )}
+                          </td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            + £12 per additional case
-          </p>
         </Reveal>
       </MarketingSection>
 
       <section
         id="early-access"
-        className="scroll-mt-24 bg-[#f4f5fb] py-32 text-[#101010]"
+        className="scroll-mt-24 bg-[#f3efe6] py-24 text-[#12110f] lg:py-32"
       >
-        <MarketingShell className="text-center">
-          <Reveal>
-            <p className="text-[14px] uppercase tracking-[0.15em] text-brand">
-              Start early access
-            </p>
-            <h2 className="mx-auto mt-3 max-w-4xl font-display text-4xl leading-[1.1] sm:text-5xl lg:text-[48px]">
-              Give solicitors more time for their best thinking.
-            </h2>
-            <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#101010]/70">
-              Three files included.
-            </p>
-            <CtaPair className="mt-10 justify-center" tone="light" />
-            <div className="mx-auto mt-16 grid max-w-3xl grid-cols-1 gap-8 sm:grid-cols-3">
-              {[
-                { value: "Less", label: "chasing" },
-                { value: "More", label: "judgement" },
-                { value: "Now", label: "in early access" },
-              ].map((item) => (
-                <div key={item.label}>
-                  <p className="font-display text-4xl">{item.value}</p>
-                  <p className="mt-1 text-sm text-[#101010]/60">{item.label}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mx-auto mt-14 max-w-md text-left text-[#101010] [&_input]:border-[#101010]/20 [&_input]:bg-white [&_label]:text-[#101010]">
-              <p className="mb-5 text-center text-sm text-[#101010]/60">
-                Leave your details and we will be in touch.
+        <MarketingShell>
+          <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,26rem)] lg:gap-20">
+            <Reveal>
+              <p className="font-display text-lg italic text-brand">
+                Start early access
               </p>
-              <WaitlistSignupForm id="waitlist" disableCalendly />
-            </div>
-          </Reveal>
+              <h2 className="mt-3 max-w-xl font-display text-4xl leading-[1.1] sm:text-5xl">
+                Give solicitors more time for their best thinking.
+              </h2>
+              <CtaPair className="mt-10" tone="light" />
+            </Reveal>
+            <Reveal>
+              <div className="text-[#12110f] [&_input]:border-[#12110f]/20 [&_input]:bg-white [&_label]:text-[#12110f]">
+                <p className="mb-5 text-sm text-[#12110f]/60">
+                  Leave your details and we will be in touch.
+                </p>
+                <WaitlistSignupForm
+                  id="waitlist"
+                  disableCalendly
+                  submitVariant="brand"
+                  submitClassName="h-11 w-auto rounded-full px-7 text-base"
+                />
+              </div>
+            </Reveal>
+          </div>
         </MarketingShell>
       </section>
     </div>

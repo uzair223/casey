@@ -26,7 +26,7 @@ import {
   ChevronUp,
   MailCheck,
   ShieldCheck,
-} from "lucide-react";
+} from "@/components/icons";
 import Loading from "@/components/loading";
 import { AuthShell } from "@/components/auth-shell";
 import { toast } from "@/lib/toast";

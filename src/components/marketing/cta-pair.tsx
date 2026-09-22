@@ -48,7 +48,7 @@ export function CtaPair({
           "inline-flex items-center justify-center rounded-full border font-medium transition-colors",
           hero ? "h-11 px-7 text-lg" : "h-[34px] px-4 text-[14px]",
           onLight
-            ? "border-[#101010]/25 text-[#101010] hover:bg-[#101010]/5"
+            ? "border-[#12110f]/25 text-[#12110f] hover:bg-[#12110f]/5"
             : "border-primary/30 text-primary hover:bg-primary/5",
         )}
       >

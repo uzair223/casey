@@ -7,8 +7,11 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useAsync } from "@/hooks/useAsync";
-import { apiFetch } from "@/lib/api-utils";
-import { MessageSquareText, SparklesIcon, Trash2, X } from "lucide-react";
+import { apiFetch, ApiRequestError } from "@/lib/api-utils";
+import { CasePlanPaywall } from "@/components/billing/case-plan-paywall";
+import { useUser } from "@/contexts/user-context";
+import type { CaseGate } from "@/lib/billing/plans";
+import { MessageSquareText, SparklesIcon, Trash2, X } from "@/components/icons";
 import React from "react";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
@@ -149,6 +152,8 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
     restorePoint?: z.output<T>;
   };
 
+  const { user } = useUser();
+  const [planGate, setPlanGate] = React.useState<CaseGate | null>(null);
   const [input, setInput] = React.useState("");
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const transcriptEndRef = React.useRef<HTMLDivElement>(null);
@@ -310,16 +315,25 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
 
       const requestSeedData = latestConfigRef.current ?? seedData ?? null;
 
-      const response = await apiFetch(`/api/generate/config`, {
-        method: "POST",
-        body: JSON.stringify({
-          input: userMessage.content,
-          conversationHistory,
-          seedData: requestSeedData,
-          responseFormat: zodResponseFormat(schema, "template_response"),
-        }),
-        returnType: "response",
-      });
+      let response: Response;
+      try {
+        response = await apiFetch(`/api/generate/config`, {
+          method: "POST",
+          body: JSON.stringify({
+            input: userMessage.content,
+            conversationHistory,
+            seedData: requestSeedData,
+            responseFormat: zodResponseFormat(schema, "template_response"),
+          }),
+          returnType: "response",
+        });
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.gate) {
+          setPlanGate(error.gate);
+          return;
+        }
+        throw error;
+      }
 
       if (!response.ok) {
         throw new Error(
@@ -534,6 +548,23 @@ export function GenerateWithAIDialog<T extends z.ZodObject>({
 
     return blocks;
   }, [messages]);
+
+  if (planGate) {
+    return (
+      <DraggablePanel open={isOpen} onOpenChange={onOpenChange}>
+        <DraggablePanelContent className={cn("z-150 p-4", className)}>
+          <CasePlanPaywall
+            gate={planGate}
+            canCheckout={user?.role === "tenant_admin"}
+            onClose={() => {
+              setPlanGate(null);
+              onOpenChange(false);
+            }}
+          />
+        </DraggablePanelContent>
+      </DraggablePanel>
+    );
+  }
 
   return (
     <DraggablePanel open={isOpen} onOpenChange={onOpenChange}>

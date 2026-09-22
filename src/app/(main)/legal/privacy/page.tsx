@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Database, FileText, LockKeyhole, UserCheck } from "lucide-react";
+import { ArrowRight, Database, FileText, LockKeyhole, UserCheck } from "@/components/icons";
 
 import {
   MarketingCheckList,
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
         title="How Casey handles witness, case, and firm data."
         description={`${env.NEXT_PUBLIC_APP_NAME} is designed for UK legal practices that need to collect, review, and store witness statement data securely. This policy explains what data is processed, why it is used, and how responsibility is shared with the firm using the platform.`}
       >
-        <div className="mt-10 flex flex-wrap justify-center gap-3">
+        <div className="mt-10 flex flex-wrap gap-3">
           <Button size="lg" variant="brand" asChild className="rounded-full px-7">
             <Link href="/legal/gdpr">
               Read the UK GDPR notice

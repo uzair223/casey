@@ -5,7 +5,7 @@ import {
   FileClock,
   Scale,
   ShieldCheck,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   MarketingCheckList,
@@ -64,7 +64,7 @@ export default function GdprPage() {
         title="Data protection support for legal witness workflows."
         description={`${env.NEXT_PUBLIC_APP_NAME} is designed for UK legal practices that process personal data in dispute handling, witness statements, and legal case management. This notice explains how the platform fits into a firm's own UK GDPR governance.`}
       >
-        <div className="mt-10 flex flex-wrap justify-center gap-3">
+        <div className="mt-10 flex flex-wrap gap-3">
           <Button size="lg" variant="brand" asChild className="rounded-full px-7">
             <Link href="/legal/privacy">
               Privacy policy

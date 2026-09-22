@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent } from "react";
-import { FileTextIcon, RefreshCwIcon, Trash2Icon, UploadIcon } from "lucide-react";
+import { FileTextIcon, RefreshCwIcon, Trash2Icon, UploadIcon } from "@/components/icons";
 
 import { AttachmentPreviewCard } from "@/components/ui/attachment-preview-card";
 import { AsyncButton } from "@/components/ui/async-button";
@@ -11,7 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/contexts/user-context";
 import { useAsync } from "@/hooks/useAsync";
-import { apiFetch } from "@/lib/api-utils";
+import { apiFetch, ApiRequestError } from "@/lib/api-utils";
+import { CasePlanPaywall } from "@/components/billing/case-plan-paywall";
+import type { CaseGate } from "@/lib/billing/plans";
 import {
   createStatementSupportingDocument,
   deleteStatementSupportingDocument,
@@ -52,6 +54,7 @@ export function StatementSupportingDocumentsCard({
     null,
   );
   const [editingDocumentName, setEditingDocumentName] = useState("");
+  const [planGate, setPlanGate] = useState<CaseGate | null>(null);
 
   const {
     data: documents,
@@ -63,10 +66,18 @@ export function StatementSupportingDocumentsCard({
   });
 
   const describeDocument = async (entry: StatementSupportingDocument) => {
-    await apiFetch(
-      `/api/tenant/statement/${statementId}/supporting-documents/${entry.id}/describe`,
-      { method: "POST" },
-    );
+    try {
+      await apiFetch(
+        `/api/tenant/statement/${statementId}/supporting-documents/${entry.id}/describe`,
+        { method: "POST" },
+      );
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.gate) {
+        setPlanGate(error.gate);
+        return;
+      }
+      throw error;
+    }
     await refreshDocuments();
   };
 
@@ -95,12 +106,9 @@ export function StatementSupportingDocumentsCard({
     event.target.value = "";
     await refreshDocuments();
 
-    void apiFetch(
-      `/api/tenant/statement/${statementId}/supporting-documents/${documentId}/describe`,
-      { method: "POST" },
-    )
-      .then(refreshDocuments)
-      .catch(() => refreshDocuments());
+    void describeDocument({
+      id: documentId,
+    } as StatementSupportingDocument).catch(() => refreshDocuments());
   };
 
   const handleRename = async (entry: StatementSupportingDocument) => {
@@ -285,6 +293,20 @@ export function StatementSupportingDocumentsCard({
       </div>
     </div>
   );
+
+  if (planGate) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <CasePlanPaywall
+            gate={planGate}
+            canCheckout={user?.role === "tenant_admin"}
+            onClose={() => setPlanGate(null)}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

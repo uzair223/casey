@@ -36,7 +36,7 @@ import {
   ArrowDownZA,
   CalendarArrowDown,
   CalendarArrowUp,
-} from "lucide-react";
+} from "@/components/icons";
 
 export function CaseTemplateSettingsScreen() {
   const [templateSearch, setTemplateSearch] = useState("");

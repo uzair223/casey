@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/document-viewer";
 import { uploadFile } from "@/lib/supabase/mutations";
 import type { UploadedDocument } from "@/types";
-import { UploadIcon } from "lucide-react";
+import { UploadIcon } from "@/components/icons";
 import { toast } from "@/lib/toast";
 
 type Document = {

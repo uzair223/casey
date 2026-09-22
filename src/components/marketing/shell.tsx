@@ -29,7 +29,7 @@ export function MarketingSection({
   id?: string;
 }) {
   return (
-    <section id={id} className={cn("py-16 lg:py-32", className)}>
+    <section id={id} className={cn("py-14 lg:py-20", className)}>
       <MarketingShell>{children}</MarketingShell>
     </section>
   );

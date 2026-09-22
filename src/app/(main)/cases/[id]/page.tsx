@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Sidebar, SidebarWrapper } from "@/components/ui/sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeftIcon, PenIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { ChevronLeftIcon, PenIcon, PlusIcon, Trash2Icon } from "@/components/icons";
 import { useAsync } from "@/hooks/useAsync";
 import { getCaseTemplateById } from "@/lib/supabase/queries/case-template";
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
-import { AlertTriangle, BrainCircuit, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, BrainCircuit, Sparkles } from "@/components/icons";
 
 import { useAsync } from "@/hooks/useAsync";
-import { apiFetch } from "@/lib/api-utils/fetch";
+import { apiFetch, ApiRequestError } from "@/lib/api-utils/fetch";
 import {
   getLatestCaseAnalysis,
   getLatestCaseAnalysisGenerationJob,
@@ -17,6 +17,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardSkeleton } from "@/components/dashboard/shared/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/lib/toast";
+import { CasePlanPaywall } from "@/components/billing/case-plan-paywall";
+import { useUser } from "@/contexts/user-context";
+import type { CaseGate } from "@/lib/billing/plans";
 
 type CaseAnalysisCardProps = React.ComponentProps<typeof Card> & {
   caseId: string;
@@ -398,6 +401,8 @@ export function CaseAnalysisCard({
   statements,
   ...props
 }: CaseAnalysisCardProps) {
+  const { user } = useUser();
+  const [planGate, setPlanGate] = useState<CaseGate | null>(null);
   const {
     data: snapshot,
     isLoading,
@@ -432,15 +437,37 @@ export function CaseAnalysisCard({
   }, [isGenerating, refreshAnalysis, refreshLatestJob]);
 
   const onGenerate = async () => {
-    await apiFetch(`/api/tenant/case/${caseId}/analysis`, {
-      method: "POST",
-    });
+    try {
+      await apiFetch(`/api/tenant/case/${caseId}/analysis`, {
+        method: "POST",
+      });
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.gate) {
+        setPlanGate(error.gate);
+        return;
+      }
+      throw error;
+    }
     toast.success("Case facts generation queued");
     await refreshLatestJob();
   };
 
   if (isLoading) {
     return <CardSkeleton title="Facts & gaps" {...props} />;
+  }
+
+  if (planGate) {
+    return (
+      <Card {...props}>
+        <CardContent className="pt-6">
+          <CasePlanPaywall
+            gate={planGate}
+            canCheckout={user?.role === "tenant_admin"}
+            onClose={() => setPlanGate(null)}
+          />
+        </CardContent>
+      </Card>
+    );
   }
 
   const stale = isAnalysisStale(snapshot ?? null, statements);

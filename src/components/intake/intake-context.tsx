@@ -31,7 +31,7 @@ import { useAsync, UseAsyncReturn } from "@/hooks/useAsync";
 import Loading from "@/components/loading";
 import { apiFetch } from "@/lib/api-utils";
 import { Button } from "../ui/button";
-import { Link } from "lucide-react";
+import { Link } from "@/components/icons";
 import { toast } from "@/lib/toast";
 
 type IntakeContextData = Omit<

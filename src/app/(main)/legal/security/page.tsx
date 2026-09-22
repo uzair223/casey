@@ -9,7 +9,7 @@ import {
   Link2,
   ServerCog,
   UserCheck,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   MarketingCheckList,
@@ -110,7 +110,7 @@ const firmResponsibilities = [
 
 export default function SecurityPage() {
   return (
-    <MarketingPage accent="orange">
+    <MarketingPage>
       <MarketingPageHero
         eyebrow="Security & privacy"
         title="Witness data deserves the highest protection."

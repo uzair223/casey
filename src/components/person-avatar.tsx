@@ -8,8 +8,8 @@ import "blobatar/motion.css";
 import "blobatar/gaze.css";
 
 const CASEY_SEED = "casey";
-const CASEY_HUE = 250;
-const CASEY_HEAD = "#7357FF";
+const CASEY_HUE = 12;
+const CASEY_HEAD = "#9a4034";
 
 type PersonAvatarProps = {
   name: string;

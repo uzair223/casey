@@ -9,7 +9,7 @@ export function BentoCard({ className, children }: BentoCardProps) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-primary/10 bg-primary/[0.03]",
+        "relative overflow-hidden rounded-2xl border border-primary/10",
         className,
       )}
     >

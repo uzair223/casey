@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 import { useWitnessStatement } from "@/components/intake/intake-context";
-import { Loader2 } from "lucide-react";
+import { Loader2 } from "@/components/icons";
 import { PageTitle } from "../page-title";
 import { WitnessSurveyCard } from "./witness-survey-card";
 import { generateDoc } from "@/lib/doc-gen";

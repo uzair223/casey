@@ -3,7 +3,7 @@
 import React, { useCallback, useRef, useState } from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { Button, ButtonProps } from "./button";
-import { TrashIcon } from "lucide-react";
+import { TrashIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 interface FileInputContextValue {

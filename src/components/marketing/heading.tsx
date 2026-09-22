@@ -18,7 +18,7 @@ export function MarketingHeading({
   title,
   description,
   titleTag: TitleTag = "h2",
-  align = "center",
+  align = "left",
   className,
   titleClassName,
   descriptionClassName,
@@ -26,20 +26,13 @@ export function MarketingHeading({
   const centered = align === "center";
 
   return (
-    <div
-      className={cn(
-        centered ? "mx-auto max-w-4xl text-center" : "max-w-3xl",
-        className,
-      )}
-    >
+    <div className={cn(centered ? "mx-auto max-w-4xl text-center" : "max-w-3xl", className)}>
       {eyebrow ? (
-        <p className="text-[14px] uppercase tracking-[0.15em] text-brand">
-          {eyebrow}
-        </p>
+        <p className="font-display text-lg italic text-brand">{eyebrow}</p>
       ) : null}
       <TitleTag
         className={cn(
-          "font-display text-[2.5rem] font-normal leading-[1.1] tracking-tight text-primary sm:text-5xl sm:leading-[1.1]",
+          "font-display text-[2.5rem] font-normal leading-[1.12] text-primary sm:text-5xl",
           eyebrow && "mt-2",
           titleClassName,
         )}
@@ -49,7 +42,7 @@ export function MarketingHeading({
       {description ? (
         <p
           className={cn(
-            "mt-6 text-lg leading-8 text-muted-foreground",
+            "mt-5 text-lg leading-8 text-muted-foreground",
             centered && "mx-auto max-w-2xl",
             descriptionClassName,
           )}

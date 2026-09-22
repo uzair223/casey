@@ -13,10 +13,13 @@ import { MessageCard } from "@/components/ui/message";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useAsync } from "@/hooks/useAsync";
-import { apiFetch } from "@/lib/api-utils";
+import { apiFetch, ApiRequestError } from "@/lib/api-utils";
+import { CasePlanPaywall } from "@/components/billing/case-plan-paywall";
+import { useUser } from "@/contexts/user-context";
+import type { CaseGate } from "@/lib/billing/plans";
 import { cn } from "@/lib/utils";
 import { BaseMessage } from "@/types";
-import { MessageSquareText, Sparkles, Trash2, X, Zap } from "lucide-react";
+import { MessageSquareText, Sparkles, Trash2, X, Zap } from "@/components/icons";
 
 type ReviewWithAIDialogContentProps = Omit<
   React.ComponentProps<typeof DraggablePanelContent>,
@@ -138,6 +141,8 @@ export function ReviewWithAIDialog({
   children,
   ...dialogContentProps
 }: ReviewWithAIDialogProps) {
+  const { user } = useUser();
+  const [planGate, setPlanGate] = React.useState<CaseGate | null>(null);
   const [input, setInput] = React.useState("");
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [hasPendingReview, setHasPendingReview] = React.useState(false);
@@ -251,6 +256,10 @@ export function ReviewWithAIDialog({
 
       updateAssistantMessage(assistantMessageId, summary, "complete");
     } catch (error) {
+      if (error instanceof ApiRequestError && error.gate) {
+        setPlanGate(error.gate);
+        return;
+      }
       const errorMessage =
         error instanceof Error ? error.message : "Failed to review document";
       updateAssistantMessage(assistantMessageId, errorMessage, "error");
@@ -280,6 +289,23 @@ export function ReviewWithAIDialog({
     lastBufferRef.current = null;
     setHasPendingReview(false);
   };
+
+  if (planGate) {
+    return (
+      <DraggablePanel open={isOpen} onOpenChange={onOpenChange}>
+        <DraggablePanelContent className={cn("p-4", className)}>
+          <CasePlanPaywall
+            gate={planGate}
+            canCheckout={user?.role === "tenant_admin"}
+            onClose={() => {
+              setPlanGate(null);
+              onOpenChange(false);
+            }}
+          />
+        </DraggablePanelContent>
+      </DraggablePanel>
+    );
+  }
 
   return (
     <DraggablePanel open={isOpen} onOpenChange={onOpenChange}>

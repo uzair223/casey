@@ -1,19 +1,13 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 
-import { BentoCard } from "@/components/marketing/bento";
+import { ArrowRight } from "@/components/icons";
+import { AboutInterviewVisual } from "@/components/marketing/about-visual";
 import {
-  platformVisuals,
-  type PlatformVisualKind,
-} from "@/components/marketing/platform-visuals";
-import {
-  MarketingFeatureCard,
   MarketingPage,
   MarketingPageCta,
   MarketingPageHero,
   MarketingPageSection,
 } from "@/components/marketing/page";
-import { Reveal } from "@/components/marketing/reveal";
 import { env } from "@/lib/env";
 
 export const metadata = {
@@ -22,61 +16,43 @@ export const metadata = {
     "Casey interviews witnesses, gathers evidence and finds what's missing, so your solicitors start with a review-ready first draft.",
 };
 
-const pillars: {
-  label: string;
-  title: string;
-  body: string;
-  span: string;
-  visual: PlatformVisualKind;
-}[] = [
+const pillars = [
   {
     label: "Intake",
-    title: "Fill the gaps before you have to chase",
+    title: "Fill the gaps",
     body: "Send a private link from the matter. Casey interviews the witness, asks the follow-up questions, and collects supporting evidence while the account is still coming in.",
-    span: "md:col-span-4 md:row-span-2",
-    visual: "intake",
   },
   {
     label: "Capture",
-    title: "The next useful question, not another chase",
+    title: "The next useful question.",
     body: "The interview asks for chronology, missing details, and supporting documents before anyone on your team has to follow up.",
-    span: "md:col-span-2",
-    visual: "capture",
   },
   {
     label: "Draft",
     title: "Turn the evidence into a first draft",
     body: "Interviews, transcripts and exhibits are condensed into a statement. Your solicitors tweak it instead of writing from scratch.",
-    span: "md:col-span-2",
-    visual: "drafting",
   },
   {
     label: "Gaps",
     title: "Find what's missing before review",
     body: "Chronology, conflicting accounts and missing evidence sit beside the draft, so solicitors see the gaps before they sit down.",
-    span: "md:col-span-3",
-    visual: "timeline",
   },
   {
     label: "Review",
     title: "Start from a statement you can mark up",
     body: "Wording, source context and exhibits stay together. Review is markup, not reconstruction.",
-    span: "md:col-span-3",
-    visual: "templates",
   },
   {
     label: "Team",
     title: "Give solicitors more time for their best thinking",
-    body: "Outstanding witness work, notes and a trail of what happened stay on the matter. Judgement stays with you. The chasing does not.",
-    span: "md:col-span-6",
-    visual: "team",
+    body: "Outstanding witness work, notes and a trail of what happened stay on the matter. Judgement stays with you.",
   },
-];
+] as const;
 
 const roles = [
   {
     title: "Paralegals",
-    body: "Send the link, watch the account come in, and hand over a first draft instead of a chase list.",
+    body: "Send the link, watch the account come in, and hand over a first draft instead of outstanding questions.",
   },
   {
     title: "Solicitors",
@@ -84,68 +60,77 @@ const roles = [
   },
   {
     title: "Admins",
-    body: "Keep templates, users and access in one place so the chasing does not leak into inboxes.",
+    body: "Keep templates, users and access in one place.",
   },
 ] as const;
 
 export default function PlatformPage() {
   return (
-    <MarketingPage accent="green">
+    <MarketingPage>
       <MarketingPageHero
         eyebrow="Platform"
-        title="Witness statements without the chasing."
+        title="Ask. Gather. Find the gaps. Draft."
         description="Casey interviews witnesses, gathers evidence and finds what's missing, so your solicitors start with a review-ready first draft."
       />
 
-      <MarketingPageSection
-        eyebrow="What Casey does"
-        title="Casey removes the chasing from witness statements."
-      >
-        <div className="grid gap-5 md:grid-cols-6">
-          {pillars.map((item, index) => {
-            const Visual = platformVisuals[item.visual];
-            return (
-              <Reveal key={item.title} delay={index * 70} className={item.span}>
-                <BentoCard className="flex h-full min-h-[22rem] flex-col p-0">
-                  <Visual />
-                  <div className="space-y-3 p-8 pt-2 sm:p-10 sm:pt-2">
-                    <p className="text-sm text-brand">{item.label}</p>
-                    <h3 className="text-2xl leading-snug text-primary">
-                      {item.title}
-                    </h3>
-                    <p className="text-sm leading-7 text-muted-foreground">
-                      {item.body}
-                    </p>
-                  </div>
-                </BentoCard>
-              </Reveal>
-            );
-          })}
+      <MarketingPageSection eyebrow="What Casey does">
+        <div className="grid items-start gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+          <ol className="border-t border-primary/15">
+            {pillars.map((item, index) => (
+              <li
+                key={item.title}
+                className="grid gap-3 border-b border-primary/15 py-8 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:gap-6"
+              >
+                <p className="font-display text-3xl text-brand">
+                  {String(index + 1).padStart(2, "0")}
+                </p>
+                <div>
+                  <p className="font-display text-lg italic text-brand">
+                    {item.label}
+                  </p>
+                  <h3 className="mt-1 text-2xl leading-snug text-primary">
+                    {item.title}
+                  </h3>
+                  <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">
+                    {item.body}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          <div className="lg:sticky lg:top-28">
+            <AboutInterviewVisual />
+          </div>
         </div>
       </MarketingPageSection>
 
       <MarketingPageSection
         eyebrow="From link to review"
-        title="Ask. Gather. Find the gaps. Draft."
-        description="Casey asks the follow-up questions, collects supporting evidence, spots missing information before review, and turns everything into a review-ready first draft."
+        title="Casey asks the follow-up questions, collects supporting evidence, spots missing information before review, and turns everything into a review-ready first draft."
       />
 
       <MarketingPageSection
         eyebrow="Teams"
         title="Give solicitors more time for their best thinking."
       >
-        <div className="grid gap-5 md:grid-cols-3">
-          {roles.map((item, index) => (
-            <Reveal key={item.title} delay={index * 90}>
-              <MarketingFeatureCard title={item.title} body={item.body} />
-            </Reveal>
+        <ul className="border-t border-primary/15">
+          {roles.map((item) => (
+            <li
+              key={item.title}
+              className="grid gap-2 border-b border-primary/15 py-6 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-8"
+            >
+              <h3 className="text-xl text-primary">{item.title}</h3>
+              <p className="max-w-xl text-sm leading-7 text-muted-foreground">
+                {item.body}
+              </p>
+            </li>
           ))}
-        </div>
+        </ul>
       </MarketingPageSection>
 
       <MarketingPageCta
-        title="Your solicitors deserve their best thinking, not more chasing."
-        description="Bring a matter that still needs chasing. We will show where Casey takes that work off your team."
+        title="Your solicitors deserve their best thinking."
+        description="Bring a matter. We will show where Casey takes that work off your team."
       >
         <Link
           href="/legal/security"

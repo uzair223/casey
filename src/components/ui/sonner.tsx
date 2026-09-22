@@ -12,7 +12,7 @@ import {
   Loader2,
   TriangleAlert,
   X,
-} from "lucide-react";
+} from "@/components/icons";
 import { Button } from "./button";
 import { Textarea } from "./textarea";
 

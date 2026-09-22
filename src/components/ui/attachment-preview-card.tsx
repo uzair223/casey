@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { FileTextIcon, ImageIcon, PaperclipIcon } from "lucide-react";
+import { FileTextIcon, ImageIcon, PaperclipIcon } from "@/components/icons";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { UploadedDocument } from "@/types";
 import { DocumentViewer, DocumentViewerTrigger } from "./document-viewer";

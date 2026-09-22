@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, MessageSquareTextIcon } from "lucide-react";
+import { Loader2, MessageSquareTextIcon } from "@/components/icons";
 import { useAsync } from "@/hooks/useAsync";
 import { getConversationHistory } from "@/lib/supabase/queries/statement";
 import { Button } from "@/components/ui/button";

@@ -188,6 +188,9 @@ export async function createStatementTemplate(
     .single();
 
   if (error) {
+    if (error.message?.includes("trial_template_cap")) {
+      throw new Error("trial_template_cap");
+    }
     throw error;
   }
 

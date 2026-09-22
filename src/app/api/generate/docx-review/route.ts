@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 
 import { requireUser } from "@/lib/api-utils/auth";
+import { paidAiDenial } from "@/lib/billing/paid-plan";
 import { badRequest } from "@/lib/api-utils/response";
 import { logServerEvent } from "@/lib/observability/logger";
 import { selectModel } from "@/lib/llm/model-config";
@@ -154,6 +155,9 @@ export async function POST(request: Request) {
 
   try {
     const auth = await requireUser(request);
+    const denied = await paidAiDenial(auth.userId);
+    if (denied) return denied;
+
     const rawBody = await request.json().catch(() => null);
     const body = RequestBodySchema.safeParse(rawBody);
 

@@ -540,6 +540,9 @@ export async function createStatement(payload: {
     .single();
 
   if (error) {
+    if (error.message?.includes("trial_witness_cap")) {
+      throw new Error("trial_witness_cap");
+    }
     throw error;
   }
 

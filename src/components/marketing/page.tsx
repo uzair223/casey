@@ -1,47 +1,29 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check } from "@/components/icons";
 import type { ElementType, ReactNode } from "react";
 
 import { BentoCard } from "@/components/marketing/bento";
 import { CtaPair } from "@/components/marketing/cta-pair";
 import { MarketingHeading } from "@/components/marketing/heading";
-import { HeroGlow } from "@/components/marketing/hero-glow";
 import { Reveal } from "@/components/marketing/reveal";
-import { MarketingSection } from "@/components/marketing/shell";
+import { HeroGlow } from "@/components/marketing/hero-glow";
+import { MarketingSection, MarketingShell } from "@/components/marketing/shell";
 import { cn } from "@/lib/utils";
-
-const pageAccents = {
-  green: "#3DDC97",
-  orange: "#FF8A3D",
-} as const;
 
 export function MarketingPage({
   children,
   className,
-  accent,
 }: {
   children: ReactNode;
   className?: string;
-  accent?: keyof typeof pageAccents;
 }) {
-  const accentColor = accent ? pageAccents[accent] : undefined;
-
   return (
     <div
       className={cn(
-        "relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2",
+        "marketing-grain relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2",
         className,
       )}
-      style={
-        accentColor
-          ? {
-              ["--brand" as string]: accentColor,
-              ["--brand-text" as string]: `color-mix(in oklab, ${accentColor} 40%, #f4f5fb)`,
-              ["--ring" as string]: accentColor,
-            }
-          : undefined
-      }
     >
       {children}
     </div>
@@ -62,31 +44,27 @@ export function MarketingPageHero({
   footer?: ReactNode;
 }) {
   return (
-    <section className="relative isolate flex min-h-[70svh] flex-col items-center justify-center px-6 pb-20 pt-24 text-center sm:pt-32">
+    <section className="relative pb-8 pt-16 sm:pt-24">
       <HeroGlow />
-      <Reveal eager>
-        <MarketingHeading
-          eyebrow={eyebrow}
-          title={title}
-          description={description}
-          titleTag="h1"
-          titleClassName="text-4xl sm:text-6xl lg:text-7xl"
-        />
-      </Reveal>
-      {children ? (
-        <Reveal eager delay={140}>
-          {children}
+      <MarketingShell className="relative">
+        <Reveal eager>
+          <MarketingHeading
+            eyebrow={eyebrow}
+            title={title}
+            description={description}
+            titleTag="h1"
+            titleClassName="text-4xl sm:text-6xl"
+          />
         </Reveal>
-      ) : (
-        <Reveal eager delay={140}>
-          <CtaPair className="mt-10 justify-center" />
-        </Reveal>
-      )}
-      {footer ? (
-        <Reveal eager delay={200}>
-          {footer}
-        </Reveal>
-      ) : null}
+        {children ? (
+          <Reveal eager>{children}</Reveal>
+        ) : (
+          <Reveal eager>
+            <CtaPair className="mt-10" />
+          </Reveal>
+        )}
+        {footer ? <Reveal eager>{footer}</Reveal> : null}
+      </MarketingShell>
     </section>
   );
 }
@@ -97,7 +75,7 @@ export function MarketingPageSection({
   title,
   description,
   titleTag,
-  align = "center",
+  align = "left",
   children,
   className,
   headingClassName,
@@ -145,13 +123,13 @@ export function MarketingPageCta({
   return (
     <MarketingSection>
       <Reveal>
-        <div className="rounded-[2rem] border border-primary/10 bg-primary/[0.03] px-6 py-16 text-center sm:px-12 sm:py-24">
+        <div className="rounded-[2rem] border border-primary/10 bg-primary/[0.03] px-6 py-16 sm:px-12 sm:py-20">
           <MarketingHeading
             title={title}
             description={description}
-            titleClassName="text-4xl sm:text-6xl"
+            titleClassName="text-4xl sm:text-5xl"
           />
-          <CtaPair className="mt-10 justify-center" />
+          <CtaPair className="mt-10" />
           {children}
         </div>
       </Reveal>
@@ -161,7 +139,6 @@ export function MarketingPageCta({
 
 export function MarketingFeatureCard({
   label,
-  icon,
   title,
   body,
   className,
@@ -176,18 +153,11 @@ export function MarketingFeatureCard({
 }) {
   return (
     <BentoCard className={cn("flex h-full flex-col p-8 sm:p-10", className)}>
-      {icon ? (
-        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-brand/40 text-brand">
-          {icon}
-        </div>
-      ) : null}
-      {label ? (
-        <p className={cn("text-sm text-brand", icon && "mt-6")}>{label}</p>
-      ) : null}
+      {label ? <p className="font-display text-lg italic text-brand">{label}</p> : null}
       <h3
         className={cn(
           "text-2xl leading-snug text-primary",
-          icon ? "mt-6" : label ? "mt-4" : undefined,
+          label ? "mt-3" : undefined,
         )}
       >
         {title}

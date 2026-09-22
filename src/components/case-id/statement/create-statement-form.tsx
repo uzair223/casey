@@ -28,6 +28,9 @@ import {
 import { listAllowedStatementTemplatesForCaseTemplate } from "@/lib/supabase/queries";
 import { createStatement } from "@/lib/supabase/mutations";
 import { sendWitnessLink } from "@/lib/billing/client";
+import { CasePlanPaywall } from "@/components/billing/case-plan-paywall";
+import { isTrialWitnessCap } from "@/lib/billing/trial-cap";
+import type { CaseGate } from "@/lib/billing/plans";
 import type { Case, StatementConfigTemplate } from "@/types";
 
 type CreateStatementFormProps = {
@@ -43,6 +46,7 @@ export function CreateStatementForm({
 }: CreateStatementFormProps) {
   const { user } = useUserProtected(["tenant_admin", "solicitor", "paralegal"]);
   const [stage, setStage] = useState<1 | 2>(1);
+  const [planGate, setPlanGate] = useState<CaseGate | null>(null);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [templateLoadError, setTemplateLoadError] = useState<string | null>(
     null,
@@ -188,6 +192,15 @@ export function CreateStatementForm({
   }, [_onClose, formMethods, selectedTemplate]);
 
   if (!user?.tenant_id) return null;
+  if (planGate) {
+    return (
+      <CasePlanPaywall
+        gate={planGate}
+        canCheckout={user.role === "tenant_admin"}
+        onClose={() => setPlanGate(null)}
+      />
+    );
+  }
   if (isLoadingTemplates) return null;
 
   const onSubmit: SubmitHandler<CreateWitnessFormData> = async (data) => {
@@ -201,15 +214,24 @@ export function CreateStatementForm({
       }),
     );
 
-    const created = await createStatement({
-      case_id: caseData.id,
-      tenant_id: user.tenant_id,
-      title: caseData.title,
-      witness_name: data.witness_name,
-      witness_email: data.witness_email,
-      witness_metadata: normalizedMetadata,
-      template_id: selectedTemplate?.id ?? null,
-    });
+    let created;
+    try {
+      created = await createStatement({
+        case_id: caseData.id,
+        tenant_id: user.tenant_id,
+        title: caseData.title,
+        witness_name: data.witness_name,
+        witness_email: data.witness_email,
+        witness_metadata: normalizedMetadata,
+        template_id: selectedTemplate?.id ?? null,
+      });
+    } catch (error) {
+      if (isTrialWitnessCap(error)) {
+        setPlanGate("practice");
+        return;
+      }
+      throw error;
+    }
 
     await sendWitnessLink({
       statementId: created.id,

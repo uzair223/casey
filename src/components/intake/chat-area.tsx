@@ -14,7 +14,7 @@ import {
 import { AttachmentPreviewCard } from "@/components/ui/attachment-preview-card";
 import { getMessageResponseMeta } from "@/lib/statement-utils";
 import { useWitnessStatement } from "@/components/intake/intake-context";
-import { CheckIcon, Paperclip, SkipForwardIcon } from "lucide-react";
+import { CheckIcon, Paperclip, SkipForwardIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import type { EvidenceDocument } from "@/lib/evidence";
 

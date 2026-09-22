@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon } from "@/components/icons";
 import Link from "next/link";
 import { AsyncButton } from "@/components/ui/async-button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";

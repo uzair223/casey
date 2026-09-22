@@ -5,7 +5,7 @@ import {
   FileCheck2,
   Scale,
   ShieldCheck,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   MarketingCheckList,
@@ -75,7 +75,7 @@ export default function TermsPage() {
         title="Clear terms for using Casey in legal practice."
         description={`These terms explain the expected use of ${env.NEXT_PUBLIC_APP_NAME}, the responsibilities of firms and authorised users, and the limits of the platform. They should be read alongside any signed order form, data-processing terms, or written agreement with Casey.`}
       >
-        <div className="mt-10 flex flex-wrap justify-center gap-3">
+        <div className="mt-10 flex flex-wrap gap-3">
           <Button size="lg" variant="brand" asChild className="rounded-full px-7">
             <Link href="/legal/privacy">
               Privacy policy

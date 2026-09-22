@@ -11,7 +11,7 @@ import {
   MessageSquareIcon,
   SettingsIcon,
   XIcon,
-} from "lucide-react";
+} from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { AsyncButton } from "@/components/ui/async-button";
 import { PersonAvatar } from "@/components/person-avatar";
@@ -66,25 +66,25 @@ export default function Header() {
   }, [isMobileMenuOpen]);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 h-[var(--header-height)] bg-[#101010]">
+    <header className="fixed inset-x-0 top-0 z-50 h-[var(--header-height)] bg-background">
       <div className="container flex h-full items-center justify-between">
         <Link
           href="/"
-          className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex h-10 items-center gap-2.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {user?.tenant_name ? (
             <div>
               <p className="text-[11px] uppercase leading-none tracking-[0.18em] text-muted-foreground">
                 {user.tenant_name}
               </p>
-              <p className="font-display text-[22px] leading-none tracking-tight">
+              <p className="font-display text-[20px] leading-none tracking-tight">
                 {env.NEXT_PUBLIC_APP_NAME}
               </p>
             </div>
           ) : (
             <>
-              <BrandMark />
-              <p className="font-display text-[22px] leading-none tracking-tight">
+              <BrandMark className="size-7" />
+              <p className="font-display text-[20px] leading-none tracking-tight">
                 {env.NEXT_PUBLIC_APP_NAME}
               </p>
             </>
@@ -145,7 +145,7 @@ export default function Header() {
         <div
           ref={mobileMenuRef}
           id="mobile-nav"
-          className="absolute inset-x-0 top-full rounded-b-xl bg-[#101010] md:hidden"
+          className="absolute inset-x-0 top-full bg-background md:hidden"
         >
           <nav className="container flex flex-col gap-1 pb-6 text-sm">
             {publicLinks.map((item) => (
@@ -203,15 +203,14 @@ function LoggedInNav({
   onSignOut: () => Promise<void>;
 }) {
   return (
-    <nav className="flex items-center gap-1">
+    <nav className="flex h-10 items-center gap-3">
       <Button
-        size="icon"
         variant="ghost"
-        className="text-primary/80 hover:text-primary"
+        className="size-10 text-primary/80 hover:text-primary [&_svg]:!size-7"
         asChild
       >
         <Link href="/dashboard" aria-label="Home">
-          <HouseIcon className="h-5 w-5" />
+          <HouseIcon />
         </Link>
       </Button>
       <UserMenu user={user} onSignOut={onSignOut} />
@@ -276,9 +275,8 @@ function UserMenu({
       <Button
         ref={buttonRef}
         type="button"
-        size="icon"
         variant="ghost"
-        className="relative size-10 overflow-visible rounded-full text-primary/80 hover:text-primary [&_svg]:size-9"
+        className="relative size-10 overflow-visible rounded-full text-primary/80 hover:text-primary [&_svg]:!size-7"
         aria-label={
           unreadCount > 0
             ? `Account menu, ${unreadCount} unread notifications`
@@ -292,7 +290,7 @@ function UserMenu({
         <PersonAvatar
           name={user.id}
           title={displayName}
-          size={36}
+          size={28}
           background="circle"
         />
         {unreadCount > 0 ? (

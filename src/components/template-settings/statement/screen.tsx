@@ -34,7 +34,7 @@ import {
   CalendarArrowUp,
   ArrowDownAZ,
   ArrowDownZA,
-} from "lucide-react";
+} from "@/components/icons";
 import {
   Select,
   SelectContent,

@@ -47,6 +47,9 @@ import {
 } from "@/lib/supabase/mutations";
 import { slugify, uniqueSlug } from "@/lib/utils";
 import { toast } from "@/lib/toast";
+import { CasePlanPaywall } from "@/components/billing/case-plan-paywall";
+import { isTrialTemplateCap } from "@/lib/billing/trial-cap";
+import type { CaseGate } from "@/lib/billing/plans";
 import {
   deletePathFromObject,
   getValueAtPath,
@@ -249,6 +252,19 @@ export function StatementTemplateSettingsProvider({
   const searchParams = useSearchParams();
   const selectedTemplateId = searchParams.get("templateId");
   const { user } = useUserProtected(["app_admin", "tenant_admin", "solicitor"]);
+  const [planGate, setPlanGate] = useState<CaseGate | null>(null);
+
+  const guardTemplateCreate = async <T,>(fn: () => Promise<T>) => {
+    try {
+      return await fn();
+    } catch (error) {
+      if (isTrialTemplateCap(error)) {
+        setPlanGate("practice");
+        return null;
+      }
+      throw error;
+    }
+  };
 
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -657,7 +673,10 @@ export function StatementTemplateSettingsProvider({
       }
       toast.success("Template updated");
     } else {
-      const created = await createStatementTemplate(payload);
+      const created = await guardTemplateCreate(() =>
+        createStatementTemplate(payload),
+      );
+      if (!created) return;
       if ((nextStatus ?? currentStatus) === "published") {
         await publishStatementTemplate(created.id);
       }
@@ -745,15 +764,18 @@ export function StatementTemplateSettingsProvider({
     const config = normalizeConfig(activeTemplate.draft_config);
     const scope: "global" | "tenant" = isAppAdmin ? "global" : "tenant";
 
-    const created = await createStatementTemplate({
-      tenantId: scope === "tenant" ? user?.tenant_id : null,
-      name: `${activeTemplate.name} (Copy)`,
-      templateScope: scope,
-      status: "draft",
-      draftConfig: config,
-      docxTemplateDocument: activeTemplate.draft_docx_template_document,
-      sourceTemplateId: activeTemplate.id,
-    });
+    const created = await guardTemplateCreate(() =>
+      createStatementTemplate({
+        tenantId: scope === "tenant" ? user?.tenant_id : null,
+        name: `${activeTemplate.name} (Copy)`,
+        templateScope: scope,
+        status: "draft",
+        draftConfig: config,
+        docxTemplateDocument: activeTemplate.draft_docx_template_document,
+        sourceTemplateId: activeTemplate.id,
+      }),
+    );
+    if (!created) return;
 
     const refreshed = await refreshData();
     const copy =
@@ -781,15 +803,18 @@ export function StatementTemplateSettingsProvider({
 
     const config = normalizeConfig(activeTemplate.draft_config);
 
-    const created = await createStatementTemplate({
-      tenantId: user.tenant_id,
-      name: `${activeTemplate.name} (Firm)`,
-      templateScope: "tenant",
-      status: "draft",
-      draftConfig: config,
-      docxTemplateDocument: activeTemplate.draft_docx_template_document,
-      sourceTemplateId: activeTemplate.id,
-    });
+    const created = await guardTemplateCreate(() =>
+      createStatementTemplate({
+        tenantId: user.tenant_id,
+        name: `${activeTemplate.name} (Firm)`,
+        templateScope: "tenant",
+        status: "draft",
+        draftConfig: config,
+        docxTemplateDocument: activeTemplate.draft_docx_template_document,
+        sourceTemplateId: activeTemplate.id,
+      }),
+    );
+    if (!created) return;
 
     const refreshed = await refreshData();
     const tenantCopy =
@@ -1127,6 +1152,16 @@ export function StatementTemplateSettingsProvider({
     deleteUploadedDocx,
     stageTemplateDocx,
   };
+
+  if (planGate) {
+    return (
+      <CasePlanPaywall
+        gate={planGate}
+        canCheckout={user?.role === "tenant_admin"}
+        onClose={() => setPlanGate(null)}
+      />
+    );
+  }
 
   return (
     <FormProvider {...formMethods}>

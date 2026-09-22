@@ -7,7 +7,7 @@ import {
   LayersIcon,
   MailIcon,
   UsersIcon,
-} from "lucide-react";
+} from "@/components/icons";
 
 import { useAsync } from "@/hooks/useAsync";
 import { getPlatformDashboardData } from "@/lib/supabase/queries";

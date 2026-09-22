@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Building2, FileClock, Scale, ShieldCheck } from "lucide-react";
+import { ArrowRight, Building2, FileClock, Scale, ShieldCheck } from "@/components/icons";
 
 import {
   MarketingCheckList,
@@ -48,7 +48,7 @@ export default function DpaPage() {
         title="Processor terms for paid Casey workspaces."
         description={`${env.NEXT_PUBLIC_APP_NAME} processes witness and matter data as a processor for the instructing firm. This page is a working draft for solicitor review and is not a substitute for a signed DPA.`}
       >
-        <div className="mt-10 flex flex-wrap justify-center gap-3">
+        <div className="mt-10 flex flex-wrap gap-3">
           <Button size="lg" variant="brand" asChild className="rounded-full px-7">
             <Link href="/legal/gdpr">
               UK GDPR notice

@@ -6,7 +6,7 @@ import { LinkList } from "./ui/link-list";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-border/50 pt-20 pb-10">
+    <footer className="relative z-10 border-t border-border/50 pt-20 pb-10">
       <div className="container grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.15fr_repeat(4,minmax(0,1fr))]">
         <div className="max-w-sm space-y-3">
           <Link href="/" className="flex items-center gap-2.5">

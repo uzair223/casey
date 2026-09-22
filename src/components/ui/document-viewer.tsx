@@ -27,7 +27,7 @@ import {
   ExternalLinkIcon,
   FileTextIcon,
   UploadIcon,
-} from "lucide-react";
+} from "@/components/icons";
 import Image from "next/image";
 import { DocxEditor, DocxEditorPanel, type DocxEditorRef } from "./docx-editor";
 

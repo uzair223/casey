@@ -1,6 +1,6 @@
 import { env } from "@/lib/env";
 import type { Metadata } from "next";
-import { Instrument_Serif, Inter } from "next/font/google";
+import { Libre_Baskerville, Source_Sans_3 } from "next/font/google";
 
 import { UserProvider } from "@/contexts/user-context";
 import { TenantProvider } from "@/contexts/tenant-context";
@@ -8,13 +8,14 @@ import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
 
-const display = Instrument_Serif({
+const display = Libre_Baskerville({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: "400",
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
 });
 
-const sans = Inter({
+const sans = Source_Sans_3({
   variable: "--font-sans",
   subsets: ["latin"],
 });

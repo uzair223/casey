@@ -15,9 +15,13 @@ import { env } from "@/lib/env";
 export function WaitlistSignupForm({
   className,
   disableCalendly,
+  submitClassName,
+  submitVariant,
   ...props
 }: Exclude<React.FormHTMLAttributes<HTMLFormElement>, "onSubmit"> & {
   disableCalendly?: boolean;
+  submitClassName?: string;
+  submitVariant?: React.ComponentProps<typeof AsyncButton>["variant"];
 }) {
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
@@ -140,13 +144,14 @@ export function WaitlistSignupForm({
         ) : null}
 
           <AsyncButton
-            className="w-full"
+            className={cn("w-full", submitClassName)}
             type="submit"
             pendingText="Joining..."
             variant={
-              !disableCalendly && env.NEXT_PUBLIC_CALENDLY_LINK
+              submitVariant ??
+              (!disableCalendly && env.NEXT_PUBLIC_CALENDLY_LINK
                 ? "outline"
-                : "default"
+                : "default")
             }
           >
             Join the waitlist

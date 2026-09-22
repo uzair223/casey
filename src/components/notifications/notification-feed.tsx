@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BellIcon, CheckCheckIcon, ExternalLinkIcon } from "lucide-react";
+import { BellIcon, CheckCheckIcon, ExternalLinkIcon } from "@/components/icons";
 
 import { useAsync } from "@/hooks/useAsync";
 import { Button } from "@/components/ui/button";

@@ -3,7 +3,7 @@
 import { useWitnessStatement } from "@/components/intake/intake-context";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "@/components/icons";
 import Link from "next/link";
 
 export function PageHeader() {

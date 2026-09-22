@@ -6,7 +6,7 @@ import {
   ListChecks,
   Paperclip,
   SendHorizonal,
-} from "lucide-react";
+} from "@/components/icons";
 
 import { MessageCard } from "@/components/ui/message";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -63,27 +63,9 @@ const chronology = [
   },
 ] as const;
 
-function WindowChrome({ title }: { title: string }) {
+function ProductFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 border-b border-primary/10 px-4 py-3">
-      <span className="h-2.5 w-2.5 rounded-full bg-primary/20" />
-      <span className="h-2.5 w-2.5 rounded-full bg-primary/20" />
-      <span className="h-2.5 w-2.5 rounded-full bg-primary/20" />
-      <p className="mx-auto font-mono text-[11px] text-primary/40">{title}</p>
-    </div>
-  );
-}
-
-function ProductFrame({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="overflow-hidden rounded-2xl border border-primary/10 bg-[#0c0c0c] shadow-[0_40px_80px_-40px_rgba(0,0,0,0.8)]">
-      <WindowChrome title={title} />
+    <div className="overflow-hidden rounded-2xl border border-primary/15 bg-card/40 shadow-[0_40px_80px_-40px_rgba(0,0,0,0.8)]">
       <div className="pointer-events-none relative h-[32rem] overflow-hidden sm:h-[36rem]">
         {children}
       </div>
@@ -316,6 +298,43 @@ function AnalysisMock() {
   );
 }
 
+function SignatureMock() {
+  return (
+    <div className="flex h-full flex-col bg-background p-4 sm:p-5">
+      <p className="text-xs text-primary/45">Final signature required</p>
+      <h3 className="mt-1 font-display text-xl text-primary">
+        Review and sign your statement
+      </h3>
+      <p className="mt-2 max-w-xl text-sm leading-6 text-primary/65">
+        Jane Doe, please review the finalized statement for Workplace accident —
+        14 March 2026.
+      </p>
+      <div className="mt-4 flex items-start gap-2 text-sm leading-6 text-primary/80">
+        <span className="mt-1 flex size-4 shrink-0 items-center justify-center rounded border border-brand-fill bg-brand-fill text-[10px] text-brand-foreground">
+          ✓
+        </span>
+        I intend to sign this statement as Jane Doe and confirm that the account
+        is true to the best of my knowledge.
+      </div>
+      <div className="mt-4 max-w-md rounded-xl border border-primary/15 bg-white px-4 py-3 text-black">
+        <svg viewBox="0 0 360 72" className="h-16 w-full" aria-hidden>
+          <path
+            d="M16 46 C 48 18, 62 62, 92 34 S 140 14, 168 42 S 214 60, 248 28 S 300 12, 340 38"
+            fill="none"
+            stroke="#12110f"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+        <p className="text-[11px] text-neutral-500">Jane Doe · 14 March 2026</p>
+      </div>
+      <span className="mt-4 inline-flex w-fit rounded-full bg-brand-fill px-4 py-2 text-sm font-medium text-brand-foreground">
+        Submit final signed statement
+      </span>
+    </div>
+  );
+}
+
 function ReviewMock() {
   return (
     <div className="flex h-full bg-background">
@@ -390,7 +409,6 @@ const tabs = [
   {
     value: "intake",
     label: "Intake",
-    title: "app.casey / intake",
     overlayTitle: "Interview in progress",
     overlayMeta: "Next useful question queued",
     mock: <IntakeMock />,
@@ -398,7 +416,6 @@ const tabs = [
   {
     value: "draft",
     label: "Draft",
-    title: "app.casey / statement",
     overlayTitle: "Statement drafted",
     overlayMeta: "Completed in 3m 24s",
     mock: <DraftMock />,
@@ -406,7 +423,6 @@ const tabs = [
   {
     value: "analysis",
     label: "Analysis",
-    title: "app.casey / facts-and-gaps",
     overlayTitle: "Gaps surfaced",
     overlayMeta: "3 items still missing",
     mock: <AnalysisMock />,
@@ -414,16 +430,22 @@ const tabs = [
   {
     value: "review",
     label: "Review",
-    title: "app.casey / review",
     overlayTitle: "Ready for solicitor review",
     overlayMeta: "Source context attached",
     mock: <ReviewMock />,
+  },
+  {
+    value: "signature",
+    label: "Signature",
+    overlayTitle: "Review and sign",
+    overlayMeta: "Final signature required",
+    mock: <SignatureMock />,
   },
 ] as const;
 
 export function ProductPreview() {
   return (
-    <Tabs defaultValue="draft" className="space-y-8">
+    <Tabs defaultValue="intake" className="space-y-4">
       <TabsList className="sticky top-[calc(var(--header-height)+0.75rem)] z-20 mx-auto flex h-auto w-fit justify-center gap-1 overflow-visible rounded-full border border-primary/10 bg-[#141414]/90 p-1 backdrop-blur-md">
         {tabs.map((tab) => (
           <TabsTrigger
@@ -438,7 +460,7 @@ export function ProductPreview() {
 
       {tabs.map((tab) => (
         <TabsContent key={tab.value} value={tab.value} className="relative">
-          <ProductFrame title={tab.title}>{tab.mock}</ProductFrame>
+          <ProductFrame>{tab.mock}</ProductFrame>
           <div className="absolute bottom-6 left-6 rounded-lg border border-primary/10 bg-black/80 px-4 py-3 backdrop-blur-sm">
             <p className="text-xs font-medium text-primary">{tab.overlayTitle}</p>
             <p className="mt-0.5 text-[11px] text-primary/50">{tab.overlayMeta}</p>

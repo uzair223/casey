@@ -94,7 +94,12 @@ export async function createCaseTemplate(
     .select(CASE_TEMPLATE_SELECT)
     .single();
 
-  if (error) throw error;
+  if (error) {
+    if (error.message?.includes("trial_template_cap")) {
+      throw new Error("trial_template_cap");
+    }
+    throw error;
+  }
   return toCaseTemplate(
     data as Record<string, unknown>,
     "createCaseTemplate:result",

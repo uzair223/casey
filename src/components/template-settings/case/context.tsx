@@ -34,6 +34,9 @@ import {
 } from "@/lib/supabase/mutations";
 import { slugify, uniqueSlug } from "@/lib/utils";
 import { toast } from "@/lib/toast";
+import { CasePlanPaywall } from "@/components/billing/case-plan-paywall";
+import { isTrialTemplateCap } from "@/lib/billing/trial-cap";
+import type { CaseGate } from "@/lib/billing/plans";
 import type {
   CaseConfig,
   CaseTemplate,
@@ -140,6 +143,19 @@ export function CaseTemplateSettingsProvider({
   children: ReactNode;
 }) {
   const { user } = useUserProtected(["app_admin", "tenant_admin", "solicitor"]);
+  const [planGate, setPlanGate] = useState<CaseGate | null>(null);
+
+  const guardTemplateCreate = async <T,>(fn: () => Promise<T>) => {
+    try {
+      return await fn();
+    } catch (error) {
+      if (isTrialTemplateCap(error)) {
+        setPlanGate("practice");
+        return null;
+      }
+      throw error;
+    }
+  };
 
   const [caseTemplates, setCaseTemplates] = useState<CaseTemplate[]>([]);
   const [statementTemplates, setStatementTemplates] = useState<
@@ -399,10 +415,13 @@ export function CaseTemplateSettingsProvider({
       }
       toast.success("Case template updated");
     } else {
-      const created = await createCaseTemplate({
-        ...payload,
-        status: targetStatus === "published" ? "draft" : targetStatus,
-      });
+      const created = await guardTemplateCreate(() =>
+        createCaseTemplate({
+          ...payload,
+          status: targetStatus === "published" ? "draft" : targetStatus,
+        }),
+      );
+      if (!created) return;
       if (targetStatus === "published") {
         await publishCaseTemplate(created.id);
       }
@@ -443,15 +462,18 @@ export function CaseTemplateSettingsProvider({
       normalizeConfig(activeTemplate.draft_config),
     );
 
-    const created = await createCaseTemplate({
-      tenantId: user.tenant_id,
-      name: `${activeTemplate.name} (Firm)`,
-      titleTemplate: activeTemplate.title_template,
-      templateScope: "tenant",
-      status: "draft",
-      draftConfig: config,
-      sourceTemplateId: activeTemplate.id,
-    });
+    const created = await guardTemplateCreate(() =>
+      createCaseTemplate({
+        tenantId: user.tenant_id,
+        name: `${activeTemplate.name} (Firm)`,
+        titleTemplate: activeTemplate.title_template,
+        templateScope: "tenant",
+        status: "draft",
+        draftConfig: config,
+        sourceTemplateId: activeTemplate.id,
+      }),
+    );
+    if (!created) return;
 
     await setCaseTemplateStatementTemplates({
       caseTemplateId: created.id,
@@ -479,15 +501,18 @@ export function CaseTemplateSettingsProvider({
       normalizeConfig(activeTemplate.draft_config),
     );
 
-    const created = await createCaseTemplate({
-      tenantId: scope === "tenant" ? user?.tenant_id : null,
-      name: `${activeTemplate.name} (Copy)`,
-      titleTemplate: activeTemplate.title_template,
-      templateScope: scope,
-      status: "draft",
-      draftConfig: config,
-      sourceTemplateId: activeTemplate.id,
-    });
+    const created = await guardTemplateCreate(() =>
+      createCaseTemplate({
+        tenantId: scope === "tenant" ? user?.tenant_id : null,
+        name: `${activeTemplate.name} (Copy)`,
+        titleTemplate: activeTemplate.title_template,
+        templateScope: scope,
+        status: "draft",
+        draftConfig: config,
+        sourceTemplateId: activeTemplate.id,
+      }),
+    );
+    if (!created) return;
 
     await setCaseTemplateStatementTemplates({
       caseTemplateId: created.id,
@@ -650,6 +675,16 @@ export function CaseTemplateSettingsProvider({
     addDynamicField,
     applyAdvancedJson,
   };
+
+  if (planGate) {
+    return (
+      <CasePlanPaywall
+        gate={planGate}
+        canCheckout={user?.role === "tenant_admin"}
+        onClose={() => setPlanGate(null)}
+      />
+    );
+  }
 
   return (
     <FormProvider {...formMethods}>

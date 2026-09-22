@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { paidAiDenial } from "@/lib/billing/paid-plan";
 import { requireTenantUser } from "@/lib/api-utils/auth";
 import { handleApiError } from "@/lib/api-utils";
 import { generateStatementDocumentDescriptor } from "@/lib/ai-workers/document-descriptors";
@@ -14,6 +15,8 @@ export async function POST(
   try {
     const { id: statementId, documentId } = await params;
     const auth = await requireTenantUser(request);
+    const denied = await paidAiDenial(auth.userId);
+    if (denied) return denied;
 
     const documents = await getStatementSupportingDocumentsWithClient(
       auth.supabase,

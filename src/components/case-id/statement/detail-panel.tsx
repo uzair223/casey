@@ -18,7 +18,7 @@ import {
   SaveIcon,
   SendHorizonalIcon,
   Trash2Icon,
-} from "lucide-react";
+} from "@/components/icons";
 import { AsyncButton } from "@/components/ui/async-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -9,7 +9,7 @@ import {
   LayersIcon,
   PercentIcon,
   UsersIcon,
-} from "lucide-react";
+} from "@/components/icons";
 
 import { NotificationFeed } from "@/components/notifications";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

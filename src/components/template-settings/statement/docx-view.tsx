@@ -18,7 +18,7 @@ import {
   type DocxEditorRef,
 } from "@/components/ui/docx-editor";
 import { ReviewWithAI, ReviewWithAITrigger } from "@/components/with-ai";
-import { ZapIcon } from "lucide-react";
+import { ZapIcon } from "@/components/icons";
 
 export function StatementTemplateDocxView() {
   const {
