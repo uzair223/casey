@@ -2,15 +2,18 @@ import "server-only";
 
 import OpenAI from "openai";
 import { z } from "zod";
-import { zodResponseFormat } from "openai/helpers/zod";
+import { zodResponseFormat, zodTextFormat } from "openai/helpers/zod";
 
-import { extractDocumentContent } from "@/lib/files";
-import { selectModel } from "@/lib/llm/model-config";
+import { selectDocumentDescriptorModel } from "@/lib/llm/model-config";
 import {
   createModelRequestTimeout,
   getModelRequestError,
 } from "@/lib/llm/request";
-import { attachedMediaPlaceholder } from "@/lib/llm/inline-media";
+import {
+  isMediaEvidenceKind,
+  loadEvidenceFile,
+} from "@/lib/llm/evidence-files";
+import { collectResponsesText } from "@/lib/llm/openai-responses";
 import { parseStructuredJson } from "@/lib/llm/responses";
 import { getServiceClient } from "@/lib/supabase/server";
 import { SERVERONLY_updateStatementSupportingDocumentDescriptors } from "@/lib/supabase/mutations/statement-supporting-documents";
@@ -53,78 +56,86 @@ export async function generateStatementDocumentDescriptor(params: {
       throw error ?? new Error("Failed to download supporting document.");
     }
 
-    const extracted = await extractDocumentContent(data, document);
-    const contentParts: Array<{ type: "text"; text: string }> = [
-      {
-        type: "text",
-        text: `File name: ${document.name}
+    const loaded = await loadEvidenceFile(data, document);
+    const fileLabel = `File name: ${document.name}
 MIME type: ${document.type}
 Evidence group: ${params.documentRow.group_name ?? document.group ?? "supporting evidence"}
-Upload source: ${params.documentRow.uploaded_by_type}`,
-      },
-    ];
-
-    if (extracted.type === "text") {
-      contentParts.push({
-        type: "text",
-        text: `Extracted text:\n${extracted.text}`,
-      });
-    } else if (extracted.type === "image_url") {
-      contentParts.push({
-        type: "text",
-        text: attachedMediaPlaceholder({
-          kind: "image",
-          name: document.name,
-          type: document.type,
-        }),
-      });
-    } else if (extracted.warning) {
-      contentParts.push({
-        type: "text",
-        text: `Extraction note: ${extracted.warning}`,
-      });
-    }
-
-    const model = selectModel("document-descriptor");
+Upload source: ${params.documentRow.uploaded_by_type}`;
+    const model = selectDocumentDescriptorModel(
+      loaded.part && isMediaEvidenceKind(loaded.handledAs) ? "media" : "text",
+    );
     const client = new OpenAI(getCloudflareAiClientOptions());
     const modelTimeout = createModelRequestTimeout(
       DOCUMENT_DESCRIPTOR_TIMEOUT_MS,
       "Document descriptor model request",
     );
+    const descriptorInstructions =
+      "Produce concise legal-document descriptors for a solicitor reviewing statement evidence. Stay neutral, do not infer facts beyond the supplied file, and keep each key detail short.";
 
-    let response: Awaited<ReturnType<typeof client.chat.completions.parse>>;
+    let descriptorJson: unknown;
     try {
-      response = await client.chat.completions.parse(
-        {
+      if (loaded.part && isMediaEvidenceKind(loaded.handledAs)) {
+        const response = await client.chat.completions.parse(
+          {
+            model,
+            temperature: 0.1,
+            messages: [
+              {
+                role: "system",
+                content: descriptorInstructions,
+              },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: fileLabel },
+                  loaded.part,
+                ],
+              },
+            ],
+            response_format: zodResponseFormat(
+              DocumentDescriptorSchema,
+              "statement_document_descriptor",
+            ),
+          },
+          { signal: modelTimeout.signal },
+        );
+        descriptorJson = parseStructuredJson(
+          response,
+          "statement_document_descriptor",
+        );
+      } else {
+        const textSections = [fileLabel];
+        if (loaded.text) {
+          textSections.push(`Extracted text:\n${loaded.text}`);
+        } else if (loaded.warning) {
+          textSections.push(`Extraction note: ${loaded.warning}`);
+        }
+        const generated = await collectResponsesText({
+          client,
           model,
           temperature: 0.1,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Produce concise legal-document descriptors for a solicitor reviewing statement evidence. Stay neutral, do not infer facts beyond the supplied file, and keep each key detail short.",
-            },
-            {
-              role: "user",
-              content: contentParts,
-            },
-          ],
-          response_format: zodResponseFormat(
+          signal: modelTimeout.signal,
+          instructions: descriptorInstructions,
+          textFormat: zodTextFormat(
             DocumentDescriptorSchema,
             "statement_document_descriptor",
           ),
-        },
-        { signal: modelTimeout.signal },
-      );
+          input: [
+            {
+              role: "user",
+              content: textSections.join("\n\n"),
+            },
+          ],
+        });
+        descriptorJson = JSON.parse(generated);
+      }
     } catch (error) {
       throw getModelRequestError(error, "Document descriptor model request");
     } finally {
       modelTimeout.clear();
     }
 
-    const descriptor = DocumentDescriptorSchema.parse(
-      parseStructuredJson(response, "statement_document_descriptor"),
-    );
+    const descriptor = DocumentDescriptorSchema.parse(descriptorJson);
 
     await SERVERONLY_updateStatementSupportingDocumentDescriptors({
       documentId: params.documentRow.id,

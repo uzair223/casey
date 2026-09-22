@@ -12,9 +12,13 @@ import {
   createModelRequestTimeout,
   getModelRequestError,
 } from "@/lib/llm/request";
-import { attachedMediaPlaceholder } from "@/lib/llm/inline-media";
 import { parseStructuredJson } from "@/lib/llm/responses";
-import { extractDocumentContent, type UploadedDocument } from "@/lib/files";
+import {
+  loadEvidenceFile,
+  readEvidenceMedia,
+  type ModelContentPart,
+} from "@/lib/llm/evidence-files";
+import type { UploadedDocument } from "@/lib/files";
 import {
   getStatementSupportingDocumentsWithClient,
   getUploadedDocumentsFromSupportingRows,
@@ -33,10 +37,6 @@ import {
   completeGenerationJobFailure,
 } from "@/lib/ai-workers/claim";
 
-const MAX_USER_TURNS = Number(process.env.FORMALIZE_MAX_USER_TURNS ?? 40);
-const MAX_CHARS_PER_TURN = Number(
-  process.env.FORMALIZE_MAX_CHARS_PER_TURN ?? 1200,
-);
 const FORMALIZE_TIMEOUT_MS = Number(process.env.FORMALIZE_TIMEOUT_MS ?? 60_000);
 
 type EvidenceSummary = {
@@ -88,8 +88,9 @@ async function buildEvidenceInputs(params: {
   supabase: ReturnType<typeof getServiceClient>;
   tenantId: string;
   documents: UploadedDocument[];
+  client: OpenAI;
 }) {
-  const contentParts: Array<{ type: "text"; text: string }> = [];
+  const contentParts: ModelContentPart[] = [];
   const summaries: EvidenceSummary[] = [];
 
   for (const document of params.documents) {
@@ -103,41 +104,83 @@ async function buildEvidenceInputs(params: {
         throw error ?? new Error("Failed to download evidence document.");
       }
 
-      const extracted = await extractDocumentContent(data, document);
+      const loaded = await loadEvidenceFile(data, document);
+      contentParts.push({
+        type: "text",
+        text: `[File: ${loaded.name}] (${loaded.type})`,
+      });
 
-      if (extracted.type === "image_url") {
+      if (loaded.handledAs === "text" && loaded.text) {
         contentParts.push({
           type: "text",
-          text: attachedMediaPlaceholder({
-            kind: "image",
-            name: document.name,
-            type: document.type,
-          }),
-        });
-        summaries.push({
-          name: document.name,
-          type: document.type,
-          handledAs: "metadata_only",
-          warning: "Image contents were not sent to the model.",
-        });
-      } else if (extracted.type === "text") {
-        contentParts.push({
-          type: "text",
-          text: `[File: ${document.name}]\n${extracted.text}`,
+          text: loaded.text,
         });
         summaries.push({
           name: document.name,
           type: document.type,
           handledAs: "text",
         });
-      } else {
+        continue;
+      }
+
+      if (
+        (loaded.handledAs === "image" || loaded.handledAs === "pdf") &&
+        loaded.part
+      ) {
+        contentParts.push(loaded.part);
         summaries.push({
           name: document.name,
           type: document.type,
-          handledAs: "metadata_only",
-          warning: extracted.warning,
+          handledAs: loaded.handledAs,
         });
+        continue;
       }
+
+      if (
+        (loaded.handledAs === "audio" || loaded.handledAs === "video") &&
+        loaded.part
+      ) {
+        const mediaTimeout = createModelRequestTimeout(
+          30_000,
+          "Evidence media reading",
+        );
+        try {
+          const reading = await readEvidenceMedia({
+            client: params.client,
+            file: loaded,
+            signal: mediaTimeout.signal,
+          });
+          contentParts.push({
+            type: "text",
+            text: `Reading of this ${loaded.handledAs} file:\n${reading}`,
+          });
+          summaries.push({
+            name: document.name,
+            type: document.type,
+            handledAs: loaded.handledAs,
+          });
+        } catch (error) {
+          summaries.push({
+            name: document.name,
+            type: document.type,
+            handledAs: "metadata_only",
+            warning:
+              error instanceof Error
+                ? error.message
+                : "Media could not be read before formalization.",
+          });
+        } finally {
+          mediaTimeout.clear();
+        }
+        continue;
+      }
+
+      summaries.push({
+        name: document.name,
+        type: document.type,
+        handledAs: "metadata_only",
+        warning: loaded.warning,
+      });
     } catch {
       summaries.push({
         name: document.name,
@@ -223,11 +266,8 @@ export async function processFormalizationJob(jobId: string) {
           content: message.content.trim(),
         }))
         .filter((message) => !!message.content)
-        .slice(-MAX_USER_TURNS)
         .map((message, index) => {
-          const normalized = message.content.replace(/\s+/g, " ").trim();
-          const bounded = normalized.slice(0, MAX_CHARS_PER_TURN);
-          return `${index + 1}. ${message.role.toUpperCase()}:\n${bounded}\n\n`;
+          return `${index + 1}. ${message.role.toUpperCase()}:\n${message.content}\n\n`;
         })
         .join("\n") || "No transcript available.";
 
@@ -240,10 +280,13 @@ export async function processFormalizationJob(jobId: string) {
       evidenceDocuments,
       statement.witness_name || "Witness",
     );
+    const model = selectModel("formalize");
+    const client = new OpenAI(getCloudflareAiClientOptions());
     const evidenceInputs = await buildEvidenceInputs({
       supabase,
       tenantId: statement.tenant_id,
       documents: evidenceDocuments,
+      client,
     });
 
     const evidenceOverview = evidenceInputs.summaries.length
@@ -255,8 +298,6 @@ export async function processFormalizationJob(jobId: string) {
           .join("\n")
       : "No evidence files attached.";
 
-    const model = selectModel("formalize");
-    const client = new OpenAI(getCloudflareAiClientOptions());
     const modelTimeout = createModelRequestTimeout(
       FORMALIZE_TIMEOUT_MS,
       "Statement formalization model request",
@@ -290,7 +331,7 @@ export async function processFormalizationJob(jobId: string) {
               content: [
                 {
                   type: "text",
-                  text: `EVIDENCE EXHIBITS\n\n${evidenceOverview}`,
+                  text: `EVIDENCE EXHIBITS\n\n${evidenceOverview}\n\nThe exhibit list is inserted into the statement separately. Use these file contents when writing the narrative sections, and refer to what is in each file.`,
                 },
                 ...evidenceInputs.contentParts,
               ],

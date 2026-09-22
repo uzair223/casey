@@ -51,3 +51,6 @@ next-env.d.ts
 
 supabase/.*
 gstack/
+
+# lead outreach list and drafts
+outreach/

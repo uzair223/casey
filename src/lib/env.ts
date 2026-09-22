@@ -31,14 +31,6 @@ export const EnvSchema = z.looseObject({
   CLOUDFLARE_AI_API_TOKEN: stringOrEmpty,
   CLOUDFLARE_AI_GATEWAY_ID: stringOrEmpty,
 
-  FORMALIZE_MAX_USER_TURNS: z
-    .string()
-    .optional()
-    .transform(parsePositiveInt(40)),
-  FORMALIZE_MAX_CHARS_PER_TURN: z
-    .string()
-    .optional()
-    .transform(parsePositiveInt(1200)),
   FORMALIZE_TIMEOUT_MS: z
     .string()
     .optional()
@@ -75,8 +67,6 @@ export const BuildEnvSchema = z.object({
   CLOUDFLARE_AI_ACCOUNT_ID: nonEmpty,
   CLOUDFLARE_AI_API_TOKEN: nonEmpty,
   CLOUDFLARE_AI_GATEWAY_ID: z.string().trim().optional(),
-  FORMALIZE_MAX_USER_TURNS: z.string().optional(),
-  FORMALIZE_MAX_CHARS_PER_TURN: z.string().optional(),
   FORMALIZE_TIMEOUT_MS: z.string().optional(),
   FORMALIZE_MAX_ATTEMPTS: z.string().optional(),
   CRON_SECRET:
@@ -110,8 +100,6 @@ const envInput = {
   CLOUDFLARE_AI_ACCOUNT_ID: process.env.CLOUDFLARE_AI_ACCOUNT_ID,
   CLOUDFLARE_AI_API_TOKEN: process.env.CLOUDFLARE_AI_API_TOKEN,
   CLOUDFLARE_AI_GATEWAY_ID: process.env.CLOUDFLARE_AI_GATEWAY_ID,
-  FORMALIZE_MAX_USER_TURNS: process.env.FORMALIZE_MAX_USER_TURNS,
-  FORMALIZE_MAX_CHARS_PER_TURN: process.env.FORMALIZE_MAX_CHARS_PER_TURN,
   FORMALIZE_TIMEOUT_MS: process.env.FORMALIZE_TIMEOUT_MS,
   FORMALIZE_MAX_ATTEMPTS: process.env.FORMALIZE_MAX_ATTEMPTS,
   CRON_SECRET: process.env.CRON_SECRET,

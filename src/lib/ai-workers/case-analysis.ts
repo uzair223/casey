@@ -11,7 +11,10 @@ import {
   getModelRequestError,
 } from "@/lib/llm/request";
 import { parseStructuredJson } from "@/lib/llm/responses";
-import { extractDocumentContent } from "@/lib/files";
+import {
+  loadEvidenceFile,
+  type ModelContentPart,
+} from "@/lib/llm/evidence-files";
 import {
   getStatementSupportingDocumentsWithClient,
   getUploadedDocumentsFromSupportingRows,
@@ -55,6 +58,8 @@ type EvidenceContext = {
   handledAs: string;
   text: string | null;
   warning?: string;
+  part?: ModelContentPart;
+  fileAttached?: boolean;
 };
 
 function getDocumentKey(document: UploadedDocument) {
@@ -192,28 +197,15 @@ async function buildEvidenceContext(params: {
             throw error ?? new Error("Failed to download evidence document.");
           }
 
-          const extracted = await extractDocumentContent(data, document);
-
-          if (extracted.type === "text") {
-            contexts.push({
-              ...baseContext,
-              handledAs: "text",
-              text: extracted.text,
-            });
-          } else if (extracted.type === "image_url") {
-            contexts.push({
-              ...baseContext,
-              handledAs: "metadata_only",
-              text: null,
-            });
-          } else {
-            contexts.push({
-              ...baseContext,
-              handledAs: "metadata_only",
-              text: null,
-              warning: extracted.warning,
-            });
-          }
+          const loaded = await loadEvidenceFile(data, document);
+          contexts.push({
+            ...baseContext,
+            handledAs: loaded.handledAs,
+            text: loaded.text,
+            warning: loaded.warning,
+            part: loaded.part,
+            fileAttached: Boolean(loaded.part),
+          });
         } catch {
           contexts.push({
             ...baseContext,
@@ -274,8 +266,8 @@ export function buildEvidenceCorpus(contexts: EvidenceContext[]) {
       return `${metadata}\n\n${
         item.text
           ? `Extracted text:\n${item.text}`
-          : item.documentType.startsWith("image/")
-            ? "Uploaded photograph. Visual content is intentionally omitted from inline model context; use only the filename, exhibit number, descriptor fields, and metadata above."
+          : item.fileAttached
+            ? "File contents are attached with this analysis request. Use what is in the file, and use descriptor fields for anything the file does not show."
             : "No extracted text available; use descriptor fields and metadata only."
       }`;
     })
@@ -426,7 +418,10 @@ export async function processCaseAnalysisJob(jobId: string) {
             },
             {
               role: "user",
-              content: `Case title: ${caseRecord.title}
+              content: [
+                {
+                  type: "text",
+                  text: `Case title: ${caseRecord.title}
 Case metadata: ${JSON.stringify(caseRecord.case_metadata ?? {})}
 
 Witness statements:
@@ -436,6 +431,19 @@ ${buildStatementCorpus(sourceStatements, evidenceContexts)}
 Supporting evidence:
 
 ${evidenceCorpus}`,
+                },
+                ...evidenceContexts.flatMap((item) =>
+                  item.part
+                    ? [
+                        {
+                          type: "text" as const,
+                          text: `Attached file for exhibit ${item.exhibitId}: ${item.documentName}`,
+                        },
+                        item.part,
+                      ]
+                    : [],
+                ),
+              ],
             },
           ],
           response_format: zodResponseFormat(

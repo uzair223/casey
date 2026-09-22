@@ -163,6 +163,9 @@ export function buildIntakeTurnState(params: {
 
   return {
     previousProgress: params.previousMetadata.progress,
+    previousWitnessDetails: params.previousMetadata.witnessDetails,
+    previousEvidence: params.previousMetadata.evidence,
+    previousIgnoredMissingDetails: params.previousMetadata.ignoredMissingDetails,
     previousDeviation: params.previousMetadata.deviation,
     phases: params.statementConfig.phases.map((phase) => ({
       id: phase.id,

@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
-import { zodResponseFormat } from "openai/helpers/zod";
+import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/llm/prompts";
 import type { IntakeChatMessage } from "@/types";
 import { selectModel } from "@/lib/llm/model-config";
+import { collectResponsesText } from "@/lib/llm/openai-responses";
 import {
   getCloudflareAiClientOptions,
   isCloudflareAiConfigured,
@@ -72,19 +73,18 @@ export async function POST(
     try {
       const selectedModel = selectModel("intake-greeting");
 
-      const completion = await client.chat.completions.create({
+      const generated = await collectResponsesText({
+        client,
         model: selectedModel,
         temperature: 0.2,
-        response_format: zodResponseFormat(
+        promptCacheKey: `greeting:${data.statement.id}`,
+        instructions:
+          "Write one warm, concise intake question asking for missing witness details in natural language. Ask exactly one question and keep it under 30 words. Address the witness directly in second person only (use 'you'/'your'). Never refer to the witness in third person and never include the witness's name. Required fields should be asked directly. Optional fields should be invited as non-blocking using wording like 'if available'.",
+        textFormat: zodTextFormat(
           greetingQuestionSchema,
           "greeting_missing_fields_question",
         ),
-        messages: [
-          {
-            role: "system",
-            content:
-              "Write one warm, concise intake question asking for missing witness details in natural language. Ask exactly one question and keep it under 30 words. Address the witness directly in second person only (use 'you'/'your'). Never refer to the witness in third person and never include the witness's name. Required fields should be asked directly. Optional fields should be invited as non-blocking using wording like 'if available'.",
-          },
+        input: [
           {
             role: "user",
             content: JSON.stringify({
@@ -94,11 +94,7 @@ export async function POST(
           },
         ],
       });
-
-      const generated = completion.choices[0]?.message?.content ?? "";
-      const parsed = greetingQuestionSchema.safeParse(
-        JSON.parse(generated || "{}"),
-      );
+      const parsed = greetingQuestionSchema.safeParse(JSON.parse(generated));
 
       if (!parsed.success) {
         await persistGreeting(fallback);

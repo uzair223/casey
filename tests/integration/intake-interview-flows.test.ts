@@ -48,8 +48,6 @@ vi.mock("@/lib/env", () => ({
     CLOUDFLARE_AI_ACCOUNT_ID: "test-account",
     CLOUDFLARE_AI_API_TOKEN: "test-token",
     CLOUDFLARE_AI_GATEWAY_ID: "default",
-    FORMALIZE_MAX_USER_TURNS: 40,
-    FORMALIZE_MAX_CHARS_PER_TURN: 1200,
     FORMALIZE_TIMEOUT_MS: 1000,
     FORMALIZE_MAX_ATTEMPTS: 2,
   },

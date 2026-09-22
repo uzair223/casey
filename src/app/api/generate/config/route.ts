@@ -9,6 +9,8 @@ import { requireUser } from "@/lib/api-utils/auth";
 import { badRequest } from "@/lib/api-utils/response";
 import { logServerEvent } from "@/lib/observability/logger";
 import { selectModel } from "@/lib/llm/model-config";
+import { streamResponsesText } from "@/lib/llm/openai-responses";
+import type { ResponseFormatTextConfig } from "openai/resources/responses/responses";
 import {
   getCloudflareAiClientOptions,
   isCloudflareAiConfigured,
@@ -57,6 +59,27 @@ function safeClose(controller: ReadableStreamDefaultController) {
   } catch {
     // Ignore close errors when stream is already closed/cancelled.
   }
+}
+
+function toResponsesTextFormat(responseFormat: {
+  type: "json_schema";
+  json_schema: {
+    name: string;
+    schema?: Record<string, unknown>;
+    strict?: boolean | null;
+    description?: string;
+  };
+}): ResponseFormatTextConfig {
+  return {
+    type: "json_schema",
+    name: responseFormat.json_schema.name,
+    schema: responseFormat.json_schema.schema ?? {
+      type: "object",
+      additionalProperties: true,
+    },
+    strict: responseFormat.json_schema.strict ?? null,
+    description: responseFormat.json_schema.description,
+  };
 }
 
 function safeParsePartialObject(raw: string): Record<string, unknown> | null {
@@ -115,20 +138,18 @@ export async function POST(request: Request) {
     let completionStream: AsyncIterable<string>;
 
     try {
-      const completion = await client.chat.completions.create({
+      completionStream = await streamResponsesText({
+        client,
         model: selectedModel,
         temperature: 0.2,
-        stream: true,
-        response_format: responseFormat,
-        messages: [
-          {
-            role: "system",
-            content: `You are a JSON object generation agent.
+        promptCacheKey: `template:${auth.userId}`,
+        instructions: `You are a JSON object generation agent.
 Decide whether the user is asking for generation/edit actions or general conversation.
 If the user asks for generation/edit actions, respond with {"kind":"patch","message":"...","data":{...}}.
 If the user is asking a general question or giving conversational input, respond with {"kind":"message","message":"...","data":null}.
 Use seedData only as the current draft state. Preserve all unrelated fields exactly as-is and make only the requested changes.`,
-          },
+        textFormat: toResponsesTextFormat(responseFormat),
+        input: [
           ...conversationHistory,
           {
             role: "user",
@@ -144,15 +165,6 @@ Use seedData only as the current draft state. Preserve all unrelated fields exac
             : []),
         ],
       });
-
-      completionStream = (async function* () {
-        for await (const chunk of completion) {
-          const delta = chunk.choices[0]?.delta?.content;
-          if (typeof delta === "string" && delta.length > 0) {
-            yield delta;
-          }
-        }
-      })();
     } catch (error) {
       await logServerEvent("error", "api.generate.config.model_call_failed", {
         requestId,

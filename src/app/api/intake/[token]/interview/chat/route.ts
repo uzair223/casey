@@ -22,8 +22,9 @@ import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { Allow, parse } from "partial-json";
 import { z } from "zod";
 import { logServerEvent } from "@/lib/observability/logger";
-import { zodResponseFormat } from "openai/helpers/zod";
+import { zodTextFormat } from "openai/helpers/zod";
 import { selectModel } from "@/lib/llm/model-config";
+import { streamResponsesText } from "@/lib/llm/openai-responses";
 import {
   getCloudflareAiClientOptions,
   isCloudflareAiConfigured,
@@ -348,38 +349,38 @@ export async function POST(
 
     try {
       const chatSystemPrompt = await generateChatSystemPrompt(statementConfig);
-      const completion = await client.chat.completions.create({
-        model: selectedModel,
-
-        temperature: 0.3,
-
-        response_format: zodResponseFormat(
-          responseSchema,
-          "assistant_response",
-        ),
-
-        messages: [
-          {
-            role: "system",
-            content: chatSystemPrompt,
-          },
-          {
-            role: "system",
-            content: generateIntakeStatePrompt(lastMetadata, jevDecisions),
-          },
-          ...modelMessages,
-        ],
-        stream: true,
+      const transcript = modelMessages.flatMap((message) => {
+        const content =
+          typeof message.content === "string"
+            ? message.content
+            : message.content
+                .filter((part) => part.type === "text")
+                .map((part) => part.text)
+                .join("\n\n");
+        if (!content.trim()) {
+          return [];
+        }
+        if (message.role !== "user" && message.role !== "assistant") {
+          return [];
+        }
+        return [{ role: message.role, content }];
       });
 
-      responseStream = (async function* () {
-        for await (const chunk of completion) {
-          const delta = chunk.choices[0]?.delta?.content;
-          if (typeof delta === "string" && delta.length > 0) {
-            yield delta;
-          }
-        }
-      })();
+      responseStream = await streamResponsesText({
+        client,
+        model: selectedModel,
+        temperature: 0.3,
+        instructions: chatSystemPrompt,
+        promptCacheKey: statement.id,
+        textFormat: zodTextFormat(responseSchema, "assistant_response"),
+        input: [
+          ...transcript,
+          {
+            role: "developer",
+            content: generateIntakeStatePrompt(lastMetadata, jevDecisions),
+          },
+        ],
+      });
     } catch (error) {
       await logServerEvent("error", "api.intake.chat.model.call.failed", {
         requestId,

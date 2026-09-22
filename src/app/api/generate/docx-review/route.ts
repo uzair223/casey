@@ -8,12 +8,13 @@ import { requireUser } from "@/lib/api-utils/auth";
 import { badRequest } from "@/lib/api-utils/response";
 import { logServerEvent } from "@/lib/observability/logger";
 import { selectModel } from "@/lib/llm/model-config";
+import { collectResponsesText } from "@/lib/llm/openai-responses";
 import {
   getCloudflareAiClientOptions,
   isCloudflareAiConfigured,
 } from "@/lib/llm/cloudflare";
 import { DocxReviewer } from "@eigenpal/docx-editor-agents";
-import { zodResponseFormat } from "openai/helpers/zod.mjs";
+import { zodTextFormat } from "openai/helpers/zod";
 
 const client = new OpenAI(getCloudflareAiClientOptions());
 
@@ -218,28 +219,20 @@ export async function POST(request: Request) {
     let reviewResponse: z.output<typeof ReviewResponseSchema>;
 
     try {
-      const completion = await client.chat.completions.create({
+      const responseContent = await collectResponsesText({
+        client,
         model: selectedModel,
         temperature: 0.2,
-        stream: false,
-        response_format: zodResponseFormat(ReviewResponseSchema, "docx_review"),
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a professional document reviewer. Review the provided DOCX document and suggest improvements. Return comments for suggestions without changes, and proposals for concrete text replacements. Focus on clarity, consistency, professionalism, and legal accuracy. Every comment and proposal MUST include paragraphIndex that matches the [index] prefix in the provided document content. Also return generatedResponse: a concise conversational summary collated from the comments and proposals you return. Do not invent items not present in comments/proposals.",
-          },
+        instructions:
+          "You are a professional document reviewer. Review the provided DOCX document and suggest improvements. Return comments for suggestions without changes, and proposals for concrete text replacements. Focus on clarity, consistency, professionalism, and legal accuracy. Every comment and proposal MUST include paragraphIndex that matches the [index] prefix in the provided document content. Also return generatedResponse: a concise conversational summary collated from the comments and proposals you return. Do not invent items not present in comments/proposals.",
+        textFormat: zodTextFormat(ReviewResponseSchema, "docx_review"),
+        input: [
           {
             role: "user",
             content: `Review this DOCX document according to the following goal: ${reviewGoal}\n\nDocument content:\n${documentText}`,
           },
         ],
       });
-
-      const responseContent = completion.choices[0]?.message?.content;
-      if (!responseContent) {
-        throw new Error("No response content from LLM");
-      }
 
       reviewResponse = ReviewResponseSchema.parse(JSON.parse(responseContent));
     } catch (error) {
