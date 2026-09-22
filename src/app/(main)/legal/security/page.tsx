@@ -110,7 +110,7 @@ const firmResponsibilities = [
 
 export default function SecurityPage() {
   return (
-    <MarketingPage>
+    <MarketingPage accent="orange">
       <MarketingPageHero
         eyebrow="Security & privacy"
         title="Witness data deserves the highest protection."

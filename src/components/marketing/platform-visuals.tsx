@@ -169,9 +169,9 @@ export function TimelineVisual() {
             y2="72"
             gradientUnits="userSpaceOnUse"
           >
-            <stop offset="0%" stopColor="#7357FF" stopOpacity="0.15" />
-            <stop offset="55%" stopColor="#7357FF" stopOpacity="0.85" />
-            <stop offset="100%" stopColor="#7357FF" stopOpacity="0.2" />
+            <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.15" />
+            <stop offset="55%" stopColor="var(--brand)" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="var(--brand)" stopOpacity="0.2" />
           </linearGradient>
         </defs>
         <path
@@ -191,8 +191,8 @@ export function TimelineVisual() {
                 cx={node.x}
                 cy="72"
                 r="9"
-                fill={gap ? "transparent" : "#7357FF"}
-                stroke="#7357FF"
+                fill={gap ? "transparent" : "var(--brand)"}
+                stroke="var(--brand)"
                 strokeWidth={gap ? 1.5 : 0}
                 strokeDasharray={gap ? "3 3" : undefined}
                 style={{ animationDelay: `${180 + index * 160}ms` }}
@@ -224,7 +224,7 @@ export function TimelineVisual() {
             </g>
           );
         })}
-        <circle r="2.5" fill="#7357FF" className="platform-visual-traveler">
+        <circle r="2.5" fill="var(--brand)" className="platform-visual-traveler">
           <animateMotion
             dur="2.8s"
             repeatCount="indefinite"

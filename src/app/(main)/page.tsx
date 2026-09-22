@@ -116,6 +116,32 @@ const testimonials = [
   },
 ] as const;
 
+const pricingPlans = [
+  {
+    name: "Trial",
+    price: "Free",
+    people: "Up to five",
+    cases: "Three",
+  },
+  {
+    name: "Practice",
+    price: "£149 per month",
+    people: "Five",
+    cases: "Thirty per month",
+  },
+  {
+    name: "Firm",
+    price: "£49 per seat",
+    people: "From six",
+    cases: "Eight per seat",
+  },
+] as const;
+
+const pricingRows = [
+  { label: "People", key: "people" },
+  { label: "Cases", key: "cases" },
+] as const;
+
 export default function Home() {
   return (
     <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2">
@@ -367,7 +393,7 @@ export default function Home() {
         </div>
       </section>
 
-      <MarketingSection>
+      <MarketingSection id="billing" className="scroll-mt-24">
         <Reveal>
           <MarketingHeading
             eyebrow="Pricing"
@@ -375,27 +401,46 @@ export default function Home() {
             description="Open three cases for completely free. See how it fits into your workflow."
           />
         </Reveal>
-        <div className="mt-14 grid gap-4 md:grid-cols-2">
-          <Reveal>
-            <div className="h-full rounded-2xl border border-primary/10 bg-primary/[0.03] p-8">
-              <p className="text-sm text-brand">Practice</p>
-              <h3 className="mt-4 text-2xl leading-snug text-primary">
-                £149 a month. Five people. Thirty cases.
-              </h3>
-            </div>
-          </Reveal>
-          <Reveal delay={70}>
-            <div className="h-full rounded-2xl border border-primary/10 bg-primary/[0.03] p-8">
-              <p className="text-sm text-brand">Firm</p>
-              <h3 className="mt-4 text-2xl leading-snug text-primary">
-                £49 a seat. From six people. Eight cases a seat.
-              </h3>
-            </div>
-          </Reveal>
-        </div>
-        <Reveal className="mt-8">
-          <p className="text-center text-sm text-muted-foreground">
-            £12 for another case.
+        <Reveal className="mt-14">
+          <div className="overflow-x-auto rounded-2xl border border-primary/10">
+            <table className="w-full min-w-[640px] border-collapse text-left">
+              <thead>
+                <tr>
+                  <th className="w-[18%] p-6" />
+                  {pricingPlans.map((plan) => (
+                    <th
+                      key={plan.name}
+                      className={`p-6 align-bottom ${plan.name === "Practice" ? "bg-primary/[0.04]" : ""}`}
+                    >
+                      <p className="text-sm text-brand">{plan.name}</p>
+                      <p className="mt-3 font-display text-2xl leading-snug text-primary">
+                        {plan.price}
+                      </p>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pricingRows.map((row) => (
+                  <tr key={row.label} className="border-t border-primary/10">
+                    <th className="p-6 text-sm font-medium text-primary">
+                      {row.label}
+                    </th>
+                    {pricingPlans.map((plan) => (
+                      <td
+                        key={plan.name}
+                        className={`p-6 text-sm leading-6 text-muted-foreground ${plan.name === "Practice" ? "bg-primary/[0.04]" : ""}`}
+                      >
+                        {plan[row.key]}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            + £12 per additional case
           </p>
         </Reveal>
       </MarketingSection>

@@ -90,7 +90,7 @@ const roles = [
 
 export default function PlatformPage() {
   return (
-    <MarketingPage>
+    <MarketingPage accent="green">
       <MarketingPageHero
         eyebrow="Platform"
         title="Witness statements without the chasing."

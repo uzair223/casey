@@ -27,6 +27,7 @@ const NAV_LINK_CLASS =
 
 const publicLinks = [
   { label: "Platform", href: "/platform" },
+  { label: "Billing", href: "/#billing" },
   { label: "Security", href: "/legal/security" },
 ] as const;
 

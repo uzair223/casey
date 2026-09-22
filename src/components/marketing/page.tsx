@@ -11,19 +11,37 @@ import { Reveal } from "@/components/marketing/reveal";
 import { MarketingSection } from "@/components/marketing/shell";
 import { cn } from "@/lib/utils";
 
+const pageAccents = {
+  green: "#3DDC97",
+  orange: "#FF8A3D",
+} as const;
+
 export function MarketingPage({
   children,
   className,
+  accent,
 }: {
   children: ReactNode;
   className?: string;
+  accent?: keyof typeof pageAccents;
 }) {
+  const accentColor = accent ? pageAccents[accent] : undefined;
+
   return (
     <div
       className={cn(
         "relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2",
         className,
       )}
+      style={
+        accentColor
+          ? {
+              ["--brand" as string]: accentColor,
+              ["--brand-text" as string]: `color-mix(in oklab, ${accentColor} 40%, #f4f5fb)`,
+              ["--ring" as string]: accentColor,
+            }
+          : undefined
+      }
     >
       {children}
     </div>
