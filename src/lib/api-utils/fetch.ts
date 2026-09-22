@@ -20,6 +20,29 @@ type ApiFetchOptions = RequestInit & {
   returnType?: "json" | "response";
 };
 
+const CASE_GATES = new Set(["practice", "firm", "extra_case"]);
+
+export class ApiRequestError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  readonly gate?: "practice" | "firm" | "extra_case";
+
+  constructor(
+    message: string,
+    status: number,
+    body: { code?: unknown; gate?: unknown } | null,
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.code = typeof body?.code === "string" ? body.code : undefined;
+    this.gate =
+      typeof body?.gate === "string" && CASE_GATES.has(body.gate)
+        ? (body.gate as "practice" | "firm" | "extra_case")
+        : undefined;
+  }
+}
+
 export async function apiFetch<T>(
   url: string,
   options?: ApiFetchOptions & { returnType?: "json" },
@@ -60,18 +83,19 @@ export async function apiFetch(
 
   if (!response.ok) {
     const error = await response.json().catch(() => null);
-    if (error && typeof error === "object" && "error" in error) {
-      const message = (error as { error?: unknown }).error;
-      if (typeof message === "string" && message.trim()) {
-        throw new Error(message);
-      }
+    const body =
+      error && typeof error === "object"
+        ? (error as { error?: unknown; code?: unknown; gate?: unknown })
+        : null;
+    if (body && typeof body.error === "string" && body.error.trim()) {
+      throw new ApiRequestError(body.error, response.status, body);
     }
 
     const message =
       process.env.NODE_ENV === "development"
         ? JSON.stringify(error, null, 2)
         : "Request failed";
-    throw new Error(message);
+    throw new ApiRequestError(message, response.status, body);
   }
 
   if (returnType === "json") {

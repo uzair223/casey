@@ -310,6 +310,7 @@ export const getTenantsWithCounts = async (): Promise<TenantWithCounts[]> => {
         softDeletedAt: tenant.soft_deleted_at,
         purgeAfter: tenant.purge_after,
         billingStatus: tenant.billing_status,
+        plan: tenant.plan,
         seatLimit: tenant.seat_limit,
         dpaSignedAt: tenant.dpa_signed_at,
         userCount: userCount || 0,
@@ -322,7 +323,7 @@ export const getTenantsWithCounts = async (): Promise<TenantWithCounts[]> => {
 };
 
 /**
- * Get all tenant signup invites (tenant_id = NULL, role = tenant_admin)
+ * Get firm-admin invites, including ones that join an existing organisation.
  * Client-callable: RLS filters to app_admin only
  */
 export const getTenantSignupInvites = async (): Promise<Invite[]> => {
@@ -331,7 +332,6 @@ export const getTenantSignupInvites = async (): Promise<Invite[]> => {
   const { data: invites, error } = await supabase
     .from("invites")
     .select("*")
-    .is("tenant_id", null)
     .eq("role", "tenant_admin")
     .order("created_at", { ascending: false });
 

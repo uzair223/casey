@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types";
 import { getSupabaseClient } from "../client";
 import { createCaseConfigSnapshot } from "./case-template";
 import { deleteStorageFolders } from "../storage-cleanup";
@@ -37,7 +39,7 @@ function resolveCaseTitleFromTemplate(params: {
 }
 
 async function resolveCaseTitle(params: {
-  supabase: ReturnType<typeof getSupabaseClient>;
+  supabase: SupabaseClient<Database>;
   tenantId: string;
   caseTemplateId?: string | null;
   caseMetadata?: Record<string, string | number | null | undefined>;
@@ -189,15 +191,17 @@ export const syncCaseStatusFromWitnesses = async (
   }
 };
 
-export async function createCase(payload: {
-  tenant_id: string;
-  title?: string;
-  assigned_to_ids?: string[];
-  status?: string;
-  case_template_id?: string | null;
-  case_metadata?: Record<string, string | number | null | undefined>;
-}) {
-  const supabase = getSupabaseClient();
+export async function createCase(
+  payload: {
+    tenant_id: string;
+    title?: string;
+    assigned_to_ids?: string[];
+    status?: string;
+    case_template_id?: string | null;
+    case_metadata?: Record<string, string | number | null | undefined>;
+  },
+  supabase: SupabaseClient<Database> = getSupabaseClient(),
+) {
   const resolvedTitle = await resolveCaseTitle({
     supabase,
     tenantId: payload.tenant_id,
@@ -229,6 +233,7 @@ export async function createCase(payload: {
       tenantId: payload.tenant_id,
       templateId: payload.case_template_id,
       createdForCaseId: createdCase.id,
+      supabase,
     });
 
     const { error: updateError } = await supabase
@@ -243,6 +248,8 @@ export async function createCase(payload: {
     await supabase.from("cases").delete().eq("id", createdCase.id);
     throw snapshotError;
   }
+
+  return { id: createdCase.id };
 }
 
 export async function updateCase(

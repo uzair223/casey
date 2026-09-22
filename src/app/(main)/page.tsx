@@ -367,6 +367,39 @@ export default function Home() {
         </div>
       </section>
 
+      <MarketingSection>
+        <Reveal>
+          <MarketingHeading
+            eyebrow="Pricing"
+            title="Try for free."
+            description="Open three cases for completely free. See how it fits into your workflow."
+          />
+        </Reveal>
+        <div className="mt-14 grid gap-4 md:grid-cols-2">
+          <Reveal>
+            <div className="h-full rounded-2xl border border-primary/10 bg-primary/[0.03] p-8">
+              <p className="text-sm text-brand">Practice</p>
+              <h3 className="mt-4 text-2xl leading-snug text-primary">
+                £149 a month. Five people. Thirty cases.
+              </h3>
+            </div>
+          </Reveal>
+          <Reveal delay={70}>
+            <div className="h-full rounded-2xl border border-primary/10 bg-primary/[0.03] p-8">
+              <p className="text-sm text-brand">Firm</p>
+              <h3 className="mt-4 text-2xl leading-snug text-primary">
+                £49 a seat. From six people. Eight cases a seat.
+              </h3>
+            </div>
+          </Reveal>
+        </div>
+        <Reveal className="mt-8">
+          <p className="text-center text-sm text-muted-foreground">
+            £12 for another case.
+          </p>
+        </Reveal>
+      </MarketingSection>
+
       <section
         id="early-access"
         className="scroll-mt-24 bg-[#f4f5fb] py-32 text-[#101010]"
@@ -380,7 +413,7 @@ export default function Home() {
               Give solicitors more time for their best thinking.
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#101010]/70">
-              Your solicitors deserve their best thinking, not more chasing.
+              Three files included.
             </p>
             <CtaPair className="mt-10 justify-center" tone="light" />
             <div className="mx-auto mt-16 grid max-w-3xl grid-cols-1 gap-8 sm:grid-cols-3">

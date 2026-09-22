@@ -32,6 +32,8 @@ import { Button } from "@/components/ui/button";
 import { NotificationPreferencesCard } from "@/components/settings/notification-preferences-card";
 import { getURL } from "@/lib/utils";
 import { toast } from "@/lib/toast";
+import { startPlanCheckout } from "@/lib/billing/client";
+import { FIRM_MIN_SEATS } from "@/lib/billing/plans";
 
 export default function TenantSettingsPage() {
   const { user, refreshUser } = useUserProtected([
@@ -50,6 +52,8 @@ export default function TenantSettingsPage() {
   const [dataRetentionDays, setDataRetentionDays] = useState("365");
   const [seatLimit, setSeatLimit] = useState<number | null>(null);
   const [billingStatus, setBillingStatus] = useState<string | null>(null);
+  const [plan, setPlan] = useState<string>("trial");
+  const [firmSeats, setFirmSeats] = useState(String(FIRM_MIN_SEATS));
   const [pendingDeletionRequest, setPendingDeletionRequest] =
     useState<boolean>(false);
 
@@ -81,6 +85,7 @@ export default function TenantSettingsPage() {
       setDataRetentionDays(String(tenant.data_retention_days));
       setSeatLimit(tenant.seat_limit);
       setBillingStatus(tenant.billing_status);
+      setPlan(tenant.plan);
     }
   }, [refreshHasPassword, user]);
 
@@ -515,12 +520,41 @@ export default function TenantSettingsPage() {
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">Seats</p>
+                  <p className="text-sm font-medium">Plan</p>
                   <p className="text-sm text-muted-foreground">
                     {seatLimit == null
-                      ? "Seat limit is managed by Casey."
-                      : `${seatLimit} licensed seats. Billing status: ${billingStatus ?? "trial"}.`}
+                      ? "The plan is managed by Casey."
+                      : `${plan === "firm" ? "Firm" : plan === "practice" ? "Practice" : "Trial"}. ${seatLimit} people. Billing status: ${billingStatus ?? "trial"}.`}
                   </p>
+                  {plan !== "firm" ? (
+                    <div className="flex flex-wrap items-end gap-2 pt-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="settings-firm-seats">Firm seats</Label>
+                        <Input
+                          id="settings-firm-seats"
+                          type="number"
+                          min={FIRM_MIN_SEATS}
+                          value={firmSeats}
+                          onChange={(event) => setFirmSeats(event.target.value)}
+                          className="w-24"
+                        />
+                      </div>
+                      <AsyncButton
+                        type="button"
+                        variant="outline"
+                        onClick={async (event) => {
+                          event.preventDefault();
+                          await startPlanCheckout({
+                            kind: "firm",
+                            seats: Number(firmSeats),
+                          });
+                        }}
+                        pendingText="Opening Stripe..."
+                      >
+                        Move to Firm
+                      </AsyncButton>
+                    </div>
+                  ) : null}
                 </div>
               </CardContent>
               <CardFooter>

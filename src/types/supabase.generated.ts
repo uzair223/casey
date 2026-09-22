@@ -1482,14 +1482,18 @@ export type Database = {
       }
       tenants: {
         Row: {
+          billing_period_start: string | null
           billing_status: string
           created_at: string
           data_retention_days: number
           dpa_signed_at: string | null
           id: string
+          last_overage_checkout_session_id: string | null
           name: string
           order_firm_name: string | null
           order_start_date: string | null
+          overage_credits: number
+          plan: string
           purge_after: string | null
           seat_limit: number
           soft_deleted_at: string | null
@@ -1498,14 +1502,18 @@ export type Database = {
           stripe_subscription_id: string | null
         }
         Insert: {
+          billing_period_start?: string | null
           billing_status?: string
           created_at?: string
           data_retention_days?: number
           dpa_signed_at?: string | null
           id?: string
+          last_overage_checkout_session_id?: string | null
           name: string
           order_firm_name?: string | null
           order_start_date?: string | null
+          overage_credits?: number
+          plan?: string
           purge_after?: string | null
           seat_limit?: number
           soft_deleted_at?: string | null
@@ -1514,14 +1522,18 @@ export type Database = {
           stripe_subscription_id?: string | null
         }
         Update: {
+          billing_period_start?: string | null
           billing_status?: string
           created_at?: string
           data_retention_days?: number
           dpa_signed_at?: string | null
           id?: string
+          last_overage_checkout_session_id?: string | null
           name?: string
           order_firm_name?: string | null
           order_start_date?: string | null
+          overage_credits?: number
+          plan?: string
           purge_after?: string | null
           seat_limit?: number
           soft_deleted_at?: string | null

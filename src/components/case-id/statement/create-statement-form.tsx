@@ -27,7 +27,7 @@ import {
 } from "@/lib/schema/witness-statement";
 import { listAllowedStatementTemplatesForCaseTemplate } from "@/lib/supabase/queries";
 import { createStatement } from "@/lib/supabase/mutations";
-import { apiFetch } from "@/lib/api-utils";
+import { sendWitnessLink } from "@/lib/billing/client";
 import type { Case, StatementConfigTemplate } from "@/types";
 
 type CreateStatementFormProps = {
@@ -211,8 +211,9 @@ export function CreateStatementForm({
       template_id: selectedTemplate?.id ?? null,
     });
 
-    await apiFetch(`/api/tenant/statement/${created.id}/send-link`, {
-      method: "POST",
+    await sendWitnessLink({
+      statementId: created.id,
+      canAcceptDpa: user.role === "tenant_admin",
     });
 
     formMethods.reset({

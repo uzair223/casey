@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   CaseConfig,
   CaseTemplate,
@@ -263,8 +264,9 @@ export async function createCaseConfigSnapshot(params: {
   tenantId: string;
   templateId?: string | null;
   createdForCaseId?: string | null;
+  supabase?: SupabaseClient<Database>;
 }): Promise<string> {
-  const supabase = getSupabaseClient();
+  const supabase = params.supabase ?? getSupabaseClient();
 
   let configName = "Default case config";
   let templateScope: TemplateScope = "global";

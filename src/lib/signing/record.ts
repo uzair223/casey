@@ -1,6 +1,7 @@
 import { getServiceClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/observability/audit";
 import { env } from "@/lib/env";
+import { FREE_CASE_LIMIT } from "@/lib/billing/plans";
 import { isDocusealConfigured } from "./docuseal";
 
 export type SignatureMethod = "canvas" | "docuseal";
@@ -27,7 +28,16 @@ export async function getStatementSigningMethod(params: {
   }
 
   const billingStatus = await getTenantBillingStatus(params.tenantId);
-  return billingStatus === "active" ? "docuseal" : "canvas";
+  if (billingStatus === "active") return "docuseal";
+
+  const supabase = getServiceClient("signing-free-case-count");
+  const { count, error } = await supabase
+    .from("cases")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", params.tenantId);
+  if (error) return "canvas";
+
+  return (count ?? 0) <= FREE_CASE_LIMIT ? "docuseal" : "canvas";
 }
 
 export async function recordSignatureEvent(params: {

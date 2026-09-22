@@ -1,5 +1,5 @@
 import { env } from "@/lib/env";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { SERVERONLY_getStatementForSendLink } from "@/lib/supabase/queries";
 import { sendStatementLinkEmail } from "@/lib/email";
@@ -39,12 +39,23 @@ export async function POST(
     const supabase = getServiceClient();
     const { data: tenant, error: tenantError } = await supabase
       .from("tenants")
-      .select("name")
+      .select("name, dpa_signed_at")
       .eq("id", auth.tenantId)
       .single();
 
     if (tenantError || !tenant?.name) {
       return notFound("Tenant not found");
+    }
+
+    if (!tenant.dpa_signed_at) {
+      return NextResponse.json(
+        {
+          error:
+            "A firm admin needs to accept the data processing addendum before the first witness link.",
+          code: "dpa_required",
+        },
+        { status: 409 },
+      );
     }
 
     const statement = await SERVERONLY_getStatementForSendLink(

@@ -29,7 +29,7 @@ const subprocessors = [
   "Cloudflare Workers — application hosting and scheduled jobs",
   "Cloudflare AI Gateway — model inference for interview, formalization, analysis, and Jev decision scoring",
   "Resend — transactional email",
-  "Stripe — seat subscription invoicing",
+  "Stripe — subscription and one-off case payments",
   "Self-hosted DocuSeal — certified electronic signature when enabled",
 ] as const;
 

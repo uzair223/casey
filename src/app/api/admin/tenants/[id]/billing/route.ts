@@ -3,18 +3,15 @@ import { z } from "zod";
 import { requireAppAdmin } from "@/lib/api-utils/auth";
 import {
   badRequest,
-  conflict,
   notFound,
   ok,
   serverError,
 } from "@/lib/api-utils";
-import { getStripe, getStripeSeatPriceId, STRIPE_TRIAL_DAYS } from "@/lib/billing/stripe";
 import { getTenantSeatUsage } from "@/lib/billing/seats";
-import { env } from "@/lib/env";
 import { getServiceClient } from "@/lib/supabase/server";
 
 const BodySchema = z.object({
-  action: z.enum(["save_order", "send_invoice"]),
+  action: z.literal("save_order"),
   seatLimit: z.number().int().min(1).max(500).optional(),
   dpaSigned: z.boolean().optional(),
   orderFirmName: z.string().trim().min(1).optional(),
@@ -92,41 +89,7 @@ export async function POST(
       })
       .eq("id", id);
 
-    if (parsed.data.action === "save_order") {
-      return ok({ updated: true });
-    }
-
-    if (!dpaSignedAt) {
-      return conflict("Mark the DPA as signed before sending an invoice.");
-    }
-
-    const stripe = getStripe();
-    const priceId = getStripeSeatPriceId();
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      success_url: `${env.NEXT_PUBLIC_BASE_URL}/dashboard/app-admin?billing=success`,
-      cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/dashboard/app-admin?billing=cancelled`,
-      client_reference_id: id,
-      payment_method_collection: "always",
-      metadata: {
-        tenantId: id,
-        seatLimit: String(seatLimit),
-      },
-      subscription_data: {
-        trial_period_days: STRIPE_TRIAL_DAYS,
-        metadata: {
-          tenantId: id,
-        },
-      },
-      line_items: [
-        {
-          price: priceId,
-          quantity: seatLimit,
-        },
-      ],
-    });
-
-    return ok({ checkoutUrl: session.url });
+    return ok({ updated: true });
   } catch (error) {
     if (error instanceof Response) return error;
     return serverError(error);

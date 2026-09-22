@@ -56,40 +56,89 @@ try {
   stripeAccount = null;
 }
 
-const products = await stripe.products.list({ limit: 100, active: true });
-let product = products.data.find(
-  (item) => item.metadata?.casey_product === "seats" || item.name === "Casey seat",
-);
-if (!product) {
-  product = await stripe.products.create({
-    name: "Casey seat",
-    description: "Monthly licensed Casey workspace seat",
-    metadata: { casey_product: "seats" },
+async function findOrCreateProduct(metadataValue, name, description) {
+  const products = await stripe.products.list({ limit: 100, active: true });
+  const existing = products.data.find(
+    (item) => item.metadata?.casey_product === metadataValue || item.name === name,
+  );
+  if (existing) return existing;
+  return stripe.products.create({
+    name,
+    description,
+    metadata: { casey_product: metadataValue },
   });
 }
 
-const prices = await stripe.prices.list({
-  product: product.id,
-  active: true,
-  limit: 100,
-});
-let price = prices.data.find(
+async function findOrCreatePrice(productId, matcher, createParams) {
+  const prices = await stripe.prices.list({
+    product: productId,
+    active: true,
+    limit: 100,
+  });
+  const existing = prices.data.find(matcher);
+  if (existing) return existing;
+  return stripe.prices.create({ product: productId, ...createParams });
+}
+
+const seatProduct = await findOrCreateProduct(
+  "seats",
+  "Casey seat",
+  "Monthly Casey Firm seat",
+);
+const price = await findOrCreatePrice(
+  seatProduct.id,
   (item) =>
     item.metadata?.casey_price === "seat_monthly" ||
     (item.recurring?.interval === "month" &&
       item.currency === "gbp" &&
       item.unit_amount === 4900),
-);
-if (!price) {
-  price = await stripe.prices.create({
-    product: product.id,
+  {
     currency: "gbp",
     unit_amount: 4900,
     recurring: { interval: "month" },
     metadata: { casey_price: "seat_monthly" },
     nickname: "Casey seat monthly",
-  });
-}
+  },
+);
+
+const practiceProduct = await findOrCreateProduct(
+  "practice",
+  "Casey Practice",
+  "Monthly Casey Practice plan",
+);
+const practicePrice = await findOrCreatePrice(
+  practiceProduct.id,
+  (item) =>
+    item.metadata?.casey_price === "practice_monthly" ||
+    (item.recurring?.interval === "month" &&
+      item.currency === "gbp" &&
+      item.unit_amount === 14900),
+  {
+    currency: "gbp",
+    unit_amount: 14900,
+    recurring: { interval: "month" },
+    metadata: { casey_price: "practice_monthly" },
+    nickname: "Casey Practice monthly",
+  },
+);
+
+const caseProduct = await findOrCreateProduct(
+  "case",
+  "Casey case",
+  "One extra Casey case",
+);
+const casePrice = await findOrCreatePrice(
+  caseProduct.id,
+  (item) =>
+    item.metadata?.casey_price === "case_once" ||
+    (!item.recurring && item.currency === "gbp" && item.unit_amount === 1200),
+  {
+    currency: "gbp",
+    unit_amount: 1200,
+    metadata: { casey_price: "case_once" },
+    nickname: "Casey case",
+  },
+);
 
 const cfAccountId =
   fileEnv.CLOUDFLARE_ADMIN_ACCOUNT_ID || process.env.CLOUDFLARE_ADMIN_ACCOUNT_ID;
@@ -145,6 +194,8 @@ if (caseyUrl.startsWith("https://")) {
 
 const secretUpdates = {
   STRIPE_SEAT_PRICE_ID: price.id,
+  STRIPE_PRACTICE_PRICE_ID: practicePrice.id,
+  STRIPE_CASE_PRICE_ID: casePrice.id,
 };
 if (webhookSecret) {
   secretUpdates.STRIPE_WEBHOOK_SECRET = webhookSecret;
@@ -163,10 +214,17 @@ console.log(
     {
       stripeLivemode: livemode,
       stripeAccount: stripeAccount?.id ?? null,
-      productId: product.id,
-      priceId: price.id,
-      amount: "£49 / seat / month",
-      trialDays: 7,
+      seatProductId: seatProduct.id,
+      seatPriceId: price.id,
+      practiceProductId: practiceProduct.id,
+      practicePriceId: practicePrice.id,
+      caseProductId: caseProduct.id,
+      casePriceId: casePrice.id,
+      amounts: {
+        practice: "£149 / month",
+        firm: "£49 / seat / month",
+        case: "£12 once",
+      },
       caseyUrl: caseyUrl || null,
       docusealUrl: docusealUrl || null,
       webhookCreated: Boolean(webhookSecret),

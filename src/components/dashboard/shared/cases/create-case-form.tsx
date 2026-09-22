@@ -27,9 +27,12 @@ import { useUserProtected } from "@/contexts/user-context";
 import { CaseSchema } from "@/lib/schema/case";
 import { getRoleLabel } from "@/lib/utils";
 import { listFavouriteCaseTemplatesForCaseCreation } from "@/lib/supabase/queries";
-import { createCase } from "@/lib/supabase/mutations";
+import { ApiRequestError, apiFetch } from "@/lib/api-utils";
+import { CasePlanPaywall } from "@/components/billing/case-plan-paywall";
+import type { CaseGate } from "@/lib/billing/plans";
 import type { CaseTemplate } from "@/types";
 import { useTenant } from "@/contexts/tenant-context";
+import { toast } from "@/lib/toast";
 
 type CreateCaseFormProps = {
   onClose: () => unknown;
@@ -44,6 +47,7 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
   const [availableCaseTemplates, setAvailableCaseTemplates] = useState<
     CaseTemplate[]
   >([]);
+  const [planGate, setPlanGate] = useState<CaseGate | null>(null);
 
   const formMethods = useForm<CaseSchema>({
     resolver: zodResolver(CaseSchema),
@@ -147,6 +151,16 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
 
   if (!user?.tenant_id) return null;
 
+  if (planGate) {
+    return (
+      <CasePlanPaywall
+        gate={planGate}
+        canCheckout={user.role === "tenant_admin"}
+        onClose={onClose}
+      />
+    );
+  }
+
   const onSubmit: SubmitHandler<CaseSchema> = async (data) => {
     const assignedToIds = isParalegal
       ? user?.id
@@ -154,20 +168,31 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
         : []
       : (data.assigned_to_ids ?? []);
 
-    await createCase({
-      tenant_id: user.tenant_id!,
-      title: data.title,
-      case_template_id: data.case_template_id ?? null,
-      case_metadata:
-        Object.fromEntries(
-          Object.entries(data.case_metadata ?? {}).map(([key, value]) => [
-            key,
-            value == null || String(value).trim() === "" ? null : value,
-          ]),
-        ) ?? {},
-      assigned_to_ids: assignedToIds,
-      status: data.status,
-    });
+    try {
+      await apiFetch("/api/tenant/cases", {
+        method: "POST",
+        body: JSON.stringify({
+          title: data.title,
+          case_template_id: data.case_template_id ?? null,
+          case_metadata:
+            Object.fromEntries(
+              Object.entries(data.case_metadata ?? {}).map(([key, value]) => [
+                key,
+                value == null || String(value).trim() === "" ? null : value,
+              ]),
+            ) ?? {},
+          assigned_to_ids: assignedToIds,
+          status: data.status,
+        }),
+      });
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.gate) {
+        setPlanGate(error.gate);
+        return;
+      }
+      toast.errorFromUnknown(error, "Failed to create case");
+      return;
+    }
     await onCreated();
     onClose();
   };

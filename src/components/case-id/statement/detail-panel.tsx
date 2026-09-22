@@ -44,6 +44,7 @@ import { useUserRole } from "@/contexts/user-context";
 import { useAsync } from "@/hooks/useAsync";
 
 import { apiFetch } from "@/lib/api-utils";
+import { sendWitnessLink } from "@/lib/billing/client";
 import { cn } from "@/lib/utils";
 import {
   getFullStatementFromId,
@@ -517,9 +518,10 @@ export function StatementDetailPanel({
         })
       ).message ?? "";
 
-    await apiFetch(`/api/tenant/statement/${data.statement.id}/send-link`, {
-      method: "POST",
-      body: JSON.stringify({ message: message.trim() }),
+    await sendWitnessLink({
+      statementId: data.statement.id,
+      message: message.trim(),
+      canAcceptDpa: role === "tenant_admin",
     });
     toast.success("Statement link sent to witness email");
   };

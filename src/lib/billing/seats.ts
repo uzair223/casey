@@ -1,4 +1,5 @@
 import { getServiceClient } from "@/lib/supabase/server";
+import { isTenantPlan, seatCapForPlan } from "@/lib/billing/plans";
 
 export async function getTenantSeatUsage(tenantId: string) {
   const supabase = getServiceClient("tenant-seat-usage");
@@ -32,7 +33,7 @@ export async function assertTenantHasSeat(params: {
   const supabase = getServiceClient("assert-tenant-seat");
   const { data: tenant, error } = await supabase
     .from("tenants")
-    .select("seat_limit, billing_status")
+    .select("seat_limit, billing_status, plan")
     .eq("id", params.tenantId)
     .maybeSingle();
 
@@ -40,12 +41,27 @@ export async function assertTenantHasSeat(params: {
     throw error ?? new Error("Tenant not found");
   }
 
-  const used = await getTenantSeatUsage(params.tenantId);
-  if (used >= tenant.seat_limit) {
-    const error = new Error(
-      `Seat limit reached (${tenant.seat_limit}). Increase seats before inviting another member.`,
+  if (
+    tenant.billing_status === "past_due" ||
+    tenant.billing_status === "canceled"
+  ) {
+    const blocked = new Error(
+      "Billing needs to be current before adding another person.",
     );
-    (error as Error & { status?: number }).status = 409;
-    throw error;
+    (blocked as Error & { status?: number }).status = 409;
+    throw blocked;
+  }
+
+  const plan = isTenantPlan(tenant.plan) ? tenant.plan : "trial";
+  const limit = seatCapForPlan(plan, tenant.seat_limit);
+  const used = await getTenantSeatUsage(params.tenantId);
+  if (used >= limit) {
+    const message =
+      plan === "firm"
+        ? `Seat limit reached (${limit}). Increase seats before inviting another member.`
+        : "This workspace includes five people. Move to Firm to add another.";
+    const seatError = new Error(message);
+    (seatError as Error & { status?: number }).status = 409;
+    throw seatError;
   }
 }

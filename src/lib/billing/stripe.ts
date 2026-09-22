@@ -6,8 +6,6 @@ import { env } from "@/lib/env";
 
 let stripeClient: Stripe | null = null;
 
-export const STRIPE_TRIAL_DAYS = 7;
-
 export function getStripe() {
   if (!env.STRIPE_SECRET_KEY) {
     throw new Error("Missing STRIPE_SECRET_KEY");
@@ -23,4 +21,18 @@ export function getStripeSeatPriceId() {
     throw new Error("Missing STRIPE_SEAT_PRICE_ID");
   }
   return env.STRIPE_SEAT_PRICE_ID;
+}
+
+export function getStripePracticePriceId() {
+  if (!env.STRIPE_PRACTICE_PRICE_ID) {
+    throw new Error("Missing STRIPE_PRACTICE_PRICE_ID");
+  }
+  return env.STRIPE_PRACTICE_PRICE_ID;
+}
+
+export function getStripeCasePriceId() {
+  if (!env.STRIPE_CASE_PRICE_ID) {
+    throw new Error("Missing STRIPE_CASE_PRICE_ID");
+  }
+  return env.STRIPE_CASE_PRICE_ID;
 }

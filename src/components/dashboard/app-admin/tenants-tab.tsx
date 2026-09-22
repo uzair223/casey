@@ -29,6 +29,14 @@ import { toast } from "@/lib/toast";
 import { apiFetch } from "@/lib/api-utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +63,8 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
     new Date().toISOString().slice(0, 10),
   );
   const [dpaSigned, setDpaSigned] = useState(false);
+  const [organisationName, setOrganisationName] = useState("");
+  const [inviteTenantId, setInviteTenantId] = useState("");
 
   const refreshTenantInvites = async () => {
     await tenantInvites.handler();
@@ -147,41 +157,99 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
     setDpaSigned(Boolean(tenant.dpaSignedAt));
   };
 
-  const saveBilling = async (action: "save_order" | "send_invoice") => {
+  const saveBilling = async () => {
     if (!billingTenant) return;
-    const result = await apiFetch<{ checkoutUrl?: string; updated?: boolean }>(
-      `/api/admin/tenants/${billingTenant.id}/billing`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          action,
-          seatLimit: Number(seatLimit),
-          dpaSigned,
-          orderFirmName,
-          orderStartDate,
-        }),
-      },
-    );
-    if (result.checkoutUrl) {
-      window.open(result.checkoutUrl, "_blank", "noopener,noreferrer");
-    }
+    await apiFetch(`/api/admin/tenants/${billingTenant.id}/billing`, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "save_order",
+        seatLimit: Number(seatLimit),
+        dpaSigned,
+        orderFirmName,
+        orderStartDate,
+      }),
+    });
     await tenants.handler();
-    toast.success(
-      action === "send_invoice"
-        ? "Stripe invoice session created"
-        : "Order form saved",
-    );
+    toast.success("Order form saved");
   };
+
+  const createOrganisation = async () => {
+    const name = organisationName.trim();
+    if (!name) {
+      throw new Error("Organisation name is required");
+    }
+    const created = await apiFetch<{ id: string }>(`/api/admin/tenants`, {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+    setOrganisationName("");
+    setInviteTenantId(created.id);
+    await tenants.handler();
+    toast.success("Organisation created");
+  };
+
+  const activeTenants = (tenants.data ?? []).filter(
+    (tenant) => !tenant.softDeletedAt,
+  );
 
   return (
     <div className="space-y-4">
-      <InviteMemberCard
-        createdByUserId={userId}
-        tenantId={null}
-        defaultRole="tenant_admin"
-        allowedRoles={["tenant_admin", "app_admin"]}
-        onInviteCreated={refreshTenantInvites}
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle>Create organisation</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1 space-y-1">
+            <Label htmlFor="organisation-name">Name</Label>
+            <Input
+              id="organisation-name"
+              value={organisationName}
+              onChange={(event) => setOrganisationName(event.target.value)}
+              placeholder="Firm name"
+            />
+          </div>
+          <AsyncButton onClick={createOrganisation} pendingText="Creating...">
+            Create organisation
+          </AsyncButton>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <Label htmlFor="invite-organisation">Invite onto</Label>
+          <Select
+            value={inviteTenantId || "new"}
+            onValueChange={(value) =>
+              setInviteTenantId(value === "new" ? "" : value)
+            }
+          >
+            <SelectTrigger id="invite-organisation">
+              <SelectValue placeholder="Choose an organisation" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="new">
+                Create the organisation when they accept
+              </SelectItem>
+              {activeTenants.map((tenant) => (
+                <SelectItem key={tenant.id} value={tenant.id}>
+                  {tenant.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            An existing organisation lets the firm admin join without typing
+            the name again.
+          </p>
+        </div>
+        <InviteMemberCard
+          createdByUserId={userId}
+          tenantId={inviteTenantId || null}
+          defaultRole="tenant_admin"
+          allowedRoles={["tenant_admin", "app_admin"]}
+          onInviteCreated={refreshTenantInvites}
+        />
+      </div>
 
       {!tenants.data || tenants.isLoading ? (
         <CardSkeleton title="Existing Organisations" />
@@ -216,7 +284,8 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
                         {tenant.softDeletedAt ? "Archived" : "Active"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {tenant.billingStatus} · {tenant.seatLimit} seats
+                        {tenant.plan} · {tenant.billingStatus} · {tenant.seatLimit}{" "}
+                        seats
                       </TableCell>
                       <TableCell>{tenant.userCount}</TableCell>
                       <TableCell>{tenant.statementCount}</TableCell>
@@ -278,9 +347,8 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
               Invoice {billingTenant?.name ?? "organisation"}
             </DialogTitle>
             <DialogDescription>
-              Record the order form and DPA, then send a Stripe Checkout link.
-              New subscriptions include a 7-day trial; a card is collected up
-              front and billed when the trial ends.
+              Record the order form. The firm opens three cases free, then
+              chooses Practice or Firm in the product.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -325,18 +393,8 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
             </label>
           </div>
           <DialogFooter>
-            <AsyncButton
-              variant="outline"
-              onClick={() => saveBilling("save_order")}
-              pendingText="Saving..."
-            >
+            <AsyncButton onClick={() => saveBilling()} pendingText="Saving...">
               Save order form
-            </AsyncButton>
-            <AsyncButton
-              onClick={() => saveBilling("send_invoice")}
-              pendingText="Opening Stripe..."
-            >
-              Send Stripe invoice
             </AsyncButton>
           </DialogFooter>
         </DialogContent>
