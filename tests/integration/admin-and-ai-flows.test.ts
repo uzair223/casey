@@ -11,6 +11,7 @@ const logServerEvent = vi.fn();
 const getSystemConfig = vi.fn();
 const setSystemConfig = vi.fn();
 const chatCompletionsCreate = vi.fn();
+const responsesCreate = vi.fn();
 const docxReviewerFromBuffer = vi.fn();
 
 vi.mock("@/lib/api-utils/auth", () => ({
@@ -54,11 +55,19 @@ vi.mock("openai", () => ({
         create: chatCompletionsCreate,
       },
     };
+    responses = {
+      create: responsesCreate,
+    };
   },
 }));
 
 vi.mock("openai/helpers/zod.mjs", () => ({
   zodResponseFormat: vi.fn(() => ({ type: "json_schema" })),
+  zodTextFormat: vi.fn(() => ({ type: "json_schema", name: "schema" })),
+}));
+vi.mock("openai/helpers/zod", () => ({
+  zodResponseFormat: vi.fn(() => ({ type: "json_schema" })),
+  zodTextFormat: vi.fn(() => ({ type: "json_schema", name: "schema" })),
 }));
 
 vi.mock("@eigenpal/docx-editor-agents", () => ({
@@ -70,7 +79,8 @@ vi.mock("@eigenpal/docx-editor-agents", () => ({
 async function* streamChunks(parts: string[]) {
   for (const part of parts) {
     yield {
-      choices: [{ delta: { content: part } }],
+      type: "response.output_text.delta",
+      delta: part,
     };
   }
 }
@@ -209,7 +219,7 @@ describe("admin and AI-assisted flows", () => {
   });
 
   it("streams AI-generated config updates as NDJSON", async () => {
-    chatCompletionsCreate.mockResolvedValue(
+    responsesCreate.mockResolvedValue(
       streamChunks([
         '{"kind":"patch","message":"Drafting","data":{"name":"',
         'Accident Template"}}',
@@ -245,11 +255,11 @@ describe("admin and AI-assisted flows", () => {
   });
 
   it("reviews a DOCX buffer and returns an edited file summary", async () => {
-    chatCompletionsCreate.mockResolvedValue({
-      choices: [
-        {
-          message: {
-            content: JSON.stringify({
+    responsesCreate.mockResolvedValue({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: "response.output_text.delta",
+          delta: JSON.stringify({
               generatedResponse: "I tightened the wording in paragraph 0.",
               comments: [
                 {
@@ -269,9 +279,8 @@ describe("admin and AI-assisted flows", () => {
                 },
               ],
             }),
-          },
-        },
-      ],
+        };
+      },
     });
 
     const reviewer = {

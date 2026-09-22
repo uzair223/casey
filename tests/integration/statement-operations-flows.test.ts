@@ -110,7 +110,10 @@ describe("statement operation flows", () => {
       error: null,
     });
     const tenants = createAwaitableBuilder({
-      data: { name: "Tenant Alpha" },
+      data: {
+        name: "Tenant Alpha",
+        dpa_signed_at: "2026-04-23T12:00:00.000Z",
+      },
       error: null,
     });
 

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { importFresh, readJson, readStream, readText } from "./helpers/route-test";
 
 const chatCompletionsCreate = vi.fn();
+const responsesCreate = vi.fn();
 const SERVERONLY_getFullStatementFromToken = vi.fn();
 const SERVERONLY_getStatementWithConfigFromToken = vi.fn();
 const SERVERONLY_getConversationHistory = vi.fn();
@@ -32,11 +33,15 @@ vi.mock("openai", () => ({
         create: chatCompletionsCreate,
       },
     };
+    responses = {
+      create: responsesCreate,
+    };
   },
 }));
 
 vi.mock("openai/helpers/zod", () => ({
   zodResponseFormat: vi.fn(() => ({ type: "json_schema" })),
+  zodTextFormat: vi.fn(() => ({ type: "json_schema", name: "schema" })),
 }));
 
 vi.mock("@/lib/ai-workers/jobs", () => ({
@@ -433,19 +438,14 @@ describe("intake interview flows", () => {
       gdpr_notice_acknowledgement: "2026-04-23T12:00:00.000Z",
       statement_config: statementConfig,
     });
-    chatCompletionsCreate.mockResolvedValue({
+    responsesCreate.mockResolvedValue({
       async *[Symbol.asyncIterator]() {
         yield {
-          choices: [
-            {
-              delta: {
-                content: JSON.stringify({
-                  content: "Please tell me what happened next.",
-                  metadata: llmMetadata,
-                }),
-              },
-            },
-          ],
+          type: "response.output_text.delta",
+          delta: JSON.stringify({
+            content: "Please tell me what happened next.",
+            metadata: llmMetadata,
+          }),
         };
       },
     });
@@ -553,19 +553,14 @@ describe("intake interview flows", () => {
       gdpr_notice_acknowledgement: "2026-04-23T12:00:00.000Z",
       statement_config: statementConfig,
     });
-    chatCompletionsCreate.mockResolvedValue({
+    responsesCreate.mockResolvedValue({
       async *[Symbol.asyncIterator]() {
         yield {
-          choices: [
-            {
-              delta: {
-                content: JSON.stringify({
-                  content: "Let's stay with what happened at the scene.",
-                  metadata: llmMetadata,
-                }),
-              },
-            },
-          ],
+          type: "response.output_text.delta",
+          delta: JSON.stringify({
+            content: "Let's stay with what happened at the scene.",
+            metadata: llmMetadata,
+          }),
         };
       },
     });
