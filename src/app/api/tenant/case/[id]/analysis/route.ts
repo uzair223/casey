@@ -42,7 +42,10 @@ export async function POST(request: Request, context: RouteContext) {
       return forbidden();
     }
 
-    const denied = await paidAiDenial(auth.userId);
+    const denied = await paidAiDenial({
+      role: auth.role,
+      tenantId: auth.tenantId,
+    });
     if (denied) return denied;
 
     const service = getServiceClient("api.case_analysis.enqueue");

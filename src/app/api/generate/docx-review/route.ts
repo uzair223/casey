@@ -155,7 +155,10 @@ export async function POST(request: Request) {
 
   try {
     const auth = await requireUser(request);
-    const denied = await paidAiDenial(auth.userId);
+    const denied = await paidAiDenial({
+      role: auth.profile.role,
+      tenantId: auth.profile.tenant_id,
+    });
     if (denied) return denied;
 
     const rawBody = await request.json().catch(() => null);

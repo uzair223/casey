@@ -410,11 +410,26 @@ describe("statement operation flows", () => {
       created_at: "2026-04-23T12:00:00.000Z",
     };
     getServiceClient.mockReturnValue({
-      from: vi.fn(() => ({
-        insert: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: pendingJob, error: null }),
-      })),
+      from: vi.fn((table: string) => {
+        if (table === "tenants") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { plan: "practice" },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+
+        return {
+          insert: vi.fn().mockReturnThis(),
+          select: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: pendingJob, error: null }),
+        };
+      }),
     });
 
     const route = await importFresh<

@@ -2,17 +2,18 @@ import "server-only";
 
 import { NextResponse } from "next/server";
 
-import { SERVERONLY_getUserProfile } from "@/lib/supabase/queries/auth";
 import { getServiceClient } from "@/lib/supabase/server";
 import { isTenantPlan } from "@/lib/billing/plans";
 
-export async function paidAiDenial(userId: string) {
-  const profile = await SERVERONLY_getUserProfile(userId);
-  if (profile?.role === "app_admin") {
+export async function paidAiDenial(actor: {
+  role: string;
+  tenantId: string | null;
+}) {
+  if (actor.role === "app_admin") {
     return null;
   }
 
-  if (!profile?.tenant_id) {
+  if (!actor.tenantId) {
     return NextResponse.json(
       { error: "No tenant associated" },
       { status: 403 },
@@ -23,7 +24,7 @@ export async function paidAiDenial(userId: string) {
   const { data: tenant, error } = await supabase
     .from("tenants")
     .select("plan")
-    .eq("id", profile.tenant_id)
+    .eq("id", actor.tenantId)
     .maybeSingle();
 
   if (error) {

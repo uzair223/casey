@@ -15,7 +15,10 @@ export async function POST(
   try {
     const { id: statementId, documentId } = await params;
     const auth = await requireTenantUser(request);
-    const denied = await paidAiDenial(auth.userId);
+    const denied = await paidAiDenial({
+      role: auth.role,
+      tenantId: auth.tenantId,
+    });
     if (denied) return denied;
 
     const documents = await getStatementSupportingDocumentsWithClient(

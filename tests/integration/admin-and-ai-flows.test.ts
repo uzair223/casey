@@ -19,6 +19,10 @@ vi.mock("@/lib/api-utils/auth", () => ({
   requireUser,
 }));
 
+vi.mock("@/lib/billing/paid-plan", () => ({
+  paidAiDenial: vi.fn(async () => null),
+}));
+
 vi.mock("@/lib/supabase/queries", () => ({
   SERVERONLY_getDemoStudioBootstrapOptions,
   SERVERONLY_listDemoStudioStatements,
@@ -89,7 +93,10 @@ describe("admin and AI-assisted flows", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requireAppAdmin.mockResolvedValue({ userId: "admin-1" });
-    requireUser.mockResolvedValue({ userId: "user-1" });
+    requireUser.mockResolvedValue({
+      userId: "user-1",
+      profile: { role: "solicitor", tenant_id: "tenant-1" },
+    });
   });
 
   it("rejects unauthenticated system-config reads", async () => {
