@@ -107,15 +107,15 @@ export function StatementTemplateSimpleView() {
       (status) => status === "added" || status === "removed",
     ) && !hasPendingBranch(basePath, (status) => status === "modified");
   const hasPendingWitnessFields = shouldHidePendingBranch(
-    "witness_metadata_fields",
+    "witnessMetadataFields",
   );
-  const hasPendingCaseDeps = hasPendingBranch("case_metadata_deps");
+  const hasPendingCaseDeps = hasPendingBranch("caseMetadataDeps");
   const hasPendingPhases = shouldHidePendingBranch("phases");
   const hasPendingSections = shouldHidePendingBranch("sections");
 
   const phaseCount = draftConfig.phases.length;
   const witnessFields: StatementMetadataFieldConfig[] =
-    draftConfig.witness_metadata_fields;
+    draftConfig.witnessMetadataFields;
   const phaseFields: StatementPhaseConfig[] = draftConfig.phases;
   const sectionFields: StatementSectionConfig[] = draftConfig.sections;
 
@@ -128,18 +128,18 @@ export function StatementTemplateSimpleView() {
   };
 
   const updateWitnessMetadataFields = (
-    next: StatementConfig["witness_metadata_fields"],
+    next: StatementConfig["witnessMetadataFields"],
   ) => {
-    setValue("witness_metadata_fields", next, {
+    setValue("witnessMetadataFields", next, {
       shouldDirty: true,
       shouldValidate: true,
     });
   };
 
   const updateCaseMetadataDeps = (
-    next: StatementConfig["case_metadata_deps"],
+    next: StatementConfig["caseMetadataDeps"],
   ) => {
-    setValue("case_metadata_deps", next, {
+    setValue("caseMetadataDeps", next, {
       shouldDirty: true,
       shouldValidate: true,
     });
@@ -287,7 +287,7 @@ export function StatementTemplateSimpleView() {
       | StatementPhaseConfig
       | StatementSectionConfig,
   >(
-    basePath: "witness_metadata_fields" | "phases" | "sections",
+    basePath: "witnessMetadataFields" | "phases" | "sections",
     currentItems: T[],
     proposedItems: T[],
     renderContent: (item: T, status: CollectionDiffStatus) => ReactNode,
@@ -353,7 +353,7 @@ export function StatementTemplateSimpleView() {
           </Badge>
           <span className="text-sm font-medium">
             Pending
-            {basePath === "witness_metadata_fields"
+            {basePath === "witnessMetadataFields"
               ? " witness metadata fields"
               : basePath === "phases"
                 ? " phases"
@@ -387,7 +387,7 @@ export function StatementTemplateSimpleView() {
                     {status}
                   </Badge>
                   <span className="text-sm font-medium">
-                    {basePath === "witness_metadata_fields"
+                    {basePath === "witnessMetadataFields"
                       ? "Metadata field"
                       : basePath === "phases"
                         ? "Phase"
@@ -685,10 +685,10 @@ export function StatementTemplateSimpleView() {
           disabled={isBusy}
           addLabel="Add metadata field"
           getItemOpen={(_, index) =>
-            getItemOpen(`witness_metadata_fields.${index}`)
+            getItemOpen(`witnessMetadataFields.${index}`)
           }
           getItemClassName={(_, index) =>
-            getItemClassName(`witness_metadata_fields.${index}`)
+            getItemClassName(`witnessMetadataFields.${index}`)
           }
           renderSummary={(field, index) => {
             return (
@@ -708,7 +708,7 @@ export function StatementTemplateSimpleView() {
             );
           }}
           renderDropdown={(field, index) => {
-            const basePath = `witness_metadata_fields.${index}`;
+            const basePath = `witnessMetadataFields.${index}`;
             const branchStatus = getBranchDiffStatus(basePath);
 
             if (branchStatus === "removed") {
@@ -807,15 +807,15 @@ export function StatementTemplateSimpleView() {
                   />,
                 )}
 
-                {errorMessage(`witness_metadata_fields.${index}.id`) ? (
+                {errorMessage(`witnessMetadataFields.${index}.id`) ? (
                   <p className="text-xs text-destructive">
-                    {errorMessage(`witness_metadata_fields.${index}.id`)}
+                    {errorMessage(`witnessMetadataFields.${index}.id`)}
                   </p>
                 ) : null}
 
-                {errorMessage(`witness_metadata_fields.${index}.label`) ? (
+                {errorMessage(`witnessMetadataFields.${index}.label`) ? (
                   <p className="text-xs text-destructive">
-                    {errorMessage(`witness_metadata_fields.${index}.label`)}
+                    {errorMessage(`witnessMetadataFields.${index}.label`)}
                   </p>
                 ) : null}
 
@@ -902,9 +902,9 @@ export function StatementTemplateSimpleView() {
       ) : null}
 
       {renderPendingCollectionPreview(
-        "witness_metadata_fields",
-        draftConfig.witness_metadata_fields,
-        pendingConfig?.witness_metadata_fields ?? [],
+        "witnessMetadataFields",
+        draftConfig.witnessMetadataFields,
+        pendingConfig?.witnessMetadataFields ?? [],
         (field, status) => (
           <div className="rounded-md border bg-background/80 p-3">
             <p className="text-xs font-medium text-muted-foreground">
@@ -936,14 +936,15 @@ export function StatementTemplateSimpleView() {
 
       {!hasPendingCaseDeps
         ? renderBranchDiffField(
-            "case_metadata_deps",
+            "caseMetadataDeps",
             "Case field dependencies",
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">
-                Add the case field keys used by this template.
+                <p className="text-xs text-muted-foreground">
+                Case field ids the interview and formalizer may see. An empty
+                list means no case facts are injected.
               </p>
               <div className="space-y-2">
-                {draftConfig.case_metadata_deps.map((dep, index) => (
+                {draftConfig.caseMetadataDeps.map((dep, index) => (
                   <div
                     key={`case-metadata-dep-${index}`}
                     className="flex gap-2"
@@ -952,7 +953,7 @@ export function StatementTemplateSimpleView() {
                       value={dep}
                       disabled={isBusy}
                       onChange={(event) => {
-                        const next = [...draftConfig.case_metadata_deps];
+                        const next = [...draftConfig.caseMetadataDeps];
                         next[index] = event.target.value;
                         updateCaseMetadataDeps(next);
                       }}
@@ -963,7 +964,7 @@ export function StatementTemplateSimpleView() {
                       size="sm"
                       disabled={isBusy}
                       onClick={() => {
-                        const next = draftConfig.case_metadata_deps.filter(
+                        const next = draftConfig.caseMetadataDeps.filter(
                           (_, i) => i !== index,
                         );
                         updateCaseMetadataDeps(next);
@@ -981,7 +982,7 @@ export function StatementTemplateSimpleView() {
                   disabled={isBusy}
                   onClick={() => {
                     updateCaseMetadataDeps([
-                      ...draftConfig.case_metadata_deps,
+                      ...draftConfig.caseMetadataDeps,
                       "",
                     ]);
                   }}
@@ -996,18 +997,43 @@ export function StatementTemplateSimpleView() {
 
       {hasPendingCaseDeps
         ? renderBranchDiffField(
-            "case_metadata_deps",
+            "caseMetadataDeps",
             "Case field dependencies",
             <div className="space-y-2" />,
             "group",
           )
         : null}
 
+      {renderNativeDiffField(
+        "modelIdentity",
+        "Model identity",
+        <div className="grid gap-2">
+          <p className="text-sm font-medium">Model identity</p>
+          <Textarea
+            rows={3}
+            value={draftConfig.modelIdentity ?? ""}
+            placeholder="You are interviewing the witness of a road traffic accident. Take their account of how the collision happened and what happened afterwards."
+            disabled={isBusy}
+            onChange={(event) => {
+              const next = event.target.value;
+              setValue("modelIdentity", next.trim() ? next : null, {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+            }}
+          />
+          <p className="text-xs text-muted-foreground">
+            Who the model is for this interview. This leads the interview, the
+            phase review, and the written statement.
+          </p>
+        </div>,
+      )}
+
       {/* PHASES */}
       {!hasPendingPhases ? (
         <DynamicFieldsEditor
           title="Interview phases"
-          description="Define the ordered flow of the statement interview."
+          description="Title, objective, topics, questioning mode, and completion criteria. Objective is what a complete answer lets the solicitor establish."
           fields={phaseFields}
           disabled={isBusy}
           addLabel="Add phase"
@@ -1028,7 +1054,7 @@ export function StatementTemplateSimpleView() {
                     {phase.title || `Phase ${index + 1}`}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {phase.description || "No description"}
+                    {phase.objective || "No objective"}
                   </p>
                 </div>
                 <p className="truncate text-xs text-muted-foreground">
@@ -1062,8 +1088,8 @@ export function StatementTemplateSimpleView() {
                         <span className="font-medium">Id:</span> {phase.id}
                       </p>
                       <p>
-                        <span className="font-medium">Description:</span>{" "}
-                        {phase.description || "No description"}
+                        <span className="font-medium">Objective:</span>{" "}
+                        {phase.objective || "No objective"}
                       </p>
                       <p>
                         <span className="font-medium">Allowed topics:</span>{" "}
@@ -1160,19 +1186,19 @@ export function StatementTemplateSimpleView() {
                 ) : null}
 
                 {renderNativeDiffField(
-                  `${basePath}.description`,
-                  "Phase description",
+                  `${basePath}.objective`,
+                  "Objective",
                   <Textarea
                     className="col-span-2"
                     rows={2}
-                    value={phase.description}
-                    placeholder="Phase description"
+                    value={phase.objective}
+                    placeholder="What a complete answer lets the solicitor establish"
                     disabled={isBusy}
                     onChange={(event) => {
                       const next = [...draftConfig.phases];
                       next[index] = {
                         ...next[index],
-                        description: event.target.value,
+                        objective: event.target.value,
                       };
                       updatePhases(next);
                     }}
@@ -1288,7 +1314,7 @@ export function StatementTemplateSimpleView() {
                   slugify("New phase", "phase"),
                   new Set(next.map((phase) => phase.id)),
                 ),
-                description: "",
+                objective: "",
                 allowedTopics: null,
                 forbiddenTopics: null,
                 completionCriteria: null,
@@ -1301,7 +1327,7 @@ export function StatementTemplateSimpleView() {
               next.map((phase) => ({
                 id: phase.id,
                 title: phase.title,
-                description: phase.description ?? "",
+                objective: phase.objective ?? "",
                 allowedTopics: phase.allowedTopics
                   ?.map((item) => item.trim())
                   .filter(Boolean).length
@@ -1348,8 +1374,8 @@ export function StatementTemplateSimpleView() {
                   <span className="font-medium">Id:</span> {phase.id}
                 </p>
                 <p>
-                  <span className="font-medium">Description:</span>{" "}
-                  {phase.description || "No description"}
+                  <span className="font-medium">Objective:</span>{" "}
+                  {phase.objective || "No objective"}
                 </p>
                 <p>
                   <span className="font-medium">Allowed topics:</span>{" "}
@@ -1385,7 +1411,7 @@ export function StatementTemplateSimpleView() {
               draftConfig.phases.map((phase) => ({
                 id: uniqueSlug(slugify(phase.title || "", "section"), used),
                 title: phase.title || "Untitled section",
-                description: phase.description || "",
+                description: phase.objective || null,
               }));
 
             updateSections(generatedSections);

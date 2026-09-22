@@ -6,22 +6,24 @@ import {
 } from "@/lib/statement-utils";
 
 describe("statement config normalization", () => {
-  it("strips legacy prompt keys without dropping phases or sections", () => {
+  it("keeps camelCase fields and drops stored prompts and phase description", () => {
     const config = normalizeConfig({
+      schema_version: 3,
       agents: {
         chat: "Legacy chat agent",
         formalize: "Legacy formalize agent",
       },
       prompts: {
-        chat_system_template: null,
-        metadata_system_template: null,
-        formalize_system_template: null,
+        chat_system_template: "override",
+        formalize_system_template: "override",
       },
+      modelIdentity: "  You are interviewing the witness of a road traffic accident.  ",
       phases: [
         {
           id: "incidentNarrative",
           title: "Incident Narrative",
-          description: "Collect what happened.",
+          description: "This old field is ignored.",
+          objective: "What happened, in the witness's own account.",
           allowedTopics: ["sequence of events"],
           forbiddenTopics: ["legal conclusions"],
           completionCriteria: ["chronology captured"],
@@ -39,6 +41,15 @@ describe("statement config normalization", () => {
       ],
       witness_metadata_fields: [
         {
+          id: "ignored",
+          label: "Ignored",
+          description: "Old key",
+          requiredOnCreate: false,
+          requiredOnIntake: true,
+        },
+      ],
+      witnessMetadataFields: [
+        {
           id: "address",
           label: "Address",
           description: "Residential address",
@@ -47,19 +58,44 @@ describe("statement config normalization", () => {
           legacyField: "ignored",
         },
       ],
-      case_metadata_deps: ["court", "claimNumber"],
+      case_metadata_deps: ["court"],
+      caseMetadataDeps: ["court", "claimNumber"],
       legacyRootField: "ignored",
     });
 
-    expect(config.schema_version).toBe(CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION);
-    expect(config.prompts).toEqual({
-      chat_system_template: null,
-      formalize_system_template: null,
-    });
+    expect(config.schemaVersion).toBe(CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION);
+    expect(config.modelIdentity).toBe(
+      "You are interviewing the witness of a road traffic accident.",
+    );
+    expect("prompts" in config).toBe(false);
     expect("agents" in config).toBe(false);
-    expect(config.phases).toHaveLength(1);
+    expect(config.phases).toEqual([
+      {
+        id: "incidentNarrative",
+        title: "Incident Narrative",
+        objective: "What happened, in the witness's own account.",
+        allowedTopics: ["sequence of events"],
+        forbiddenTopics: ["legal conclusions"],
+        completionCriteria: ["chronology captured"],
+        questioningMode: "narrative",
+      },
+    ]);
     expect(config.sections).toHaveLength(1);
-    expect(config.witness_metadata_fields).toHaveLength(1);
+    expect(config.witnessMetadataFields.map((field) => field.id)).toEqual([
+      "address",
+    ]);
+    expect(config.caseMetadataDeps).toEqual(["court", "claimNumber"]);
     expect(StatementConfigSchema.safeParse(config).success).toBe(true);
+  });
+
+  it("does not treat an empty caseMetadataDeps list as every case field", () => {
+    const config = normalizeConfig({
+      phases: [{ id: "facts", title: "Facts", objective: "What happened." }],
+      sections: [{ id: "facts", title: "Facts", description: null }],
+      caseMetadataDeps: [],
+    });
+
+    expect(config.caseMetadataDeps).toEqual([]);
+    expect(config.modelIdentity).toBeNull();
   });
 });

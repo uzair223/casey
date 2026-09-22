@@ -183,7 +183,7 @@ function toFormValues(
   sections: Record<string, string>,
 ): UpdateWitnessDetailsFormData {
   const config = data.statement.statement_config;
-  const metadataFields = config.witness_metadata_fields ?? [];
+  const metadataFields = config.witnessMetadataFields ?? [];
   const metadata =
     (data.statement.witness_metadata as
       | Record<string, unknown>
@@ -383,7 +383,7 @@ export function StatementDetailPanel({
     (section) => (sectionDrafts[section.id] ?? "").trim().length > 0,
   );
 
-  const witnessMetadataFields = statementConfig.witness_metadata_fields ?? [];
+  const witnessMetadataFields = statementConfig.witnessMetadataFields ?? [];
   const witnessMetadataValues = data.statement.witness_metadata;
   const progress = latestMeta?.progress;
   const isContentLocked = isStatementContentLocked(data.statement.status);

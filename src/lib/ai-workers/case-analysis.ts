@@ -30,9 +30,29 @@ import {
   completeGenerationJobFailure,
 } from "@/lib/ai-workers/claim";
 
-import { getSystemConfig } from "@/lib/supabase/system-config";
+import { normalizeConfig } from "@/lib/statement-utils";
+import {
+  formatCaseFieldsForAnalysis,
+  parseCaseConfig,
+} from "@/lib/llm/case-runtime";
+import { formatStatementExpectations } from "@/lib/llm/template-contract";
 
 const MAX_EVIDENCE_FILES_PER_CASE = 8;
+
+export const CASE_ANALYSIS_SYSTEM_PROMPT = `You are reviewing witness statements for a UK claimant firm. Summarise what the supplied statements and evidence say. Do not decide what is true, and do not give legal advice.
+
+Use only the matter brief, case fields, statement expectations, statements, and evidence in the user message.
+
+Write:
+- executiveSummary: a concise neutral summary of what the statements collectively say.
+- chronology: events in order. Each item needs sources. Record conflicts where accounts differ. Use null for dateOrTime when no date or time is given.
+- agreedFacts: facts the sources support together, each with sources.
+- disputedFacts: issues where accounts differ. Each position needs sources, plus suggested follow-up questions.
+- missingInformation: gaps in the account, why each gap matters, and suggested follow-ups.
+- evidenceMentioned: documents, exhibits, or files mentioned or supplied. Include the document name when known. uploadedOrAvailable is true when the file was supplied, false when it was only mentioned, and null when that is unknown.
+- caseThemes: themes in the accounts, the facts that support them, and the weaknesses.
+
+Every source needs statementId, witnessName, and a short excerpt from that statement or evidence. sectionId, exhibitId, and evidenceName may be null when they do not apply.`;
 const CASE_ANALYSIS_TIMEOUT_MS = Number(
   process.env.CASE_ANALYSIS_TIMEOUT_MS ?? 60_000,
 );
@@ -285,10 +305,71 @@ type StatementForAnalysis = {
   supporting_documents: unknown;
   updated_at: string;
   statement_formalization_snapshots?: { sections: unknown } | null;
+  statement_config_snapshots?:
+    | { config_json: unknown; config_name: string }
+    | Array<{ config_json: unknown; config_name: string }>
+    | null;
 };
 
 function hasStatementContent(statement: StatementForAnalysis) {
   return stringifySections(getStatementSections(statement)).trim().length > 0;
+}
+
+function snapshotRecord(relation: unknown): {
+  config_json?: unknown;
+  config_name?: string;
+} | null {
+  const snapshot = Array.isArray(relation) ? relation[0] : relation;
+  if (!snapshot || typeof snapshot !== "object") {
+    return null;
+  }
+  return snapshot as { config_json?: unknown; config_name?: string };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function buildCaseAnalysisUserText(params: {
+  title: string;
+  caseMetadata: unknown;
+  caseConfig: unknown;
+  statements: StatementForAnalysis[];
+  statementCorpus: string;
+  evidenceCorpus: string;
+}) {
+  const caseSnapshot = snapshotRecord(params.caseConfig);
+  const caseConfig = parseCaseConfig(caseSnapshot?.config_json);
+  const caseMetadata = isRecord(params.caseMetadata) ? params.caseMetadata : {};
+  const expectations = params.statements
+    .map((statement) => {
+      const snapshot = snapshotRecord(statement.statement_config_snapshots);
+      return formatStatementExpectations({
+        witnessName: statement.witness_name,
+        templateName: snapshot?.config_name?.trim() || "Statement template",
+        config: normalizeConfig(snapshot?.config_json),
+      });
+    })
+    .join("\n\n");
+
+  return `Case title: ${params.title}
+
+Matter brief:
+${caseConfig?.matterBrief?.trim() || "None provided."}
+
+Case fields:
+${formatCaseFieldsForAnalysis({ caseConfig, caseMetadata })}
+
+Statement expectations:
+${expectations || "None provided."}
+
+Witness statements:
+
+${params.statementCorpus}
+
+Supporting evidence:
+
+${params.evidenceCorpus}`;
 }
 
 function buildStatementCorpus(
@@ -351,7 +432,9 @@ export async function processCaseAnalysisJob(jobId: string) {
   try {
     const { data: caseRecord, error: caseError } = await supabase
       .from("cases")
-      .select("id, tenant_id, title, case_metadata")
+      .select(
+        "id, tenant_id, title, case_metadata, case_config_snapshots!cases_config_snapshot_id_fkey(config_json)",
+      )
       .eq("id", job.target_id)
       .eq("tenant_id", job.tenant_id)
       .maybeSingle();
@@ -362,7 +445,7 @@ export async function processCaseAnalysisJob(jobId: string) {
     const { data: statements, error: statementsError } = await supabase
       .from("statements")
       .select(
-        "id, title, witness_name, witness_email, witness_metadata, status, supporting_documents, updated_at, statement_formalization_snapshots!statements_formalization_snapshot_id_fkey(sections)",
+        "id, title, witness_name, witness_email, witness_metadata, status, supporting_documents, updated_at, statement_formalization_snapshots!statements_formalization_snapshot_id_fkey(sections), statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, config_name)",
       )
       .eq("case_id", job.target_id)
       .eq("tenant_id", job.tenant_id)
@@ -414,23 +497,24 @@ export async function processCaseAnalysisJob(jobId: string) {
           messages: [
             {
               role: "system",
-              content: await getSystemConfig("case_analysis_prompt"),
+              content: CASE_ANALYSIS_SYSTEM_PROMPT,
             },
             {
               role: "user",
               content: [
                 {
                   type: "text",
-                  text: `Case title: ${caseRecord.title}
-Case metadata: ${JSON.stringify(caseRecord.case_metadata ?? {})}
-
-Witness statements:
-
-${buildStatementCorpus(sourceStatements, evidenceContexts)}
-
-Supporting evidence:
-
-${evidenceCorpus}`,
+                  text: buildCaseAnalysisUserText({
+                    title: caseRecord.title,
+                    caseMetadata: caseRecord.case_metadata,
+                    caseConfig: caseRecord.case_config_snapshots,
+                    statements: sourceStatements,
+                    statementCorpus: buildStatementCorpus(
+                      sourceStatements,
+                      evidenceContexts,
+                    ),
+                    evidenceCorpus,
+                  }),
                 },
                 ...evidenceContexts.flatMap((item) =>
                   item.part

@@ -114,6 +114,7 @@ function withGeneratedDynamicFieldKeys(config: CaseConfig) {
       type: field.type,
       required: field.required,
       placeholder: field.placeholder,
+      description: field.description,
     })),
   };
 }
@@ -124,7 +125,7 @@ function getStatementTemplateCaseMetadataDeps(
   const config = template.published_config ?? template.draft_config;
   const deps =
     config && typeof config === "object" && !Array.isArray(config)
-      ? (config as { case_metadata_deps?: unknown }).case_metadata_deps
+      ? (config as { caseMetadataDeps?: unknown }).caseMetadataDeps
       : [];
 
   if (!Array.isArray(deps)) {

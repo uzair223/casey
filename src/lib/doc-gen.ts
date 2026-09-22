@@ -73,12 +73,12 @@ export const validateDocxTemplateDocument = async (params: {
   }
 
   const caseMetadata: Record<string, string> = {};
-  for (const key of params.config.case_metadata_deps ?? []) {
+  for (const key of params.config.caseMetadataDeps ?? []) {
     caseMetadata[key] = `sample_${key}`;
   }
 
   const witnessMetadata: Record<string, string> = {};
-  for (const field of params.config.witness_metadata_fields ?? []) {
+  for (const field of params.config.witnessMetadataFields ?? []) {
     witnessMetadata[field.id] = `sample_${field.id}`;
   }
 
@@ -124,20 +124,20 @@ export async function generateStarterDoc(params: {
 
   // ── Key resolution helpers ─────────────────────────────────────────────────
   const PARTY_KEYS = new Set(["court", "claimNumber", "claimant", "defendant"]);
-  const depSet = new Set(config.case_metadata_deps ?? []);
-  const nonPartyDeps = (config.case_metadata_deps ?? []).filter(
+  const depSet = new Set(config.caseMetadataDeps ?? []);
+  const nonPartyDeps = (config.caseMetadataDeps ?? []).filter(
     (d) => !PARTY_KEYS.has(d),
   );
   const hasDep = (key: string) => depSet.has(key);
 
   const witnessFieldIds = new Set(
-    (config.witness_metadata_fields ?? []).map((f) => f.id),
+    (config.witnessMetadataFields ?? []).map((f) => f.id),
   );
   const hasAddress = witnessFieldIds.has("address");
   const hasOccupation = witnessFieldIds.has("occupation");
 
   const INLINE_WITNESS_KEYS = new Set(["address", "occupation"]);
-  const remainingWitnessMeta = (config.witness_metadata_fields ?? []).filter(
+  const remainingWitnessMeta = (config.witnessMetadataFields ?? []).filter(
     (f) => !INLINE_WITNESS_KEYS.has(f.id),
   );
 
@@ -388,7 +388,7 @@ function buildTemplateData(
     string | number | null | undefined
   >;
   const caseMetadataMap: Record<string, string> = {};
-  for (const key of data.config.case_metadata_deps ?? []) {
+  for (const key of data.config.caseMetadataDeps ?? []) {
     const value = caseMetadata[key];
     caseMetadataMap[key] = value == null ? "" : String(value);
   }
@@ -532,7 +532,7 @@ function getAllowedDocxTemplateFields(config: StatementConfig): Set<string> {
     "signatureDate",
   ]);
 
-  for (const dep of config.case_metadata_deps ?? []) {
+  for (const dep of config.caseMetadataDeps ?? []) {
     if (dep?.trim()) {
       allowed.add(`caseMetadata.${dep.trim()}`);
     }
@@ -546,7 +546,7 @@ function getAllowedDocxTemplateFields(config: StatementConfig): Set<string> {
     }
   }
 
-  for (const field of config.witness_metadata_fields ?? []) {
+  for (const field of config.witnessMetadataFields ?? []) {
     if (field.id?.trim()) {
       allowed.add(`witnessMetadata.${field.id.trim()}`);
     }

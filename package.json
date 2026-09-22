@@ -9,6 +9,7 @@
     "preview": "node scripts/with-cloudflare-admin.mjs opennextjs-cloudflare build && node scripts/with-cloudflare-admin.mjs opennextjs-cloudflare preview",
     "deploy": "node scripts/push-supabase.mjs && node scripts/with-cloudflare-admin.mjs opennextjs-cloudflare build && node scripts/with-cloudflare-admin.mjs opennextjs-cloudflare deploy",
     "supabase:push": "node scripts/push-supabase.mjs",
+    "seed:production": "npx tsx scripts/seed-production.ts",
     "upload": "node scripts/with-cloudflare-admin.mjs opennextjs-cloudflare build && node scripts/with-cloudflare-admin.mjs opennextjs-cloudflare upload",
     "cf-typegen": "node scripts/with-cloudflare-admin.mjs wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "configure:stripe": "node scripts/configure-stripe.mjs",

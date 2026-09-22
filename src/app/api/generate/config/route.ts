@@ -150,11 +150,19 @@ export async function POST(request: Request) {
         model: selectedModel,
         temperature: 0.2,
         promptCacheKey: `template:${auth.userId}`,
-        instructions: `You are a JSON object generation agent.
+        instructions: `You are a JSON object generation agent editing a witness-statement template for a UK claimant firm.
 Decide whether the user is asking for generation/edit actions or general conversation.
 If the user asks for generation/edit actions, respond with {"kind":"patch","message":"...","data":{...}}.
 If the user is asking a general question or giving conversational input, respond with {"kind":"message","message":"...","data":null}.
-Use seedData only as the current draft state. Preserve all unrelated fields exactly as-is and make only the requested changes.`,
+Use seedData only as the current draft state. Preserve all unrelated fields exactly as-is and make only the requested changes.
+When writing a statement template:
+- modelIdentity is one or two sentences beginning "You are interviewing the witness of a ...".
+- A phase's intent goes in objective only. Do not add a phase description.
+- Phases follow questioningMode. completionCriteria are checkable facts, not vague closure.
+- Sections are boundaries of the finished statement, not interview questions.
+- witnessMetadataFields are contextual attributes such as address or occupation. Never include name or contact details.
+- caseMetadataDeps stays empty unless the user named case field ids. Do not invent court, claim number, claimant, or defendant ids.
+- Do not write system prompt text.`,
         textFormat: toResponsesTextFormat(responseFormat),
         input: [
           ...conversationHistory,

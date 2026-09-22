@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  SEEDED_CASE_TEMPLATE_IDS,
+  SEEDED_STATEMENT_TEMPLATE_IDS,
+} from "@/lib/templates/claimant-firm-seeds";
+import {
   createAnonClient,
   createServiceClient,
   createTestUser,
@@ -449,17 +453,36 @@ const suite = describe.skipIf(!hasLocalSupabaseEnv())("local Supabase RLS", () =
       .select("id,name")
       .order("name", { ascending: true });
     expect(appAdminCaseTemplates.error).toBeNull();
-    expect(appAdminCaseTemplates.data?.map((item) => item.id)).toEqual([
+    const caseTemplateIds = appAdminCaseTemplates.data?.map((item) => item.id) ?? [];
+    const allowedCaseTemplateIds = new Set([
       seed.templateGlobalCaseId,
+      ...SEEDED_CASE_TEMPLATE_IDS,
     ]);
+    expect(caseTemplateIds.every((id) => allowedCaseTemplateIds.has(id))).toBe(
+      true,
+    );
+    expect(caseTemplateIds).toContain(seed.templateGlobalCaseId);
 
     const tenantAdminStatementTemplates = await tenantAdminA
       .from("statement_config_templates")
       .select("id,name")
       .order("name", { ascending: true });
     expect(tenantAdminStatementTemplates.error).toBeNull();
-    expect(tenantAdminStatementTemplates.data?.map((item) => item.id).sort()).toEqual(
-      [seed.templateGlobalStatementId, seed.templateTenantAStatementId].sort(),
+    const statementTemplateIds =
+      tenantAdminStatementTemplates.data?.map((item) => item.id) ?? [];
+    const allowedStatementTemplateIds = new Set([
+      seed.templateGlobalStatementId,
+      seed.templateTenantAStatementId,
+      ...SEEDED_STATEMENT_TEMPLATE_IDS,
+    ]);
+    expect(
+      statementTemplateIds.every((id) => allowedStatementTemplateIds.has(id)),
+    ).toBe(true);
+    expect(statementTemplateIds).toEqual(
+      expect.arrayContaining([
+        seed.templateGlobalStatementId,
+        seed.templateTenantAStatementId,
+      ]),
     );
 
     const deniedInsert = await paralegalA.from("case_templates").insert({

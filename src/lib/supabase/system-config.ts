@@ -1,27 +1,16 @@
 import { getServiceClient } from "./server";
 
-export type ConfigKey =
-  | "site_url"
-  | "cron_secret"
-  | "default_chat_system_prompt"
-  | "default_formalize_system_prompt"
-  | "case_analysis_prompt";
+export type ConfigKey = "site_url" | "cron_secret";
 
-const CONFIG_KEYS = new Set<string>([
-  "site_url",
-  "cron_secret",
-  "default_chat_system_prompt",
-  "default_formalize_system_prompt",
-  "case_analysis_prompt",
-]);
+const CONFIG_KEYS = new Set<string>(["site_url", "cron_secret"]);
 
 export function isSystemConfigKey(key: string): key is ConfigKey {
   return CONFIG_KEYS.has(key);
 }
 
 /**
- * Fetch a system configuration value from the database.
- * Falls back to environment variable or default if not found in DB.
+ * Fetch a deployment setting from app_private.system_config.
+ * Model prompts are constants in the repo and are not stored here.
  */
 export async function getSystemConfig(key: ConfigKey): Promise<string> {
   const supabase = getServiceClient("getSystemConfig");

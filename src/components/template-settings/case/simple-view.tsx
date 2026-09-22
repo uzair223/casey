@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { PencilIcon } from "@/components/icons";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -103,9 +104,31 @@ export function CaseTemplateSimpleView() {
         </p>
       </div>
 
+      <div className="grid gap-2">
+        <p className="text-sm font-medium">Matter brief</p>
+        <Textarea
+          rows={4}
+          value={draftConfig.matterBrief ?? ""}
+          disabled={!canEditActiveTemplate}
+          placeholder="What kind of matter this is, and the facts a reviewer should keep in mind."
+          onChange={(event) => {
+            const next = event.target.value;
+            setValue("matterBrief", next.trim() ? next : null, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+          }}
+        />
+        <p className="text-xs text-muted-foreground">
+          Shared background for case analysis and for interviews on this
+          matter. It does not replace the statement template&apos;s model
+          identity.
+        </p>
+      </div>
+
       <DynamicFieldsEditor
         title="Case fields"
-        description="Define fields, labels, and types for the case template."
+        description="Define fields, labels, and types. The description is shown to the models beside the saved value."
         fields={dynamicFields}
         disabled={!canEditActiveTemplate}
         addLabel="Add field"
@@ -199,6 +222,22 @@ export function CaseTemplateSimpleView() {
                   next[index] = {
                     ...next[index],
                     placeholder: event.target.value,
+                  };
+                  updateDynamicFields(next);
+                }}
+              />
+
+              <Textarea
+                rows={2}
+                value={field.description ?? ""}
+                placeholder="What this fact is and why it matters"
+                disabled={!canEditActiveTemplate}
+                onChange={(event) => {
+                  const next = [...dynamicFields];
+                  const description = event.target.value.trim();
+                  next[index] = {
+                    ...next[index],
+                    description: description || undefined,
                   };
                   updateDynamicFields(next);
                 }}

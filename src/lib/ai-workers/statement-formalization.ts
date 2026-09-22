@@ -31,7 +31,12 @@ import {
   applyProgrammaticEvidenceSection,
   generateFormalizeSystemPrompt,
   getProgrammaticEvidenceSection,
+  normalizeConfig,
 } from "@/lib/statement-utils";
+import {
+  buildKnownCaseFacts,
+  loadCaseModelContext,
+} from "@/lib/llm/case-runtime";
 import {
   claimGenerationJob,
   completeGenerationJobFailure,
@@ -211,7 +216,7 @@ export async function processFormalizationJob(jobId: string) {
     const { data: statement, error: statementError } = await supabase
       .from("statements")
       .select(
-        "id, tenant_id, status, witness_name, supporting_documents, config_snapshot_id",
+        "id, tenant_id, case_id, status, witness_name, witness_metadata, supporting_documents, config_snapshot_id",
       )
       .eq("id", job.target_id)
       .eq("tenant_id", job.tenant_id)
@@ -240,11 +245,7 @@ export async function processFormalizationJob(jobId: string) {
 
     if (configSnapshotError) throw configSnapshotError;
 
-    const config = (configSnapshot?.config_json ?? {
-      sections: [],
-      phases: [],
-      prompts: { formalize_system_template: null },
-    }) as StatementConfig;
+    const config = normalizeConfig(configSnapshot?.config_json);
 
     if (!config.sections.length) {
       throw new Error("Statement template has no sections.");
@@ -313,9 +314,26 @@ export async function processFormalizationJob(jobId: string) {
 
     let response: Awaited<ReturnType<typeof client.chat.completions.parse>>;
     try {
+      const witnessMetadata =
+        statement.witness_metadata &&
+        typeof statement.witness_metadata === "object" &&
+        !Array.isArray(statement.witness_metadata)
+          ? (statement.witness_metadata as Record<string, unknown>)
+          : {};
+      const caseContext = statement.case_id
+        ? await loadCaseModelContext(supabase, statement.case_id)
+        : null;
       const systemPrompt = await generateFormalizeSystemPrompt(
         config,
         buildEvidenceList(exhibits),
+        {
+          witnessMetadata,
+          caseFacts: buildKnownCaseFacts({
+            caseConfig: caseContext?.caseConfig ?? null,
+            caseMetadata: caseContext?.caseMetadata ?? null,
+            dependencyIds: config.caseMetadataDeps,
+          }),
+        },
       );
       response = await client.chat.completions.parse(
         {

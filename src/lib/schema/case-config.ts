@@ -25,7 +25,7 @@ export const CaseConfigSchema = z
       .nullable()
       .optional()
       .describe(
-        "What kind of matter this is and what case analysis should weigh. The analysis model treats this as the review brief.",
+        "What kind of matter this is. Case analysis reads this as the review brief. Interviews on the matter also see it as background.",
       ),
     dynamicFields: z.array(CaseFieldConfigSchema).default([]),
   })

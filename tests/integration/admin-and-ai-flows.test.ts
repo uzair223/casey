@@ -49,7 +49,7 @@ vi.mock("@/lib/supabase/system-config", () => ({
   getSystemConfig,
   setSystemConfig,
   isSystemConfigKey: (key: string) =>
-    ["cron_secret", "site_url", "default_chat_system_prompt"].includes(key),
+    ["cron_secret", "site_url"].includes(key),
 }));
 
 vi.mock("openai", () => ({

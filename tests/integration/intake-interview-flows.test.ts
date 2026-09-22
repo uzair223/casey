@@ -400,16 +400,13 @@ describe("intake interview flows", () => {
 
   it("streams interview chat when Jev is skipped", async () => {
     const statementConfig = {
-      schema_version: 3,
-      prompts: {
-        chat_system_template: null,
-        formalize_system_template: null,
-      },
+      schemaVersion: 4,
+      modelIdentity: null,
       phases: [
         {
           id: "incidentFacts",
           title: "Incident facts",
-          description: "Core incident facts",
+          objective: "Core incident facts",
           allowedTopics: null,
           forbiddenTopics: null,
           completionCriteria: ["What happened"],
@@ -417,8 +414,8 @@ describe("intake interview flows", () => {
         },
       ],
       sections: [],
-      witness_metadata_fields: [],
-      case_metadata_deps: [],
+      witnessMetadataFields: [],
+      caseMetadataDeps: [],
     };
     const llmMetadata = {
       witnessDetails: null,
@@ -487,16 +484,13 @@ describe("intake interview flows", () => {
 
   it("overlays Jev phase and deviation decisions onto the chat metadata", async () => {
     const statementConfig = {
-      schema_version: 3,
-      prompts: {
-        chat_system_template: null,
-        formalize_system_template: null,
-      },
+      schemaVersion: 4,
+      modelIdentity: null,
       phases: [
         {
           id: "incidentFacts",
           title: "Incident facts",
-          description: "Core incident facts",
+          objective: "Core incident facts",
           allowedTopics: null,
           forbiddenTopics: null,
           completionCriteria: ["What happened"],
@@ -504,8 +498,8 @@ describe("intake interview flows", () => {
         },
       ],
       sections: [],
-      witness_metadata_fields: [],
-      case_metadata_deps: [],
+      witnessMetadataFields: [],
+      caseMetadataDeps: [],
     };
     const llmMetadata = {
       witnessDetails: null,
