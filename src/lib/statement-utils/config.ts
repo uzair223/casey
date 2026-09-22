@@ -76,6 +76,7 @@ function normalizePhase(value: unknown): StatementPhaseConfig | null {
     id,
     title,
     description: stringValue(value.description),
+    objective: nullableStringValue(value.objective),
     allowedTopics: nullableStringArrayValue(value.allowedTopics),
     forbiddenTopics: nullableStringArrayValue(value.forbiddenTopics),
     completionCriteria: nullableStringArrayValue(value.completionCriteria),

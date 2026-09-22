@@ -14,8 +14,10 @@ Phases must:
 
 Each phase must include:
 - A domain-level title
-- A description of what information is explored within that domain
-- An objective describing the evidential purpose of that phase
+- A description of the area of inquiry
+- objective: the evidential purpose, as its own field, not folded into the description
+- questioningMode: narrative for a free account, structured for one factual question at a time, or mixed for a free account followed by gap questions
+- completionCriteria: checkable facts that mark the phase complete. The interview controller scores the phase against these items. Do not use vague closure such as "the witness has said enough"
 
 Phases should collectively form a complete investigative framework for understanding what happened, its context, its consequences, and relevant supporting information.
 
@@ -41,7 +43,9 @@ Sections should be derived from the case content rather than a predefined list. 
 
 Each section must include:
 - A clear title representing its evidential function
-- A description of what the section contains
+- A description of what the finished prose may contain
+
+The formalizer writes one first-person string per section and treats description as the content boundary. Describe the finished statement, not interview questions.
 
 Constraints:
 - DO NOT use predefined templates (e.g. RTA, workplace injury, or medical negligence structures)
@@ -84,6 +88,14 @@ export const StatementPhaseConfigSchema = z
       .string()
       .describe(
         "Explains what information is explored within this phase. Must describe an open-ended area of inquiry, not a scripted set of questions or events.",
+      ),
+
+    objective: z
+      .string()
+      .nullable()
+      .default(null)
+      .describe(
+        "Evidential purpose of this phase: what a complete answer lets the solicitor understand or prove. Not a question and not a topic list.",
       ),
 
     allowedTopics: z
@@ -190,7 +202,11 @@ export const StatementConfigSchema = z
       .array(StatementMetadataFieldConfigSchema)
       .describe(METADATA_DESCRIPTION),
 
-    case_metadata_deps: z.array(z.string()),
+    case_metadata_deps: z
+      .array(z.string())
+      .describe(
+        "Case-template field ids this statement should treat as already known. Do not invent ids. Use an empty array when no case fields were named.",
+      ),
     prompts: StatementPromptTemplatesSchema.nullable(),
   })
   .strict();
