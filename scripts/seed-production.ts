@@ -252,6 +252,14 @@ async function ensureAppAdmin(
       throw error ?? new Error(`Failed to create ${APP_ADMIN_EMAIL}`);
     }
     userId = data.user.id;
+  } else {
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
+      password,
+      email_confirm: true,
+    });
+    if (error) {
+      throw error;
+    }
   }
 
   const { error: profileError } = await supabase.from("profiles").upsert(
