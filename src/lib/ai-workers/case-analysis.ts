@@ -559,10 +559,19 @@ export async function processCaseAnalysisJob(jobId: string) {
       updatedAt: statement.updated_at,
     }));
 
+    const { data: primaryStatement } = await supabase
+      .from("statements")
+      .select("id")
+      .eq("case_id", job.target_id)
+      .eq("participant_kind", "primary")
+      .limit(1)
+      .maybeSingle();
+
     const { data: snapshot, error: insertError } = await supabase
       .from("case_analysis_snapshots")
       .insert({
         case_id: job.target_id,
+        primary_statement_id: primaryStatement?.id ?? null,
         tenant_id: job.tenant_id,
         created_by_user_id: job.requested_by_user_id,
         model,

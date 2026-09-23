@@ -57,6 +57,9 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
       case_metadata: {},
       assigned_to_ids: [],
       status: "draft",
+      contact_name: "",
+      contact_email: "",
+      contact_phone: "",
     },
   });
 
@@ -183,6 +186,9 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
             ) ?? {},
           assigned_to_ids: assignedToIds,
           status: data.status,
+          contact_name: data.contact_name,
+          contact_email: data.contact_email,
+          contact_phone: data.contact_phone,
         }),
       });
     } catch (error) {
@@ -190,7 +196,7 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
         setPlanGate(error.gate);
         return;
       }
-      toast.errorFromUnknown(error, "Failed to create case");
+      toast.errorFromUnknown(error, "Failed to create lead");
       return;
     }
     await onCreated();
@@ -213,10 +219,38 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
             form={formMethods}
             name="title"
             controlId="case_title"
-            label="Case name"
+            label="Lead name"
             registerOptions={{ required: true }}
             renderControl={(registration, required) => (
               <Input id="case_title" required={required} {...registration} />
+            )}
+          />
+
+          <RhfField
+            form={formMethods}
+            name="contact_name"
+            controlId="lead_contact_name"
+            label="Person"
+            renderControl={(registration) => (
+              <Input id="lead_contact_name" {...registration} />
+            )}
+          />
+          <RhfField
+            form={formMethods}
+            name="contact_email"
+            controlId="lead_contact_email"
+            label="Email"
+            renderControl={(registration) => (
+              <Input id="lead_contact_email" type="email" {...registration} />
+            )}
+          />
+          <RhfField
+            form={formMethods}
+            name="contact_phone"
+            controlId="lead_contact_phone"
+            label="Phone"
+            renderControl={(registration) => (
+              <Input id="lead_contact_phone" {...registration} />
             )}
           />
 
@@ -275,7 +309,7 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
             form={formMethods}
             name="case_template_id"
             controlId="case_template_id"
-            label="Case template"
+            label="Lead type"
             renderControl={(registration) => (
               <>
                 <input
@@ -325,7 +359,7 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
 
         {(selectedCaseTemplateConfig.dynamicFields ?? []).length > 0 ? (
           <div className="space-y-2 rounded-md border p-3">
-            <p className="text-sm font-medium">Case template fields</p>
+            <p className="text-sm font-medium">Lead type fields</p>
             <div className="grid gap-4 md:grid-cols-2">
               {selectedCaseTemplateConfig.dynamicFields.map((field) => {
                 const fieldName = `case_metadata.${field.id}` as const;

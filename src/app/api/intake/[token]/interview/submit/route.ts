@@ -165,6 +165,15 @@ export async function POST(
     });
 
     try {
+      const { recordDraftSupportingPeople } = await import(
+        "@/lib/leads/supporting"
+      );
+      await recordDraftSupportingPeople(statementId);
+    } catch (supportingError) {
+      console.error(supportingError);
+    }
+
+    try {
       const recipients =
         await SERVERONLY_getStatementSubmissionNotificationRecipients(
           statementId,

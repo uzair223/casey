@@ -57,7 +57,7 @@ export function TenantRoleOverviewTab() {
         <OutstandingWorkCard className="col-span-full" />
 
         <StatCard
-          label="Cases"
+          label="Leads"
           value={stats.cases}
           hint={`${stats.recentActivity.cases} in last 7 days`}
           icon={<BriefcaseIcon className="h-4 w-4" />}
@@ -81,7 +81,7 @@ export function TenantRoleOverviewTab() {
           icon={<PercentIcon className="h-4 w-4" />}
         />
         <StatCard
-          label="Statements per Case"
+          label="People per lead"
           value={kpis.statementsPerCase}
           hint="platform-wide average"
           icon={<LayersIcon className="h-4 w-4" />}
@@ -96,7 +96,7 @@ export function TenantRoleOverviewTab() {
         {stats.casesByStatus && Object.keys(stats.casesByStatus).length > 0 ? (
           <StatusBreakdownCard
             className="col-span-full"
-            title="Cases by Status"
+            title="Leads by status"
             items={Object.entries(stats.casesByStatus)}
           />
         ) : null}

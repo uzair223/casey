@@ -8,22 +8,22 @@ import {
   requireTenantAdmin,
   serverError,
 } from "@/lib/api-utils";
-import { FIRM_MIN_SEATS, PRACTICE_SEAT_LIMIT } from "@/lib/billing/plans";
+import { STARTER_INCLUDED_USERS } from "@/lib/billing/plans";
 import {
   getStripe,
   getStripeCasePriceId,
+  getStripeGrowthPriceId,
   getStripePracticePriceId,
-  getStripeSeatPriceId,
 } from "@/lib/billing/stripe";
 import { env } from "@/lib/env";
 import { getServiceClient } from "@/lib/supabase/server";
 
 const BodySchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("starter") }),
+  z.object({ kind: z.literal("growth") }),
+  z.object({ kind: z.literal("extra_lead") }),
   z.object({ kind: z.literal("practice") }),
-  z.object({
-    kind: z.literal("firm"),
-    seats: z.number().int().min(FIRM_MIN_SEATS).max(500),
-  }),
+  z.object({ kind: z.literal("firm"), seats: z.number().int().optional() }),
   z.object({ kind: z.literal("extra_case") }),
 ]);
 
@@ -63,7 +63,14 @@ export async function POST(request: Request) {
         ? { customer_email: auth.email }
         : {};
 
-    if (parsed.data.kind === "extra_case") {
+    const kind =
+      parsed.data.kind === "practice" || parsed.data.kind === "starter"
+        ? "starter"
+        : parsed.data.kind === "firm" || parsed.data.kind === "growth"
+          ? "growth"
+          : "extra_lead";
+
+    if (kind === "extra_lead") {
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
         success_url: `${dashboardUrl}?billing=success`,
@@ -72,17 +79,16 @@ export async function POST(request: Request) {
         ...customer,
         metadata: {
           tenantId: auth.tenantId,
-          kind: "extra_case",
+          kind: "extra_lead",
         },
         line_items: [{ price: getStripeCasePriceId(), quantity: 1 }],
       });
       return ok({ checkoutUrl: session.url });
     }
 
-    const quantity = parsed.data.kind === "practice" ? 1 : parsed.data.seats;
+    const plan = kind;
     const seatLimit =
-      parsed.data.kind === "practice" ? PRACTICE_SEAT_LIMIT : parsed.data.seats;
-    const plan = parsed.data.kind === "practice" ? "practice" : "firm";
+      plan === "starter" ? STARTER_INCLUDED_USERS : 15;
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       success_url: `${dashboardUrl}?billing=success`,
@@ -106,10 +112,10 @@ export async function POST(request: Request) {
       line_items: [
         {
           price:
-            parsed.data.kind === "practice"
+            plan === "starter"
               ? getStripePracticePriceId()
-              : getStripeSeatPriceId(),
-          quantity,
+              : getStripeGrowthPriceId(),
+          quantity: 1,
         },
       ],
     });

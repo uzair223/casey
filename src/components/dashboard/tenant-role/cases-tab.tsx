@@ -63,9 +63,9 @@ export function TenantRoleCasesTab() {
   }, [filtered, clampedCurrentPage]);
 
   const handleDeleteCase = async (caseId: string) => {
-    const confirmed = await toast.confirm("Delete this case?", {
+    const confirmed = await toast.confirm("Delete this lead?", {
       description: "This action cannot be undone.",
-      confirmLabel: "Delete case",
+      confirmLabel: "Delete lead",
     });
     if (!confirmed) {
       return;
@@ -73,11 +73,11 @@ export function TenantRoleCasesTab() {
 
     await deleteCase(caseId);
     await cases.handler();
-    toast.success("Case deleted");
+    toast.success("Lead deleted");
   };
 
   if (cases.isLoading) {
-    return <CardSkeleton title="Cases" />;
+    return <CardSkeleton title="Leads" />;
   }
 
   return (
@@ -88,14 +88,14 @@ export function TenantRoleCasesTab() {
             <DialogTrigger asChild>
               <Button>
                 <PlusIcon className="h-4 w-4" />
-                New case
+                New lead
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl">
               <DialogHeader>
-                <DialogTitle>Create case</DialogTitle>
+                <DialogTitle>Create lead</DialogTitle>
                 <DialogDescription>
-                  Create a new case and assign the right team members.
+                  Add someone the firm already knows, or open a file before a website enquiry arrives.
                 </DialogDescription>
               </DialogHeader>
               <CreateCaseForm
@@ -112,7 +112,7 @@ export function TenantRoleCasesTab() {
           <div className="min-h-48 border-b">
             {paginatedCases.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {searchTerm ? "No cases match your search." : "No cases found."}
+                {searchTerm ? "No leads match your search." : "No leads yet."}
               </p>
             ) : (
               <Table>
@@ -133,7 +133,13 @@ export function TenantRoleCasesTab() {
                         {caseItem.title}
                       </TableCell>
                       <TableCell className="capitalize">
-                        {(caseItem.status || "draft").replace("_", " ")}
+                        {(
+                          caseItem.statements.find(
+                            (statement) => statement.participant_kind === "primary",
+                          )?.lead_stage ||
+                          caseItem.status ||
+                          "draft"
+                        ).replaceAll("_", " ")}
                       </TableCell>
                       <TableCell>{caseItem.statements.length}</TableCell>
                       <TableCell>

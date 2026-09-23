@@ -5,6 +5,19 @@ function uniqueMentionIds(mentionedUserIds?: string[]) {
   return Array.from(new Set((mentionedUserIds ?? []).filter(Boolean)));
 }
 
+async function primaryStatementIdForCase(caseId: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("statements")
+    .select("id")
+    .eq("case_id", caseId)
+    .eq("participant_kind", "primary")
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.id ?? null;
+}
+
 export async function createCaseNote(input: {
   tenantId: string;
   caseId: string;
@@ -21,6 +34,7 @@ export async function createCaseNote(input: {
       tenant_id: input.tenantId,
       case_id: input.caseId,
       statement_id: input.statementId ?? null,
+      primary_statement_id: await primaryStatementIdForCase(input.caseId),
       author_user_id: input.authorUserId,
       body: input.body,
     })
@@ -152,6 +166,7 @@ export async function createCaseInternalDocument(input: {
     .insert({
       tenant_id: input.tenantId,
       case_id: input.caseId,
+      primary_statement_id: await primaryStatementIdForCase(input.caseId),
       uploaded_by_user_id: input.uploadedByUserId,
       document: input.document,
     })

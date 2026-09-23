@@ -45,6 +45,7 @@ export const EnvSchema = z.looseObject({
   STRIPE_SEAT_PRICE_ID: stringOrEmpty,
   STRIPE_PRACTICE_PRICE_ID: stringOrEmpty,
   STRIPE_CASE_PRICE_ID: stringOrEmpty,
+  STRIPE_GROWTH_PRICE_ID: stringOrEmpty,
 
   DOCUSEAL_URL: stringOrEmpty,
   DOCUSEAL_API_KEY: stringOrEmpty,
@@ -79,6 +80,7 @@ export const BuildEnvSchema = z.object({
   STRIPE_SEAT_PRICE_ID: z.string().trim().optional(),
   STRIPE_PRACTICE_PRICE_ID: z.string().trim().optional(),
   STRIPE_CASE_PRICE_ID: z.string().trim().optional(),
+  STRIPE_GROWTH_PRICE_ID: z.string().trim().optional(),
   NEXT_PUBLIC_DOCUSEAL_URL: z.string().trim().optional(),
   DOCUSEAL_URL: z.string().trim().optional(),
   DOCUSEAL_API_KEY: z.string().trim().optional(),
@@ -113,6 +115,7 @@ const envInput = {
   STRIPE_SEAT_PRICE_ID: process.env.STRIPE_SEAT_PRICE_ID,
   STRIPE_PRACTICE_PRICE_ID: process.env.STRIPE_PRACTICE_PRICE_ID,
   STRIPE_CASE_PRICE_ID: process.env.STRIPE_CASE_PRICE_ID,
+  STRIPE_GROWTH_PRICE_ID: process.env.STRIPE_GROWTH_PRICE_ID,
   DOCUSEAL_URL: process.env.DOCUSEAL_URL,
   DOCUSEAL_API_KEY: process.env.DOCUSEAL_API_KEY,
   DOCUSEAL_WEBHOOK_SECRET: process.env.DOCUSEAL_WEBHOOK_SECRET,

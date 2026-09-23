@@ -13,6 +13,9 @@ export const CaseSchema = z.object({
   case_metadata: z.record(z.string(), z.string().nullable()).optional(),
   assigned_to_ids: z.array(z.string().uuid()).optional(),
   status: CaseStatusSchema,
+  contact_name: z.string().trim().optional(),
+  contact_email: z.string().trim().optional(),
+  contact_phone: z.string().trim().optional(),
 });
 
 export type CaseSchema = z.infer<typeof CaseSchema>;

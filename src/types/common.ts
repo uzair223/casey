@@ -221,7 +221,18 @@ export type StatementDetailed = Omit<Statement, "config_snapshot_id"> & {
 export type CaseStatementJoin = Case & {
   statements: Pick<
     Statement,
-    "id" | "status" | "witness_name" | "witness_email" | "updated_at"
+    | "id"
+    | "status"
+    | "witness_name"
+    | "witness_email"
+    | "updated_at"
+    | "participant_kind"
+    | "role_key"
+    | "lead_stage"
+    | "contact_email"
+    | "contact_phone"
+    | "outreach_confirmed_at"
+    | "parent_statement_id"
   >[];
 };
 

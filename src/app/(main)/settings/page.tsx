@@ -33,7 +33,8 @@ import { NotificationPreferencesCard } from "@/components/settings/notification-
 import { getURL } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { startPlanCheckout } from "@/lib/billing/client";
-import { FIRM_MIN_SEATS } from "@/lib/billing/plans";
+import { planLabel } from "@/lib/billing/plans";
+import { LeadChannelCard } from "@/components/leads/lead-channel-card";
 
 export default function TenantSettingsPage() {
   const { user, refreshUser } = useUserProtected([
@@ -53,7 +54,6 @@ export default function TenantSettingsPage() {
   const [seatLimit, setSeatLimit] = useState<number | null>(null);
   const [billingStatus, setBillingStatus] = useState<string | null>(null);
   const [plan, setPlan] = useState<string>("trial");
-  const [firmSeats, setFirmSeats] = useState(String(FIRM_MIN_SEATS));
   const [pendingDeletionRequest, setPendingDeletionRequest] =
     useState<boolean>(false);
 
@@ -478,6 +478,8 @@ export default function TenantSettingsPage() {
           />
         )}
 
+        {canManageTenant && <LeadChannelCard />}
+
         {canManageTenant && (
           <Card className="col-span-2">
             <form
@@ -524,37 +526,32 @@ export default function TenantSettingsPage() {
                   <p className="text-sm text-muted-foreground">
                     {seatLimit == null
                       ? "The plan is managed by Casey."
-                      : `${plan === "firm" ? "Firm" : plan === "practice" ? "Practice" : "Trial"}. ${seatLimit} people. Billing status: ${billingStatus ?? "trial"}.`}
+                      : `${planLabel(plan)}. ${seatLimit} people included. Billing status: ${billingStatus ?? "trial"}.`}
                   </p>
-                  {plan !== "firm" ? (
-                    <div className="flex flex-wrap items-end gap-2 pt-2">
-                      <div className="space-y-1">
-                        <Label htmlFor="settings-firm-seats">Firm seats</Label>
-                        <Input
-                          id="settings-firm-seats"
-                          type="number"
-                          min={FIRM_MIN_SEATS}
-                          value={firmSeats}
-                          onChange={(event) => setFirmSeats(event.target.value)}
-                          className="w-24"
-                        />
-                      </div>
-                      <AsyncButton
-                        type="button"
-                        variant="outline"
-                        onClick={async (event) => {
-                          event.preventDefault();
-                          await startPlanCheckout({
-                            kind: "firm",
-                            seats: Number(firmSeats),
-                          });
-                        }}
-                        pendingText="Opening Stripe..."
-                      >
-                        Move to Firm
-                      </AsyncButton>
-                    </div>
-                  ) : null}
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <AsyncButton
+                      type="button"
+                      variant="outline"
+                      onClick={async (event) => {
+                        event.preventDefault();
+                        await startPlanCheckout({ kind: "starter" });
+                      }}
+                      pendingText="Opening Stripe..."
+                    >
+                      Starter
+                    </AsyncButton>
+                    <AsyncButton
+                      type="button"
+                      variant="outline"
+                      onClick={async (event) => {
+                        event.preventDefault();
+                        await startPlanCheckout({ kind: "growth" });
+                      }}
+                      pendingText="Opening Stripe..."
+                    >
+                      Growth
+                    </AsyncButton>
+                  </div>
                 </div>
               </CardContent>
               <CardFooter>

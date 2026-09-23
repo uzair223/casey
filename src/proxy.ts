@@ -30,6 +30,19 @@ function redactSensitiveQuery(search: string) {
 }
 
 export function proxy(request: NextRequest, event: NextFetchEvent) {
+  const host = request.headers.get("host")?.split(":")[0]?.toLowerCase() ?? "";
+  const slug = host.match(/^([a-z0-9-]+)\.caseyhq\.co\.uk$/)?.[1];
+  const reservedHosts = new Set(["www", "app", "widget", "api", "casey"]);
+  if (
+    slug &&
+    !reservedHosts.has(slug) &&
+    request.nextUrl.pathname === "/"
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/q/${slug}`;
+    return NextResponse.rewrite(url);
+  }
+
   if (!request.nextUrl.pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
@@ -58,5 +71,5 @@ export function proxy(request: NextRequest, event: NextFetchEvent) {
 }
 
 export const config = {
-  matcher: ["/api/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|widget.js).*)"],
 };

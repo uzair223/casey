@@ -159,12 +159,25 @@ export function StatementView() {
         <PageTitle
           subtitle="Conversation complete"
           title="Thank you for providing the details of the incident"
-          description="Before generation, you will review the evidence list that will be included in your statement. Once confirmed, we will prepare your draft statement."
+          description="Review any evidence, then send the account to the firm. They prepare the written draft during review."
           titleTag="h2"
         />
         <div className="flex flex-col items-center justify-center gap-3 text-center">
-          <Button onClick={() => setTab("evidence")}>Review Evidence</Button>
+          <Button onClick={() => setTab("evidence")}>Review evidence</Button>
         </div>
+      </div>
+    );
+  }
+
+  if (statementSubmission.data && !hasFormalizedStatement) {
+    return (
+      <div className="space-y-8 px-4 sm:px-6 lg:px-8">
+        <PageTitle
+          subtitle="Account sent"
+          title="Thank you"
+          description="The firm has your account. They will prepare the written draft during review."
+          titleTag="h2"
+        />
       </div>
     );
   }

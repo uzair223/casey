@@ -48,21 +48,21 @@ export function ParalegalOverviewTab() {
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatCard
-          label="Assigned Cases"
+          label="Assigned leads"
           value={metrics.assignedCases}
-          hint="cases assigned to you"
+          hint="leads assigned to you"
           icon={<BriefcaseIcon className="h-4 w-4" />}
         />
         <StatCard
           label="Draft"
           value={metrics.draftCases}
-          hint="assigned cases in draft"
+          hint="assigned leads in draft"
           icon={<FilePenLineIcon className="h-4 w-4" />}
         />
         <StatCard
           label="In Progress"
           value={metrics.inProgressCases}
-          hint="assigned cases in progress"
+          hint="assigned leads in progress"
           icon={<TimerIcon className="h-4 w-4" />}
         />
         <StatCard

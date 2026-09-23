@@ -57,21 +57,28 @@ const deeperLinks = [
 
 const pricingPlans = [
   { name: "Trial", amount: "Free", unit: "" },
-  { name: "Practice", amount: "£149", unit: "/month" },
-  { name: "Firm", amount: "£49", unit: "/seat/month" },
+  { name: "Starter", amount: "£149", unit: "/month" },
+  { name: "Growth", amount: "£349", unit: "/month" },
 ] as const;
 
 const pricingGroups = [
   {
     label: "Allowance",
     rows: [
-      { label: "People", cells: ["Up to five", "Five", "From six"] },
+      { label: "People included", cells: ["Up to five", "Five", "Fifteen"] },
       {
-        label: "Cases",
-        cells: ["Three", "Thirty per month", "Eight per seat"],
+        label: "Accepted leads",
+        cells: ["Three", "Forty per month", "One hundred and twenty per month"],
       },
-      { label: "Witnesses", cells: ["Three per case", "Unlimited", "Unlimited"] },
-      { label: "Additional case", cells: ["—", "£12", "£12"] },
+      {
+        label: "Supporting accounts",
+        cells: ["Included", "Included", "Included"],
+      },
+      { label: "Additional accepted lead", cells: ["—", "£15", "£15"] },
+      { label: "Hosted enquiry page", cells: ["Included", "Included", "Included"] },
+      { label: "Website widget", cells: ["—", "—", "Included"] },
+      { label: "Branding", cells: ["—", "—", "Included"] },
+      { label: "Text message outreach", cells: ["—", "—", "Included"] },
     ],
   },
   {
@@ -89,7 +96,7 @@ const pricingGroups = [
   },
   {
     label: "Templates",
-    rows: ["Case template creation", "Statement template creation"].map(
+    rows: ["Lead type creation", "Statement template creation"].map(
       (label) => ({
         label,
         cells: ["—", "Included", "Included"] as const,
@@ -317,7 +324,7 @@ export default function Home() {
                   {pricingPlans.map((plan) => (
                     <th
                       key={plan.name}
-                      className={`border-b border-primary/15 p-5 text-center align-bottom ${plan.name === "Practice" ? "bg-primary/[0.04]" : ""}`}
+                      className={`border-b border-primary/15 p-5 text-center align-bottom ${plan.name === "Growth" ? "bg-primary/[0.04]" : ""}`}
                     >
                       <p className="font-display text-xl text-white">
                         {plan.name}
@@ -353,7 +360,7 @@ export default function Home() {
                         {row.cells.map((cell, index) => (
                           <td
                             key={`${row.label}-${pricingPlans[index].name}`}
-                            className={`p-5 text-sm leading-6 text-white ${pricingPlans[index].name === "Practice" ? "bg-primary/[0.04]" : ""}`}
+                            className={`p-5 text-sm leading-6 text-white ${pricingPlans[index].name === "Growth" ? "bg-primary/[0.04]" : ""}`}
                           >
                             {cell === "Included" ? (
                               <Check

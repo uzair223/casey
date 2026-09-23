@@ -122,21 +122,42 @@ const practicePrice = await findOrCreatePrice(
   },
 );
 
+const growthProduct = await findOrCreateProduct(
+  "growth",
+  "Casey Growth",
+  "Monthly Casey Growth plan",
+);
+const growthPrice = await findOrCreatePrice(
+  growthProduct.id,
+  (item) =>
+    item.metadata?.casey_price === "growth_monthly" ||
+    (item.recurring?.interval === "month" &&
+      item.currency === "gbp" &&
+      item.unit_amount === 34900),
+  {
+    currency: "gbp",
+    unit_amount: 34900,
+    recurring: { interval: "month" },
+    metadata: { casey_price: "growth_monthly" },
+    nickname: "Casey Growth monthly",
+  },
+);
+
 const caseProduct = await findOrCreateProduct(
-  "case",
-  "Casey case",
-  "One extra Casey case",
+  "accepted_lead",
+  "Casey accepted lead",
+  "One extra accepted lead",
 );
 const casePrice = await findOrCreatePrice(
   caseProduct.id,
   (item) =>
-    item.metadata?.casey_price === "case_once" ||
-    (!item.recurring && item.currency === "gbp" && item.unit_amount === 1200),
+    item.metadata?.casey_price === "extra_lead" ||
+    (!item.recurring && item.currency === "gbp" && item.unit_amount === 1500),
   {
     currency: "gbp",
-    unit_amount: 1200,
-    metadata: { casey_price: "case_once" },
-    nickname: "Casey case",
+    unit_amount: 1500,
+    metadata: { casey_price: "extra_lead" },
+    nickname: "Casey accepted lead",
   },
 );
 
@@ -195,6 +216,7 @@ if (caseyUrl.startsWith("https://")) {
 const secretUpdates = {
   STRIPE_SEAT_PRICE_ID: price.id,
   STRIPE_PRACTICE_PRICE_ID: practicePrice.id,
+  STRIPE_GROWTH_PRICE_ID: growthPrice.id,
   STRIPE_CASE_PRICE_ID: casePrice.id,
 };
 if (webhookSecret) {
@@ -218,12 +240,14 @@ console.log(
       seatPriceId: price.id,
       practiceProductId: practiceProduct.id,
       practicePriceId: practicePrice.id,
+      growthProductId: growthProduct.id,
+      growthPriceId: growthPrice.id,
       caseProductId: caseProduct.id,
       casePriceId: casePrice.id,
       amounts: {
-        practice: "£149 / month",
-        firm: "£49 / seat / month",
-        case: "£12 once",
+        starter: "£149 / month",
+        growth: "£349 / month",
+        extraLead: "£15 once",
       },
       caseyUrl: caseyUrl || null,
       docusealUrl: docusealUrl || null,

@@ -20,12 +20,25 @@ type ApiFetchOptions = RequestInit & {
   returnType?: "json" | "response";
 };
 
-const CASE_GATES = new Set(["practice", "firm", "extra_case"]);
+const CASE_GATES = new Set([
+  "starter",
+  "growth",
+  "extra_lead",
+  "practice",
+  "firm",
+  "extra_case",
+]);
 
 export class ApiRequestError extends Error {
   readonly status: number;
   readonly code?: string;
-  readonly gate?: "practice" | "firm" | "extra_case";
+  readonly gate?:
+    | "starter"
+    | "growth"
+    | "extra_lead"
+    | "practice"
+    | "firm"
+    | "extra_case";
 
   constructor(
     message: string,
@@ -38,7 +51,13 @@ export class ApiRequestError extends Error {
     this.code = typeof body?.code === "string" ? body.code : undefined;
     this.gate =
       typeof body?.gate === "string" && CASE_GATES.has(body.gate)
-        ? (body.gate as "practice" | "firm" | "extra_case")
+        ? (body.gate as
+            | "starter"
+            | "growth"
+            | "extra_lead"
+            | "practice"
+            | "firm"
+            | "extra_case")
         : undefined;
   }
 }

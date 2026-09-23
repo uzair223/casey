@@ -210,6 +210,7 @@ export type Database = {
           created_by_user_id: string | null
           id: string
           model: string
+          primary_statement_id: string | null
           source_statement_ids: string[]
           source_statement_versions: Json
           tenant_id: string
@@ -221,6 +222,7 @@ export type Database = {
           created_by_user_id?: string | null
           id?: string
           model: string
+          primary_statement_id?: string | null
           source_statement_ids?: string[]
           source_statement_versions?: Json
           tenant_id: string
@@ -232,6 +234,7 @@ export type Database = {
           created_by_user_id?: string | null
           id?: string
           model?: string
+          primary_statement_id?: string | null
           source_statement_ids?: string[]
           source_statement_versions?: Json
           tenant_id?: string
@@ -317,6 +320,7 @@ export type Database = {
           created_at: string
           document: Json
           id: string
+          primary_statement_id: string | null
           tenant_id: string
           uploaded_by_user_id: string
         }
@@ -325,6 +329,7 @@ export type Database = {
           created_at?: string
           document: Json
           id?: string
+          primary_statement_id?: string | null
           tenant_id: string
           uploaded_by_user_id: string
         }
@@ -333,6 +338,7 @@ export type Database = {
           created_at?: string
           document?: Json
           id?: string
+          primary_statement_id?: string | null
           tenant_id?: string
           uploaded_by_user_id?: string
         }
@@ -405,6 +411,7 @@ export type Database = {
           is_pinned: boolean
           pinned_at: string | null
           pinned_by_user_id: string | null
+          primary_statement_id: string | null
           statement_id: string | null
           tenant_id: string
           updated_at: string
@@ -418,6 +425,7 @@ export type Database = {
           is_pinned?: boolean
           pinned_at?: string | null
           pinned_by_user_id?: string | null
+          primary_statement_id?: string | null
           statement_id?: string | null
           tenant_id: string
           updated_at?: string
@@ -427,6 +435,7 @@ export type Database = {
           body?: string
           case_id?: string
           created_at?: string
+          primary_statement_id?: string | null
           id?: string
           is_pinned?: boolean
           pinned_at?: string | null
@@ -536,13 +545,19 @@ export type Database = {
       }
       case_templates: {
         Row: {
+          branding: Json
           created_at: string
           created_by: string | null
+          decline_reasons: Json
           draft_config: Json
           id: string
           name: string
+          outreach_template: string | null
+          participant_roles: Json
+          public_slug: string | null
           published_at: string | null
           published_config: Json | null
+          qualification_slots: Json
           source_template_id: string | null
           status: string
           template_scope: string
@@ -551,13 +566,19 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          branding?: Json
           created_at?: string
           created_by?: string | null
+          decline_reasons?: Json
           draft_config?: Json
           id?: string
           name: string
+          outreach_template?: string | null
+          participant_roles?: Json
+          public_slug?: string | null
           published_at?: string | null
           published_config?: Json | null
+          qualification_slots?: Json
           source_template_id?: string | null
           status?: string
           template_scope: string
@@ -566,13 +587,19 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          branding?: Json
           created_at?: string
           created_by?: string | null
+          decline_reasons?: Json
           draft_config?: Json
           id?: string
           name?: string
+          outreach_template?: string | null
+          participant_roles?: Json
+          public_slug?: string | null
           published_at?: string | null
           published_config?: Json | null
+          qualification_slots?: Json
           source_template_id?: string | null
           status?: string
           template_scope?: string
@@ -733,6 +760,136 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "invites_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_channels: {
+        Row: {
+          branding: Json
+          created_at: string
+          enabled: boolean
+          id: string
+          lead_type_id: string
+          public_key: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          branding?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          lead_type_id: string
+          public_key: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          branding?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          lead_type_id?: string
+          public_key?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_channels_lead_type_id_fkey"
+            columns: ["lead_type_id"]
+            isOneToOne: false
+            referencedRelation: "case_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_channels_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_sessions: {
+        Row: {
+          channel_id: string | null
+          contact_code_expires_at: string | null
+          contact_code_hash: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          lead_type_id: string
+          messages: Json
+          pending_slot_id: string | null
+          promoted_statement_id: string | null
+          refusal_count: number
+          slots: Json
+          status: string
+          tenant_id: string
+          token: string
+          turn_count: number
+          updated_at: string
+        }
+        Insert: {
+          channel_id?: string | null
+          contact_code_expires_at?: string | null
+          contact_code_hash?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          lead_type_id: string
+          messages?: Json
+          pending_slot_id?: string | null
+          promoted_statement_id?: string | null
+          refusal_count?: number
+          slots?: Json
+          status?: string
+          tenant_id: string
+          token: string
+          turn_count?: number
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: string | null
+          contact_code_expires_at?: string | null
+          contact_code_hash?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          lead_type_id?: string
+          messages?: Json
+          pending_slot_id?: string | null
+          promoted_statement_id?: string | null
+          refusal_count?: number
+          slots?: Json
+          status?: string
+          tenant_id?: string
+          token?: string
+          turn_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_sessions_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "lead_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_sessions_lead_type_id_fkey"
+            columns: ["lead_type_id"]
+            isOneToOne: false
+            referencedRelation: "case_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_sessions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1345,12 +1502,26 @@ export type Database = {
       }
       statements: {
         Row: {
+          accepted_at: string | null
+          assigned_to: string | null
+          assigned_to_ids: string[]
           case_id: string
           config_snapshot_id: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
           created_at: string
+          decline_reason: string | null
           formalization_snapshot_id: string | null
           gdpr_notice_acknowledgement: Json | null
           id: string
+          lead_stage: string | null
+          lead_type_id: string | null
+          outreach_confirmed_at: string | null
+          parent_statement_id: string | null
+          participant_kind: string
+          qualification_answers: Json
+          role_key: string
           signed_document: Json | null
           status: string
           supporting_documents: Json
@@ -1363,12 +1534,26 @@ export type Database = {
           witness_name: string
         }
         Insert: {
+          accepted_at?: string | null
+          assigned_to?: string | null
+          assigned_to_ids?: string[]
           case_id: string
           config_snapshot_id?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string
+          decline_reason?: string | null
           formalization_snapshot_id?: string | null
           gdpr_notice_acknowledgement?: Json | null
           id?: string
+          lead_stage?: string | null
+          lead_type_id?: string | null
+          outreach_confirmed_at?: string | null
+          parent_statement_id?: string | null
+          participant_kind?: string
+          qualification_answers?: Json
+          role_key?: string
           signed_document?: Json | null
           status?: string
           supporting_documents?: Json
@@ -1381,12 +1566,26 @@ export type Database = {
           witness_name: string
         }
         Update: {
+          accepted_at?: string | null
+          assigned_to?: string | null
+          assigned_to_ids?: string[]
           case_id?: string
           config_snapshot_id?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string
+          decline_reason?: string | null
           formalization_snapshot_id?: string | null
           gdpr_notice_acknowledgement?: Json | null
           id?: string
+          lead_stage?: string | null
+          lead_type_id?: string | null
+          outreach_confirmed_at?: string | null
+          parent_statement_id?: string | null
+          participant_kind?: string
+          qualification_answers?: Json
+          role_key?: string
           signed_document?: Json | null
           status?: string
           supporting_documents?: Json
@@ -1432,6 +1631,20 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "statements_lead_type_id_fkey"
+            columns: ["lead_type_id"]
+            isOneToOne: false
+            referencedRelation: "case_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "statements_parent_statement_id_fkey"
+            columns: ["parent_statement_id"]
+            isOneToOne: false
+            referencedRelation: "statements"
             referencedColumns: ["id"]
           },
         ]
@@ -1494,6 +1707,7 @@ export type Database = {
           order_start_date: string | null
           overage_credits: number
           plan: string
+          public_slug: string | null
           purge_after: string | null
           seat_limit: number
           soft_deleted_at: string | null
@@ -1514,6 +1728,7 @@ export type Database = {
           order_start_date?: string | null
           overage_credits?: number
           plan?: string
+          public_slug?: string | null
           purge_after?: string | null
           seat_limit?: number
           soft_deleted_at?: string | null
@@ -1534,6 +1749,7 @@ export type Database = {
           order_start_date?: string | null
           overage_credits?: number
           plan?: string
+          public_slug?: string | null
           purge_after?: string | null
           seat_limit?: number
           soft_deleted_at?: string | null

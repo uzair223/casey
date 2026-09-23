@@ -1020,7 +1020,6 @@ export function IntakeProvider({
   );
 
   const setAcknowledgePrivacyNoticeData = acknowledgePrivacyNotice.setData;
-  const setStatementFormalizationData = statementFormalization.setData;
   const setStatementSubmissionData = statementSubmission.setData;
   const setSendMessageLoading = sendMessage.setIsLoading;
 
@@ -1033,12 +1032,10 @@ export function IntakeProvider({
       data.statement.status === "submitted" ||
       data.statement.status === "finalized" ||
       data.statement.status === "completed";
-    setStatementFormalizationData(hasSubmitted);
     setStatementSubmissionData(hasSubmitted);
   }, [
     data,
     setAcknowledgePrivacyNoticeData,
-    setStatementFormalizationData,
     setStatementSubmissionData,
   ]);
 

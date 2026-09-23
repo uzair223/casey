@@ -78,18 +78,18 @@ export function ParalegalCasesTab() {
   }, [clampedCurrentPage, filteredCases]);
 
   if (cases.isLoading) {
-    return <CardSkeleton title="Assigned Cases" />;
+    return <CardSkeleton title="Assigned leads" />;
   }
 
   return (
     <Card>
       <CardHeader className="flex-row justify-between">
-        <CardTitle>Assigned Cases</CardTitle>
+        <CardTitle>Assigned leads</CardTitle>
         <Dialog open={isCreateCaseOpen} onOpenChange={setIsCreateCaseOpen}>
           <DialogTrigger asChild>
             <Button>
               <PlusIcon className="h-4 w-4" />
-              New case
+              New lead
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl">
@@ -113,8 +113,8 @@ export function ParalegalCasesTab() {
         {paginatedCases.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {searchTerm
-              ? "No assigned cases match your search."
-              : "No cases are assigned to you."}
+              ? "No assigned leads match your search."
+              : "No leads are assigned to you."}
           </p>
         ) : (
           <Table>
@@ -134,7 +134,13 @@ export function ParalegalCasesTab() {
                     {caseItem.title}
                   </TableCell>
                   <TableCell className="capitalize">
-                    {(caseItem.status || "draft").replace("_", " ")}
+                    {(
+                      caseItem.statements.find(
+                        (statement) => statement.participant_kind === "primary",
+                      )?.lead_stage ||
+                      caseItem.status ||
+                      "draft"
+                    ).replaceAll("_", " ")}
                   </TableCell>
                   <TableCell>{caseItem.statements.length}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">

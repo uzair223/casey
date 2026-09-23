@@ -17,10 +17,10 @@ export function ParalegalDashboard() {
     <section className="space-y-4">
       <PageTitle
         title={`${getRoleLabel(user!.role)} Dashboard`}
-        description="Track your assigned cases and recent progress."
+        description="Track your assigned leads and recent progress."
         actions={[
           {
-            label: "Cases",
+            label: "Leads",
             href: "/dashboard?tab=cases",
             variant: "outline",
           },
@@ -35,7 +35,7 @@ export function ParalegalDashboard() {
       <Tabs className="space-y-4" defaultValue={activeTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="cases">Cases</TabsTrigger>
+          <TabsTrigger value="cases">Leads</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 

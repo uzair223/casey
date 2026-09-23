@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 
 import { env } from "@/lib/env";
 import { getStripe } from "@/lib/billing/stripe";
-import { PRACTICE_SEAT_LIMIT, type TenantPlan } from "@/lib/billing/plans";
+import { STARTER_INCLUDED_USERS, GROWTH_INCLUDED_USERS, normalizeTenantPlan } from "@/lib/billing/plans";
 import { getServiceClient } from "@/lib/supabase/server";
 
 function billingStatusFromStripe(status: string | null | undefined) {
@@ -17,14 +17,16 @@ function billingStatusFromStripe(status: string | null | undefined) {
 
 function planFromSubscription(
   subscription: Stripe.Subscription,
-): Extract<TenantPlan, "practice" | "firm"> | null {
+): "starter" | "growth" | null {
   const metadataPlan = subscription.metadata?.plan;
-  if (metadataPlan === "practice" || metadataPlan === "firm") {
-    return metadataPlan;
+  const normalized = normalizeTenantPlan(metadataPlan);
+  if (metadataPlan === "starter" || metadataPlan === "growth" || metadataPlan === "practice" || metadataPlan === "firm") {
+    return normalized === "trial" ? null : normalized;
   }
   const priceId = subscription.items.data[0]?.price?.id;
-  if (priceId && priceId === env.STRIPE_PRACTICE_PRICE_ID) return "practice";
-  if (priceId && priceId === env.STRIPE_SEAT_PRICE_ID) return "firm";
+  if (priceId && priceId === env.STRIPE_PRACTICE_PRICE_ID) return "starter";
+  if (priceId && priceId === env.STRIPE_GROWTH_PRICE_ID) return "growth";
+  if (priceId && priceId === env.STRIPE_SEAT_PRICE_ID) return "growth";
   return null;
 }
 
@@ -35,15 +37,12 @@ function periodStartIso(subscription: Stripe.Subscription) {
 }
 
 function seatLimitFor(
-  plan: "practice" | "firm",
+  plan: "starter" | "growth",
   subscription: Stripe.Subscription,
 ) {
-  if (plan === "practice") return PRACTICE_SEAT_LIMIT;
+  if (plan === "starter") return STARTER_INCLUDED_USERS;
   const metadataLimit = Number(subscription.metadata?.seatLimit || 0);
-  const quantity = subscription.items.data[0]?.quantity;
-  if (typeof quantity === "number" && quantity > 0) return quantity;
-  if (metadataLimit > 0) return metadataLimit;
-  return PRACTICE_SEAT_LIMIT;
+  return Math.max(GROWTH_INCLUDED_USERS, metadataLimit || 0);
 }
 
 export async function POST(request: Request) {
@@ -70,7 +69,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true });
       }
 
-      if (session.metadata?.kind === "extra_case") {
+      if (
+        session.metadata?.kind === "extra_case" ||
+        session.metadata?.kind === "extra_lead"
+      ) {
         const { data: tenant, error } = await supabase
           .from("tenants")
           .select("overage_credits, last_overage_checkout_session_id")
@@ -111,10 +113,12 @@ export async function POST(request: Request) {
       }
 
       const metadataPlan = session.metadata?.plan;
-      const plan =
-        metadataPlan === "practice" || metadataPlan === "firm"
-          ? metadataPlan
-          : null;
+      const plan: "starter" | "growth" | null =
+        metadataPlan === "starter" || metadataPlan === "practice"
+          ? "starter"
+          : metadataPlan === "growth" || metadataPlan === "firm"
+            ? "growth"
+            : null;
       let billingStatus: "active" | "trial" | "past_due" | "canceled" =
         "active";
       let periodStart: string | null = null;

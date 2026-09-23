@@ -54,14 +54,18 @@ export async function enforcePersistentRateLimit({
   identifier,
   limit,
   windowSeconds,
+  includeIp = true,
 }: {
   request: Request;
   scope: string;
   identifier?: string;
   limit: number;
   windowSeconds: number;
+  includeIp?: boolean;
 }) {
-  const rawKey = `${scope}:${getClientIp(request)}:${identifier ?? ""}`;
+  const rawKey = includeIp
+    ? `${scope}:${getClientIp(request)}:${identifier ?? ""}`
+    : `${scope}:${identifier ?? ""}`;
   const key = `${scope}:${hashKey(rawKey)}`;
   const supabase = getServiceClient(
     `rate_limit:${scope}`,

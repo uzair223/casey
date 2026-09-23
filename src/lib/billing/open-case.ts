@@ -5,8 +5,8 @@ import { createCase } from "@/lib/supabase/mutations/case";
 import { getServiceClient } from "@/lib/supabase/server";
 import {
   FREE_CASE_LIMIT,
-  isTenantPlan,
-  monthlyCaseAllowance,
+  monthlyAcceptedLeadAllowance,
+  normalizeTenantPlan,
   type CaseGate,
 } from "@/lib/billing/plans";
 
@@ -16,6 +16,12 @@ type OpenCasePayload = {
   status?: string;
   case_template_id?: string | null;
   case_metadata?: Record<string, string | number | null | undefined>;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  lead_stage?: string;
+  role_key?: string;
+  accepted?: boolean;
 };
 
 export type OpenCaseResult =
@@ -27,17 +33,19 @@ function monthStartIso() {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 }
 
-async function countCases(
+async function countAcceptedLeads(
   supabase: ReturnType<typeof getServiceClient>,
   tenantId: string,
-  createdFrom?: string,
+  acceptedFrom?: string,
 ) {
   let query = supabase
-    .from("cases")
+    .from("statements")
     .select("id", { count: "exact", head: true })
-    .eq("tenant_id", tenantId);
-  if (createdFrom) {
-    query = query.gte("created_at", createdFrom);
+    .eq("tenant_id", tenantId)
+    .eq("participant_kind", "primary")
+    .not("accepted_at", "is", null);
+  if (acceptedFrom) {
+    query = query.gte("accepted_at", acceptedFrom);
   }
   const { count, error } = await query;
   if (error) throw error;
@@ -60,9 +68,67 @@ async function consumeOverageCredit(
   return (data?.length ?? 0) > 0;
 }
 
+export async function reserveAcceptedLeadSlot(tenantId: string): Promise<
+  | { ok: true; consumedCredits: number | null }
+  | { ok: false; gate: CaseGate; error: string }
+> {
+  const supabase = getServiceClient("reserve-accepted-lead");
+  const { data: tenant, error } = await supabase
+    .from("tenants")
+    .select(
+      "plan, billing_status, overage_credits, billing_period_start, soft_deleted_at",
+    )
+    .eq("id", tenantId)
+    .maybeSingle();
+  if (error || !tenant) throw error ?? new Error("Tenant not found");
+  if (tenant.soft_deleted_at) {
+    throw userError("This organisation is archived.", 409);
+  }
+
+  const plan = normalizeTenantPlan(tenant.plan);
+  const lifetime = await countAcceptedLeads(supabase, tenantId);
+  if (lifetime < FREE_CASE_LIMIT) {
+    return { ok: true, consumedCredits: null };
+  }
+
+  const onActivePlan =
+    tenant.billing_status === "active" &&
+    (plan === "starter" || plan === "growth");
+  const periodStart = tenant.billing_period_start ?? monthStartIso();
+  const usedThisPeriod = onActivePlan
+    ? await countAcceptedLeads(supabase, tenantId, periodStart)
+    : 0;
+  const allowance = onActivePlan ? monthlyAcceptedLeadAllowance(plan) : 0;
+  if (onActivePlan && usedThisPeriod < allowance) {
+    return { ok: true, consumedCredits: null };
+  }
+
+  const consumed = await consumeOverageCredit(
+    supabase,
+    tenantId,
+    tenant.overage_credits,
+  );
+  if (consumed) {
+    return { ok: true, consumedCredits: tenant.overage_credits };
+  }
+  if (onActivePlan) {
+    return {
+      ok: false,
+      gate: "extra_lead",
+      error: "This month's accepted leads are used.",
+    };
+  }
+  return {
+    ok: false,
+    gate: plan === "growth" ? "growth" : "starter",
+    error: "Choose a plan to accept another lead.",
+  };
+}
+
 export async function openTenantCase(
   tenantId: string,
   payload: OpenCasePayload,
+  options?: { bill?: boolean },
 ): Promise<OpenCaseResult> {
   const supabase = getServiceClient("open-tenant-case");
   const { data: tenant, error } = await supabase
@@ -81,46 +147,12 @@ export async function openTenantCase(
     throw userError("This organisation is archived.", 409);
   }
 
-  const plan = isTenantPlan(tenant.plan) ? tenant.plan : "trial";
-  const lifetime = await countCases(supabase, tenantId);
-  let consumedCredits: number | null = null;
-
-  if (lifetime >= FREE_CASE_LIMIT) {
-    const onActivePlan =
-      tenant.billing_status === "active" &&
-      (plan === "practice" || plan === "firm");
-    const periodStart = tenant.billing_period_start ?? monthStartIso();
-    const usedThisPeriod = onActivePlan
-      ? await countCases(supabase, tenantId, periodStart)
-      : 0;
-    const allowance = onActivePlan
-      ? monthlyCaseAllowance(plan, tenant.seat_limit)
-      : 0;
-    const withinAllowance = onActivePlan && usedThisPeriod < allowance;
-
-    if (!withinAllowance) {
-      const consumed = await consumeOverageCredit(
-        supabase,
-        tenantId,
-        tenant.overage_credits,
-      );
-      if (!consumed) {
-        if (onActivePlan) {
-          return {
-            ok: false,
-            gate: "extra_case",
-            error: "This month's cases are used.",
-          };
-        }
-        return {
-          ok: false,
-          gate: plan === "firm" ? "firm" : "practice",
-          error: "Choose a plan to open another case.",
-        };
-      }
-      consumedCredits = tenant.overage_credits;
-    }
-  }
+  const bill = options?.bill !== false;
+  const reserved = bill
+    ? await reserveAcceptedLeadSlot(tenantId)
+    : { ok: true as const, consumedCredits: null };
+  if (!reserved.ok) return reserved;
+  const consumedCredits = reserved.consumedCredits;
 
   try {
     const created = await createCase(
@@ -131,6 +163,12 @@ export async function openTenantCase(
         status: payload.status,
         case_template_id: payload.case_template_id,
         case_metadata: payload.case_metadata,
+        contact_name: payload.contact_name,
+        contact_email: payload.contact_email,
+        contact_phone: payload.contact_phone,
+        lead_stage: payload.lead_stage,
+        role_key: payload.role_key,
+        accepted: payload.accepted,
       },
       supabase,
     );

@@ -36,3 +36,10 @@ export function getStripeCasePriceId() {
   }
   return env.STRIPE_CASE_PRICE_ID;
 }
+
+export function getStripeGrowthPriceId() {
+  if (!env.STRIPE_GROWTH_PRICE_ID) {
+    throw new Error("Missing STRIPE_GROWTH_PRICE_ID");
+  }
+  return env.STRIPE_GROWTH_PRICE_ID;
+}

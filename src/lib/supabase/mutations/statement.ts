@@ -26,6 +26,18 @@ type QueryClient =
   | ReturnType<typeof getSupabaseClient>
   | ReturnType<typeof getServiceClient>;
 
+async function primaryStatementId(supabase: QueryClient, caseId: string) {
+  const { data, error } = await supabase
+    .from("statements")
+    .select("id")
+    .eq("case_id", caseId)
+    .eq("participant_kind", "primary")
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.id ?? null;
+}
+
 type StorageTarget = {
   bucketId: string;
   path: string;
@@ -359,6 +371,17 @@ export const SERVERONLY_submitStatement = async (
     throw statementUpdateError;
   }
 
+  if (
+    statement.participant_kind === "primary" &&
+    (statement.lead_stage === "intake" || statement.lead_stage === "new")
+  ) {
+    const { error: stageError } = await supabase
+      .from("statements")
+      .update({ lead_stage: "review" })
+      .eq("id", statement.id);
+    if (stageError) throw stageError;
+  }
+
   await syncCaseStatusFromWitnesses(statement.case_id, supabase);
   return statement.id;
 };
@@ -505,6 +528,8 @@ export async function createStatement(payload: {
   witness_email: string;
   witness_metadata?: Record<string, string | null>;
   template_id?: string | null;
+  role_key?: string | null;
+  contact_phone?: string | null;
 }) {
   const supabase = getSupabaseClient();
   const magicLinkToken = generateSecureToken();
@@ -535,6 +560,12 @@ export async function createStatement(payload: {
       witness_metadata: payload.witness_metadata ?? {},
       template_id: effectiveTemplateId,
       status: "draft",
+      participant_kind: "supporting",
+      role_key: payload.role_key?.trim() || "witness",
+      contact_name: payload.witness_name,
+      contact_email: payload.witness_email,
+      contact_phone: payload.contact_phone?.trim() || null,
+      parent_statement_id: await primaryStatementId(supabase, payload.case_id),
     })
     .select("*")
     .single();

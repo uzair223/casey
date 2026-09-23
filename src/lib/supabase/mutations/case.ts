@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types";
 import { getSupabaseClient } from "../client";
+import {
+  freezeStatementConfig,
+  statementTemplateIdForRole,
+} from "@/lib/leads/snapshot";
 import { createCaseConfigSnapshot } from "./case-template";
 import { deleteStorageFolders } from "../storage-cleanup";
 
@@ -199,6 +203,12 @@ export async function createCase(
     status?: string;
     case_template_id?: string | null;
     case_metadata?: Record<string, string | number | null | undefined>;
+    contact_name?: string;
+    contact_email?: string;
+    contact_phone?: string;
+    lead_stage?: string;
+    role_key?: string;
+    accepted?: boolean;
   },
   supabase: SupabaseClient<Database> = getSupabaseClient(),
 ) {
@@ -243,6 +253,69 @@ export async function createCase(
 
     if (updateError) {
       throw updateError;
+    }
+
+    let roleKey = payload.role_key?.trim() || "claimant";
+    if (!payload.role_key && payload.case_template_id) {
+      const { data: leadType } = await supabase
+        .from("case_templates")
+        .select("participant_roles")
+        .eq("id", payload.case_template_id)
+        .maybeSingle();
+      const roles = Array.isArray(leadType?.participant_roles)
+        ? leadType.participant_roles
+        : [];
+      const primary = roles.find(
+        (role) =>
+          role &&
+          typeof role === "object" &&
+          "kind" in role &&
+          (role as { kind?: string }).kind === "primary" &&
+          "key" in role &&
+          typeof (role as { key?: string }).key === "string",
+      ) as { key?: string } | undefined;
+      if (primary?.key) roleKey = primary.key;
+    }
+
+    const contactName = payload.contact_name?.trim() || resolvedTitle;
+    const contactEmail = payload.contact_email?.trim() || "";
+    const { data: primary, error: primaryError } = await supabase.from("statements").insert({
+      case_id: createdCase.id,
+      tenant_id: payload.tenant_id,
+      title: resolvedTitle,
+      witness_name: contactName,
+      witness_email: contactEmail || payload.contact_phone?.trim() || "pending",
+      participant_kind: "primary",
+      role_key: roleKey,
+      lead_stage: payload.lead_stage ?? "intake",
+      lead_type_id: payload.case_template_id ?? null,
+      contact_name: payload.contact_name?.trim() || contactName,
+      contact_email: contactEmail || null,
+      contact_phone: payload.contact_phone?.trim() || null,
+      qualification_answers: payload.case_metadata ?? {},
+      accepted_at:
+        payload.accepted === false ? null : new Date().toISOString(),
+      assigned_to: payload.assigned_to_ids?.[0] ?? null,
+      assigned_to_ids: payload.assigned_to_ids ?? [],
+      status: "draft",
+    })
+      .select("id")
+      .single();
+    if (primaryError) {
+      throw primaryError;
+    }
+
+    if (payload.accepted !== false) {
+      const templateId = await statementTemplateIdForRole(
+        supabase,
+        payload.case_template_id,
+        roleKey,
+      );
+      await freezeStatementConfig(supabase, {
+        statementId: primary.id,
+        tenantId: payload.tenant_id,
+        templateId,
+      });
     }
   } catch (snapshotError) {
     await supabase.from("cases").delete().eq("id", createdCase.id);

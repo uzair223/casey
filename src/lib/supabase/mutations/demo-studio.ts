@@ -240,6 +240,13 @@ export async function SERVERONLY_createDemoStudioStatement(
       title: `Statement for ${witnessName}`,
       witness_name: witnessName,
       witness_email: witnessEmail,
+      participant_kind: "primary",
+      role_key: "claimant",
+      lead_stage: "intake",
+      lead_type_id: selectedCaseTemplateId,
+      contact_name: witnessName,
+      contact_email: witnessEmail,
+      accepted_at: new Date().toISOString(),
       witness_metadata: normalizedWitnessMetadata as Json,
       status: "demo",
     })

@@ -2,12 +2,23 @@ import { getSupabaseClient } from "../client";
 import { CaseStatementJoin as CaseExpanded, Tables } from "@/types";
 
 const CASE_EXPANDED_SELECT =
-  "*, statements(id,witness_name,witness_email,status,updated_at), case_templates(name)";
+  "*, statements(id,witness_name,witness_email,status,updated_at,participant_kind,role_key,lead_stage,contact_email,contact_phone,outreach_confirmed_at,parent_statement_id), case_templates(name)";
 
 type CaseStatementCaseTemplateJoin = Tables<"cases"> & {
   statements: Pick<
     Tables<"statements">,
-    "id" | "witness_name" | "witness_email" | "status" | "updated_at"
+    | "id"
+    | "witness_name"
+    | "witness_email"
+    | "status"
+    | "updated_at"
+    | "participant_kind"
+    | "role_key"
+    | "lead_stage"
+    | "contact_email"
+    | "contact_phone"
+    | "outreach_confirmed_at"
+    | "parent_statement_id"
   >[];
   case_templates: { name: string } | null;
 };

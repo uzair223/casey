@@ -13,7 +13,7 @@ export function SupportingDocumentsView() {
   const {
     suggestedEvidence,
     evidenceFiles,
-    statementFormalization,
+    statementSubmission,
     isDemo,
     isBusy,
     hasConvoEnded,
@@ -69,10 +69,10 @@ export function SupportingDocumentsView() {
         description="Files added in chat are saved here under evidence groups. You can add or remove documents before preparing the statement."
         actions={[
           {
-            label: "Prepare Statement",
+            label: "Send your account",
             action: () => {
               setTab("statement");
-              void statementFormalization.handler();
+              void statementSubmission.handler();
             },
             disabled: isBusy || hasConvoEnded,
           },

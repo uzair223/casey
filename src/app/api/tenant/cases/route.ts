@@ -49,6 +49,11 @@ export async function POST(request: Request) {
       case_metadata: parsed.data.case_metadata ?? {},
       assigned_to_ids: assignedToIds,
       status: parsed.data.status,
+      contact_name: parsed.data.contact_name,
+      contact_email: parsed.data.contact_email,
+      contact_phone: parsed.data.contact_phone,
+      lead_stage: "intake",
+      accepted: true,
     });
 
     if (!opened.ok) {

@@ -46,6 +46,8 @@ import Link from "next/link";
 import Loading from "@/components/loading";
 import { useTenant } from "@/contexts/tenant-context";
 import { toast } from "@/lib/toast";
+import { LeadActions } from "@/components/leads/lead-actions";
+import { parseLeadTypeConfig } from "@/lib/leads/schema";
 
 export default function CaseDetailPage() {
   const params = useParams<{ id: string }>();
@@ -123,24 +125,24 @@ export default function CaseDetailPage() {
   };
 
   const handleCaseSaved = async () => {
-    toast.success("Case updated");
+    toast.success("Lead updated");
     setIsEditingCase(false);
     setTimelineRefreshTrigger((prev) => prev + 1);
     await refreshCase();
   };
 
   const handleWitnessCreated = async () => {
-    toast.success("Witness statement created and link sent");
+    toast.success("Person added");
     setTimelineRefreshTrigger((prev) => prev + 1);
     await refreshCase();
   };
 
   const handleDeleteCase = async () => {
     if (!data) return;
-    const confirmed = await toast.confirm("Delete this case?", {
+    const confirmed = await toast.confirm("Delete this lead?", {
       description:
-        "This will remove all witness statements and cannot be undone.",
-      confirmLabel: "Delete case",
+        "This will remove the people on this lead and cannot be undone.",
+      confirmLabel: "Delete lead",
     });
     if (!confirmed) {
       return;
@@ -166,7 +168,7 @@ export default function CaseDetailPage() {
             <Button variant="outline" size="icon-sm" asChild>
               <Link href="/dashboard?tab=cases">
                 <ChevronLeftIcon />
-                <span className="sr-only">Back to cases</span>
+                <span className="sr-only">Back to leads</span>
               </Link>
             </Button>
             <Button
@@ -178,7 +180,7 @@ export default function CaseDetailPage() {
             >
               {<PenIcon className="h-4 w-4" />}
               <span className="max-md:sr-only">
-                {isEditingCase ? "Cancel" : "Edit case"}
+                {isEditingCase ? "Cancel" : "Edit lead"}
               </span>
             </Button>
 
@@ -186,25 +188,25 @@ export default function CaseDetailPage() {
               variant="outline-destructive"
               size="sm"
               onClick={handleDeleteCase}
-              pendingText="Deleting case..."
+              pendingText="Deleting lead..."
             >
               <Trash2Icon className="h-4 w-4" />
-              <span className="max-md:sr-only">Delete case</span>
+              <span className="max-md:sr-only">Delete lead</span>
             </AsyncButton>
 
             <Dialog open={isAddWitnessOpen} onOpenChange={setIsAddWitnessOpen}>
               <DialogTrigger asChild>
                 <Button variant="default" size="sm">
                   <PlusIcon className="h-4 w-4" />
-                  Add witness
+                  Add person
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Add witness statement</DialogTitle>
-                  <DialogDescription>
-                    Fill out the details for the new witness statement.
-                  </DialogDescription>
+                <DialogTitle>Add person</DialogTitle>
+                <DialogDescription>
+                  Add someone to this lead. Nothing is sent until you ask for their account.
+                </DialogDescription>
                 </DialogHeader>
                 <CreateStatementForm
                   caseData={data}
@@ -229,7 +231,7 @@ export default function CaseDetailPage() {
               <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Case name
+                    Lead name
                   </p>
                   <p className="text-sm">{data.title || "-"}</p>
                 </div>
@@ -251,7 +253,7 @@ export default function CaseDetailPage() {
               {/* Case metadata fields */}
               {caseTemplate?.published_config?.dynamicFields?.length ? (
                 <div className="mt-6">
-                  <h3 className="text-sm font-semibold mb-2">Case metadata</h3>
+                  <h3 className="text-sm font-semibold mb-2">Details</h3>
                   <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
                     {caseTemplate.published_config.dynamicFields.map(
                       (field) => (
@@ -270,6 +272,15 @@ export default function CaseDetailPage() {
                   </div>
                 </div>
               ) : null}
+              <div className="mt-6">
+                <LeadActions
+                  statements={data.statements}
+                  declineReasons={
+                    parseLeadTypeConfig(caseTemplate ?? {}).decline_reasons
+                  }
+                  onChanged={refreshCase}
+                />
+              </div>
             </>
           )}
         </CardContent>
@@ -280,7 +291,7 @@ export default function CaseDetailPage() {
       <Tabs defaultValue="witnesses" className="space-y-4">
         <TabsList>
           <TabsTrigger value="witnesses">
-            Witnesses
+            People
             <Badge variant="secondary" className="ml-2">
               {data.statements.length}
             </Badge>
@@ -293,7 +304,7 @@ export default function CaseDetailPage() {
         <TabsContent value="witnesses">
           <SidebarWrapper>
             <Sidebar
-              title="Witnesses"
+              title="People"
               count={data.statements.length}
               actions={[
                 {

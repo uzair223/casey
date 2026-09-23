@@ -22,7 +22,7 @@ export function TenantRoleDashboard() {
         description="Track firm work, manage the team, and review recent activity."
         actions={[
           {
-            label: "Case Templates",
+            label: "Lead types",
             href: "/settings/cases",
             variant: "outline",
           },
@@ -42,7 +42,7 @@ export function TenantRoleDashboard() {
       <Tabs className="space-y-4" defaultValue={activeTab}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="cases">Cases</TabsTrigger>
+          <TabsTrigger value="cases">Leads</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>

@@ -1,11 +1,10 @@
 import { ApiRequestError, apiFetch } from "@/lib/api-utils";
-import { FIRM_MIN_SEATS } from "@/lib/billing/plans";
 import { toast } from "@/lib/toast";
 
 export type CheckoutRequest =
-  | { kind: "practice" }
-  | { kind: "firm"; seats: number }
-  | { kind: "extra_case" };
+  | { kind: "starter" }
+  | { kind: "growth" }
+  | { kind: "extra_lead" };
 
 async function acceptDataProcessingAddendum() {
   await apiFetch("/api/tenant/dpa", { method: "POST" });
@@ -19,10 +18,6 @@ async function confirmAddendum(description: string) {
 }
 
 export async function startPlanCheckout(body: CheckoutRequest) {
-  if (body.kind === "firm" && body.seats < FIRM_MIN_SEATS) {
-    throw new Error(`Firm starts at ${FIRM_MIN_SEATS} people`);
-  }
-
   const openCheckout = async () => {
     const result = await apiFetch<{ checkoutUrl: string | null }>(
       "/api/tenant/billing/checkout",

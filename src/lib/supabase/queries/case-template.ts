@@ -17,7 +17,7 @@ type CaseTemplateStatementTemplateLink = Pick<
 >;
 
 const CASE_TEMPLATE_SELECT =
-  "id, tenant_id, name, title_template, template_scope, status, draft_config, published_config, source_template_id, published_at, created_at, updated_at";
+  "id, tenant_id, name, title_template, template_scope, status, draft_config, published_config, source_template_id, published_at, created_at, updated_at, qualification_slots, participant_roles, outreach_template, public_slug, branding, decline_reasons";
 
 const TENANT_CASE_TEMPLATE_PREFERENCES_SELECT =
   "tenant_id, default_case_template_id, favourite_case_template_ids";

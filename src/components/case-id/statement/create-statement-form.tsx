@@ -26,9 +26,14 @@ import {
   type CreateWitnessFormData,
 } from "@/lib/schema/witness-statement";
 import { listAllowedStatementTemplatesForCaseTemplate } from "@/lib/supabase/queries";
+import { getCaseTemplateById } from "@/lib/supabase/queries/case-template";
 import { createStatement } from "@/lib/supabase/mutations";
-import { sendWitnessLink } from "@/lib/billing/client";
 import { CasePlanPaywall } from "@/components/billing/case-plan-paywall";
+import {
+  parseLeadTypeConfig,
+  supportingRoles,
+  type ParticipantRole,
+} from "@/lib/leads/schema";
 import { isTrialWitnessCap } from "@/lib/billing/trial-cap";
 import type { CaseGate } from "@/lib/billing/plans";
 import type { Case, StatementConfigTemplate } from "@/types";
@@ -55,6 +60,11 @@ export function CreateStatementForm({
     StatementConfigTemplate[]
   >([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [supportingRoleOptions, setSupportingRoleOptions] = useState<
+    ParticipantRole[]
+  >([]);
+  const [selectedRoleKey, setSelectedRoleKey] = useState("");
+  const [phone, setPhone] = useState("");
 
   const selectedTemplateRef = useRef<StatementConfigTemplate | null>(null);
 
@@ -123,7 +133,7 @@ export function CreateStatementForm({
         setAvailableTemplates([]);
         setSelectedTemplateId("");
         setTemplateLoadError(
-          "This case is missing a case template. Assign a case template before creating a witness statement.",
+          "This lead is missing a lead type. Choose a lead type before adding a person.",
         );
         setIsLoadingTemplates(false);
         return;
@@ -134,6 +144,14 @@ export function CreateStatementForm({
       setTemplateLoadError(null);
 
       try {
+        const leadType = await getCaseTemplateById(caseData.case_template_id);
+        const roles = supportingRoles(
+          parseLeadTypeConfig(leadType ?? {}).participant_roles,
+        );
+        if (isCancelled) return;
+        setSupportingRoleOptions(roles);
+        setSelectedRoleKey(roles[0]?.key ?? "");
+
         const templates = await listAllowedStatementTemplatesForCaseTemplate({
           tenantId: user.tenant_id,
           caseTemplateId: caseData.case_template_id,
@@ -142,9 +160,9 @@ export function CreateStatementForm({
         if (isCancelled) return;
 
         setAvailableTemplates(templates);
-        if (templates.length === 0) {
+        if (templates.length === 0 && roles.length === 0) {
           setTemplateLoadError(
-            "No statement templates are mapped to this case template.",
+            "No statement templates are mapped to this lead type.",
           );
         }
 
@@ -211,29 +229,28 @@ export function CreateStatementForm({
       }),
     );
 
-    let created;
+    const role =
+      supportingRoleOptions.find((item) => item.key === selectedRoleKey) ??
+      null;
     try {
-      created = await createStatement({
+      await createStatement({
         case_id: caseData.id,
         tenant_id: user.tenant_id,
         title: caseData.title,
         witness_name: data.witness_name,
         witness_email: data.witness_email,
         witness_metadata: normalizedMetadata,
-        template_id: selectedTemplate?.id ?? null,
+        template_id: role?.statement_template_id ?? selectedTemplate?.id ?? null,
+        role_key: role?.key ?? "witness",
+        contact_phone: phone,
       });
     } catch (error) {
       if (isTrialWitnessCap(error)) {
-        setPlanGate("practice");
+        setPlanGate("starter");
         return;
       }
       throw error;
     }
-
-    await sendWitnessLink({
-      statementId: created.id,
-      canAcceptDpa: user.role === "tenant_admin",
-    });
 
     formMethods.reset({
       witness_name: "",
@@ -251,14 +268,35 @@ export function CreateStatementForm({
         {stage === 1 ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Stage 1: Select configuration
+              {supportingRoleOptions.length > 0
+                ? "Choose the role this person has on the lead."
+                : "Stage 1: Select configuration"}
             </p>
             <div className="md:col-span-2">
-              {templateLoadError ? (
+              {supportingRoleOptions.length > 0 ? (
+                <div className="space-y-1">
+                  <Label htmlFor="person-role">Role</Label>
+                  <Select
+                    value={selectedRoleKey}
+                    onValueChange={(value) => setSelectedRoleKey(value)}
+                  >
+                    <SelectTrigger id="person-role" aria-required>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {supportingRoleOptions.map((role) => (
+                        <SelectItem key={role.key} value={role.key}>
+                          {role.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : templateLoadError ? (
                 <p className="text-sm text-destructive">{templateLoadError}</p>
               ) : availableTemplates.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No templates available for this case template.
+                  No templates available for this lead type.
                 </p>
               ) : (
                 <div className="space-y-1">
@@ -285,7 +323,11 @@ export function CreateStatementForm({
               <Button
                 type="button"
                 onClick={() => setStage(2)}
-                disabled={availableTemplates.length === 0 || !selectedTemplate}
+                disabled={
+                  supportingRoleOptions.length > 0
+                    ? !selectedRoleKey
+                    : availableTemplates.length === 0 || !selectedTemplate
+                }
               >
                 Continue
               </Button>
@@ -302,7 +344,9 @@ export function CreateStatementForm({
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
-              Stage 2: Complete witness details for {selectedTemplate?.name}
+              {supportingRoleOptions.length > 0
+                ? "Name and contact. Nothing is sent until you ask for their account."
+                : `Stage 2: Complete witness details for ${selectedTemplate?.name}`}
             </p>
             <div className="grid gap-4 md:grid-cols-2">
               <RhfField
@@ -338,6 +382,17 @@ export function CreateStatementForm({
                 )}
               />
 
+              <div className="space-y-1">
+                <Label htmlFor="witness_phone">Phone</Label>
+                <Input
+                  id="witness_phone"
+                  type="tel"
+                  autoComplete="off"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                />
+              </div>
+
               {witnessMetadataFields.map((field) => {
                 const fieldKey = `witness_metadata.${field.id}` as const;
                 const isRequiredOnCreate =
@@ -369,8 +424,8 @@ export function CreateStatementForm({
             ) : null}
 
             <div className="flex gap-2">
-              <AsyncButton type="submit" pendingText="Creating...">
-                Create witness statement
+              <AsyncButton type="submit" pendingText="Adding...">
+                Add person
               </AsyncButton>
               <Button
                 className="ml-auto"

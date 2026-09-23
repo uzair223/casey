@@ -347,8 +347,8 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
               Invoice {billingTenant?.name ?? "organisation"}
             </DialogTitle>
             <DialogDescription>
-              Record the order form. The firm opens three cases free, then
-              chooses Practice or Firm in the product.
+              Record the order form. The firm accepts three leads free, then
+              chooses Starter or Growth in the product.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
