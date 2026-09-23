@@ -1,192 +1,11 @@
 import { IntakeChatMessage, StatementConfig } from "@/types";
 import { defaultMeta as defaultMetadata } from "../statement-utils/message-metadata";
-
-export type PromptTemplateTokens =
-  | "phasesList"
-  | "witnessDetailFieldList"
-  | "sectionGuidelines"
-  | "jsonStructure"
-  | "evidenceList";
-
-export const PROMPT_TEMPLATE_TOKEN_HELP: Array<{
-  token: string;
-  description: string;
-}> = [
-  {
-    token: "template.*",
-    description:
-      "Generic access to statement template config (e.g. {{template.phases.0.title}})",
-  },
-  {
-    token: "phasesList",
-    description: "Enumerated list of configured phases",
-  },
-  {
-    token: "witnessDetailFieldList",
-    description: "Configured witness metadata fields",
-  },
-  {
-    token: "sectionGuidelines",
-    description: "Generated section writing guidance",
-  },
-  {
-    token: "jsonStructure",
-    description: "Strict JSON response shape for formalization",
-  },
-  {
-    token: "evidenceList",
-    description:
-      "Rendered list of confirmed evidence provided for formalization",
-  },
-];
-
-type PromptComputedContext = Record<PromptTemplateTokens, string>;
-
-function buildPromptTemplateContext(
-  config: StatementConfig,
-): PromptComputedContext {
-  const phasesList = config.phases
-    .map((phase, index) => {
-      const lines = [`${index + 1}. ${phase.title}: ${phase.description}`];
-
-      if (phase.questioningMode) {
-        lines.push(`   - Questioning mode: ${phase.questioningMode}`);
-      }
-
-      if (phase.allowedTopics && phase.allowedTopics.length > 0) {
-        lines.push(`   - Allowed topics: ${phase.allowedTopics.join(", ")}`);
-      }
-
-      if (phase.forbiddenTopics && phase.forbiddenTopics.length > 0) {
-        lines.push(
-          `   - Forbidden topics: ${phase.forbiddenTopics.join(", ")}`,
-        );
-      }
-
-      if (phase.completionCriteria && phase.completionCriteria.length > 0) {
-        lines.push("   - Completion criteria:");
-        lines.push(
-          ...phase.completionCriteria.map((criterion) => `     - ${criterion}`),
-        );
-      }
-
-      return lines.join("\n");
-    })
-    .join("\n");
-
-  const witnessDetailFieldList = (config.witness_metadata_fields ?? [])
-    .map((field) => `- ${field.id}: ${field.description ?? field.label}`)
-    .join("\n");
-
-  const sectionGuidelines = config.sections
-    .map((section) => {
-      let guideline = `${section.title.toUpperCase()} (1-2 sentences)`;
-      if (section.description) {
-        guideline += `\n- ${section.description}`;
-      }
-      return guideline;
-    })
-    .join("\n\n");
-
-  const jsonFields = config.sections
-    .map((section) => `"${section.id}": ""`)
-    .join(",\n  ");
-
-  const jsonStructure = `{\n  ${jsonFields}\n}`;
-
-  const context: PromptComputedContext = {
-    phasesList,
-    witnessDetailFieldList,
-    sectionGuidelines,
-    jsonStructure,
-    evidenceList: "",
-  };
-
-  return context;
-}
-
-function getByPath(source: unknown, path: string): unknown {
-  if (!path.trim()) {
-    return source;
-  }
-
-  const segments = path.split(".").filter(Boolean);
-  let current: unknown = source;
-
-  for (const segment of segments) {
-    if (current == null) {
-      return undefined;
-    }
-
-    if (Array.isArray(current)) {
-      const index = Number(segment);
-      if (!Number.isInteger(index) || index < 0 || index >= current.length) {
-        return undefined;
-      }
-      current = current[index];
-      continue;
-    }
-
-    if (typeof current === "object") {
-      current = (current as Record<string, unknown>)[segment];
-      continue;
-    }
-
-    return undefined;
-  }
-
-  return current;
-}
-
-function stringifyTemplateValue(value: unknown): string {
-  if (value == null) {
-    return "";
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return "";
-  }
-}
-
-function renderPromptTemplate(
-  template: string,
-  context: PromptComputedContext,
-  config: StatementConfig,
-): string {
-  return template.replace(
-    /\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/g,
-    (match, rawKey) => {
-      const key = String(rawKey).trim();
-      const computed = context[key as keyof PromptComputedContext];
-      if (typeof computed === "string") {
-        return computed;
-      }
-
-      if (key === "template" || key === "config") {
-        return stringifyTemplateValue(config);
-      }
-
-      if (key.startsWith("template.")) {
-        const resolved = getByPath(config, key.slice("template.".length));
-        return resolved === undefined
-          ? match
-          : stringifyTemplateValue(resolved);
-      }
-
-      return match;
-    },
-  );
-}
+import {
+  buildFormalizeContract,
+  buildInterviewContract,
+  openingQuestionForTemplate,
+  type TemplateRuntimeContext,
+} from "./template-contract";
 
 export function getMissingRequiredWitnessFieldLabels(statement: {
   witness_metadata: Record<string, unknown>;
@@ -202,7 +21,7 @@ export function getMissingWitnessFieldLabels(statement: {
   const required: string[] = [];
   const optional: string[] = [];
   const statementConfig = statement.statement_config;
-  const witnessFields = statementConfig.witness_metadata_fields ?? [];
+  const witnessFields = statementConfig.witnessMetadataFields ?? [];
 
   for (const field of witnessFields) {
     const value = statement.witness_metadata[field.id];
@@ -231,7 +50,7 @@ export const generateGreeting = (
 ): IntakeChatMessage[] => {
   const missing = getMissingWitnessFieldLabels(statement);
   const statementConfig = statement.statement_config;
-  const witnessFields = statementConfig.witness_metadata_fields ?? [];
+  const witnessFields = statementConfig.witnessMetadataFields ?? [];
 
   const witnessDetails = Object.fromEntries(
     witnessFields
@@ -268,25 +87,17 @@ I'll guide you through the information collection process to ensure we capture a
           : `To begin, could you please provide your ${requiredMissingStr}?`
         : optionalMissingStr
           ? `To begin, could you share your ${optionalMissingStr} if available?`
-          : "To begin, could you please describe the incident in your own words?",
+          : openingQuestionForTemplate(statementConfig),
       meta: metadata,
     },
   ];
 };
 
-/**
- * Generate chat system prompt with defaults fetched from the database.
- * Use this in API routes to get the latest prompt versions.
- */
-export async function generateChatSystemPrompt(
+export function generateChatSystemPrompt(
   config: StatementConfig,
-): Promise<string> {
-  const context = buildPromptTemplateContext(config);
-  const { getSystemConfig } = await import("@/lib/supabase/system-config");
-  const prompt =
-    config.prompts?.chat_system_template ??
-    (await getSystemConfig("default_chat_system_prompt"));
-  return renderPromptTemplate(prompt, context, config);
+  runtime: TemplateRuntimeContext = {},
+): string {
+  return buildInterviewContract(config, runtime);
 }
 
 export function generateIntakeStatePrompt(
@@ -326,18 +137,13 @@ PREVIOUS METADATA:
 ${JSON.stringify(previousMetadata)}`;
 }
 
-export async function generateFormalizeSystemPrompt(
+export function generateFormalizeSystemPrompt(
   config: StatementConfig,
   evidenceList = "No confirmed evidence provided.",
-): Promise<string> {
-  const context = buildPromptTemplateContext(config);
-  const { getSystemConfig } = await import("@/lib/supabase/system-config");
-  const prompt =
-    config.prompts?.formalize_system_template ??
-    (await getSystemConfig("default_formalize_system_prompt"));
-  const evidenceContext = {
-    ...context,
+  runtime: TemplateRuntimeContext = {},
+): string {
+  return buildFormalizeContract(config, {
+    ...runtime,
     evidenceList,
-  };
-  return renderPromptTemplate(prompt, evidenceContext, config);
+  });
 }

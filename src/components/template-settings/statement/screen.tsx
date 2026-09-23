@@ -56,10 +56,10 @@ const StatementTemplateGenerationSchema = z
       .min(1)
       .describe("Short, clear template name shown in the template list."),
     config: StatementConfigSchema.omit({
-      schema_version: true,
-      case_metadata_deps: true,
-      prompts: true,
-    }).describe("statement config schema"),
+      schemaVersion: true,
+    }).describe(
+      "Statement template. modelIdentity is one or two sentences beginning \"You are interviewing the witness of a ...\". Phase intent belongs only in objective. Do not write system prompt text.",
+    ),
   })
   .strict();
 

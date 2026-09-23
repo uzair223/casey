@@ -2,22 +2,18 @@ import type {
   StatementConfig,
   StatementMetadataFieldConfig,
   StatementPhaseConfig,
-  StatementPromptTemplates,
   StatementSectionConfig,
 } from "@/types";
 
-export const CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION = 3;
+export const CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION = 4;
 
 export const EMPTY_STATEMENT_CONFIG: StatementConfig = {
-  schema_version: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
-  prompts: {
-    chat_system_template: null,
-    formalize_system_template: null,
-  },
+  schemaVersion: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
+  modelIdentity: null,
   phases: [],
   sections: [],
-  witness_metadata_fields: [],
-  case_metadata_deps: [],
+  witnessMetadataFields: [],
+  caseMetadataDeps: [],
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -29,7 +25,11 @@ function stringValue(value: unknown, fallback = "") {
 }
 
 function nullableStringValue(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
 }
 
 function nullableBooleanValue(value: unknown): boolean | null {
@@ -49,17 +49,6 @@ function nullableStringArrayValue(value: unknown): string[] | null {
   return strings.length > 0 ? strings : null;
 }
 
-function normalizePrompts(value: unknown): StatementPromptTemplates {
-  const source = isRecord(value) ? value : {};
-
-  return {
-    chat_system_template: nullableStringValue(source.chat_system_template),
-    formalize_system_template: nullableStringValue(
-      source.formalize_system_template,
-    ),
-  };
-}
-
 function normalizePhase(value: unknown): StatementPhaseConfig | null {
   if (!isRecord(value)) {
     return null;
@@ -75,7 +64,7 @@ function normalizePhase(value: unknown): StatementPhaseConfig | null {
   return {
     id,
     title,
-    description: stringValue(value.description),
+    objective: stringValue(value.objective).trim(),
     allowedTopics: nullableStringArrayValue(value.allowedTopics),
     forbiddenTopics: nullableStringArrayValue(value.forbiddenTopics),
     completionCriteria: nullableStringArrayValue(value.completionCriteria),
@@ -131,35 +120,36 @@ function normalizeWitnessMetadataField(
 }
 
 export function normalizeConfig(value: unknown): StatementConfig {
-  if (isRecord(value)) {
-    return {
-      schema_version: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
-      prompts: normalizePrompts(value.prompts),
-      phases: Array.isArray(value.phases)
-        ? value.phases.flatMap((phase) => {
-            const normalized = normalizePhase(phase);
-            return normalized ? [normalized] : [];
-          })
-        : [],
-      sections: Array.isArray(value.sections)
-        ? value.sections.flatMap((section) => {
-            const normalized = normalizeSection(section);
-            return normalized ? [normalized] : [];
-          })
-        : [],
-      witness_metadata_fields: Array.isArray(value.witness_metadata_fields)
-        ? value.witness_metadata_fields.flatMap((field) => {
-            const normalized = normalizeWitnessMetadataField(field);
-            return normalized ? [normalized] : [];
-          })
-        : [],
-      case_metadata_deps: Array.isArray(value.case_metadata_deps)
-        ? value.case_metadata_deps.filter(
-            (item): item is string => typeof item === "string",
-          )
-        : [],
-    };
+  if (!isRecord(value)) {
+    return EMPTY_STATEMENT_CONFIG;
   }
 
-  return EMPTY_STATEMENT_CONFIG;
+  return {
+    schemaVersion: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
+    modelIdentity: nullableStringValue(value.modelIdentity),
+    phases: Array.isArray(value.phases)
+      ? value.phases.flatMap((phase) => {
+          const normalized = normalizePhase(phase);
+          return normalized ? [normalized] : [];
+        })
+      : [],
+    sections: Array.isArray(value.sections)
+      ? value.sections.flatMap((section) => {
+          const normalized = normalizeSection(section);
+          return normalized ? [normalized] : [];
+        })
+      : [],
+    witnessMetadataFields: Array.isArray(value.witnessMetadataFields)
+      ? value.witnessMetadataFields.flatMap((field) => {
+          const normalized = normalizeWitnessMetadataField(field);
+          return normalized ? [normalized] : [];
+        })
+      : [],
+    caseMetadataDeps: Array.isArray(value.caseMetadataDeps)
+      ? value.caseMetadataDeps
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : [],
+  };
 }

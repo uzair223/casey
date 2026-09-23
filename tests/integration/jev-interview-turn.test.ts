@@ -9,16 +9,13 @@ import {
 } from "@/lib/llm/jev/interview-turn";
 
 const statementConfig = {
-  schema_version: 3,
-  prompts: {
-    chat_system_template: null,
-    formalize_system_template: null,
-  },
+  schemaVersion: 4,
+  modelIdentity: "You are interviewing the witness of a road traffic collision.",
   phases: [
     {
       id: "incidentFacts",
       title: "Incident facts",
-      description: "Core incident facts",
+      objective: "Core incident facts",
       allowedTopics: null,
       forbiddenTopics: null,
       completionCriteria: ["What happened", "Where it happened"],
@@ -27,7 +24,7 @@ const statementConfig = {
     {
       id: "injuries",
       title: "Injuries",
-      description: "Injury and treatment",
+      objective: "Injury and treatment",
       allowedTopics: null,
       forbiddenTopics: null,
       completionCriteria: ["Injuries described"],
@@ -35,8 +32,8 @@ const statementConfig = {
     },
   ],
   sections: [],
-  witness_metadata_fields: [],
-  case_metadata_deps: [],
+  witnessMetadataFields: [],
+  caseMetadataDeps: [],
 } satisfies StatementConfig;
 
 function answers(overrides: Record<string, unknown> = {}) {

@@ -14,8 +14,9 @@ Phases must:
 
 Each phase must include:
 - A domain-level title
-- A description of what information is explored within that domain
-- An objective describing the evidential purpose of that phase
+- objective: what a complete answer lets the solicitor establish. This is the only statement of what the phase is for
+- questioningMode: narrative for a free account, structured for one factual question at a time, or mixed for a free account followed by gap questions
+- completionCriteria: checkable facts that mark the phase complete. The interview controller scores the phase against these items. Do not use vague closure such as "the witness has said enough"
 
 Phases should collectively form a complete investigative framework for understanding what happened, its context, its consequences, and relevant supporting information.
 
@@ -41,7 +42,9 @@ Sections should be derived from the case content rather than a predefined list. 
 
 Each section must include:
 - A clear title representing its evidential function
-- A description of what the section contains
+- A description of what the finished prose may contain
+
+The formalizer writes one first-person string per section and treats description as the content boundary. Describe the finished statement, not interview questions.
 
 Constraints:
 - DO NOT use predefined templates (e.g. RTA, workplace injury, or medical negligence structures)
@@ -80,10 +83,11 @@ export const StatementPhaseConfigSchema = z
         "High-level domain label for the phase (e.g. 'Incident Narrative', 'Medical Treatment'). Must represent a broad evidential category, not a question or micro-topic.",
       ),
 
-    description: z
+    objective: z
       .string()
+      .trim()
       .describe(
-        "Explains what information is explored within this phase. Must describe an open-ended area of inquiry, not a scripted set of questions or events.",
+        "What a complete answer lets the solicitor establish. Not a question and not a topic list.",
       ),
 
     allowedTopics: z
@@ -169,16 +173,18 @@ export const StatementMetadataFieldConfigSchema = z
       ),
   })
   .strict();
-export const StatementPromptTemplatesSchema = z
-  .object({
-    chat_system_template: z.string().nullable(),
-    formalize_system_template: z.string().nullable(),
-  })
-  .strict();
 
 export const StatementConfigSchema = z
   .object({
-    schema_version: z.literal(3).optional(),
+    schemaVersion: z.literal(4).optional(),
+
+    modelIdentity: z
+      .string()
+      .trim()
+      .nullable()
+      .describe(
+        "Who the model is in this interview, written by the firm. Example: You are interviewing the witness of a road traffic accident.",
+      ),
 
     phases: z.array(StatementPhaseConfigSchema).describe(PHASES_DESCRIPTION),
 
@@ -186,12 +192,15 @@ export const StatementConfigSchema = z
       .array(StatementSectionConfigSchema)
       .describe(SECTIONS_DESCRIPTION),
 
-    witness_metadata_fields: z
+    witnessMetadataFields: z
       .array(StatementMetadataFieldConfigSchema)
       .describe(METADATA_DESCRIPTION),
 
-    case_metadata_deps: z.array(z.string()),
-    prompts: StatementPromptTemplatesSchema.nullable(),
+    caseMetadataDeps: z
+      .array(z.string())
+      .describe(
+        "Case-template field ids this statement should treat as already known. Do not invent ids. Use an empty array when no case fields were named.",
+      ),
   })
   .strict();
 
@@ -247,14 +256,14 @@ export const StatementConfigPublishSchema = StatementConfigSchema.superRefine(
     });
 
     const witnessFieldSet = new Set<string>();
-    config.witness_metadata_fields.forEach((field, index) => {
+    config.witnessMetadataFields.forEach((field, index) => {
       const key = field.id.trim();
       const label = field.label.trim();
 
       if (!key || !label) {
         ctx.addIssue({
           code: "custom",
-          path: ["witness_metadata_fields", index],
+          path: ["witnessMetadataFields", index],
           message: "Witness metadata fields require both id and label.",
         });
         return;
@@ -263,7 +272,7 @@ export const StatementConfigPublishSchema = StatementConfigSchema.superRefine(
       if (witnessFieldSet.has(key)) {
         ctx.addIssue({
           code: "custom",
-          path: ["witness_metadata_fields", index, "id"],
+          path: ["witnessMetadataFields", index, "id"],
           message: "Witness metadata field id must be unique.",
         });
       }
@@ -271,11 +280,11 @@ export const StatementConfigPublishSchema = StatementConfigSchema.superRefine(
       witnessFieldSet.add(key);
     });
 
-    config.case_metadata_deps.forEach((dep, index) => {
+    config.caseMetadataDeps.forEach((dep, index) => {
       if (!dep.trim()) {
         ctx.addIssue({
           code: "custom",
-          path: ["case_metadata_deps", index],
+          path: ["caseMetadataDeps", index],
           message: "Case metadata dependencies cannot contain blank values.",
         });
       }
@@ -289,8 +298,5 @@ export type StatementSectionConfig = z.infer<
 >;
 export type StatementMetadataFieldConfig = z.infer<
   typeof StatementMetadataFieldConfigSchema
->;
-export type StatementPromptTemplates = z.infer<
-  typeof StatementPromptTemplatesSchema
 >;
 export type StatementConfig = z.infer<typeof StatementConfigSchema>;

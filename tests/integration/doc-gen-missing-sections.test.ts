@@ -5,19 +5,19 @@ import { extractDocxText } from "@/lib/files";
 import type { StatementConfig } from "@/types";
 
 const config = {
-  schema_version: 3,
+  schemaVersion: 4,
+  modelIdentity: null,
   phases: [],
   sections: [
     { id: "accidentDescription", title: "Accident Description", description: null },
     { id: "vehicleDetails", title: "Vehicle Details", description: null },
     { id: "evidence", title: "Evidence", description: null },
   ],
-  witness_metadata_fields: [
+  witnessMetadataFields: [
     { id: "address", label: "Address", description: null, requiredOnIntake: null, requiredOnCreate: null },
     { id: "occupation", label: "Occupation", description: null, requiredOnIntake: null, requiredOnCreate: null },
   ],
-  case_metadata_deps: ["court", "claimNumber", "claimant", "defendant"],
-  prompts: { chat_system_template: null, formalize_system_template: null },
+  caseMetadataDeps: ["court", "claimNumber", "claimant", "defendant"],
 } satisfies StatementConfig;
 
 describe("generateDoc missing sections", () => {

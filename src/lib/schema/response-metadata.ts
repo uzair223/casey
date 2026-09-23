@@ -4,11 +4,11 @@ import { z } from "zod";
 export function ResponseMetadataSchema(statementConfig: StatementConfig) {
   return z
     .object({
-      witnessDetails: statementConfig.witness_metadata_fields
+      witnessDetails: statementConfig.witnessMetadataFields
         ? z
             .object(
               Object.fromEntries(
-                statementConfig.witness_metadata_fields.map((v) => {
+                statementConfig.witnessMetadataFields.map((v) => {
                   let s = z.string().trim().nullable();
                   if (v.description) s = s.describe(v.description);
                   return [v.id, s];

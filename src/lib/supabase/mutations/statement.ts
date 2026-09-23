@@ -281,7 +281,7 @@ async function resolveWitnessMetadataPatch(
   );
 
   const witnessFields = (config ?? EMPTY_STATEMENT_CONFIG)
-    .witness_metadata_fields as Array<{
+    .witnessMetadataFields as Array<{
     id: string;
     requiredOnIntake?: boolean;
   }>;

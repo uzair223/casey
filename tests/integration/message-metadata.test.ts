@@ -15,7 +15,7 @@ const statementConfig = {
     {
       id: "incidentFacts",
       title: "Incident facts",
-      description: "Core incident facts",
+      objective: "Core incident facts",
       allowedTopics: null,
       forbiddenTopics: null,
       completionCriteria: null,

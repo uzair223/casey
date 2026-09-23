@@ -151,10 +151,11 @@ const StatementTemplateSettingsContext =
 
 function createEmptyConfig(): StatementConfig {
   return StatementConfigSchema.parse({
-    schema_version: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
+    schemaVersion: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
+    modelIdentity: null,
     phases: [],
     sections: [],
-    witness_metadata_fields: [
+    witnessMetadataFields: [
       {
         id: "address",
         label: "Address",
@@ -163,32 +164,7 @@ function createEmptyConfig(): StatementConfig {
         requiredOnCreate: false,
       },
     ],
-    case_metadata_deps: ["court", "claimNumber", "claimant", "defendant"],
-    prompts: {
-      chat_system_template: null,
-      formalize_system_template: null,
-    },
-  });
-}
-
-function createNullPromptTemplates(): NonNullable<StatementConfig["prompts"]> {
-  return {
-    chat_system_template: null,
-    formalize_system_template: null,
-  };
-}
-
-function normalizePromptsForStorage(config: StatementConfig): StatementConfig {
-  const prompts = config.prompts ?? createNullPromptTemplates();
-
-  return StatementConfigSchema.parse({
-    ...config,
-    schema_version: CURRENT_STATEMENT_CONFIG_SCHEMA_VERSION,
-    prompts: {
-      chat_system_template: prompts.chat_system_template?.trim() || null,
-      formalize_system_template:
-        prompts.formalize_system_template?.trim() || null,
-    },
+    caseMetadataDeps: ["court", "claimNumber", "claimant", "defendant"],
   });
 }
 
@@ -613,7 +589,7 @@ export function StatementTemplateSettingsProvider({
 
     const scope: "global" | "tenant" = isAppAdmin ? "global" : "tenant";
     const normalizedConfig = normalizeConfig(draftConfig);
-    const persistedConfig = normalizePromptsForStorage(normalizedConfig);
+    const persistedConfig = normalizedConfig;
 
     let docxTemplateDocument =
       activeTemplate?.draft_docx_template_document ?? null;

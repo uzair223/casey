@@ -52,6 +52,7 @@ const INTERNAL_FIELDS = new Set([
   "draft_config",
   "published_config",
   "schema_version",
+  "schemaVersion",
   "token",
   "token_hash",
   "hash",

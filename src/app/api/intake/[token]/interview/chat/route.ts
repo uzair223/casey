@@ -13,6 +13,11 @@ import {
   generateChatSystemPrompt,
   generateIntakeStatePrompt,
 } from "@/lib/llm/prompts";
+import {
+  buildKnownCaseFacts,
+  loadCaseModelContext,
+} from "@/lib/llm/case-runtime";
+import { getServiceClient } from "@/lib/supabase/server";
 
 import { randomUUID } from "crypto";
 import { CHAT_METADATA_MARKER, getLastMeta } from "@/lib/statement-utils";
@@ -348,7 +353,27 @@ export async function POST(
     });
 
     try {
-      const chatSystemPrompt = await generateChatSystemPrompt(statementConfig);
+      const witnessMetadata =
+        statement.witness_metadata &&
+        typeof statement.witness_metadata === "object" &&
+        !Array.isArray(statement.witness_metadata)
+          ? (statement.witness_metadata as Record<string, unknown>)
+          : {};
+      const caseContext = statement.case_id
+        ? await loadCaseModelContext(
+            getServiceClient("intake-chat"),
+            statement.case_id,
+          )
+        : null;
+      const chatSystemPrompt = await generateChatSystemPrompt(statementConfig, {
+        witnessMetadata,
+        matterBrief: caseContext?.matterBrief,
+        caseFacts: buildKnownCaseFacts({
+          caseConfig: caseContext?.caseConfig ?? null,
+          caseMetadata: caseContext?.caseMetadata ?? null,
+          dependencyIds: statementConfig.caseMetadataDeps,
+        }),
+      });
       const transcript = modelMessages.flatMap((message) => {
         const content =
           typeof message.content === "string"

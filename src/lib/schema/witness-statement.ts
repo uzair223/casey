@@ -21,7 +21,7 @@ function buildMetadataObjectSchema(
 ) {
   const metadataShape: Record<string, z.ZodTypeAny> = {};
 
-  for (const field of config.witness_metadata_fields ?? []) {
+  for (const field of config.witnessMetadataFields ?? []) {
     metadataShape[field.id] = getMetadataFieldSchema(
       field.label,
       requiredSelector(field),

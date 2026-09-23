@@ -71,12 +71,9 @@ export function CreateStatementForm({
         includeStatementOfTruth: true,
         phases: [],
         sections: [],
-        witness_metadata_fields: [],
-        case_metadata_deps: [],
-        prompts: {
-          chat_system_template: null,
-          formalize_system_template: null,
-        },
+        modelIdentity: null,
+        witnessMetadataFields: [],
+        caseMetadataDeps: [],
       },
     [selectedTemplate],
   );
@@ -103,7 +100,7 @@ export function CreateStatementForm({
       template_id: "",
     },
   });
-  const witnessMetadataFields = selectedConfig.witness_metadata_fields ?? [];
+  const witnessMetadataFields = selectedConfig.witnessMetadataFields ?? [];
 
   useEffect(() => {
     selectedTemplateRef.current = selectedTemplate;

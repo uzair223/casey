@@ -3,6 +3,8 @@ import { choice, noul, score, type Questions } from "./questions";
 import type { ResponseMetadata } from "@/lib/schema";
 import type { IntakeChatMessage, StatementConfig } from "@/types";
 
+import { modelIdentityText } from "@/lib/llm/template-contract";
+
 import { evaluateWithJev } from "./client";
 import {
   JEV_CHOICE_CONFIDENCE_MIN,
@@ -167,10 +169,12 @@ export function buildIntakeTurnState(params: {
     previousEvidence: params.previousMetadata.evidence,
     previousIgnoredMissingDetails: params.previousMetadata.ignoredMissingDetails,
     previousDeviation: params.previousMetadata.deviation,
+    modelIdentity: modelIdentityText(params.statementConfig),
     phases: params.statementConfig.phases.map((phase) => ({
       id: phase.id,
       title: phase.title,
-      description: phase.description,
+      objective: phase.objective,
+      questioningMode: phase.questioningMode,
       allowedTopics: phase.allowedTopics,
       forbiddenTopics: phase.forbiddenTopics,
       completionCriteria: phase.completionCriteria,
@@ -227,7 +231,8 @@ export function buildIntakeTurnQuestions(statementConfig: StatementConfig) {
         phase.id,
         [
           phase.title,
-          phase.description,
+          phase.objective,
+          phase.questioningMode,
           ...(phase.completionCriteria ?? []),
         ]
           .filter(Boolean)

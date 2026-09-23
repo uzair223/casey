@@ -13,9 +13,9 @@ const config = {
       description: "Evidence and exhibits relied on by the statement.",
     },
   ],
-  witness_metadata_fields: [],
-  case_metadata_deps: [],
-  prompts: null,
+  modelIdentity: null,
+  witnessMetadataFields: [],
+  caseMetadataDeps: [],
 } satisfies StatementConfig;
 
 function documentRow(

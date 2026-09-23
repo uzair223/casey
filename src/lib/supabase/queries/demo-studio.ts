@@ -48,8 +48,8 @@ function toDemoCaseFields(config: unknown): DemoCaseField[] {
 
 function toDemoWitnessFields(config: unknown): DemoWitnessField[] {
   if (!config || typeof config !== "object") return [];
-  const fields = (config as { witness_metadata_fields?: unknown })
-    .witness_metadata_fields;
+  const fields = (config as { witnessMetadataFields?: unknown })
+    .witnessMetadataFields;
   if (!Array.isArray(fields)) return [];
 
   return fields
