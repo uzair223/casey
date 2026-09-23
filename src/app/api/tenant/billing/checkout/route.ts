@@ -8,7 +8,7 @@ import {
   requireTenantAdmin,
   serverError,
 } from "@/lib/api-utils";
-import { STARTER_INCLUDED_USERS } from "@/lib/billing/plans";
+import { storedSeatLimit } from "@/lib/billing/plans";
 import {
   getStripe,
   getStripeCasePriceId,
@@ -87,8 +87,7 @@ export async function POST(request: Request) {
     }
 
     const plan = kind;
-    const seatLimit =
-      plan === "starter" ? STARTER_INCLUDED_USERS : 15;
+    const seatLimit = storedSeatLimit(plan);
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       success_url: `${dashboardUrl}?billing=success`,

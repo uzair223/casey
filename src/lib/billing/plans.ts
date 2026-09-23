@@ -1,13 +1,14 @@
 export const FREE_LEAD_LIMIT = 3;
 export const FREE_CASE_LIMIT = FREE_LEAD_LIMIT;
 
+export const TRIAL_SEAT_LIMIT = 5;
+
 export const STARTER_PRICE_GBP = 149;
-export const STARTER_INCLUDED_USERS = 5;
+export const STARTER_INCLUDED_USERS = 10;
 export const STARTER_ACCEPTED_LEADS_PER_MONTH = 40;
 export const STARTER_PUBLIC_TURNS_PER_DAY = 200;
 
 export const GROWTH_PRICE_GBP = 349;
-export const GROWTH_INCLUDED_USERS = 15;
 export const GROWTH_ACCEPTED_LEADS_PER_MONTH = 120;
 export const GROWTH_PUBLIC_TURNS_PER_DAY = 800;
 
@@ -95,10 +96,20 @@ export function widgetEnabled(plan: string | null | undefined) {
   return normalizeTenantPlan(plan) === "growth";
 }
 
-export function seatCapForPlan(plan: TenantPlan | string, seatLimit: number) {
+export function seatCapForPlan(plan: TenantPlan | string): number | null {
   const normalized = normalizeTenantPlan(plan);
-  if (normalized === "growth") {
-    return Math.max(GROWTH_INCLUDED_USERS, seatLimit);
-  }
-  return STARTER_INCLUDED_USERS;
+  if (normalized === "growth") return null;
+  if (normalized === "starter") return STARTER_INCLUDED_USERS;
+  return TRIAL_SEAT_LIMIT;
+}
+
+export function seatAllowanceLabel(plan: string | null | undefined) {
+  const cap = seatCapForPlan(plan ?? "trial");
+  if (cap == null) return "Unlimited seats";
+  return `${cap} seats`;
+}
+
+/** Column value. `0` means unlimited (Growth). */
+export function storedSeatLimit(plan: string | null | undefined): number {
+  return seatCapForPlan(plan ?? "trial") ?? 0;
 }

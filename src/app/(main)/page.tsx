@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { Fragment } from "react";
 
-import { ArrowRight, Check } from "@/components/icons";
+import { PricingTable } from "@/components/marketing/pricing-table";
 import { HeroGlow } from "@/components/marketing/hero-glow";
 import {
   AboutInterviewVisual,
@@ -17,115 +16,41 @@ import { env } from "@/lib/env";
 
 const steps = [
   {
-    title: "Qualify the enquiry",
-    body: "A short chat on your hosted page, or on Growth the website widget, collects the contact and what happened.",
+    title: "Someone answers straight away",
+    body: "The hosted page takes the enquiry while the office is closed. On Growth, the same chat can sit on your website.",
   },
   {
-    title: "Accept the lead",
-    body: "The enquiry lands on the firm feed. Accept it, and Casey asks for the fuller account, the evidence, and anyone else involved.",
+    title: "You choose what becomes a file",
+    body: "Accept the lead, or decline it with one of your reasons. The feed shows the enquiries that are ready.",
   },
   {
-    title: "Find what's missing before review",
-    body: "Missing dates, unsupported detail and conflicting accounts show up on the gap list before a solicitor sits down.",
+    title: "The evidence follows that decision",
+    body: "After you accept, the person adds photos, records, and anyone else involved.",
   },
   {
-    title: "Give solicitors more time for their best thinking",
-    body: "Review starts from the account. Solicitors prepare the written draft, with the evidence and the gaps in view.",
+    title: "Solicitors start on the draft",
+    body: "The account and the gap list are already on the lead. The written draft is prepared in review.",
   },
 ] as const;
 
 const deeperLinks = [
   {
     label: "Platform",
-    title: "Ask. Gather. Find the gaps. Draft.",
-    body: "See how interviews, evidence, first drafts and gaps stay in one place, from the intake link to review.",
+    title: "Follow one lead from the public page to review.",
+    body: "The feed, the account, the exhibits, and who on the team sees them.",
     href: "/platform",
   },
   {
     label: "Security",
-    title: "Built for sensitive files",
-    body: "Private account links, e-signatures, and an audit trail you can explain to a practice manager.",
+    title: "A private link for each person, and a trail for the firm.",
+    body: "Who opened the account, what they sent, and the signature record.",
     href: "/legal/security",
   },
   {
     label: "Early access",
-    title: "Bring a live matter",
-    body: "Show us a matter. We will show where Casey takes that work off your solicitors.",
+    title: "Bring one live enquiry.",
+    body: "We will show the file your team would receive.",
     href: "/#early-access",
-  },
-] as const;
-
-const pricingPlans = [
-  { name: "Trial", amount: "Free", unit: "" },
-  { name: "Starter", amount: "£149", unit: "/month" },
-  { name: "Growth", amount: "£349", unit: "/month" },
-] as const;
-
-const pricingGroups = [
-  {
-    label: "Allowance",
-    rows: [
-      { label: "People included", cells: ["Up to five", "Five", "Fifteen"] },
-      {
-        label: "Accepted leads",
-        cells: ["Three", "Forty per month", "One hundred and twenty per month"],
-      },
-      {
-        label: "Supporting accounts",
-        cells: ["Included", "Included", "Included"],
-      },
-      { label: "Additional accepted lead", cells: ["—", "£15", "£15"] },
-      { label: "Hosted enquiry page", cells: ["Included", "Included", "Included"] },
-      { label: "Website widget", cells: ["—", "—", "Included"] },
-      { label: "Branding", cells: ["—", "—", "Included"] },
-      { label: "Text message outreach", cells: ["—", "—", "Included"] },
-    ],
-  },
-  {
-    label: "After accept",
-    rows: [
-      "Account interviews",
-      "Follow-up questions",
-      "Supporting documents",
-      "Written draft during review",
-      "Markup and review",
-    ].map((label) => ({
-      label,
-      cells: ["Included", "Included", "Included"] as const,
-    })),
-  },
-  {
-    label: "Templates",
-    rows: ["Lead type creation", "Account template creation"].map(
-      (label) => ({
-        label,
-        cells: ["—", "Included", "Included"] as const,
-      }),
-    ),
-  },
-  {
-    label: "AI",
-    rows: [
-      "Facts and gaps",
-      "AI document review",
-      "Evidence descriptions",
-      "AI template drafting",
-    ].map((label) => ({
-      label,
-      cells: ["—", "Included", "Included"] as const,
-    })),
-  },
-  {
-    label: "Record",
-    rows: [
-      "Activity trail",
-      "Signature certificates",
-      "Notes",
-      "Reminders",
-    ].map((label) => ({
-      label,
-      cells: ["Included", "Included", "Included"] as const,
-    })),
   },
 ] as const;
 
@@ -137,7 +62,7 @@ export default function Home() {
         <MarketingShell className="relative">
           <Reveal eager>
             <h1 className="max-w-[11ch] font-display text-5xl font-normal leading-[1.05] text-primary sm:text-7xl lg:text-[92px]">
-              New enquiries without the chasing.
+              Leads worth opening.
             </h1>
             <svg
               viewBox="0 0 220 16"
@@ -155,8 +80,8 @@ export default function Home() {
           </Reveal>
           <Reveal eager>
             <p className="mt-8 max-w-md text-lg leading-8 text-primary/80 lg:ml-[42%]">
-              Casey is the first conversation. The firm accepts the lead, then
-              the fuller account comes in for review.
+              Casey answers the person first and puts a qualified lead on
+              the feed. You pay for the ones you accept. Seats are included.
             </p>
           </Reveal>
           <Reveal eager>
@@ -169,7 +94,7 @@ export default function Home() {
         <Reveal>
           <MarketingHeading
             eyebrow="The promise"
-            title="Casey qualifies the enquiry, takes the fuller account after you accept, and leaves the written draft for review."
+            title="The story, the evidence, and the gaps."
           />
         </Reveal>
         <Reveal className="mt-14">
@@ -182,26 +107,26 @@ export default function Home() {
           <Reveal>
             <MarketingHeading
               eyebrow={`About ${env.NEXT_PUBLIC_APP_NAME}`}
-              title="Fill the gaps."
-              description="A short qualification chat, then a fuller account once the firm accepts. Solicitors prepare the written draft during review."
+              title="Hours back for the work only a solicitor can do."
+              description="The first conversation happens before anyone at the firm picks it up."
             />
             <div className="mt-10 grid gap-8 sm:grid-cols-2">
               {[
                 {
-                  title: "Qualify",
-                  body: "Casey asks for the contact and what happened. Incomplete chats stay off the firm feed.",
+                  title: "After hours",
+                  body: "An enquiry at 9pm gets an answer, and waits on the feed until morning.",
                 },
                 {
-                  title: "Account",
-                  body: "After accept, photos, records and other people come in with the fuller account.",
+                  title: "Your questions",
+                  body: "Each lead type asks for the facts that matter to that claim.",
                 },
                 {
-                  title: "Draft",
-                  body: "The firm prepares the written account during review. The chat does not draft it.",
+                  title: "Your reasons",
+                  body: "When a lead does not fit, the firm records why and moves on.",
                 },
                 {
-                  title: "Gaps",
-                  body: "Missing dates, names and documents show up before review, not after a solicitor has started reconstructing them.",
+                  title: "Your page",
+                  body: "The chat carries the firm's name, lead types, and wording.",
                 },
               ].map((item) => (
                 <div key={item.title}>
@@ -225,7 +150,7 @@ export default function Home() {
         <Reveal>
           <MarketingHeading
             eyebrow="How Casey works"
-            title="Solicitors keep the judgement."
+            title="Then the file is yours."
           />
         </Reveal>
         <ol className="mt-12 border-t border-primary/15">
@@ -256,8 +181,8 @@ export default function Home() {
           <Reveal>
             <MarketingHeading
               eyebrow="The first draft"
-              title="Turn the evidence into a first draft."
-              description="The account, the evidence and the other people are already on the lead. Solicitors prepare the written draft during review."
+              title="Review opens on a real file."
+              description="Dates, exhibits, and the gap list are already there. Solicitors write the draft."
             />
           </Reveal>
           <Reveal>
@@ -270,7 +195,7 @@ export default function Home() {
         <Reveal>
           <MarketingHeading
             eyebrow="Go Deeper"
-            title="See how the first conversation works."
+            title="See the product, the safeguards, and how to start."
           />
         </Reveal>
         <div className="mt-10 border-t border-primary/15">
@@ -305,80 +230,12 @@ export default function Home() {
         <Reveal>
           <MarketingHeading
             eyebrow="Pricing"
-            title="Try for free."
-            description="Accept three leads for free. See how the first conversation fits your intake."
+            title="Pay for accepted leads."
+            description="3 free. Starter is £149/month. Growth is £349/month. Seats are included."
           />
         </Reveal>
         <Reveal className="mt-12">
-          <div className="overflow-x-auto rounded-2xl border border-primary/15">
-            <table className="w-full min-w-[720px] table-fixed border-collapse text-left">
-              <colgroup>
-                <col className="w-1/4" />
-                <col className="w-1/4" />
-                <col className="w-1/4" />
-                <col className="w-1/4" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className="border-b border-primary/15 p-5" />
-                  {pricingPlans.map((plan) => (
-                    <th
-                      key={plan.name}
-                      className={`border-b border-primary/15 p-5 text-center align-bottom ${plan.name === "Growth" ? "bg-primary/[0.04]" : ""}`}
-                    >
-                      <p className="font-display text-xl text-white">
-                        {plan.name}
-                      </p>
-                      <p className="mt-2 font-display text-3xl text-white">
-                        {plan.amount}
-                        {plan.unit ? (
-                          <span className="ml-1 text-base font-sans text-white/50">
-                            {plan.unit}
-                          </span>
-                        ) : null}
-                      </p>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {pricingGroups.map((group) => (
-                  <Fragment key={group.label}>
-                    <tr className="border-t border-primary/15">
-                      <th
-                        colSpan={4}
-                        className="bg-primary/[0.03] px-5 py-3 text-left font-display text-lg italic text-white"
-                      >
-                        {group.label}
-                      </th>
-                    </tr>
-                    {group.rows.map((row) => (
-                      <tr key={row.label} className="border-t border-primary/10">
-                        <th className="p-5 text-sm font-medium text-white">
-                          {row.label}
-                        </th>
-                        {row.cells.map((cell, index) => (
-                          <td
-                            key={`${row.label}-${pricingPlans[index].name}`}
-                            className={`p-5 text-sm leading-6 text-white ${pricingPlans[index].name === "Growth" ? "bg-primary/[0.04]" : ""}`}
-                          >
-                            {cell === "Included" ? (
-                              <Check
-                                className="h-4 w-4 text-white"
-                                aria-label="Included"
-                              />
-                            ) : (
-                              cell
-                            )}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <PricingTable />
         </Reveal>
       </MarketingSection>
 

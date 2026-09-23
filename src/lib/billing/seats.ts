@@ -1,5 +1,5 @@
 import { getServiceClient } from "@/lib/supabase/server";
-import { isTenantPlan, normalizeTenantPlan, seatCapForPlan } from "@/lib/billing/plans";
+import { isTenantPlan, seatCapForPlan } from "@/lib/billing/plans";
 
 export async function getTenantSeatUsage(tenantId: string) {
   const supabase = getServiceClient("tenant-seat-usage");
@@ -53,13 +53,11 @@ export async function assertTenantHasSeat(params: {
   }
 
   const plan = isTenantPlan(tenant.plan) ? tenant.plan : "trial";
-  const limit = seatCapForPlan(plan, tenant.seat_limit);
+  const limit = seatCapForPlan(plan);
+  if (limit == null) return;
   const used = await getTenantSeatUsage(params.tenantId);
   if (used >= limit) {
-    const message =
-      normalizeTenantPlan(plan) === "growth"
-        ? `This workspace includes ${limit} people.`
-        : "This workspace includes five people.";
+    const message = `This plan includes ${limit} seats.`;
     const seatError = new Error(message);
     (seatError as Error & { status?: number }).status = 409;
     throw seatError;

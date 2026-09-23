@@ -13,54 +13,54 @@ import { env } from "@/lib/env";
 export const metadata = {
   title: `Platform | ${env.NEXT_PUBLIC_APP_NAME}`,
   description:
-    "Casey qualifies the enquiry, then takes the fuller account after the firm accepts. Solicitors prepare the written draft during review.",
+    "One lead, from the public page to review: the feed, the account, the exhibits, and the gap list.",
 };
 
 const pillars = [
   {
     label: "Intake",
-    title: "Fill the gaps",
-    body: "The enquiry starts on your hosted page, or on Growth the website widget. Casey asks for the contact and what happened before it reaches the firm feed.",
+    title: "A page for each lead type",
+    body: "Personal injury, accident at work, clinical negligence: each type has its own questions. Several types can share one link.",
   },
   {
-    label: "Capture",
-    title: "The next useful question.",
-    body: "After the firm accepts, the chat asks for the fuller account, the evidence, and anyone else who should be contacted.",
+    label: "Decision",
+    title: "A feed of finished enquiries",
+    body: "Accept a lead onto the file, or decline it with a reason the firm wrote. Half-finished chats stay out of the feed.",
   },
   {
-    label: "Draft",
-    title: "Turn the evidence into a first draft",
-    body: "The written draft is a firm action during review. Solicitors work from the account and the evidence, not from a chat that drafted itself.",
+    label: "Evidence",
+    title: "Exhibits travel with the account",
+    body: "Photos, treatment records, and the other people on the matter are requested once you accept.",
   },
   {
     label: "Gaps",
-    title: "Find what's missing before review",
-    body: "Chronology, conflicting accounts and missing evidence sit beside the draft, so solicitors see the gaps before they sit down.",
+    title: "Conflicts show up early",
+    body: "Missing dates, unsupported detail, and documents that were never sent are marked on the lead.",
   },
   {
-    label: "Review",
-    title: "Start from a statement you can mark up",
-    body: "Wording, source context and exhibits stay together. Review is markup, not reconstruction.",
+    label: "Draft",
+    title: "The statement is written in review",
+    body: "Solicitors prepare the draft with the account and the exhibits beside it.",
   },
   {
     label: "Team",
-    title: "Give solicitors more time for their best thinking",
-    body: "Open leads, notes and the trail of what happened stay on the file. Judgement stays with you.",
+    title: "Seats come with the plan",
+    body: "Trial includes 5 seats. Starter includes 10. Growth includes unlimited seats.",
   },
 ] as const;
 
 const roles = [
   {
     title: "Paralegals",
-    body: "Watch the enquiry come in, accept it, and hand solicitors an account instead of a blank file.",
+    body: "Work the feed, accept what fits, and chase the exhibits that are still outstanding.",
   },
   {
     title: "Solicitors",
-    body: "Prepare the written draft during review, with the evidence and the gaps in view.",
+    body: "Open a lead that already has an account, exhibits, and a gap list. Spend the hour on the draft.",
   },
   {
     title: "Admins",
-    body: "Keep lead types, account templates, people and access in one place.",
+    body: "Publish lead types, set the hosted page, and invite the team. Seats are included with the plan.",
   },
 ] as const;
 
@@ -69,8 +69,8 @@ export default function PlatformPage() {
     <MarketingPage>
       <MarketingPageHero
         eyebrow="Platform"
-        title="Ask. Gather. Find the gaps. Draft."
-        description="Casey qualifies the enquiry, then takes the fuller account after the firm accepts. Solicitors prepare the written draft during review."
+        title="One lead, from the public page to review."
+        description="The feed, the account, the exhibits, and the gap list stay on the same matter. Paralegals, solicitors, and admins work from that file."
       />
 
       <MarketingPageSection eyebrow="What Casey does">
@@ -105,13 +105,14 @@ export default function PlatformPage() {
       </MarketingPageSection>
 
       <MarketingPageSection
-        eyebrow="From link to review"
-        title="Casey qualifies the enquiry, takes the fuller account after you accept, and leaves the written draft for review."
+        eyebrow="On the file"
+        title="Accept it, and the rest of the matter stays attached."
+        description="A photo, the other person's name, and the missing treatment date sit on the same lead as the account."
       />
 
       <MarketingPageSection
         eyebrow="Teams"
-        title="Give solicitors more time for their best thinking."
+        title="Same lead. A different job for each role."
       >
         <ul className="border-t border-primary/15">
           {roles.map((item) => (
@@ -129,8 +130,8 @@ export default function PlatformPage() {
       </MarketingPageSection>
 
       <MarketingPageCta
-        title="Your solicitors deserve their best thinking."
-        description="Bring a matter. We will show where Casey takes that work off your team."
+        title="Bring one enquiry. See the file."
+        description="We will run it through Casey and show what lands in front of the team."
       >
         <Link
           href="/legal/security"

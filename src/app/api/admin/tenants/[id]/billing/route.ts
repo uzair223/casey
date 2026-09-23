@@ -7,12 +7,12 @@ import {
   ok,
   serverError,
 } from "@/lib/api-utils";
+import { storedSeatLimit } from "@/lib/billing/plans";
 import { getTenantSeatUsage } from "@/lib/billing/seats";
 import { getServiceClient } from "@/lib/supabase/server";
 
 const BodySchema = z.object({
   action: z.literal("save_order"),
-  seatLimit: z.number().int().min(1).max(500).optional(),
   dpaSigned: z.boolean().optional(),
   orderFirmName: z.string().trim().min(1).optional(),
   orderStartDate: z.string().trim().optional(),
@@ -69,7 +69,7 @@ export async function POST(
       return notFound("Organisation not found");
     }
 
-    const seatLimit = parsed.data.seatLimit ?? tenant.seat_limit;
+    const seatLimit = storedSeatLimit(tenant.plan);
     const orderFirmName =
       parsed.data.orderFirmName ?? tenant.order_firm_name ?? tenant.name;
     const orderStartDate =

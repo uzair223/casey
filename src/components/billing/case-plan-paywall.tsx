@@ -31,7 +31,7 @@ export function CasePlanPaywall({
         </p>
         <p className="text-sm text-muted-foreground">
           {needsPlan
-            ? "The first three accepted leads are included. The next one needs a plan."
+            ? "The first 3 accepted leads are included. The next one needs a plan."
             : `£${EXTRA_LEAD_PRICE_GBP} accepts another lead.`}
         </p>
       </div>
@@ -44,14 +44,14 @@ export function CasePlanPaywall({
                 onClick={() => startPlanCheckout({ kind: "starter" })}
                 pendingText="Opening Stripe..."
               >
-                Starter · £{STARTER_PRICE_GBP} a month
+                Starter · £{STARTER_PRICE_GBP}/month
               </AsyncButton>
               <AsyncButton
                 variant="outline"
                 onClick={() => startPlanCheckout({ kind: "growth" })}
                 pendingText="Opening Stripe..."
               >
-                Growth · £{GROWTH_PRICE_GBP} a month
+                Growth · £{GROWTH_PRICE_GBP}/month
               </AsyncButton>
             </>
           ) : (

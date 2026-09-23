@@ -33,7 +33,7 @@ import { NotificationPreferencesCard } from "@/components/settings/notification-
 import { getURL } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { startPlanCheckout } from "@/lib/billing/client";
-import { planLabel } from "@/lib/billing/plans";
+import { planLabel, seatAllowanceLabel } from "@/lib/billing/plans";
 import { LeadChannelCard } from "@/components/leads/lead-channel-card";
 
 export default function TenantSettingsPage() {
@@ -527,7 +527,7 @@ export default function TenantSettingsPage() {
                   <p className="text-sm text-muted-foreground">
                     {seatLimit == null
                       ? "The plan is managed by Casey."
-                      : `${planLabel(plan)}. Accepted leads are billed on this plan. ${seatLimit} people included. Billing status: ${billingStatus ?? "trial"}.`}
+                      : `${planLabel(plan)} · ${seatAllowanceLabel(plan)} · Billing: ${billingStatus ?? "trial"}. Accepted leads are billed on this plan.`}
                   </p>
                   <div className="flex flex-wrap gap-2 pt-2">
                     <AsyncButton

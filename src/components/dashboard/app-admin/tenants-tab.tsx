@@ -45,6 +45,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { seatAllowanceLabel } from "@/lib/billing/plans";
 import type { TenantWithCounts } from "@/types";
 
 type AppAdminTenantsTabProps = {
@@ -57,7 +58,6 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
   const [billingTenant, setBillingTenant] = useState<TenantWithCounts | null>(
     null,
   );
-  const [seatLimit, setSeatLimit] = useState("5");
   const [orderFirmName, setOrderFirmName] = useState("");
   const [orderStartDate, setOrderStartDate] = useState(
     new Date().toISOString().slice(0, 10),
@@ -151,7 +151,6 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
 
   const openBilling = (tenant: TenantWithCounts) => {
     setBillingTenant(tenant);
-    setSeatLimit(String(tenant.seatLimit || 5));
     setOrderFirmName(tenant.name);
     setOrderStartDate(new Date().toISOString().slice(0, 10));
     setDpaSigned(Boolean(tenant.dpaSignedAt));
@@ -163,7 +162,6 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
       method: "POST",
       body: JSON.stringify({
         action: "save_order",
-        seatLimit: Number(seatLimit),
         dpaSigned,
         orderFirmName,
         orderStartDate,
@@ -284,8 +282,8 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
                         {tenant.softDeletedAt ? "Archived" : "Active"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {tenant.plan} · {tenant.billingStatus} · {tenant.seatLimit}{" "}
-                        people
+                        {tenant.plan} · {tenant.billingStatus} ·{" "}
+                        {seatAllowanceLabel(tenant.plan)}
                       </TableCell>
                       <TableCell>{tenant.userCount}</TableCell>
                       <TableCell>{tenant.statementCount}</TableCell>
@@ -347,7 +345,7 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
               Invoice {billingTenant?.name ?? "organisation"}
             </DialogTitle>
             <DialogDescription>
-              Record the order form. The firm accepts three leads free, then
+              Record the order form. The firm accepts 3 leads free, then
               chooses Starter or Growth in the product.
             </DialogDescription>
           </DialogHeader>
@@ -369,12 +367,9 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium">Seats</p>
-              <Input
-                type="number"
-                min={1}
-                value={seatLimit}
-                onChange={(event) => setSeatLimit(event.target.value)}
-              />
+              <p className="text-sm text-muted-foreground">
+                {seatAllowanceLabel(billingTenant?.plan)}
+              </p>
             </div>
             <label className="flex items-start gap-2 text-sm">
               <input

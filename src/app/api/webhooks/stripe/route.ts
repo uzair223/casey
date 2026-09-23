@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 
 import { env } from "@/lib/env";
 import { getStripe } from "@/lib/billing/stripe";
-import { STARTER_INCLUDED_USERS, GROWTH_INCLUDED_USERS, normalizeTenantPlan } from "@/lib/billing/plans";
+import { normalizeTenantPlan, storedSeatLimit } from "@/lib/billing/plans";
 import { getServiceClient } from "@/lib/supabase/server";
 
 function billingStatusFromStripe(status: string | null | undefined) {
@@ -34,15 +34,6 @@ function periodStartIso(subscription: Stripe.Subscription) {
   const start = subscription.items.data[0]?.current_period_start;
   if (!start) return null;
   return new Date(start * 1000).toISOString();
-}
-
-function seatLimitFor(
-  plan: "starter" | "growth",
-  subscription: Stripe.Subscription,
-) {
-  if (plan === "starter") return STARTER_INCLUDED_USERS;
-  const metadataLimit = Number(subscription.metadata?.seatLimit || 0);
-  return Math.max(GROWTH_INCLUDED_USERS, metadataLimit || 0);
 }
 
 export async function POST(request: Request) {
@@ -131,7 +122,7 @@ export async function POST(request: Request) {
         periodStart = periodStartIso(subscription);
         const subscriptionPlan = planFromSubscription(subscription) ?? plan;
         if (subscriptionPlan) {
-          seatLimit = seatLimitFor(subscriptionPlan, subscription);
+          seatLimit = storedSeatLimit(subscriptionPlan);
         }
       }
 
@@ -148,8 +139,7 @@ export async function POST(request: Request) {
             typeof session.customer === "string" ? session.customer : null,
           stripe_subscription_id: subscriptionId,
           billing_status: billingStatus,
-          ...(plan ? { plan } : {}),
-          ...(seatLimit > 0 ? { seat_limit: seatLimit } : {}),
+          ...(plan ? { plan, seat_limit: seatLimit } : {}),
           ...(periodStart ? { billing_period_start: periodStart } : {}),
         })
         .eq("id", tenantId);
@@ -194,7 +184,7 @@ export async function POST(request: Request) {
             billing_status: nextStatus,
             stripe_subscription_id: subscription.id,
             ...(plan
-              ? { plan, seat_limit: seatLimitFor(plan, subscription) }
+              ? { plan, seat_limit: storedSeatLimit(plan) }
               : {}),
             ...(periodStart ? { billing_period_start: periodStart } : {}),
           })

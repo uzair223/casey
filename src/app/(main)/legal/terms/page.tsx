@@ -62,7 +62,7 @@ const limitations = [
   "Platform outputs are workflow aids and should not replace professional judgement",
   "Access to beta, preview, or early-access functionality may change as the product develops",
   "Service availability may depend on hosting, identity, database, storage, email, and other third-party providers",
-  "The first three accepted leads are free, then Starter at £149 a month or Growth at £349 a month, and £15 for an accepted lead past the monthly allowance",
+  "The first 3 accepted leads are free, then Starter at £149/month or Growth at £349/month, and £15 for an accepted lead past the monthly allowance",
   "Fees are non-refundable except where the law requires it. Unpaid billing stops accepting new leads only",
   "Liability is limited to the fees paid for the affected subscription period, except for death, personal injury, or fraud",
 ] as const;
@@ -157,9 +157,9 @@ export default function TermsPage() {
                 <p>
                   These public terms are a general summary and may be superseded
                   by a signed agreement, order form, data-processing addendum,
-                  or other written terms agreed with Casey. The first three
-                  accepted leads are free, then Starter at £149 a month or
-                  Growth at £349 a month, and £15 for an accepted lead past
+                  or other written terms agreed with Casey. The first 3
+                  accepted leads are free, then Starter at £149/month or
+                  Growth at £349/month, and £15 for an accepted lead past
                   the monthly allowance.
                   Generated content must be reviewed by a qualified legal
                   professional before it is filed or relied on.
