@@ -106,6 +106,8 @@ async function main() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  await emptyStorage(supabase);
+
   for (const template of SEEDED_STATEMENT_TEMPLATES) {
     const blob = await generateStarterDoc({
       templateName: template.name,
@@ -199,6 +201,20 @@ async function main() {
 
   await ensureAppAdmin(supabase, password);
   console.log(`Templates seeded. App admin ready for ${APP_ADMIN_EMAIL}.`);
+}
+
+async function emptyStorage(supabase: ReturnType<typeof createClient<Database>>) {
+  const { data: buckets, error } = await supabase.storage.listBuckets();
+  if (error) {
+    throw error;
+  }
+
+  for (const bucket of buckets ?? []) {
+    const { error: emptyError } = await supabase.storage.emptyBucket(bucket.id);
+    if (emptyError) {
+      throw emptyError;
+    }
+  }
 }
 
 async function ensureAppAdmin(

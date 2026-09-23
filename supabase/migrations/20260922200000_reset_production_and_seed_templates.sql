@@ -17,7 +17,15 @@ BEGIN
   END IF;
 END $$;
 
-DELETE FROM storage.objects;
+-- Hosted Storage rejects DELETE on storage.objects. Clear files with the
+-- Storage API in scripts/seed-production.ts, which deploy runs after this.
+DO $$
+BEGIN
+  DELETE FROM storage.objects;
+EXCEPTION
+  WHEN SQLSTATE '42501' THEN
+    NULL;
+END $$;
 
 DELETE FROM auth.users;
 

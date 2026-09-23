@@ -75,6 +75,8 @@ jobs:
       - run: npm ci
       - name: Apply Supabase migrations
         run: npm run supabase:push
+      - name: Seed templates and clear storage
+        run: npm run seed:production
       - name: Deploy Cloudflare Worker
         env:
           NODE_ENV: production
