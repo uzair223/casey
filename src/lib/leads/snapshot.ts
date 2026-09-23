@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
