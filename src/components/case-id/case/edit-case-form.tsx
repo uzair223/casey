@@ -196,7 +196,7 @@ export function EditCaseForm(props: EditCaseFormProps) {
         {/* Dynamic case metadata fields */}
         {caseTemplateConfig?.dynamicFields?.length ? (
           <div className="space-y-4 pt-2">
-            <h3 className="text-sm font-semibold mb-2">Case metadata</h3>
+            <h3 className="text-sm font-semibold mb-2">Lead details</h3>
             <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
               {caseTemplateConfig.dynamicFields.map((field) => (
                 <RhfField
@@ -230,7 +230,7 @@ export function EditCaseForm(props: EditCaseFormProps) {
         ) : null}
         <div className="flex items-center gap-2 pt-2">
           <AsyncButton type="submit" pendingText="Saving...">
-            Save case
+            Save lead
           </AsyncButton>
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel

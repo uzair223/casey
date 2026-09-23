@@ -358,22 +358,28 @@ export default function FinalReviewPage({
               title="Thank you for signing your statement"
               description="Your signed submission has been received and will be reviewed by the legal team."
             />
-          ) : (
+          ) : finalReview.data.canSign ? (
             <PageTitle
               subtitle="Final signature required"
               title="Review and sign your statement"
               description={`${finalReview.data.witnessName}, please review the finalized statement and supporting evidence for ${finalReview.data.caseTitle}.`}
             />
+          ) : (
+            <PageTitle
+              subtitle="Final review"
+              title="This account is not currently ready for a final signature."
+              description="The firm prepares the written draft during review. You can sign once that draft is ready."
+            />
           )}
         </CardHeader>
         <CardContent className="space-y-5">
-          {!signedOff && embedSrc ? (
+          {!signedOff && finalReview.data.canSign && embedSrc ? (
             <DocusealEmbed
               src={embedSrc}
               email={finalReview.data.witnessEmail}
               onComplete={onDocusealComplete}
             />
-          ) : !signedOff ? (
+          ) : !signedOff && finalReview.data.canSign ? (
             <div className="space-y-3">
               <label className="flex items-start gap-2 text-sm">
                 <input
@@ -420,16 +426,7 @@ export default function FinalReviewPage({
                 </SignaturePadProvider>
               )}
             </div>
-          ) : finalReview.data.canSign ? null : (
-            <Card variant="warning">
-              <CardHeader>
-                <CardTitle className="text-sm">
-                  This account is not currently ready for a final
-                  signature.
-                </CardTitle>
-              </CardHeader>
-            </Card>
-          )}
+          ) : null}
 
           {documentBlob && documentIsPdf && documentUrl ? (
             <iframe

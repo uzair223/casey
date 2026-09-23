@@ -183,7 +183,7 @@ function SummaryTab({ analysis }: { analysis: CaseAnalysis }) {
           <p className="text-lg font-semibold">
             {completenessLabel(analysis.completeness.level)}
           </p>
-          <p className="text-xs text-muted-foreground">Case completeness</p>
+          <p className="text-xs text-muted-foreground">Lead completeness</p>
         </div>
       ) : null}
       <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
@@ -359,7 +359,7 @@ function EvidenceTab({ analysis }: { analysis: CaseAnalysis }) {
       </div>
 
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold">Case themes</h3>
+        <h3 className="text-sm font-semibold">Lead themes</h3>
         {analysis.caseThemes.length ? (
           analysis.caseThemes.map((item, index) => (
             <div

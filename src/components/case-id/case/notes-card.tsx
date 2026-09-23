@@ -241,7 +241,7 @@ export function CaseNotesCard({
                 <SelectValue placeholder="Reference" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={GENERAL_REFERENCE}>General case</SelectItem>
+                <SelectItem value={GENERAL_REFERENCE}>General lead</SelectItem>
                 {statements.map((statement) => (
                   <SelectItem key={statement.id} value={statement.id}>
                     {getStatementLabel(statement)}
@@ -301,7 +301,7 @@ export function CaseNotesCard({
                     <Badge variant="outline">
                       {note.statement_id
                         ? getStatementLabel(statementMap.get(note.statement_id))
-                        : "General case"}
+                        : "General lead"}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">

@@ -937,7 +937,7 @@ export default function DemoStudioPage() {
 
                 {caseTemplateFields.length > 0 && (
                   <div className="md:col-span-2 pt-2">
-                    <p className="text-sm font-medium">Case Fields</p>
+                    <p className="text-sm font-medium">Lead fields</p>
                   </div>
                 )}
 
@@ -1151,7 +1151,7 @@ export default function DemoStudioPage() {
               <thead className="bg-muted/50 text-left text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Case</th>
+                  <th className="px-3 py-2">Lead</th>
                   <th className="px-3 py-2">Witness</th>
                   <th className="px-3 py-2">Created</th>
                   <th className="px-3 py-2">Actions</th>

@@ -118,25 +118,31 @@ export async function POST(request: Request, { params }: RouteContext) {
       });
 
       const email = lead.contact_email || lead.witness_email;
+      let delivered = false;
       if (email && email !== "pending") {
         const { data: tenant } = await supabase
           .from("tenants")
           .select("name")
           .eq("id", auth.tenantId)
           .maybeSingle();
-        await sendStatementLinkEmail({
-          to: email,
-          tenantName: tenant?.name ?? "Casey",
-          witnessName: lead.witness_name,
-          caseTitle: lead.title,
-          statementUrl: `${env.NEXT_PUBLIC_BASE_URL}/intake/${token}`,
-          firmMessage:
-            "The firm has accepted your enquiry. Use this link to give the fuller account, including any evidence and other people.",
-          reason: "initial_intake",
-        });
+        try {
+          await sendStatementLinkEmail({
+            to: email,
+            tenantName: tenant?.name ?? "Casey",
+            witnessName: lead.witness_name,
+            caseTitle: lead.title,
+            statementUrl: `${env.NEXT_PUBLIC_BASE_URL}/intake/${token}`,
+            firmMessage:
+              "The firm has accepted your enquiry. Use this link to give the fuller account, including any evidence and other people.",
+            reason: "initial_intake",
+          });
+          delivered = true;
+        } catch (emailError) {
+          console.error("Accepted-lead continuation email failed", emailError);
+        }
       }
 
-      return ok({ id: lead.id, lead_stage: "intake" });
+      return ok({ id: lead.id, lead_stage: "intake", delivered });
     } catch (acceptError) {
       if (reserved.consumedCredits != null) {
         await supabase

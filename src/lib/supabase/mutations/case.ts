@@ -5,6 +5,7 @@ import {
   freezeStatementConfig,
   statementTemplateIdForRole,
 } from "@/lib/leads/snapshot";
+import { generateSecureToken } from "@/lib/security";
 import { createCaseConfigSnapshot } from "./case-template";
 import { deleteStorageFolders } from "../storage-cleanup";
 
@@ -25,21 +26,30 @@ function resolveCaseTitleFromTemplate(params: {
   caseIndex: number;
   caseMetadata?: Record<string, string | number | null | undefined>;
 }): string {
-  return params.titleTemplate
+  let sawToken = false;
+  let sawValue = false;
+  const resolved = params.titleTemplate
     .replace(/\{([^{}]+)\}/g, (_match, token) => {
       const key = String(token).trim();
       if (!key) {
         return "";
       }
+      sawToken = true;
 
       if (key === "caseIndex") {
+        sawValue = true;
         return String(params.caseIndex);
       }
 
-      return normalizeCaseMetadataValue(params.caseMetadata?.[key]);
+      const value = normalizeCaseMetadataValue(params.caseMetadata?.[key]);
+      if (value) sawValue = true;
+      return value;
     })
     .replace(/\s+/g, " ")
     .trim();
+
+  if (sawToken && !sawValue) return "";
+  return resolved;
 }
 
 async function resolveCaseTitle(params: {
@@ -86,14 +96,16 @@ async function resolveCaseTitle(params: {
     return explicit;
   }
 
-  const templateSource = explicit || titleTemplate;
+  const templateSource = explicit && /[{}]/.test(explicit) ? explicit : titleTemplate;
   const resolved = resolveCaseTitleFromTemplate({
     titleTemplate: templateSource,
     caseIndex,
     caseMetadata: params.caseMetadata,
   });
 
-  return resolved || explicit || "Case";
+  if (resolved) return resolved;
+  if (explicit && !/[{}]/.test(explicit)) return explicit;
+  return `Lead ${caseIndex}`;
 }
 
 const deriveCaseStatusFromWitnessStatuses = (
@@ -316,6 +328,16 @@ export async function createCase(
         tenantId: payload.tenant_id,
         templateId,
       });
+
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+      const { error: linkError } = await supabase.from("magic_links").insert({
+        token: generateSecureToken(),
+        statement_id: primary.id,
+        tenant_id: payload.tenant_id,
+        expires_at: expiresAt.toISOString(),
+      });
+      if (linkError) throw linkError;
     }
   } catch (snapshotError) {
     await supabase.from("cases").delete().eq("id", createdCase.id);

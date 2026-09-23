@@ -105,8 +105,8 @@ export async function POST(
         notificationType: "statement_final_review_requested",
         entityType: "statement",
         entityId: statementId,
-        title: "Final review sent to witness",
-        body: `Finalized statement for ${statement.witness_name || "witness"} was sent for final signature in ${memberRecipients.statementTitle}.`,
+        title: "Final review sent",
+        body: `The written account for ${statement.witness_name || "this person"} was sent for a final signature on ${memberRecipients.statementTitle}.`,
         linkPath: `/cases/${memberRecipients.caseId}?statement=${statementId}`,
         metadata: {
           witnessName: statement.witness_name,

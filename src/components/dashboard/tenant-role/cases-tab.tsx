@@ -156,7 +156,7 @@ export function TenantRoleCasesTab() {
                         <div className="flex justify-end gap-2">
                           <Button asChild variant="outline" size="sm">
                             <Link href={`/cases/${caseItem.id}`}>
-                              View case
+                              View lead
                             </Link>
                           </Button>
                           <AsyncButton
@@ -165,7 +165,7 @@ export function TenantRoleCasesTab() {
                             onClick={() => handleDeleteCase(caseItem.id)}
                             pendingText="Deleting..."
                           >
-                            Delete case
+                            Delete lead
                           </AsyncButton>
                         </div>
                       </TableCell>

@@ -6,8 +6,8 @@ import {
 } from "@/lib/api-utils";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import {
+  SERVERONLY_getConversationHistory,
   SERVERONLY_getStatementWithConfigFromToken,
-  getConversationHistory,
 } from "@/lib/supabase/queries";
 import {
   SERVERONLY_saveConversationMessage,
@@ -75,7 +75,7 @@ export async function GET(
       return accessError;
     }
 
-    const history = await getConversationHistory(statement.id);
+    const history = await SERVERONLY_getConversationHistory(statement.id);
     const followUp = getLatestFollowUpRequest(history);
 
     if (!followUp) {

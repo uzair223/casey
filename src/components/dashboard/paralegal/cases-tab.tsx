@@ -148,7 +148,7 @@ export function ParalegalCasesTab() {
                   </TableCell>
                   <TableCell className="text-right">
                     <Button asChild variant="outline" size="sm">
-                      <Link href={`/cases/${caseItem.id}`}>View case</Link>
+                      <Link href={`/cases/${caseItem.id}`}>View lead</Link>
                     </Button>
                   </TableCell>
                 </TableRow>

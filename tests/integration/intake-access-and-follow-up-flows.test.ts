@@ -6,7 +6,7 @@ const SERVERONLY_getFullStatementFromToken = vi.fn();
 const SERVERONLY_getStatementWithConfigFromToken = vi.fn();
 const SERVERONLY_acknowledgeStatementNoticeByToken = vi.fn();
 const SERVERONLY_saveConversationMessage = vi.fn();
-const getConversationHistory = vi.fn();
+const SERVERONLY_getConversationHistory = vi.fn();
 const getIntakeAccessError = vi.fn();
 const enforcePersistentRateLimit = vi.fn();
 const getServiceClient = vi.fn();
@@ -14,7 +14,7 @@ const getServiceClient = vi.fn();
 vi.mock("@/lib/supabase/queries", () => ({
   SERVERONLY_getFullStatementFromToken,
   SERVERONLY_getStatementWithConfigFromToken,
-  getConversationHistory,
+  SERVERONLY_getConversationHistory,
 }));
 
 vi.mock("@/lib/supabase/mutations", () => ({
@@ -122,7 +122,7 @@ describe("intake access and follow-up flows", () => {
       witness_name: "Casey Witness",
       status: "in_progress",
     });
-    getConversationHistory.mockResolvedValue([
+    SERVERONLY_getConversationHistory.mockResolvedValue([
       {
         id: "older-user",
         role: "user",

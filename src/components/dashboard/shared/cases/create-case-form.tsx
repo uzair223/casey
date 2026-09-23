@@ -93,6 +93,11 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
       return;
     }
 
+    const current = formMethods.getValues("title")?.trim() ?? "";
+    if (current && !/[{}]/.test(current)) {
+      return;
+    }
+
     formMethods.setValue("title", titleTemplate, {
       shouldDirty: false,
       shouldValidate: true,

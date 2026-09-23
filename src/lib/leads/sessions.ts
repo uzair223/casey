@@ -137,7 +137,7 @@ async function issueCode(params: {
       );
       return { delivered: true as const, devCode };
     }
-  } catch (error) {
+  } catch {
     await supabase
       .from("lead_sessions")
       .update({
@@ -146,7 +146,7 @@ async function issueCode(params: {
         contact_code_expires_at: null,
       })
       .eq("id", params.sessionId);
-    throw error;
+    return { delivered: false as const, devCode: undefined };
   }
 
   await supabase
