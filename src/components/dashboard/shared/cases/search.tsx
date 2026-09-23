@@ -29,12 +29,12 @@ export function CaseSearch({
     <>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-2">
-          <Label htmlFor="caseSearch">Search cases</Label>
+          <Label htmlFor="caseSearch">Search leads</Label>
           <Input
             id="caseSearch"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search by Case name or witness"
+            placeholder="Search by lead name or person"
             className="max-w-md"
           />
         </div>

@@ -183,7 +183,7 @@ export const StatementConfigSchema = z
       .trim()
       .nullable()
       .describe(
-        "Who the model is in this interview, written by the firm. Example: You are interviewing the witness of a road traffic accident.",
+        "Who the model is in this interview, written by the firm. Example: You are taking an account of a road traffic accident. The firm prepares the written draft during review.",
       ),
 
     phases: z.array(StatementPhaseConfigSchema).describe(PHASES_DESCRIPTION),
@@ -264,7 +264,7 @@ export const StatementConfigPublishSchema = StatementConfigSchema.superRefine(
         ctx.addIssue({
           code: "custom",
           path: ["witnessMetadataFields", index],
-          message: "Witness metadata fields require both id and label.",
+          message: "Person details require both id and label.",
         });
         return;
       }
@@ -273,7 +273,7 @@ export const StatementConfigPublishSchema = StatementConfigSchema.superRefine(
         ctx.addIssue({
           code: "custom",
           path: ["witnessMetadataFields", index, "id"],
-          message: "Witness metadata field id must be unique.",
+          message: "Person detail ids must be unique.",
         });
       }
 

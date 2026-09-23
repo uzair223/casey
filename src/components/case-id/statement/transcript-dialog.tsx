@@ -73,7 +73,7 @@ function TranscriptContent({ statementId }: { statementId: string }) {
                 message.role === "user" && "ml-auto",
               )}
             >
-              {message.role === "assistant" ? "AI" : "Witness"}
+              {message.role === "assistant" ? "Casey" : "Person"}
             </span>
             <MessageCard message={message} key={message.id} />
           </React.Fragment>
@@ -96,7 +96,7 @@ export function TranscriptDialog({ statementId }: TranscriptDialogProps) {
         <DialogHeader>
           <DialogTitle>Interview transcript</DialogTitle>
           <DialogDescription>
-            Messages exchanged between the witness and AI assistant.
+            Messages exchanged while the account was taken.
           </DialogDescription>
         </DialogHeader>
 

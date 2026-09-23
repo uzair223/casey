@@ -21,14 +21,14 @@ import { env } from "@/lib/env";
 
 export const metadata = {
   title: `Terms of Service | ${env.NEXT_PUBLIC_APP_NAME}`,
-  description: `Terms of service for ${env.NEXT_PUBLIC_APP_NAME}, covering acceptable use, firm responsibilities, witness workflows, and platform limitations.`,
+  description: `Terms of service for ${env.NEXT_PUBLIC_APP_NAME}, covering acceptable use, firm responsibilities, lead intake, and platform limitations.`,
 };
 
 const highlights = [
   {
     icon: Scale,
     title: "For legal practice workflows",
-    body: "Casey is provided for firms and authorised users managing witness intake, statements, documents, and related legal workflow activity.",
+    body: "Casey is the firm's first contact. Authorised users qualify an enquiry, accept or decline the lead, then collect the fuller account, evidence, and other people.",
   },
   {
     icon: ShieldCheck,
@@ -43,9 +43,9 @@ const highlights = [
 ] as const;
 
 const acceptableUse = [
-  "Use the service only for lawful legal, administrative, and witness-management purposes",
+  "Use the service only for lawful legal and administrative purposes",
   "Keep account credentials secure and remove users who no longer need access",
-  "Share witness links only with the intended recipient and matter context",
+  "Share private account links only with the intended recipient and matter context",
   "Do not attempt to access data, accounts, links, files, or systems that are not assigned to you",
   "Do not upload malware, abusive material, or content that you are not authorised to process",
 ] as const;

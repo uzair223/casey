@@ -13,24 +13,24 @@ import { env } from "@/lib/env";
 export const metadata = {
   title: `Platform | ${env.NEXT_PUBLIC_APP_NAME}`,
   description:
-    "Casey interviews witnesses, gathers evidence and finds what's missing, so your solicitors start with a review-ready first draft.",
+    "Casey qualifies the enquiry, then takes the fuller account after the firm accepts. Solicitors prepare the written draft during review.",
 };
 
 const pillars = [
   {
     label: "Intake",
     title: "Fill the gaps",
-    body: "Send a private link from the matter. Casey interviews the witness, asks the follow-up questions, and collects supporting evidence while the account is still coming in.",
+    body: "The enquiry starts on your hosted page, or on Growth the website widget. Casey asks for the contact and what happened before it reaches the firm feed.",
   },
   {
     label: "Capture",
     title: "The next useful question.",
-    body: "The interview asks for chronology, missing details, and supporting documents before anyone on your team has to follow up.",
+    body: "After the firm accepts, the chat asks for the fuller account, the evidence, and anyone else who should be contacted.",
   },
   {
     label: "Draft",
     title: "Turn the evidence into a first draft",
-    body: "Interviews, transcripts and exhibits are condensed into a statement. Your solicitors tweak it instead of writing from scratch.",
+    body: "The written draft is a firm action during review. Solicitors work from the account and the evidence, not from a chat that drafted itself.",
   },
   {
     label: "Gaps",
@@ -45,22 +45,22 @@ const pillars = [
   {
     label: "Team",
     title: "Give solicitors more time for their best thinking",
-    body: "Outstanding witness work, notes and a trail of what happened stay on the matter. Judgement stays with you.",
+    body: "Open leads, notes and the trail of what happened stay on the file. Judgement stays with you.",
   },
 ] as const;
 
 const roles = [
   {
     title: "Paralegals",
-    body: "Send the link, watch the account come in, and hand over a first draft instead of outstanding questions.",
+    body: "Watch the enquiry come in, accept it, and hand solicitors an account instead of a blank file.",
   },
   {
     title: "Solicitors",
-    body: "Review a statement with the evidence and the gaps in view. Spend the time on judgement.",
+    body: "Prepare the written draft during review, with the evidence and the gaps in view.",
   },
   {
     title: "Admins",
-    body: "Keep templates, users and access in one place.",
+    body: "Keep lead types, account templates, people and access in one place.",
   },
 ] as const;
 
@@ -70,7 +70,7 @@ export default function PlatformPage() {
       <MarketingPageHero
         eyebrow="Platform"
         title="Ask. Gather. Find the gaps. Draft."
-        description="Casey interviews witnesses, gathers evidence and finds what's missing, so your solicitors start with a review-ready first draft."
+        description="Casey qualifies the enquiry, then takes the fuller account after the firm accepts. Solicitors prepare the written draft during review."
       />
 
       <MarketingPageSection eyebrow="What Casey does">
@@ -106,7 +106,7 @@ export default function PlatformPage() {
 
       <MarketingPageSection
         eyebrow="From link to review"
-        title="Casey asks the follow-up questions, collects supporting evidence, spots missing information before review, and turns everything into a review-ready first draft."
+        title="Casey qualifies the enquiry, takes the fuller account after you accept, and leaves the written draft for review."
       />
 
       <MarketingPageSection

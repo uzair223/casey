@@ -135,7 +135,7 @@ export async function SERVERONLY_createDemoStudioStatement(
 
     if (caseTemplateError) throw caseTemplateError;
     if (!caseTemplate) {
-      throw new Error("Published case template not found for tenant");
+      throw new Error("Published lead type not found for tenant");
     }
 
     selectedCaseTemplateId = caseTemplate.id;
@@ -157,7 +157,7 @@ export async function SERVERONLY_createDemoStudioStatement(
     !allowedStatementTemplateIds.includes(selectedStatementTemplate.id)
   ) {
     throw new Error(
-      "Selected witness template is not allowed for the selected case template",
+      "Selected account template is not allowed for the selected lead type",
     );
   }
 

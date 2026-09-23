@@ -20,6 +20,12 @@ type ChannelResponse = {
   publicSlug: string | null;
   premium: boolean;
   hostedUrl: string | null;
+  localPath: string | null;
+  leadTypes: Array<{
+    id: string;
+    name: string;
+    publicSlug: string | null;
+  }>;
   channels: Array<{
     id: string;
     leadTypeId: string;
@@ -134,21 +140,27 @@ export function LeadChannelCard() {
         {channels.data?.hostedUrl ? (
           <p className="text-sm">
             Hosted page:{" "}
-            <a className="underline" href={channels.data.hostedUrl}>
+            <a className="underline" href={channels.data.localPath ?? channels.data.hostedUrl}>
               {channels.data.hostedUrl}
             </a>
           </p>
         ) : null}
-        {(channels.data?.channels ?? []).map((channel) => (
-          <div key={channel.id} className="space-y-1">
-            <p className="text-sm font-medium">{channel.leadTypeName}</p>
+        {(channels.data?.leadTypes ?? []).map((leadType) => {
+          const channel = (channels.data?.channels ?? []).find(
+            (item) => item.leadTypeId === leadType.id,
+          );
+          return (
+          <div key={leadType.id} className="space-y-1">
+            <p className="text-sm font-medium">{leadType.name}</p>
             <p className="break-all text-xs text-muted-foreground">
-              {channels.data?.premium
+              {channel && channels.data?.premium
                 ? channel.snippet
-                : "Upgrade to Growth to embed this on the firm website."}
+                : channel
+                  ? "Upgrade to Growth to embed this on the firm website."
+                  : "Not on the hosted page yet."}
             </p>
             <div className="flex gap-2">
-              {channels.data?.premium ? (
+              {channel && channels.data?.premium ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -169,20 +181,23 @@ export function LeadChannelCard() {
                   await apiFetch("/api/tenant/lead-channels", {
                     method: "POST",
                     body: JSON.stringify({
-                      leadTypeId: channel.leadTypeId,
-                      publicSlug: channels.data?.publicSlug ?? undefined,
-                      enabled: !channel.enabled,
+                      leadTypeId: leadType.id,
+                      publicSlug: slug || channels.data?.publicSlug || undefined,
+                      enabled: channel ? !channel.enabled : true,
                     }),
                   });
                   await channels.handler();
-                  toast.success(channel.enabled ? "Lead type paused" : "Lead type enabled");
+                  toast.success(
+                    channel?.enabled ? "Lead type paused" : "Lead type enabled",
+                  );
                 }}
               >
-                {channel.enabled ? "Pause" : "Enable"}
+                {channel?.enabled ? "Pause" : "Enable"}
               </Button>
             </div>
           </div>
-        ))}
+        );
+        })}
       </CardContent>
     </Card>
   );

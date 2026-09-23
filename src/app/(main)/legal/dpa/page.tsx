@@ -19,7 +19,7 @@ export const metadata = {
 };
 
 const categories = [
-  "Witness identity, contact details, and interview transcripts",
+  "Identity, contact details, and interview transcripts from an enquiry or account",
   "Case metadata, statement drafts, exhibits, and signed documents",
   "Firm user accounts, roles, audit logs, and signature certificates",
 ] as const;
@@ -29,7 +29,7 @@ const subprocessors = [
   "Cloudflare Workers — application hosting and scheduled jobs",
   "Cloudflare AI Gateway — model inference for interview, formalization, analysis, and Jev decision scoring",
   "Resend — transactional email",
-  "Stripe — subscription and one-off case payments",
+  "Stripe — subscription and extra accepted-lead payments",
   "Self-hosted DocuSeal — certified electronic signature when enabled",
 ] as const;
 
@@ -46,7 +46,7 @@ export default function DpaPage() {
       <MarketingPageHero
         eyebrow="Data processing addendum"
         title="Processor terms for paid Casey workspaces."
-        description={`${env.NEXT_PUBLIC_APP_NAME} processes witness and matter data as a processor for the instructing firm. This page is a working draft for solicitor review and is not a substitute for a signed DPA.`}
+        description={`${env.NEXT_PUBLIC_APP_NAME} processes enquiry and account data as a processor for the instructing firm. This page is a working draft for solicitor review and is not a substitute for a signed DPA.`}
       >
         <div className="mt-10 flex flex-wrap gap-3">
           <Button size="lg" variant="brand" asChild className="rounded-full px-7">
@@ -75,7 +75,7 @@ export default function DpaPage() {
             <MarketingFeatureCard
               icon={<Scale className="h-4 w-4" />}
               title="Roles"
-              body="The firm is the controller. Casey is the processor. Witnesses interact only through the firm's instructions and scoped intake links."
+              body="The firm is the controller. Casey is the processor. People giving an account interact only through the firm's instructions and private links."
             />
           </Reveal>
           <Reveal delay={70}>

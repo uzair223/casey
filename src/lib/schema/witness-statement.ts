@@ -33,7 +33,7 @@ function buildMetadataObjectSchema(
 
 export function buildCreateWitnessSchema(config: StatementConfig) {
   return z.object({
-    witness_name: z.string().trim().min(1, "Witness name is required"),
+    witness_name: z.string().trim().min(1, "Name is required"),
     witness_email: z.string().trim(), //.email("Enter a valid email"),
     witness_metadata: buildMetadataObjectSchema(
       config,
@@ -55,7 +55,7 @@ export function buildUpdateWitnessDetailsSchema(config: StatementConfig) {
       "demo",
       "demo_published",
     ]),
-    witness_name: z.string().trim().min(1, "Witness name is required"),
+    witness_name: z.string().trim().min(1, "Name is required"),
     witness_email: z.email("Enter a valid email").trim(),
     witness_metadata: buildMetadataObjectSchema(
       config,

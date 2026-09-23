@@ -179,7 +179,7 @@ export function CreateStatementForm({
         setTemplateLoadError(
           error instanceof Error
             ? error.message
-            : "Failed to load templates for this case template.",
+            : "Failed to load templates for this lead type.",
         );
       } finally {
         if (!isCancelled) {
@@ -346,7 +346,7 @@ export function CreateStatementForm({
             <p className="text-sm text-muted-foreground">
               {supportingRoleOptions.length > 0
                 ? "Name and contact. Nothing is sent until you ask for their account."
-                : `Stage 2: Complete witness details for ${selectedTemplate?.name}`}
+                : `Name and contact for ${selectedTemplate?.name}. Nothing is sent until you ask for their account.`}
             </p>
             <div className="grid gap-4 md:grid-cols-2">
               <RhfField

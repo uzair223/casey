@@ -129,10 +129,10 @@ const APP_ACTIONS: Record<
 };
 
 const STATEMENT_STATUS_TITLES: Record<string, string> = {
-  draft: "Witness statement created",
-  in_progress: "Witness started their statement",
-  submitted: "Witness submitted their statement",
-  finalized: "Statement finalized",
+  draft: "Person added",
+  in_progress: "Account started",
+  submitted: "Account sent",
+  finalized: "Written draft prepared",
   completed: "Statement completed",
   locked: "Statement locked",
   demo: "Demo statement created",
@@ -227,21 +227,21 @@ function formatCaseUpdate(changes: AuditFieldChange[]): FormattedAuditEvent | nu
     const from = formatScalar(status.old);
     const to = formatScalar(status.new);
     return {
-      title: "Case status changed",
+      title: "Lead status changed",
       description: from && to ? `${from} → ${to}` : (to ?? ""),
     };
   }
 
   if (visible.length === 1 && title) {
     return {
-      title: "Case renamed",
+      title: "Lead renamed",
       description: readableString(title.new) ?? "",
     };
   }
 
   if (visible.length === 1 && assigned) {
     return {
-      title: "Case assigned",
+      title: "Lead assigned",
       description: "",
     };
   }
@@ -255,7 +255,7 @@ function formatCaseUpdate(changes: AuditFieldChange[]): FormattedAuditEvent | nu
   ].filter(Boolean);
 
   return {
-    title: "Case updated",
+    title: "Lead updated",
     description: parts.join(". "),
   };
 }
@@ -275,7 +275,7 @@ function formatStatementUpdate(changes: AuditFieldChange[]): FormattedAuditEvent
   const witnessName = visible.find((change) => change.field === "witness_name");
   if (witnessName && readableString(witnessName.new)) {
     return {
-      title: "Witness details updated",
+      title: "Person details updated",
       description: readableString(witnessName.new) ?? "",
     };
   }
@@ -291,14 +291,14 @@ function formatInsert(
 
   if (table === "cases") {
     return {
-      title: "Case opened",
+      title: "Lead opened",
       description: readableString(row.title) ?? "",
     };
   }
 
   if (table === "statements") {
     return {
-      title: "Witness statement created",
+      title: "Person added",
       description: readableString(row.witness_name) ?? "",
     };
   }
@@ -328,9 +328,9 @@ function formatTriggerEvent(
   }
 
   if (operation === "delete") {
-    if (table === "cases") return { title: "Case deleted", description: "" };
+    if (table === "cases") return { title: "Lead deleted", description: "" };
     if (table === "statements") {
-      return { title: "Witness statement removed", description: "" };
+      return { title: "Person removed", description: "" };
     }
     if (table === "case_documents" || table === "statement_supporting_documents") {
       return { title: "Document removed", description: "" };

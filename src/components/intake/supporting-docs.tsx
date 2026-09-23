@@ -66,7 +66,7 @@ export function SupportingDocumentsView() {
       <PageTitle
         subtitle="Evidence"
         title="Supporting Documents"
-        description="Files added in chat are saved here under evidence groups. You can add or remove documents before preparing the statement."
+        description="Files added in chat are saved here under evidence groups. You can add or remove documents before you send your account."
         actions={[
           {
             label: "Send your account",

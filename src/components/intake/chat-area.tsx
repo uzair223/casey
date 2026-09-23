@@ -259,7 +259,7 @@ export function ChatAreaContent() {
         >
           <PersonAvatar
             name={data.statement.id}
-            title={data.statement.witness_name || "Witness"}
+            title={data.statement.witness_name || "You"}
             className={cn(chatAvatarBoxClass, "[&_svg]:size-full")}
           />
         </MovingChatAvatar>

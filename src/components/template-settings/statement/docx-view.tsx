@@ -74,7 +74,7 @@ export function StatementTemplateDocxView() {
 
   const handleEditorSave = async (buffer: ArrayBuffer) => {
     const templateName =
-      activeTemplate?.name || draftName || "Witness Statement Template";
+      activeTemplate?.name || draftName || "Account template";
     const file = new File([buffer], `${templateName}.docx`, {
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
@@ -92,7 +92,7 @@ export function StatementTemplateDocxView() {
 
   const handleReviewComplete = async (reviewedBuffer: ArrayBuffer) => {
     const templateName =
-      activeTemplate?.name || draftName || "Witness Statement Template";
+      activeTemplate?.name || draftName || "Account template";
     const file = new File([reviewedBuffer], `${templateName}.docx`, {
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
@@ -107,7 +107,7 @@ export function StatementTemplateDocxView() {
         activeTemplate?.draft_docx_template_document?.name ||
         draftName ||
         activeTemplate?.name ||
-        "Witness Statement Template"
+        "Account template"
       }
       canEdit={canEditActiveTemplate}
       isSaving={isUploadingTemplateDocx}
@@ -122,7 +122,7 @@ export function StatementTemplateDocxView() {
           activeTemplate?.draft_docx_template_document?.name ||
           draftName ||
           activeTemplate?.name ||
-          "Witness Statement Template"
+          "Account template"
         }
         onReviewComplete={handleReviewComplete}
         className="z-150"

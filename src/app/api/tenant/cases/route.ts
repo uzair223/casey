@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   try {
     const auth = await requireTenantUser(request);
     if (!auth.role || !CASE_CREATORS.has(auth.role)) {
-      return forbidden("You cannot open a case");
+      return forbidden("You cannot create a lead");
     }
 
     const parsed = CaseSchema.safeParse(await request.json().catch(() => null));

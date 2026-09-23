@@ -34,7 +34,7 @@ export function AppAdminOverviewTab() {
         icon={<Building2Icon className="h-4 w-4" />}
       />
       <StatCard
-        label="Total Cases"
+        label="Leads"
         value={stats.cases}
         hint={
           <>
@@ -47,7 +47,7 @@ export function AppAdminOverviewTab() {
         icon={<FolderKanbanIcon className="h-4 w-4" />}
       />
       <StatCard
-        label="Statements"
+        label="Accounts"
         value={stats.statements}
         hint={
           <>
@@ -73,13 +73,13 @@ export function AppAdminOverviewTab() {
         icon={<UsersIcon className="h-4 w-4" />}
       />
       <StatCard
-        label="Cases per Tenant"
+        label="Leads per organisation"
         value={kpis.casesPerTenant}
         hint="platform-wide average"
         icon={<FolderKanbanIcon className="h-4 w-4" />}
       />
       <StatCard
-        label="Statements per Tenant"
+        label="Accounts per organisation"
         value={kpis.statementsPerTenant}
         hint="platform-wide average"
         icon={<FileTextIcon className="h-4 w-4" />}
@@ -91,7 +91,7 @@ export function AppAdminOverviewTab() {
         icon={<UsersIcon className="h-4 w-4" />}
       />
       <StatCard
-        label="Statements per Case"
+        label="People per lead"
         value={kpis.statementsPerCase}
         hint="platform-wide average"
         icon={<LayersIcon className="h-4 w-4" />}
@@ -107,7 +107,7 @@ export function AppAdminOverviewTab() {
       {stats.casesByStatus && Object.keys(stats.casesByStatus).length > 0 ? (
         <StatusBreakdownCard
           className="col-span-full"
-          title="Cases by Status"
+          title="Leads by status"
           items={Object.entries(stats.casesByStatus).map(([status, count]) => [
             status,
             String(count),

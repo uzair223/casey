@@ -51,7 +51,7 @@ function getStatementLabel(statement?: NoteStatementOption) {
     return "Unknown statement";
   }
 
-  return statement.witness_name || statement.title || "Unnamed witness";
+  return statement.witness_name || statement.title || "Unnamed person";
 }
 
 export function CaseNotesCard({
@@ -217,7 +217,7 @@ export function CaseNotesCard({
           <SelectContent>
             <SelectItem value={ALL_NOTES}>All notes</SelectItem>
             <SelectItem value={GENERAL_REFERENCE}>
-              General case notes
+              General lead notes
             </SelectItem>
             {statements.map((statement) => (
               <SelectItem key={statement.id} value={statement.id}>

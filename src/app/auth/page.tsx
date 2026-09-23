@@ -348,11 +348,11 @@ function AuthPageContent() {
             Sign in
           </p>
           <h1 className="mt-2 max-w-[14ch] font-display text-4xl leading-[1.1] tracking-tight text-primary sm:text-5xl">
-            Sign in and get back to the statement.
+            Sign in and get back to the lead.
           </h1>
           <p className="mt-6 max-w-md text-lg leading-8 text-muted-foreground">
             Magic-link access for legal teams. Join a firm workspace, then pick
-            up the statement instead of another chase.
+            up the enquiry instead of another chase.
           </p>
 
           <div className="mt-10 space-y-3">

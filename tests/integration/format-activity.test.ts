@@ -50,7 +50,7 @@ describe("formatAuditTimelineEvent", () => {
         },
       }),
     ).toEqual({
-      title: "Witness submitted their statement",
+      title: "Account sent",
       description: "",
     });
   });
@@ -66,7 +66,7 @@ describe("formatAuditTimelineEvent", () => {
         },
       }),
     ).toEqual({
-      title: "Case renamed",
+      title: "Lead renamed",
       description: "Road traffic accident",
     });
   });
@@ -90,7 +90,7 @@ describe("formatAuditTimelineEvent", () => {
         metadata: { new: { title: "Northgate claim" } },
       }),
     ).toEqual({
-      title: "Case opened",
+      title: "Lead opened",
       description: "Northgate claim",
     });
 

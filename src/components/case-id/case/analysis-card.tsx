@@ -488,7 +488,7 @@ export function CaseAnalysisCard({
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Generate a case-level view across witness statements.
+              Generate a view across the accounts on this lead.
             </p>
           )}
         </div>
@@ -549,9 +549,9 @@ export function CaseAnalysisCard({
         ) : (
           <div className="rounded-md border border-dashed p-4">
             <p className="text-sm text-muted-foreground">
-              Casey will compile all available witness statement sections into a
-              sourced chronology, shared facts, inconsistencies, evidence
-              mentions, and follow-up gaps.
+              Casey will compile the accounts and evidence into a sourced
+              chronology, shared facts, inconsistencies, evidence mentions, and
+              follow-up gaps.
             </p>
           </div>
         )}

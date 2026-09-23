@@ -105,7 +105,7 @@ export function EditCaseForm(props: EditCaseFormProps) {
             form={formMethods}
             name="status"
             controlId="case_status"
-            label="Case status"
+            label="Lead status"
             registerOptions={{ required: true }}
             renderControl={(registration, required) => (
               <>

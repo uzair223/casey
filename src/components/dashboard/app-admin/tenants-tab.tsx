@@ -271,7 +271,7 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
                     <TableHead>Status</TableHead>
                     <TableHead>Billing</TableHead>
                     <TableHead>Users</TableHead>
-                    <TableHead>Statements</TableHead>
+                    <TableHead>Accounts</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -285,7 +285,7 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {tenant.plan} · {tenant.billingStatus} · {tenant.seatLimit}{" "}
-                        seats
+                        people
                       </TableCell>
                       <TableCell>{tenant.userCount}</TableCell>
                       <TableCell>{tenant.statementCount}</TableCell>

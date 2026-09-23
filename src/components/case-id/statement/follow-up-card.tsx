@@ -35,7 +35,7 @@ export function StatementFollowUpCard({
     });
 
     setMessage("");
-    toast.success("Follow-up request sent to witness");
+    toast.success("Follow-up request sent");
   };
 
   return (
@@ -45,7 +45,7 @@ export function StatementFollowUpCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Send a follow-up message to the witness when you need clarification or
+          Send a follow-up message when you need clarification or
           additional evidence.
         </p>
         <Textarea

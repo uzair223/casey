@@ -71,7 +71,7 @@ export async function sendWitnessLink(params: {
       throw error;
     }
     const accepted = await confirmAddendum(
-      "Read it at /legal/dpa. The first witness link needs this once.",
+      "Read it at /legal/dpa. The first account link needs this once.",
     );
     if (!accepted) {
       throw error;

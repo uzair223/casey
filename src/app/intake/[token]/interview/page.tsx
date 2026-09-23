@@ -62,7 +62,7 @@ function StatementContent() {
     },
     {
       id: "evidence" as IntakeTabs,
-      label: responsiveTabLabel("Evidence", "Evidence Confirmation"),
+      label: responsiveTabLabel("Evidence", "Evidence"),
       disabled: (isDemo && !isDemoTabsUnlocked) || !isReadyToPrepare,
       main: <SupportingDocumentsView />,
       scroll: true,
@@ -70,8 +70,8 @@ function StatementContent() {
     {
       id: "statement" as IntakeTabs,
       label: statementSubmission.data
-        ? responsiveTabLabel("Review", "Statement Submitted")
-        : responsiveTabLabel("Review", "Statement Preview"),
+        ? responsiveTabLabel("Review", "Account sent")
+        : responsiveTabLabel("Review", "Your account"),
       disabled: (isDemo && !isDemoTabsUnlocked) || !isReadyToPrepare,
       main: <StatementView />,
       scroll: false,
@@ -90,7 +90,7 @@ function StatementContent() {
           <CardContent className="space-y-4 text-sm text-muted-foreground">
             <p>
               Before starting, please review this notice. Your responses are
-              processed for witness statement preparation for a UK legal matter.
+              processed so the firm can take your account of a UK legal matter.
               The law firm acts as controller for case handling, and{" "}
               {env.NEXT_PUBLIC_APP_NAME}
               processes data on their instructions.

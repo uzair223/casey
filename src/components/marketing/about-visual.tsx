@@ -21,7 +21,7 @@ const intakeMessages = [
 export function AboutInterviewVisual() {
   return (
     <div className="rounded-2xl border border-primary/15 bg-card/40 p-5 sm:p-7">
-      <p className="font-display text-lg italic text-brand">Witness intake</p>
+      <p className="font-display text-lg italic text-brand">The first conversation</p>
       <p className="mt-1 font-display text-2xl text-primary">
         Workplace accident — 14 March 2026
       </p>

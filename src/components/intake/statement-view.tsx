@@ -183,13 +183,13 @@ export function StatementView() {
   }
 
   return (
-    <DocxEditor documentName="Witness Statement" source={doc} canEdit={false}>
+    <DocxEditor documentName="Account" source={doc} canEdit={false}>
       <div className="flex h-full max-h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden px-4 sm:px-6 lg:px-8">
         {statementSubmission.data ? (
           <PageTitle
-            subtitle="Statement submitted"
-            title="Thank you for your statement"
-            description="Your statement has been saved. The legal team will review it shortly."
+            subtitle="Account sent"
+            title="Thank you"
+            description="Your account has been saved. The firm prepares the written draft during review."
           />
         ) : isDemoFinalStatementLocked ? (
           <PageTitle
@@ -199,16 +199,16 @@ export function StatementView() {
           />
         ) : (
           <PageTitle
-            subtitle="Statement prepared"
-            title="Review your statement"
-            description="Please review your statement below and submit when ready."
+            subtitle="Your account"
+            title="Review your account"
+            description="Please review your account below and send it when ready. The firm prepares the written draft during review."
             actions={
               !statementSubmission.data && !isDemo
                 ? [
                     {
                       label: statementSubmission.isLoading
                         ? "Submitting..."
-                        : "Submit Statement",
+                        : "Send your account",
                       action: () => void statementSubmission.handler(),
 
                       disabled:

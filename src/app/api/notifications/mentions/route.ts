@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
           : "case_note_added",
         entityType: context.noteType,
         entityId: context.noteId,
-        title: isStatementNote ? "New statement note" : "New case note",
+        title: isStatementNote ? "New account note" : "New lead note",
         body: context.noteExcerpt
           ? `${context.actorName} added a note: "${context.noteExcerpt}"`
           : `${context.actorName} added a note.`,

@@ -50,7 +50,7 @@ export function ParalegalActivityTab() {
                   Status: {(caseItem.status || "draft").replace("_", " ")}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {caseItem.statements.length} witness statement(s)
+                  {caseItem.statements.length} {caseItem.statements.length === 1 ? "person" : "people"}
                 </p>
               </div>
             ))}

@@ -27,7 +27,7 @@ export function OutstandingWorkCard(props: React.ComponentProps<typeof Card>) {
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-md border p-3">
-            <p className="text-xs text-muted-foreground">Waiting on witness</p>
+            <p className="text-xs text-muted-foreground">Waiting on account</p>
             <p className="mt-1 text-2xl font-bold text-primary">
               {outstanding.waitingOnWitnessCount}
             </p>
@@ -45,7 +45,7 @@ export function OutstandingWorkCard(props: React.ComponentProps<typeof Card>) {
             </p>
           </div>
           <div className="rounded-md border p-3">
-            <p className="text-xs text-muted-foreground">Stale cases</p>
+            <p className="text-xs text-muted-foreground">Stale leads</p>
             <p className="mt-1 text-2xl font-bold text-primary">
               {outstanding.staleCaseCount}
             </p>
@@ -54,7 +54,7 @@ export function OutstandingWorkCard(props: React.ComponentProps<typeof Card>) {
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-md border p-3">
-            <p className="text-sm font-medium">Waiting on witness</p>
+            <p className="text-sm font-medium">Waiting on account</p>
             <div className="mt-2 space-y-2">
               {outstanding.waitingOnWitness.length ? (
                 outstanding.waitingOnWitness.map((item) => (

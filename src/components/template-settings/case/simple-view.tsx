@@ -86,12 +86,12 @@ export function CaseTemplateSimpleView() {
           value={draftName}
           onChange={(event) => setDraftName(event.target.value)}
           disabled={!canEditActiveTemplate}
-          placeholder="Case template name"
+          placeholder="Lead type name"
         />
       </div>
 
       <div className="grid gap-2">
-        <p className="text-sm font-medium">Case Title Template</p>
+        <p className="text-sm font-medium">Lead title template</p>
         <Input
           value={draftTitleTemplate}
           onChange={(event) => setDraftTitleTemplate(event.target.value)}
@@ -120,14 +120,14 @@ export function CaseTemplateSimpleView() {
           }}
         />
         <p className="text-xs text-muted-foreground">
-          Shared background for case analysis and for interviews on this
-          matter. It does not replace the statement template&apos;s model
+          Shared background for facts and gaps, and for accounts on this
+          lead type. It does not replace the account template&apos;s model
           identity.
         </p>
       </div>
 
       <DynamicFieldsEditor
-        title="Case fields"
+        title="Lead type fields"
         description="Define fields, labels, and types. The description is shown to the models beside the saved value."
         fields={dynamicFields}
         disabled={!canEditActiveTemplate}
@@ -253,7 +253,7 @@ export function CaseTemplateSimpleView() {
       <div className="space-y-3 rounded-md border p-3">
         <p className="text-sm font-medium">Allowed statement templates</p>
         <p className="text-xs text-muted-foreground">
-          Select witness templates available for this case template and choose
+          Select account templates available for this lead type and choose
           one default.
         </p>
         <Input

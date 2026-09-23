@@ -16,7 +16,7 @@ export function PageHeader() {
     <div className="shrink-0 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         <p className="text-xs uppercase tracking-[0.2em] text-accent-foreground sm:text-sm">
-          {tenant_name} Witness intake
+          {tenant_name} account
         </p>
         <h1 className="text-xl leading-tight font-semibold text-primary font-display sm:text-2xl">
           {statement.title}

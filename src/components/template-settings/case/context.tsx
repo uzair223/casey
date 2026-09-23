@@ -360,7 +360,7 @@ export function CaseTemplateSettingsProvider({
         toast.error(
           error instanceof Error
             ? error.message
-            : "Failed to load case templates",
+            : "Failed to load lead types",
         );
       },
     },
@@ -375,7 +375,7 @@ export function CaseTemplateSettingsProvider({
   const createNewTemplate = () => {
     setActiveTemplateId(null);
     syncEditorFromTemplate(null);
-    toast.info("Creating a new case template draft");
+    toast.info("Creating a new lead type draft");
   };
 
   const persistTemplate = async (nextStatus?: TemplateStatus) => {
@@ -414,7 +414,7 @@ export function CaseTemplateSettingsProvider({
       } else {
         await updateCaseTemplate(activeTemplateId, payload);
       }
-      toast.success("Case template updated");
+      toast.success("Lead type updated");
     } else {
       const created = await guardTemplateCreate(() =>
         createCaseTemplate({
@@ -428,7 +428,7 @@ export function CaseTemplateSettingsProvider({
       }
       savedId = created.id;
       setActiveTemplateId(created.id);
-      toast.success("Case template created");
+      toast.success("Lead type created");
     }
 
     const refreshed = await refreshData();
@@ -489,7 +489,7 @@ export function CaseTemplateSettingsProvider({
     setActiveTemplateId(tenantCopy.id);
     syncEditorFromTemplate(tenantCopy);
     await loadTemplateStatementLinks(tenantCopy.id);
-    toast.success("Case template forked to firm scope");
+    toast.success("Lead type forked to firm scope");
   };
 
   const duplicateTemplate = async () => {
@@ -528,12 +528,12 @@ export function CaseTemplateSettingsProvider({
     setActiveTemplateId(copy.id);
     syncEditorFromTemplate(copy);
     await loadTemplateStatementLinks(copy.id);
-    toast.success("Case template duplicated");
+    toast.success("Lead type duplicated");
   };
 
   const deleteTemplate = async () => {
     if (!activeTemplateId) return;
-    const confirmed = await toast.confirm("Delete this case template?", {
+    const confirmed = await toast.confirm("Delete this lead type?", {
       description: "This cannot be undone.",
       confirmLabel: "Delete template",
     });
@@ -553,7 +553,7 @@ export function CaseTemplateSettingsProvider({
       syncEditorFromTemplate(null);
     }
 
-    toast.success("Case template deleted");
+    toast.success("Lead type deleted");
   };
 
   const toggleFavourite = async () => {
@@ -586,7 +586,7 @@ export function CaseTemplateSettingsProvider({
         tenantId: user.tenant_id,
         defaultCaseTemplateId: null,
       });
-      toast.info("Unpinned case template from default");
+      toast.info("Unpinned lead type from default");
       return;
     }
 
@@ -602,7 +602,7 @@ export function CaseTemplateSettingsProvider({
 
     setFavouriteTemplateIds(updated.favourite_case_template_ids);
     setDefaultTemplateId(updated.default_case_template_id);
-    toast.success("Pinned case template as default");
+    toast.success("Pinned lead type as default");
   };
 
   const addDynamicField = () => {

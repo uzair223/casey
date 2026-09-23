@@ -393,7 +393,7 @@ export function StatementTemplateSettingsProvider({
     async (config: StatementConfig, name?: string) => {
       try {
         const blob = await generateStarterDoc({
-          templateName: name?.trim() || "Witness Statement Template",
+          templateName: name?.trim() || "Account template",
           config,
         });
         await setDocxErrorsFromDocument(blob, config);
@@ -486,7 +486,7 @@ export function StatementTemplateSettingsProvider({
         syncEditorFromTemplate(null);
         await prepareStarterPreview(
           createEmptyConfig(),
-          "Witness Statement Template",
+          "Account template",
         );
       }
       return list;
@@ -516,7 +516,7 @@ export function StatementTemplateSettingsProvider({
         withGeneratedConfigIds(normalizeConfig(draftConfig)),
         draftName.trim() ||
           activeTemplate?.name ||
-          "Witness Statement Template",
+          "Account template",
       );
     }, 400);
 
@@ -555,7 +555,7 @@ export function StatementTemplateSettingsProvider({
     syncEditorFromTemplate(null);
     await prepareStarterPreview(
       createEmptyConfig(),
-      "Witness Statement Template",
+      "Account template",
     );
     toast.info("Creating new template...");
   };
@@ -725,7 +725,7 @@ export function StatementTemplateSettingsProvider({
       syncEditorFromTemplate(null);
       await prepareStarterPreview(
         createEmptyConfig(),
-        "Witness Statement Template",
+        "Account template",
       );
     }
 
@@ -970,7 +970,7 @@ export function StatementTemplateSettingsProvider({
     const config = withGeneratedConfigIds(
       normalizeConfig(formMethods.getValues()),
     );
-    const templateName = draftName.trim() || "Witness Statement Template";
+    const templateName = draftName.trim() || "Account template";
     const blob = await generateStarterDoc({
       templateName,
       config,

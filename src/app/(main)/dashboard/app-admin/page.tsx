@@ -31,12 +31,12 @@ export default function AppAdminDashboard() {
             variant: "outline",
           },
           {
-            label: "Case Templates",
+            label: "Lead types",
             href: "/settings/cases",
             variant: "outline",
           },
           {
-            label: "Statement Templates",
+            label: "Account templates",
             href: "/settings/statements",
             variant: "outline",
           },

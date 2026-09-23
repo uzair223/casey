@@ -196,8 +196,8 @@ export async function POST(
         notificationType: "statement_submitted_for_review",
         entityType: "statement",
         entityId: recipients.statementId,
-        title: "Statement submitted for review",
-        body: `${recipients.witnessName || "A witness"} submitted a statement for review in ${recipients.statementTitle}.`,
+        title: "Account sent for review",
+        body: `${recipients.witnessName || "Someone"} sent their account for review in ${recipients.statementTitle}.`,
         linkPath: `/cases/${recipients.caseId}?statement=${recipients.statementId}`,
         metadata: {
           witnessName: recipients.witnessName,

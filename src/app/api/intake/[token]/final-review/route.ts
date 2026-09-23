@@ -107,7 +107,7 @@ export async function POST(
 
     if (data.statement.status !== "finalized") {
       return NextResponse.json(
-        { error: "This statement is not ready for final witness signature." },
+        { error: "This account is not ready for a final signature." },
         { status: 409 },
       );
     }
@@ -196,7 +196,7 @@ export async function POST(
       path: finalDocPath,
       file: signedBytes,
       name: finalDocName,
-      description: `Final signed witness statement by ${signatureName}`,
+      description: `Final signed account by ${signatureName}`,
       contentType:
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });

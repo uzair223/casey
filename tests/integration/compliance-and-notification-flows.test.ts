@@ -129,7 +129,7 @@ describe("compliance and notification flows", () => {
       notificationType: "statement_note_added",
       entityType: "statement_note",
       entityId: "note-1",
-      title: "New statement note",
+      title: "New account note",
       body: 'Casey Solicitor added a note: "Please check paragraph 4"',
       linkPath: "/cases/case-1?statement=statement-1",
     });
@@ -190,7 +190,7 @@ describe("compliance and notification flows", () => {
       expect.objectContaining({
         notificationType: "case_note_added",
         recipientUserIds: ["assignee-only"],
-        title: "New case note",
+        title: "New lead note",
       }),
     );
   });

@@ -151,11 +151,11 @@ export function CaseTemplateSettingsScreen() {
   return (
     <section className="space-y-4">
       <PageTitle
-        title="Case Templates"
-        description="Manage case templates, mapping to statement templates, and JSON configuration."
+        title="Lead types"
+        description="Manage lead types, the account templates used after accept, and JSON configuration."
         actions={[
           {
-            label: "Statement Templates",
+            label: "Account templates",
             href: "/settings/statements",
             variant: "outline",
           },
@@ -164,7 +164,7 @@ export function CaseTemplateSettingsScreen() {
 
       <SidebarWrapper>
         <Sidebar<CaseTemplate>
-          title="Case Templates"
+          title="Lead types"
           actions={[
             <div key="case-template-filters" className="w-full flex gap-1.5">
               <Input
@@ -226,7 +226,7 @@ export function CaseTemplateSettingsScreen() {
               </div>
             </div>
           )}
-          emptyMessage="No case templates yet."
+          emptyMessage="No lead types yet."
         />
 
         <SidebarContent>

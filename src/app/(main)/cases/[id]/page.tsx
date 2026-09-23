@@ -311,7 +311,7 @@ export default function CaseDetailPage() {
                   label: (
                     <>
                       <PlusIcon className="h-4 w-4" />
-                      Add witness
+                      Add person
                     </>
                   ),
                   onClick: () => setIsAddWitnessOpen(true),
@@ -321,7 +321,7 @@ export default function CaseDetailPage() {
               activeItemId={activeStatement?.id ?? null}
               getItemId={(statement) => statement.id}
               onSelectItem={(statement) => handleSelectStatement(statement.id)}
-              emptyMessage="No witness statements have been added yet."
+              emptyMessage="No people have been added yet."
               renderItem={(statement) => {
                 const config = (
                   statement as { statement_config?: { name?: string } | null }
@@ -331,7 +331,7 @@ export default function CaseDetailPage() {
                   <div className="flex w-full flex-col items-start gap-1">
                     <div className="flex w-full flex-wrap items-center justify-between gap-2">
                       <span className="font-medium">
-                        {statement.witness_name || "Unnamed witness"}
+                        {statement.witness_name || "Unnamed person"}
                       </span>
                       <Badge variant={statementStatusVariant[statement.status]}>
                         {statementStatusLabel[statement.status]}
@@ -362,8 +362,8 @@ export default function CaseDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Select a witness from the sidebar to view and edit their
-                    statement.
+                    Select a person from the sidebar to view and edit their
+                    account.
                   </p>
                 </CardContent>
               </Card>

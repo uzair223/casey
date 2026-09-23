@@ -79,7 +79,7 @@ export const CaseAnalysisDraftSchema = z
       .string()
       .trim()
       .describe(
-        "A concise neutral summary of what the supplied witness statements collectively say. Do not decide what is true.",
+        "A concise neutral summary of what the supplied accounts collectively say. Do not decide what is true.",
       ),
     chronology: z.array(
       z
@@ -159,7 +159,7 @@ export const CaseAnalysisSchema = z
       .string()
       .trim()
       .describe(
-        "A concise neutral summary of what the supplied witness statements collectively say. Do not decide what is true.",
+        "A concise neutral summary of what the supplied accounts collectively say. Do not decide what is true.",
       ),
     chronology: z.array(CaseAnalysisChronologyItemSchema),
     agreedFacts: z.array(CaseAnalysisAgreedFactSchema),

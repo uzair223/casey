@@ -22,7 +22,7 @@ const sans = Source_Sans_3({
 
 export const metadata: Metadata = {
   title: env.NEXT_PUBLIC_APP_NAME,
-  description: `Casey interviews witnesses, gathers evidence and finds what's missing, so your solicitors start with a review-ready first draft.`,
+  description: `Casey is the first conversation. The firm accepts the lead, then the fuller account comes in, and solicitors prepare the written draft during review.`,
   icons: { icon: "/favicon.svg" },
 };
 

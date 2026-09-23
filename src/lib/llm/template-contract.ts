@@ -6,13 +6,13 @@ import {
 } from "@/lib/llm/case-runtime";
 
 export const DEFAULT_MODEL_IDENTITY =
-  "You are interviewing a witness to prepare their statement.";
+  "You are taking this person's account. The firm prepares the written draft during review.";
 
 const INTERVIEW_INVARIANT = [
   "Ask one question at a time.",
   "Stay on the current phase.",
   "Do not give legal advice.",
-  "Do not draft the statement in chat.",
+  "Do not prepare the written draft in chat.",
 ].join(" ");
 
 export type TemplateRuntimeContext = {

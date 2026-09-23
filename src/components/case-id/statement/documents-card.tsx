@@ -188,7 +188,7 @@ export function StatementSupportingDocumentsCard({
             )}
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <Badge variant="secondary" className="capitalize">
-                {entry.uploaded_by_type === "witness" ? "Witness" : "Internal"}
+                {entry.uploaded_by_type === "witness" ? "Person" : "Internal"}
               </Badge>
               {entry.group_name ? (
                 <Badge variant="outline">{entry.group_name}</Badge>

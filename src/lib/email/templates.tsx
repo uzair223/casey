@@ -92,11 +92,11 @@ export const buildStatementLinkEmailTemplate = (
   const witnessName = payload.witnessName?.trim() || "there";
   const isBackToReview = payload.reason === "back_to_review";
   const subject = isBackToReview
-    ? `${payload.caseTitle}: Your statement is back in review`
-    : `${payload.caseTitle}: Complete your witness statement`;
+    ? `${payload.caseTitle}: Your account is back in review`
+    : `${payload.caseTitle}: Continue your account`;
   const intro = isBackToReview
-    ? `${payload.tenantName} has moved your witness statement for ${payload.caseTitle} back into review.`
-    : `${payload.tenantName} has invited you to complete a witness statement for ${payload.caseTitle}.`;
+    ? `${payload.tenantName} has moved your account for ${payload.caseTitle} back into review.`
+    : `${payload.tenantName} is asking for your account of ${payload.caseTitle}.`;
   const message = payload.firmMessage?.trim();
   const text = `Hello ${witnessName},\n\n${intro}${
     message ? `\n\nMessage from ${payload.tenantName}:\n${message}` : ""
@@ -109,16 +109,16 @@ export const buildStatementLinkEmailTemplate = (
       <EmailLayout
         heading={
           isBackToReview
-            ? "Statement Back In Review"
-            : "Witness Statement Intake Link"
+            ? "Account back in review"
+            : "Your account"
         }
       >
         <p style={paragraphStyle}>Hello {witnessName},</p>
         <p style={paragraphStyle}>
           <strong>{payload.tenantName}</strong>{" "}
           {isBackToReview
-            ? "has moved your witness statement back into review for"
-            : "has invited you to complete a witness statement for"}{" "}
+            ? "has moved your account back into review for"
+            : "is asking for your account of"}{" "}
           <strong>{payload.caseTitle}</strong>.
         </p>
         {message ? (
@@ -148,24 +148,25 @@ export const buildStatementSubmittedNotificationTemplate = (
   payload: StatementSubmittedNotificationPayload,
 ): EmailTemplateContent => {
   const appName = getAppName();
-  const witnessName = payload.witnessName?.trim() || "Unknown witness";
-  const subject = `Statement submitted by ${witnessName} | ${payload.caseTitle}`;
-  const text = `${witnessName} has submitted a witness statement for ${payload.caseTitle} (${payload.tenantName}).\n\nPlease review the submitted statement in ${appName}.`;
+  const witnessName = payload.witnessName?.trim() || "Someone";
+  const subject = `Account sent by ${witnessName} | ${payload.caseTitle}`;
+  const text = `${witnessName} has sent their account for ${payload.caseTitle} (${payload.tenantName}).\n\nPlease review it in ${appName}.`;
 
   return {
     subject,
     text,
     react: (
-      <EmailLayout heading="Witness Statement Submitted">
-        <p style={paragraphStyle}>A witness statement has been submitted.</p>
+      <EmailLayout heading="Account sent">
+        <p style={paragraphStyle}>An account has been sent for review.</p>
         <p style={paragraphStyle}>
-          <strong>Witness:</strong> {witnessName}
+          <strong>From:</strong> {witnessName}
         </p>
         <p style={paragraphStyle}>
-          <strong>Case:</strong> {payload.caseTitle}
+          <strong>Lead:</strong> {payload.caseTitle}
         </p>
         <p style={paragraphStyle}>
-          Please review the submitted statement in {appName}.
+          Please review the account in {appName}. The written draft is prepared
+          during review.
         </p>
       </EmailLayout>
     ),
@@ -214,7 +215,7 @@ export const buildStatementFinalReviewRequestTemplate = (
   const witnessName = payload.witnessName?.trim() || "there";
   const subject = `Final review and signature requested: ${payload.caseTitle}`;
   const message = payload.firmMessage?.trim();
-  const text = `Hello ${witnessName},\n\n${payload.tenantName} has finalized your witness statement and supporting evidence for ${payload.caseTitle}.${
+  const text = `Hello ${witnessName},\n\n${payload.tenantName} has prepared the written draft and supporting evidence for ${payload.caseTitle}.${
     message ? `\n\nMessage from ${payload.tenantName}:\n${message}` : ""
   }\n\nPlease review the finalized materials, provide your signature, and submit using this secure link: ${payload.reviewUrl}`;
 
@@ -225,8 +226,8 @@ export const buildStatementFinalReviewRequestTemplate = (
       <EmailLayout heading="Final Statement Review Required">
         <p style={paragraphStyle}>Hello {witnessName},</p>
         <p style={paragraphStyle}>
-          <strong>{payload.tenantName}</strong> has finalized your witness
-          statement and supporting evidence for{" "}
+          <strong>{payload.tenantName}</strong> has prepared the written draft
+          and supporting evidence for{" "}
           <strong>{payload.caseTitle}</strong>.
         </p>
         <p style={paragraphStyle}>
@@ -260,18 +261,18 @@ export const buildStatementReminderEmailTemplate = (
   payload: StatementReminderEmailPayload,
 ): EmailTemplateContent => {
   const witnessName = payload.witnessName?.trim() || "there";
-  const subject = `Reminder: Continue your witness statement for ${payload.caseTitle}`;
-  const text = `Hello ${witnessName},\n\nThis is a friendly reminder from ${payload.tenantName} to continue your witness statement for ${payload.caseTitle}.\n\nUse your secure link to continue: ${payload.statementUrl}`;
+  const subject = `Reminder: Continue your account for ${payload.caseTitle}`;
+  const text = `Hello ${witnessName},\n\nThis is a friendly reminder from ${payload.tenantName} to continue your account for ${payload.caseTitle}.\n\nUse your secure link to continue: ${payload.statementUrl}`;
 
   return {
     subject,
     text,
     react: (
-      <EmailLayout heading="Witness Statement Reminder">
+      <EmailLayout heading="Account reminder">
         <p style={paragraphStyle}>Hello {witnessName},</p>
         <p style={paragraphStyle}>
           This is a friendly reminder from <strong>{payload.tenantName}</strong>{" "}
-          to continue your witness statement for{" "}
+          to continue your account for{" "}
           <strong>{payload.caseTitle}</strong>.
         </p>
         <a
@@ -352,7 +353,7 @@ export const buildMentionNotificationEmailTemplate = (
 ): EmailTemplateContent => {
   const appName = getAppName();
   const subject = `${payload.actorName} mentioned you in ${payload.caseTitle}`;
-  const text = `${payload.actorName} mentioned you in a ${payload.noteType === "case_note" ? "case" : "statement"} note for ${payload.caseTitle} at ${payload.tenantName}.
+  const text = `${payload.actorName} mentioned you in a ${payload.noteType === "case_note" ? "lead" : "account"} note for ${payload.caseTitle} at ${payload.tenantName}.
 
 Note excerpt:
 ${payload.noteExcerpt}
@@ -366,7 +367,7 @@ Open it in ${appName}: ${payload.url}`;
       <EmailLayout heading="You Were Mentioned">
         <p style={paragraphStyle}>
           <strong>{payload.actorName}</strong> mentioned you in a{" "}
-          {payload.noteType === "case_note" ? "case" : "statement"} note for{" "}
+          {payload.noteType === "case_note" ? "lead" : "account"} note for{" "}
           <strong>{payload.caseTitle}</strong>.
         </p>
         <p style={paragraphStyle}>

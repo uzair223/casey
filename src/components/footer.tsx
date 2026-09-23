@@ -16,7 +16,7 @@ export default function Footer() {
             </p>
           </Link>
           <p className="text-sm leading-6 text-muted-foreground">
-            Witness statements without the chasing. Built for UK claimant firms.
+            New enquiries without the chasing. Built for UK claimant firms.
           </p>
         </div>
 
@@ -28,7 +28,7 @@ export default function Footer() {
                 { label: "Platform", href: "/platform" },
                 { label: "Security", href: "/legal/security" },
                 { label: "Early access", href: "/#early-access" },
-                { label: "Witness intake demo", href: "/intake/demo" },
+                { label: "Account demo", href: "/intake/demo" },
               ]}
             />
           </div>

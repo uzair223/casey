@@ -258,7 +258,7 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
             form={formMethods}
             name="status"
             controlId="case_status"
-            label="Case status"
+            label="Lead status"
             registerOptions={{ required: true }}
             renderControl={(registration, required) => (
               <>
@@ -341,10 +341,10 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
                     aria-invalid={registration["aria-invalid"]}
                     aria-describedby={registration["aria-describedby"]}
                   >
-                    <SelectValue placeholder="Select case template" />
+                    <SelectValue placeholder="Select lead type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No template</SelectItem>
+                    <SelectItem value="none">No lead type</SelectItem>
                     {availableCaseTemplates.map((template) => (
                       <SelectItem key={template.id} value={template.id}>
                         {template.name}
@@ -452,7 +452,7 @@ export function CreateCaseForm({ onClose, onCreated }: CreateCaseFormProps) {
 
         <div className="flex gap-2">
           <AsyncButton type="submit" pendingText="Creating...">
-            Create case
+            Create lead
           </AsyncButton>
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel

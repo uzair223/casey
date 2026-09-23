@@ -58,7 +58,7 @@ const StatementTemplateGenerationSchema = z
     config: StatementConfigSchema.omit({
       schemaVersion: true,
     }).describe(
-      "Statement template. modelIdentity is one or two sentences beginning \"You are interviewing the witness of a ...\". Phase intent belongs only in objective. Do not write system prompt text.",
+      "Account template. modelIdentity is one or two sentences beginning \"You are taking an account of a ...\". The firm prepares the written draft during review. Phase intent belongs only in objective. Do not write system prompt text.",
     ),
   })
   .strict();
@@ -206,11 +206,11 @@ export function StatementTemplateSettingsScreen() {
   return (
     <section className="space-y-4">
       <PageTitle
-        title="Statement Templates"
-        description="Manage witness intake templates, advanced JSON configuration, and template DOCX files."
+        title="Account templates"
+        description="Manage the questions and document sections used after a lead is accepted, plus template DOCX files."
         actions={[
           {
-            label: "Config Templates",
+            label: "Lead types",
             href: "/settings/cases",
             variant: "outline",
           },
@@ -219,7 +219,7 @@ export function StatementTemplateSettingsScreen() {
 
       <SidebarWrapper>
         <Sidebar<StatementConfigTemplate>
-          title="Statement Templates"
+          title="Account templates"
           actions={[
             <div
               key="statement-template-filters"

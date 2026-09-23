@@ -424,7 +424,7 @@ export default function FinalReviewPage({
             <Card variant="warning">
               <CardHeader>
                 <CardTitle className="text-sm">
-                  This statement is not currently ready for witness final
+                  This account is not currently ready for a final
                   signature.
                 </CardTitle>
               </CardHeader>

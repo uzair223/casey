@@ -88,10 +88,12 @@ const suite = describe.skipIf(!hasLocalSupabaseEnv())("local Supabase RLS", () =
       {
         id: tenantAId,
         name: `Tenant A ${runId}`,
+        plan: "starter",
       },
       {
         id: tenantBId,
         name: `Tenant B ${runId}`,
+        plan: "starter",
       },
     ]);
     if (tenantError) throw tenantError;
@@ -448,6 +450,13 @@ const suite = describe.skipIf(!hasLocalSupabaseEnv())("local Supabase RLS", () =
       seed.passwords.paralegalA,
     );
 
+    const personalInjury = await service
+      .from("case_templates")
+      .select("id")
+      .eq("public_slug", "personal-injury")
+      .maybeSingle();
+    expect(personalInjury.error).toBeNull();
+
     const appAdminCaseTemplates = await appAdmin
       .from("case_templates")
       .select("id,name")
@@ -457,6 +466,7 @@ const suite = describe.skipIf(!hasLocalSupabaseEnv())("local Supabase RLS", () =
     const allowedCaseTemplateIds = new Set([
       seed.templateGlobalCaseId,
       ...SEEDED_CASE_TEMPLATE_IDS,
+      ...(personalInjury.data?.id ? [personalInjury.data.id] : []),
     ]);
     expect(caseTemplateIds.every((id) => allowedCaseTemplateIds.has(id))).toBe(
       true,

@@ -76,8 +76,8 @@ export const generateGreeting = (
   return [
     {
       role: "assistant",
-      content: `Hello ${statement.witness_name}, I'm here to help you prepare your witness statement for ${caseData.title}.
-I'll guide you through the information collection process to ensure we capture all the important details accurately.`,
+      content: `Hello ${statement.witness_name}, I'm here to take your account for ${caseData.title}.
+The firm prepares the written draft during review. I'll ask for the details they need.`,
     },
     {
       role: "assistant",

@@ -39,7 +39,7 @@ import { formatStatementExpectations } from "@/lib/llm/template-contract";
 
 const MAX_EVIDENCE_FILES_PER_CASE = 8;
 
-export const CASE_ANALYSIS_SYSTEM_PROMPT = `You are reviewing witness statements for a UK claimant firm. Summarise what the supplied statements and evidence say. Do not decide what is true, and do not give legal advice.
+export const CASE_ANALYSIS_SYSTEM_PROMPT = `You are reviewing accounts and evidence for a UK claimant firm. Summarise what the supplied accounts and evidence say. Do not decide what is true, and do not give legal advice.
 
 Use only the matter brief, case fields, statement expectations, statements, and evidence in the user message.
 
@@ -363,7 +363,7 @@ ${formatCaseFieldsForAnalysis({ caseConfig, caseMetadata })}
 Statement expectations:
 ${expectations || "None provided."}
 
-Witness statements:
+Accounts:
 
 ${params.statementCorpus}
 
@@ -458,7 +458,7 @@ export async function processCaseAnalysisJob(jobId: string) {
     ).filter(hasStatementContent);
 
     if (!sourceStatements.length) {
-      throw new Error("No witness statement content is available to analyse.");
+      throw new Error("No account content is available to analyse.");
     }
 
     const evidenceContexts = await buildEvidenceContext({

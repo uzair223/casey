@@ -17,19 +17,31 @@ export async function GET(request: Request) {
   try {
     const auth = await requireTenantManager(request);
     const supabase = getServiceClient("lead-channels-list");
-    const [{ data: tenant, error: tenantError }, { data: channels, error }] =
-      await Promise.all([
-        supabase
-          .from("tenants")
-          .select("name, plan, public_slug")
-          .eq("id", auth.tenantId)
-          .maybeSingle(),
-        supabase
-          .from("lead_channels")
-          .select("id, public_key, enabled, branding, lead_type_id, case_templates(name)")
-          .eq("tenant_id", auth.tenantId),
-      ]);
-    if (tenantError || error) throw tenantError ?? error;
+    const [
+      { data: tenant, error: tenantError },
+      { data: channels, error },
+      { data: leadTypes, error: leadTypeError },
+    ] = await Promise.all([
+      supabase
+        .from("tenants")
+        .select("name, plan, public_slug")
+        .eq("id", auth.tenantId)
+        .maybeSingle(),
+      supabase
+        .from("lead_channels")
+        .select("id, public_key, enabled, branding, lead_type_id, case_templates(name)")
+        .eq("tenant_id", auth.tenantId),
+      supabase
+        .from("case_templates")
+        .select("id, name, public_slug")
+        .eq("template_scope", "global")
+        .eq("status", "published")
+        .not("public_slug", "is", null)
+        .order("name"),
+    ]);
+    if (tenantError || error || leadTypeError) {
+      throw tenantError ?? error ?? leadTypeError;
+    }
 
     const premium = widgetEnabled(tenant?.plan);
     return ok({
@@ -38,6 +50,12 @@ export async function GET(request: Request) {
       hostedUrl: tenant?.public_slug
         ? `https://${tenant.public_slug}.caseyhq.co.uk`
         : null,
+      localPath: tenant?.public_slug ? `/q/${tenant.public_slug}` : null,
+      leadTypes: (leadTypes ?? []).map((leadType) => ({
+        id: leadType.id,
+        name: leadType.name,
+        publicSlug: leadType.public_slug,
+      })),
       channels: (channels ?? []).map((channel) => {
         const leadType = Array.isArray(channel.case_templates)
           ? channel.case_templates[0]

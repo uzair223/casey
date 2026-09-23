@@ -89,7 +89,7 @@ export function TenantRoleOverviewTab() {
         <StatCard
           label="7 Day Throughput"
           value={kpis.sevenDayThroughput}
-          hint="cases + statements created"
+          hint="leads and accounts created"
           icon={<ActivityIcon className="h-4 w-4" />}
         />
 

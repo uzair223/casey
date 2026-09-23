@@ -94,9 +94,9 @@ export function ParalegalCasesTab() {
           </DialogTrigger>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>Create case</DialogTitle>
+              <DialogTitle>Create lead</DialogTitle>
               <DialogDescription>
-                Create a new case. It will be assigned to you automatically.
+                Add a lead. It will be assigned to you automatically.
               </DialogDescription>
             </DialogHeader>
             <CreateCaseForm

@@ -123,7 +123,7 @@ export async function POST(request: Request) {
       path: finalDocPath,
       file: signedFile.bytes,
       name: finalDocName,
-      description: `Final signed witness statement by ${statement.witness_name}`,
+      description: `Final signed account by ${statement.witness_name}`,
       contentType: signedFile.contentType || "application/pdf",
     });
 

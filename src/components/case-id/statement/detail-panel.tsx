@@ -449,10 +449,10 @@ export function StatementDetailPanel({
           return;
         }
 
-        const notify = await toast.prompt("Notify the witness?", {
+        const notify = await toast.prompt("Notify them?", {
           action: { label: "Notify" },
           cancel: { label: "Don't notify" },
-          placeholder: "Optional message to the witness...",
+          placeholder: "Optional message...",
           required: true,
         });
 
@@ -491,9 +491,9 @@ export function StatementDetailPanel({
   const onDelete = async () => {
     if (!data) return;
 
-    const confirmed = await toast.confirm("Delete this statement?", {
+    const confirmed = await toast.confirm("Delete this person?", {
       description: "This action cannot be undone.",
-      confirmLabel: "Delete statement",
+      confirmLabel: "Delete person",
     });
     if (!confirmed) {
       return;
@@ -513,7 +513,7 @@ export function StatementDetailPanel({
         await toast.prompt("Send intake link", {
           action: { label: "Send link" },
           cancel: { label: "Send without message" },
-          placeholder: "Optional message to the witness...",
+          placeholder: "Optional message...",
           required: true,
         })
       ).message ?? "";
@@ -523,7 +523,7 @@ export function StatementDetailPanel({
       message: message.trim(),
       canAcceptDpa: role === "tenant_admin",
     });
-    toast.success("Statement link sent to witness email");
+    toast.success("Account link sent");
   };
 
   const onRegenerateLink = async () => {
@@ -541,8 +541,8 @@ export function StatementDetailPanel({
 
     const shouldEmail = await toast.confirm("Magic link regenerated", {
       variant: "success",
-      description: "Do you want to email it to the witness?",
-      confirmLabel: "Email witness",
+      description: "Do you want to email it to them?",
+      confirmLabel: "Email them",
     });
     if (shouldEmail) {
       await onSendStatementLink();
@@ -563,7 +563,7 @@ export function StatementDetailPanel({
           cancel: {
             label: "Send without message",
           },
-          placeholder: "Optional message to the witness...",
+          placeholder: "Optional message...",
           required: true,
         })
       ).message ?? "";
@@ -576,7 +576,7 @@ export function StatementDetailPanel({
       },
     );
 
-    toast.success("Final review request sent to witness");
+    toast.success("Final review request sent");
     await Promise.all([refreshCase(), fetchStatement()]);
   };
 

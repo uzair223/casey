@@ -257,7 +257,7 @@ export async function POST(
         statementId: statement.id,
       });
       return NextResponse.json(
-        "This witness statement intake has already been stopped. Please contact the law firm for next steps.",
+        "This account has already been stopped. Please contact the law firm for next steps.",
         { status: 409 },
       );
     }

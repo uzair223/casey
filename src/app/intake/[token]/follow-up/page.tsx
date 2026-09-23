@@ -145,8 +145,8 @@ export default function FollowUpPage({
         <CardHeader>
           <CardTitle>Follow-up Request</CardTitle>
           <CardDescription>
-            {followUpData.data.witnessName}, please reply to the legal team for
-            case {followUpData.data.caseTitle}.
+            {followUpData.data.witnessName}, please reply to the legal team about
+            {followUpData.data.caseTitle}.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

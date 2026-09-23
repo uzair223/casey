@@ -354,7 +354,7 @@ export function StatementTemplateSimpleView() {
           <span className="text-sm font-medium">
             Pending
             {basePath === "witnessMetadataFields"
-              ? " witness metadata fields"
+              ? " person details"
               : basePath === "phases"
                 ? " phases"
                 : " sections"}
@@ -679,8 +679,8 @@ export function StatementTemplateSimpleView() {
 
       {!hasPendingWitnessFields ? (
         <DynamicFieldsEditor
-          title="Witness metadata fields"
-          description="Define metadata fields collected from the witness."
+          title="Person details"
+          description="Details collected about the person before the account starts."
           fields={witnessFields}
           disabled={isBusy}
           addLabel="Add metadata field"
@@ -1012,7 +1012,7 @@ export function StatementTemplateSimpleView() {
           <Textarea
             rows={3}
             value={draftConfig.modelIdentity ?? ""}
-            placeholder="You are interviewing the witness of a road traffic accident. Take their account of how the collision happened and what happened afterwards."
+            placeholder="You are taking an account of a road traffic accident. Ask how the collision happened and what happened afterwards. The firm prepares the written draft during review."
             disabled={isBusy}
             onChange={(event) => {
               const next = event.target.value;

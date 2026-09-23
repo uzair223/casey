@@ -15,18 +15,18 @@ import { env } from "@/lib/env";
 
 export const metadata = {
   title: `Privacy Policy | ${env.NEXT_PUBLIC_APP_NAME}`,
-  description: `Privacy policy for ${env.NEXT_PUBLIC_APP_NAME}, including how witness statement data is handled for UK legal practices.`,
+  description: `Privacy policy for ${env.NEXT_PUBLIC_APP_NAME}, including how enquiry and account data is handled for UK legal practices.`,
 };
 
 const dataCategories = [
-  "Witness identity and contact details",
+  "Identity and contact details given in an enquiry or account",
   "Case references, matter metadata, and firm user details",
   "Statement responses, signed documents, attachments, and exhibits",
   "Audit metadata such as timestamps, access activity, and workflow state",
 ] as const;
 
 const uses = [
-  "Guide witness intake and prepare formal witness statements",
+  "Qualify an enquiry, take the fuller account after accept, and support the written draft during review",
   "Help legal teams manage matters, evidence, follow-up, and review",
   "Secure, monitor, troubleshoot, and improve the service",
   "Support compliance, record keeping, retention, and accountability",
@@ -41,7 +41,7 @@ const commitments = [
   {
     icon: LockKeyhole,
     title: "Restricted access",
-    body: "Access to case data is restricted to authorised users within the relevant firm or organisation, with role-based controls and scoped witness links.",
+    body: "Access to lead data is restricted to authorised users within the relevant firm or organisation, with role-based controls and private account links.",
   },
   {
     icon: Database,
@@ -55,8 +55,8 @@ export default function PrivacyPage() {
     <MarketingPage>
       <MarketingPageHero
         eyebrow="Privacy policy"
-        title="How Casey handles witness, case, and firm data."
-        description={`${env.NEXT_PUBLIC_APP_NAME} is designed for UK legal practices that need to collect, review, and store witness statement data securely. This policy explains what data is processed, why it is used, and how responsibility is shared with the firm using the platform.`}
+        title="How Casey handles enquiry, account, and firm data."
+        description={`${env.NEXT_PUBLIC_APP_NAME} is the firm's first contact. A short chat qualifies the enquiry. After the firm accepts, the fuller account, evidence, and other people come in. This policy explains what data is processed, why it is used, and how responsibility is shared with the firm.`}
       >
         <div className="mt-10 flex flex-wrap gap-3">
           <Button size="lg" variant="brand" asChild className="rounded-full px-7">
@@ -120,7 +120,7 @@ export default function PrivacyPage() {
 
       <MarketingPageSection
         eyebrow="Rights"
-        title="Retention, sharing, and witness rights"
+        title="Retention, sharing, and individual rights"
       >
         <Reveal>
           <MarketingFeatureCard title="What stays with the firm">
@@ -129,18 +129,18 @@ export default function PrivacyPage() {
                 Data should only be retained for as long as necessary for the
                 legal matter, the firm&apos;s retention policy, contractual
                 obligations, or other applicable legal requirements. Casey does
-                not sell witness data.
+                not sell personal data collected for a lead.
               </p>
               <p>
                 We only share data with service providers and legal users where
                 that is needed to operate the service, secure the platform, or
-                support the firm&apos;s instructions. For witness intake, Casey
-                shows a privacy notice before the witness can proceed, and that
-                acknowledgement can be recorded against the statement.
+                support the firm&apos;s instructions. Before an account
+                continues, Casey shows a privacy notice, and that
+                acknowledgement can be recorded against the account.
               </p>
               <p>
-                If you are a witness and want to understand how your personal
-                data is handled, please contact the firm that invited you. If
+                If you gave an account and want to understand how your personal
+                data is handled, please contact the firm that sent the link. If
                 you are a legal practice evaluating {env.NEXT_PUBLIC_APP_NAME},
                 review this policy alongside your own privacy notices,
                 client-care wording, retention rules, and supplier

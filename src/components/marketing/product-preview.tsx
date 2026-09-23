@@ -48,7 +48,7 @@ const draftSections = [
 const chronology = [
   {
     time: "08:10",
-    event: "Witness arrives on site",
+    event: "Arrives on site",
     source: "J. Doe",
   },
   {
@@ -107,7 +107,7 @@ function WitnessRail({
   status?: string;
 }) {
   const witnesses = [
-    { name: "Jane Doe", status, email: "witness@example.com" },
+    { name: "Jane Doe", status, email: "jane@example.com" },
     { name: "James Cole", status: "Collecting", email: "j.cole@example.com" },
     { name: "Site supervisor", status: "Draft", email: "—" },
   ];
@@ -115,7 +115,7 @@ function WitnessRail({
   return (
     <div className="hidden h-full w-[220px] shrink-0 border-r border-primary/10 bg-[#101010] p-3 sm:block">
       <p className="px-2 pb-2 text-[11px] uppercase tracking-[0.16em] text-primary/40">
-        Witnesses
+        People
       </p>
       <div className="space-y-1">
         {witnesses.map((witness) => (
@@ -146,7 +146,7 @@ function IntakeMock() {
   return (
     <div className="flex h-full flex-col bg-background px-4 pt-4 sm:px-6">
       <p className="text-[11px] uppercase tracking-[0.2em] text-brand">
-        Northbridge Law Witness intake
+        Northbridge Law enquiry
       </p>
       <h3 className="mt-1 font-display text-xl text-primary">
         Workplace accident — 14 March 2026

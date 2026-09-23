@@ -74,13 +74,13 @@ export function ParalegalOverviewTab() {
         <StatCard
           label="Locked"
           value={metrics.lockedCases}
-          hint="locked case files"
+          hint="locked leads"
           icon={<LockIcon className="h-4 w-4" />}
         />
         <StatCard
-          label="Witness Completion"
+          label="Accounts sent"
           value={`${metrics.witnessCompletionRate}%`}
-          hint="witness statements completed"
+          hint="accounts sent for review"
           icon={<PercentIcon className="h-4 w-4" />}
         />
       </div>

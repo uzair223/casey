@@ -21,7 +21,7 @@ import { env } from "@/lib/env";
 
 export const metadata = {
   title: `GDPR Notice | ${env.NEXT_PUBLIC_APP_NAME}`,
-  description: `High-level GDPR and UK data protection notice for ${env.NEXT_PUBLIC_APP_NAME}, built for legal practices handling witness statements.`,
+  description: `High-level GDPR and UK data protection notice for ${env.NEXT_PUBLIC_APP_NAME}, built for firms that qualify enquiries and take accounts after accept.`,
 };
 
 const principles = [
@@ -33,9 +33,9 @@ const principles = [
 
 const platformSupport = [
   "Firm-scoped access for legal teams",
-  "Time-bound, statement-specific witness links",
-  "Audit-friendly statement, upload, submission, and follow-up records",
-  "Configurable witness intake flows for different matters",
+  "Time-bound, account-specific links",
+  "Audit-friendly account, upload, submission, and follow-up records",
+  "Configurable account flows for different lead types",
 ] as const;
 
 const complianceAreas = [
@@ -52,7 +52,7 @@ const complianceAreas = [
   {
     icon: ClipboardCheck,
     title: "Evidence of notice",
-    body: "Witness intake presents a privacy notice before the flow continues, and acknowledgement can be stored against the witness statement record.",
+    body: "The account flow presents a privacy notice before it continues, and acknowledgement can be stored against the account.",
   },
 ] as const;
 
@@ -61,8 +61,8 @@ export default function GdprPage() {
     <MarketingPage>
       <MarketingPageHero
         eyebrow="UK GDPR"
-        title="Data protection support for legal witness workflows."
-        description={`${env.NEXT_PUBLIC_APP_NAME} is designed for UK legal practices that process personal data in dispute handling, witness statements, and legal case management. This notice explains how the platform fits into a firm's own UK GDPR governance.`}
+        title="Data protection support for lead intake."
+        description={`${env.NEXT_PUBLIC_APP_NAME} qualifies an enquiry, then takes the fuller account after the firm accepts. This notice explains how the platform fits into a firm's own UK GDPR governance.`}
       >
         <div className="mt-10 flex flex-wrap gap-3">
           <Button size="lg" variant="brand" asChild className="rounded-full px-7">
@@ -142,7 +142,7 @@ export default function GdprPage() {
                 </p>
                 <p>
                   Firms should confirm their own lawful basis, client-care
-                  wording, witness privacy notice, processor terms, transfer
+                  wording, account privacy notice, processor terms, transfer
                   position, retention policy, and incident response process
                   before using the service for live matters.
                 </p>

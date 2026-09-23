@@ -25,14 +25,14 @@ import { env } from "@/lib/env";
 
 export const metadata = {
   title: `Security | ${env.NEXT_PUBLIC_APP_NAME}`,
-  description: `How ${env.NEXT_PUBLIC_APP_NAME} protects witness data, including firm-scoped access, tokenised links, audit logging, and UK legal practice controls.`,
+  description: `How ${env.NEXT_PUBLIC_APP_NAME} protects enquiry and account data, including firm-scoped access, tokenised links, audit logging, and UK legal practice controls.`,
 };
 
 const securityPrinciples = [
   {
     label: "Privacy",
     title: "Designed for sensitive legal work",
-    body: "Case files, witness accounts, draft statements, and exhibits can contain highly sensitive personal data. Casey is built around controlled access, clear accountability, and cautious defaults.",
+    body: "Lead files, accounts, written drafts, and exhibits can contain highly sensitive personal data. Casey is built around controlled access, clear accountability, and cautious defaults.",
   },
   {
     label: "Access",
@@ -54,13 +54,13 @@ const controls = [
   },
   {
     icon: Link2,
-    title: "Time-bound witness links",
-    body: "Witness intake is accessed through tokenised links tied to a specific statement, with expiry and state checks before sensitive actions proceed.",
+    title: "Time-bound account links",
+    body: "The fuller account is accessed through tokenised links tied to one person, with expiry and state checks before sensitive actions proceed.",
   },
   {
     icon: ServerCog,
     title: "Server-side enforcement",
-    body: "Public witness operations go through server-side routes that validate token scope, statement state, expected document paths, upload limits, and rate limits before privileged storage actions run.",
+    body: "Public account operations go through server-side routes that validate token scope, account state, expected document paths, upload limits, and rate limits before privileged storage actions run.",
   },
   {
     icon: Database,
@@ -80,9 +80,9 @@ const controls = [
 ] as const;
 
 const witnessSafeguards = [
-  "Privacy notice acknowledgement before the witness intake flow continues",
+  "Privacy notice acknowledgement before the account continues",
   "Token checks before interview, follow-up, evidence, and final-review actions",
-  "Direct anonymous storage access removed from public witness flows",
+  "Direct anonymous storage access removed from public account flows",
   "Statement-specific storage path validation for evidence and signed documents",
   "Upload count, size, file-type, and persistent rate-limit controls for public evidence endpoints",
   "Statement-state validation to reduce accidental post-submission changes",
@@ -92,7 +92,7 @@ const witnessSafeguards = [
 const implementationNotes = [
   "Firm isolation is enforced with Supabase RLS policies for application tables and storage policies for organisation buckets.",
   "Paralegal, solicitor, firm-admin, and app-admin roles are not treated as interchangeable for write access.",
-  "Witness links are bearer-style access tokens, so logs redact token-like path segments and public routes re-check token validity before each sensitive action.",
+  "Account links are bearer-style access tokens, so logs redact token-like path segments and public routes re-check token validity before each sensitive action.",
   "Uploaded evidence is stored only through server routes for public intake, with server-derived metadata and expected path prefixes.",
   "Data is not currently application-level encrypted before it is written to Supabase. Transport encryption, Supabase platform controls, RLS, and access controls are therefore important parts of the current model.",
   "Firms with a requirement for customer-managed keys or field-level encryption should raise that during security review before using the platform for highly sensitive matters.",
@@ -103,7 +103,7 @@ const firmResponsibilities = [
   "Choose appropriate user roles and remove access when team members change matters or leave the firm",
   "Confirm the legal basis, privacy notices, retention rules, and client-care wording used for live matters",
   "Use strong identity practices for firm email accounts and devices used to access the platform",
-  "Avoid sharing witness links outside the intended recipient and matter context",
+  "Avoid sharing account links outside the intended recipient and matter context",
   "Review exported documents before filing, serving, or relying on them",
   "Maintain internal policies for incident response, retention, supervision, and staff training",
 ] as const;
@@ -113,8 +113,8 @@ export default function SecurityPage() {
     <MarketingPage>
       <MarketingPageHero
         eyebrow="Security & privacy"
-        title="Witness data deserves the highest protection."
-        description={`${env.NEXT_PUBLIC_APP_NAME} is built for UK legal practices handling sensitive statements and case files. This page covers the current controls, limits, and shared responsibilities.`}
+        title="Enquiry data deserves the highest protection."
+        description={`${env.NEXT_PUBLIC_APP_NAME} is built for UK firms handling sensitive accounts and lead files. This page covers the current controls, limits, and shared responsibilities.`}
         footer={
           <Link
             href="/legal/privacy"
@@ -146,7 +146,7 @@ export default function SecurityPage() {
       <MarketingPageSection
         eyebrow="Controls"
         title="How Casey protects access and activity"
-        description="Security is applied across the user, firm, matter, statement, and witness-link layers. The controls below are a high-level summary, not a substitute for a firm's own information security review."
+        description="Security is applied across the user, firm, lead, account, and private-link layers. The controls below are a high-level summary, not a substitute for a firm's own information security review."
       >
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {controls.map((item, index) => (
@@ -174,20 +174,20 @@ export default function SecurityPage() {
       </MarketingPageSection>
 
       <MarketingPageSection
-        eyebrow="Witness links"
-        title="Intake without opening the rest of the file."
-        description="Witnesses do not need access to an internal legal dashboard. Casey uses scoped intake links for the task they have been invited to complete."
+        eyebrow="Account links"
+        title="An account without opening the rest of the file."
+        description="People giving an account do not need access to an internal legal dashboard. Casey uses a private link for that account."
       >
         <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
           <Reveal>
             <MarketingFeatureCard
               icon={<KeyRound className="h-4 w-4" />}
-              title="Witness-link security model"
-              body="This separation helps firms collect witness information while reducing exposure of unrelated cases, team dashboards, template settings, or administrative tools."
+              title="Account-link security model"
+              body="This separation helps firms collect an account while reducing exposure of unrelated leads, team dashboards, template settings, or administrative tools."
             />
           </Reveal>
           <Reveal delay={90}>
-            <MarketingFeatureCard title="Witness intake safeguards">
+            <MarketingFeatureCard title="Account safeguards">
               <MarketingCheckList className="mt-6" items={witnessSafeguards} />
             </MarketingFeatureCard>
           </Reveal>

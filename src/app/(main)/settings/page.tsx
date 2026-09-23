@@ -298,36 +298,37 @@ export default function TenantSettingsPage() {
           <>
             <Card>
               <CardHeader>
-                <CardTitle>Case Templates</CardTitle>
+                <CardTitle>Lead types</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm text-muted-foreground">
                 <p>
-                  Manage case templates, favourite/default case templates, and
-                  allowed/default witness templates for each case template.
+                  Manage lead types, the default type, and the account
+                  templates used after a lead is accepted.
                 </p>
               </CardContent>
               <CardFooter>
                 <Button asChild variant="outline">
                   <Link href="/settings/cases">
-                    Open case template settings
+                    Open lead type settings
                   </Link>
                 </Button>
               </CardFooter>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>Statement Templates</CardTitle>
+                <CardTitle>Account templates</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm text-muted-foreground">
                 <p>
-                  Manage statement intake templates with Basic field editing and
-                  an Advanced raw JSON editor.
+                  Manage the questions and document sections used after a lead
+                  is accepted, with Basic field editing and an Advanced raw
+                  JSON editor.
                 </p>
               </CardContent>
               <CardFooter>
                 <Button asChild variant="outline">
                   <Link href="/settings/statements">
-                    Open statement template settings
+                    Open account template settings
                   </Link>
                 </Button>
               </CardFooter>
@@ -526,7 +527,7 @@ export default function TenantSettingsPage() {
                   <p className="text-sm text-muted-foreground">
                     {seatLimit == null
                       ? "The plan is managed by Casey."
-                      : `${planLabel(plan)}. ${seatLimit} people included. Billing status: ${billingStatus ?? "trial"}.`}
+                      : `${planLabel(plan)}. Accepted leads are billed on this plan. ${seatLimit} people included. Billing status: ${billingStatus ?? "trial"}.`}
                   </p>
                   <div className="flex flex-wrap gap-2 pt-2">
                     <AsyncButton

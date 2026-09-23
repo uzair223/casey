@@ -27,7 +27,7 @@ export function TenantRoleDashboard() {
             variant: "outline",
           },
           {
-            label: "Statement Templates",
+            label: "Account templates",
             href: "/settings/statements",
             variant: "outline",
           },

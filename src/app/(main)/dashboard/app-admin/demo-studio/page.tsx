@@ -668,7 +668,7 @@ export default function DemoStudioPage() {
     }
 
     if (!values.caseTemplateId || !values.statementTemplateId) {
-      setValidationError("Case template and statement template are required.");
+      setValidationError("Lead type and account template are required.");
       return;
     }
 
@@ -691,7 +691,7 @@ export default function DemoStudioPage() {
     );
     if (missingWitnessRequired.length > 0) {
       setValidationError(
-        `Please complete required witness fields: ${missingWitnessRequired
+        `Please complete required person details: ${missingWitnessRequired
           .map((field: WitnessTemplateField) => field.label)
           .join(", ")}`,
       );
@@ -714,7 +714,7 @@ export default function DemoStudioPage() {
     }
 
     if (!values.caseTemplateId) {
-      setValidationError("Case template is required.");
+      setValidationError("Lead type is required.");
       return;
     }
 
@@ -733,7 +733,7 @@ export default function DemoStudioPage() {
 
     if (!allowedStatementTemplatesForCaseTemplate.length) {
       setValidationError(
-        "No allowed witness templates are configured for this case template.",
+        "No account templates are configured for this lead type.",
       );
       return;
     }
@@ -893,8 +893,8 @@ export default function DemoStudioPage() {
                   form={bootstrapForm}
                   name="caseTemplateId"
                   controlId="demo-case-template"
-                  label="Case Template"
-                  registerOptions={{ required: "Case template is required" }}
+                  label="Lead type"
+                  registerOptions={{ required: "Lead type is required" }}
                   renderControl={() => (
                     <Select
                       value={caseTemplateId}
@@ -906,7 +906,7 @@ export default function DemoStudioPage() {
                       }
                     >
                       <SelectTrigger id="demo-case-template">
-                        <SelectValue placeholder="Choose case template" />
+                        <SelectValue placeholder="Choose lead type" />
                       </SelectTrigger>
                       <SelectContent>
                         {tenantCaseTemplates.map(
@@ -925,7 +925,7 @@ export default function DemoStudioPage() {
                   form={bootstrapForm}
                   name="caseTitle"
                   controlId="demo-case-title"
-                  label="Case Title"
+                  label="Lead title"
                   renderControl={(registration: RhfControlRegistration) => (
                     <Input
                       id="demo-case-title"
@@ -985,7 +985,7 @@ export default function DemoStudioPage() {
                   form={bootstrapForm}
                   name="statementTemplateId"
                   controlId="demo-statement-template"
-                  label="Witness Template"
+                  label="Account template"
                   registerOptions={{
                     required: "Statement template is required",
                   }}
@@ -1000,7 +1000,7 @@ export default function DemoStudioPage() {
                       }
                     >
                       <SelectTrigger id="demo-statement-template">
-                        <SelectValue placeholder="Choose witness template" />
+                        <SelectValue placeholder="Choose account template" />
                       </SelectTrigger>
                       <SelectContent>
                         {allowedStatementTemplatesForCaseTemplate.map(
@@ -1019,7 +1019,7 @@ export default function DemoStudioPage() {
                   form={bootstrapForm}
                   name="witnessName"
                   controlId="demo-witness-name"
-                  label="Witness Name"
+                  label="Name"
                   renderControl={(registration: RhfControlRegistration) => (
                     <Input
                       id="demo-witness-name"
@@ -1034,12 +1034,12 @@ export default function DemoStudioPage() {
                   form={bootstrapForm}
                   name="witnessEmail"
                   controlId="demo-witness-email"
-                  label="Witness Email"
+                  label="Email"
                   renderControl={(registration: RhfControlRegistration) => (
                     <Input
                       id="demo-witness-email"
                       type="email"
-                      placeholder="witness@example.com"
+                      placeholder="jane@example.com"
                       autoComplete="off"
                       {...registration}
                     />
@@ -1330,7 +1330,7 @@ export default function DemoStudioPage() {
               rows={2}
               value={chatInput}
               onChange={(event) => setChatInput(event.target.value)}
-              placeholder="Send a witness message through the intake chat endpoint..."
+              placeholder="Send a message through the account chat..."
               disabled={!selectedMagicLinkToken}
             />
             <Button

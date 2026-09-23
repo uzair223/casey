@@ -17,12 +17,12 @@ import { env } from "@/lib/env";
 
 const steps = [
   {
-    title: "Fill the gaps",
-    body: "Casey interviews the witness, asks the follow-up questions, and collects supporting evidence while the account is still coming in.",
+    title: "Qualify the enquiry",
+    body: "A short chat on your hosted page, or on Growth the website widget, collects the contact and what happened.",
   },
   {
-    title: "Turn the evidence into a first draft",
-    body: "Interviews, transcripts and exhibits are condensed into a statement. Your solicitors tweak it instead of writing from scratch.",
+    title: "Accept the lead",
+    body: "The enquiry lands on the firm feed. Accept it, and Casey asks for the fuller account, the evidence, and anyone else involved.",
   },
   {
     title: "Find what's missing before review",
@@ -30,7 +30,7 @@ const steps = [
   },
   {
     title: "Give solicitors more time for their best thinking",
-    body: "Review starts with a first draft, the evidence trail, and the gaps in view. Judgement stays with you.",
+    body: "Review starts from the account. Solicitors prepare the written draft, with the evidence and the gaps in view.",
   },
 ] as const;
 
@@ -44,7 +44,7 @@ const deeperLinks = [
   {
     label: "Security",
     title: "Built for sensitive files",
-    body: "E-signatures, tokenised witness links, and an audit trail you can explain to a practice manager.",
+    body: "Private account links, e-signatures, and an audit trail you can explain to a practice manager.",
     href: "/legal/security",
   },
   {
@@ -82,12 +82,12 @@ const pricingGroups = [
     ],
   },
   {
-    label: "Witness work",
+    label: "After accept",
     rows: [
-      "Witness interviews",
+      "Account interviews",
       "Follow-up questions",
       "Supporting documents",
-      "Witness statement generation",
+      "Written draft during review",
       "Markup and review",
     ].map((label) => ({
       label,
@@ -96,7 +96,7 @@ const pricingGroups = [
   },
   {
     label: "Templates",
-    rows: ["Lead type creation", "Statement template creation"].map(
+    rows: ["Lead type creation", "Account template creation"].map(
       (label) => ({
         label,
         cells: ["—", "Included", "Included"] as const,
@@ -106,7 +106,7 @@ const pricingGroups = [
   {
     label: "AI",
     rows: [
-      "AI case analysis",
+      "Facts and gaps",
       "AI document review",
       "Evidence descriptions",
       "AI template drafting",
@@ -137,7 +137,7 @@ export default function Home() {
         <MarketingShell className="relative">
           <Reveal eager>
             <h1 className="max-w-[11ch] font-display text-5xl font-normal leading-[1.05] text-primary sm:text-7xl lg:text-[92px]">
-              Witness statements without the chasing.
+              New enquiries without the chasing.
             </h1>
             <svg
               viewBox="0 0 220 16"
@@ -155,8 +155,8 @@ export default function Home() {
           </Reveal>
           <Reveal eager>
             <p className="mt-8 max-w-md text-lg leading-8 text-primary/80 lg:ml-[42%]">
-              Casey interviews witnesses, gathers evidence and finds what&apos;s
-              missing, so your solicitors start with a review-ready first draft.
+              Casey is the first conversation. The firm accepts the lead, then
+              the fuller account comes in for review.
             </p>
           </Reveal>
           <Reveal eager>
@@ -169,7 +169,7 @@ export default function Home() {
         <Reveal>
           <MarketingHeading
             eyebrow="The promise"
-            title="Casey asks the follow-up questions, collects supporting evidence, spots missing information before review, and turns everything into a review-ready first draft."
+            title="Casey qualifies the enquiry, takes the fuller account after you accept, and leaves the written draft for review."
           />
         </Reveal>
         <Reveal className="mt-14">
@@ -183,21 +183,21 @@ export default function Home() {
             <MarketingHeading
               eyebrow={`About ${env.NEXT_PUBLIC_APP_NAME}`}
               title="Fill the gaps."
-              description="Casey interviews witnesses, gathers evidence and finds what is missing, so your solicitors start with a review-ready first draft instead of a pile of transcripts."
+              description="A short qualification chat, then a fuller account once the firm accepts. Solicitors prepare the written draft during review."
             />
             <div className="mt-10 grid gap-8 sm:grid-cols-2">
               {[
                 {
-                  title: "Interview",
-                  body: "Casey asks the follow-up questions until the account holds. You do not have to go back for the next answer.",
+                  title: "Qualify",
+                  body: "Casey asks for the contact and what happened. Incomplete chats stay off the firm feed.",
                 },
                 {
-                  title: "Evidence",
-                  body: "Photos, records and exhibits come in with the account, attached to the facts they support.",
+                  title: "Account",
+                  body: "After accept, photos, records and other people come in with the fuller account.",
                 },
                 {
                   title: "Draft",
-                  body: "That material is condensed into a first-person statement your solicitors can tweak.",
+                  body: "The firm prepares the written account during review. The chat does not draft it.",
                 },
                 {
                   title: "Gaps",
@@ -257,7 +257,7 @@ export default function Home() {
             <MarketingHeading
               eyebrow="The first draft"
               title="Turn the evidence into a first draft."
-              description="Interviews, transcripts, photos and records are condensed into a statement. Your solicitors mark it up instead of writing from scratch."
+              description="The account, the evidence and the other people are already on the lead. Solicitors prepare the written draft during review."
             />
           </Reveal>
           <Reveal>
@@ -270,7 +270,7 @@ export default function Home() {
         <Reveal>
           <MarketingHeading
             eyebrow="Go Deeper"
-            title="See how the chasing drops out."
+            title="See how the first conversation works."
           />
         </Reveal>
         <div className="mt-10 border-t border-primary/15">
@@ -306,7 +306,7 @@ export default function Home() {
           <MarketingHeading
             eyebrow="Pricing"
             title="Try for free."
-            description="Open three cases for completely free. See how it fits into your workflow."
+            description="Accept three leads for free. See how the first conversation fits your intake."
           />
         </Reveal>
         <Reveal className="mt-12">
