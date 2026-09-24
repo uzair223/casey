@@ -28,8 +28,8 @@ const steps = [
     body: "Enquirers tell Casey what happened on the firm's page or, on Growth, in a chat on the firm's own website. Casey confirms each contact before leads reach anyone.",
   },
   {
-    title: "The firm decides",
-    body: "Leads appear in the list with the lead type and the enquirer's details. Solicitors accept them, or decline them, with the reason recorded.",
+    title: "You decide",
+    body: "Leads appear in the list with the lead type and the enquirer's details. Accept them, or decline them, with the reason recorded.",
   },
   {
     title: "Claimants give their accounts",
@@ -94,8 +94,8 @@ export default function Home() {
             <p className="mt-8 max-w-md text-lg leading-8 text-primary/80 lg:ml-[42%]">
               Enquirers fill in the firm&apos;s page at 9pm. By morning Casey has
               their names, confirmed ways to reach them, and what happened.
-              The firm decides which become files, and pays for the leads it
-              accepts.
+              You decide which become files, and pay for the leads you
+              accept.
             </p>
           </Reveal>
           <Reveal eager>
