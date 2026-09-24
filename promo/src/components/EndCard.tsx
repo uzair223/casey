@@ -7,9 +7,10 @@ import {
   useVideoConfig,
 } from "remotion";
 import { displayFont, sansFont } from "../fonts";
+import { brand, ink } from "../theme";
 import { BrandMark } from "./BrandMark";
 
-export const EndCard: React.FC = () => {
+export const EndCard: React.FC<{ line: string }> = ({ line }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
 
@@ -17,7 +18,7 @@ export const EndCard: React.FC = () => {
     <AbsoluteFill
       name="Background"
       style={{
-        backgroundColor: "#f4f5fb",
+        backgroundColor: "#f3efe6",
         overflow: "hidden",
       }}
     >
@@ -31,33 +32,21 @@ export const EndCard: React.FC = () => {
           height: 980,
           borderRadius: "50%",
           background:
-            "radial-gradient(circle, rgba(115, 87, 255, 0.14) 0%, rgba(244, 245, 251, 0) 70%)",
-          translate: interpolate(frame, [0, durationInFrames], ["0px 0px", "36px 40px"], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-            easing: Easing.bezier(0.22, 1, 0.36, 1),
-          }),
+            "radial-gradient(circle, rgba(154, 64, 52, 0.16) 0%, rgba(243, 239, 230, 0) 70%)",
+          translate: interpolate(
+            frame,
+            [0, durationInFrames],
+            ["0px 0px", "36px 40px"],
+            {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+              easing: Easing.bezier(0.22, 1, 0.36, 1),
+            },
+          ),
           scale: interpolate(frame, [0, durationInFrames], [1, 1.05], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
             output: "perceptual-scale",
-          }),
-        }}
-      />
-      <Interactive.Div
-        name="Wash 2"
-        style={{
-          position: "absolute",
-          left: 180,
-          top: 860,
-          width: 820,
-          height: 820,
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, rgba(45, 53, 232, 0.12) 0%, rgba(244, 245, 251, 0) 70%)",
-          translate: interpolate(frame, [0, durationInFrames], ["0px 12px", "-28px -36px"], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
           }),
         }}
       />
@@ -69,7 +58,6 @@ export const EndCard: React.FC = () => {
           justifyContent: "center",
           paddingLeft: 80,
           paddingRight: 80,
-          perspective: "1600px",
         }}
       >
         <Interactive.Div
@@ -85,28 +73,26 @@ export const EndCard: React.FC = () => {
             }),
           }}
         >
-          <Interactive.Div name="Mark">
-            <BrandMark size={96} gradientId="end-mark" />
-          </Interactive.Div>
+          <BrandMark size={96} color={brand} />
           <Interactive.Div
             name="Tagline"
             style={{
               marginTop: 40,
               maxWidth: 920,
-              color: "#101010",
+              color: ink,
               fontFamily: displayFont,
               fontSize: 56,
               lineHeight: 1.14,
               textAlign: "center",
             }}
           >
-            Your solicitors deserve their best thinking, not more chasing.
+            {line}
           </Interactive.Div>
           <Interactive.Div
             name="URL"
             style={{
               marginTop: 36,
-              color: "#101010",
+              color: ink,
               fontFamily: sansFont,
               fontSize: 34,
             }}

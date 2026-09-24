@@ -21,10 +21,10 @@ export const ProgressRail: React.FC<{ active: number }> = ({ active }) => {
             borderRadius: 4,
             backgroundColor:
               index === active
-                ? "#7357FF"
+                ? "#9a4034"
                 : index < active
-                  ? "rgba(115, 87, 255, 0.45)"
-                  : "rgba(244, 245, 251, 0.16)",
+                  ? "rgba(154, 64, 52, 0.45)"
+                  : "rgba(243, 239, 230, 0.16)",
           }}
         />
       ))}

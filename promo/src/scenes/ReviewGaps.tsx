@@ -43,7 +43,7 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
       <ProductStage
         entrance="tilt"
         tilt="fromLeft"
-        caption="Cross-check every witness on one timeline and expose the gaps."
+        caption="Chronology, shared facts, one conflict, and the gaps."
         captionEntrance="in"
       >
         <ProductFrame title="app.casey / cases / WA-2026-0314 / analysis">
@@ -64,7 +64,7 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                 flexDirection: "column",
                 overflow: "hidden",
                 borderRadius: 12,
-                border: "1px solid rgba(244, 245, 251, 0.1)",
+                border: "1px solid rgba(243, 239, 230, 0.1)",
                 backgroundColor: "rgba(26, 26, 26, 0.45)",
               }}
             >
@@ -74,30 +74,30 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                   justifyContent: "space-between",
                   alignItems: "center",
                   padding: "12px 16px",
-                  borderBottom: "1px solid rgba(244, 245, 251, 0.1)",
+                  borderBottom: "1px solid rgba(243, 239, 230, 0.1)",
                 }}
               >
                 <div>
-                  <div style={{ color: "#f4f5fb", fontSize: 22, fontWeight: 500 }}>
+                  <div style={{ color: "#f3efe6", fontSize: 22, fontWeight: 500 }}>
                     Facts & gaps
                   </div>
                   <div
                     style={{
                       marginTop: 2,
-                      color: "rgba(244, 245, 251, 0.45)",
+                      color: "rgba(243, 239, 230, 0.45)",
                       fontSize: 14,
                     }}
                   >
-                    Generated from 3 statements
+                    Generated from 2 accounts
                   </div>
                 </div>
                 <div
                   style={{
                     borderRadius: 6,
-                    border: "1px solid rgba(244, 245, 251, 0.15)",
+                    border: "1px solid rgba(243, 239, 230, 0.15)",
                     padding: "6px 10px",
                     fontSize: 12,
-                    color: "rgba(244, 245, 251, 0.8)",
+                    color: "rgba(243, 239, 230, 0.8)",
                   }}
                 >
                   Regenerate
@@ -108,7 +108,7 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                   display: "flex",
                   gap: 16,
                   padding: "0 16px",
-                  borderBottom: "1px solid rgba(244, 245, 251, 0.1)",
+                  borderBottom: "1px solid rgba(243, 239, 230, 0.1)",
                   fontSize: 14,
                 }}
               >
@@ -120,12 +120,12 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                         padding: "10px 0",
                         borderBottom:
                           tab === "Chronology"
-                            ? "2px solid #f4f5fb"
+                            ? "2px solid #f3efe6"
                             : "2px solid transparent",
                         color:
                           tab === "Chronology"
-                            ? "#f4f5fb"
-                            : "rgba(244, 245, 251, 0.42)",
+                            ? "#f3efe6"
+                            : "rgba(243, 239, 230, 0.42)",
                       }}
                     >
                       {tab}
@@ -139,7 +139,7 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                   gridTemplateColumns: "1fr 1fr",
                   gap: 8,
                   padding: 16,
-                  borderBottom: "1px solid rgba(244, 245, 251, 0.1)",
+                  borderBottom: "1px solid rgba(243, 239, 230, 0.1)",
                 }}
               >
                 {[
@@ -152,13 +152,13 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                     key={label}
                     style={{
                       borderRadius: 6,
-                      border: "1px solid rgba(244, 245, 251, 0.1)",
+                      border: "1px solid rgba(243, 239, 230, 0.1)",
                       padding: "8px 12px",
                     }}
                   >
                     <div
                       style={{
-                        color: "#f4f5fb",
+                        color: "#f3efe6",
                         fontSize: 28,
                         fontWeight: 600,
                       }}
@@ -167,7 +167,7 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                     </div>
                     <div
                       style={{
-                        color: "rgba(244, 245, 251, 0.45)",
+                        color: "rgba(243, 239, 230, 0.45)",
                         fontSize: 11,
                       }}
                     >
@@ -186,7 +186,7 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                       gridTemplateColumns: "88px 1fr",
                       gap: 8,
                       padding: "10px 16px",
-                      borderBottom: "1px solid rgba(244, 245, 251, 0.08)",
+                      borderBottom: "1px solid rgba(243, 239, 230, 0.08)",
                       opacity: interpolate(
                         frame,
                         [0.3 * fps + index * 0.25 * fps, 0.65 * fps + index * 0.25 * fps],
@@ -203,7 +203,7 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                         display: "flex",
                         alignItems: "flex-start",
                         gap: 8,
-                        color: "#f4f5fb",
+                        color: "#f3efe6",
                         fontSize: 18,
                       }}
                     >
@@ -213,14 +213,14 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                           width: 8,
                           height: 8,
                           borderRadius: 4,
-                          backgroundColor: "rgba(244, 245, 251, 0.6)",
+                          backgroundColor: "rgba(243, 239, 230, 0.6)",
                           flexShrink: 0,
                         }}
                       />
                       {row.time}
                     </div>
                     <div>
-                      <div style={{ color: "#f4f5fb", fontSize: 18 }}>
+                      <div style={{ color: "#f3efe6", fontSize: 18 }}>
                         {row.event}
                       </div>
                       <div
@@ -236,10 +236,10 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                             key={source}
                             style={{
                               borderRadius: 999,
-                              backgroundColor: "rgba(244, 245, 251, 0.1)",
+                              backgroundColor: "rgba(243, 239, 230, 0.1)",
                               padding: "2px 8px",
                               fontSize: 14,
-                              color: "rgba(244, 245, 251, 0.7)",
+                              color: "rgba(243, 239, 230, 0.7)",
                             }}
                           >
                             {source}
@@ -249,6 +249,27 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                     </div>
                   </Interactive.Div>
                 ))}
+                <Interactive.Div
+                  name="Conflict"
+                  style={{
+                    margin: "8px 16px 0",
+                    borderRadius: 8,
+                    border: "1px solid rgba(154, 64, 52, 0.45)",
+                    backgroundColor: "rgba(154, 64, 52, 0.12)",
+                    padding: "8px 12px",
+                    opacity: interpolate(frame, [1.05 * fps, 1.4 * fps], [0, 1], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    }),
+                  }}
+                >
+                  <div style={{ color: "#c48478", fontSize: 12, letterSpacing: 1.4 }}>
+                    CONFLICT
+                  </div>
+                  <div style={{ marginTop: 4, color: "#f3efe6", fontSize: 16 }}>
+                    James Cole places the barrier drop at 08:14.
+                  </div>
+                </Interactive.Div>
                 <Interactive.Div
                   name="Gap card"
                   style={{
@@ -274,7 +295,7 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                       display: "flex",
                       alignItems: "flex-start",
                       gap: 8,
-                      color: "rgba(244, 245, 251, 0.5)",
+                      color: "rgba(243, 239, 230, 0.5)",
                       fontSize: 14,
                     }}
                   >
@@ -298,8 +319,8 @@ export const ReviewGaps: React.FC<{ showProgress?: boolean }> = ({
                       padding: "8px 12px",
                     }}
                   >
-                    <div style={{ color: "#f4f5fb", fontSize: 18 }}>
-                      CCTV covering the loading bay has not been obtained
+                    <div style={{ color: "#f3efe6", fontSize: 18 }}>
+                      Name of the supervisor who took the report is missing
                     </div>
                     <div
                       style={{

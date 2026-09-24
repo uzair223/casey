@@ -21,7 +21,7 @@ export const SceneCaption: React.FC<{
       name="Caption"
       style={{
         maxWidth: 920,
-        color: "#f4f5fb",
+        color: "#f3efe6",
         fontFamily: displayFont,
         fontSize: 48,
         lineHeight: 1.12,

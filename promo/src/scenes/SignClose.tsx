@@ -26,7 +26,7 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
       <ProductStage
         entrance="rise"
         tilt="flatten"
-        caption="Finalise each statement with a secure e-signature."
+        caption="The claimant signs."
         captionEntrance="up"
       >
         <ProductFrame title="app.casey / cases / WA-2026-0314">
@@ -34,15 +34,15 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
             <div
               style={{
                 width: 180,
-                borderRight: "1px solid rgba(244, 245, 251, 0.1)",
-                backgroundColor: "#101010",
+                borderRight: "1px solid rgba(243, 239, 230, 0.1)",
+                backgroundColor: "#12110f",
                 padding: 12,
               }}
             >
               <div
                 style={{
                   padding: "4px 8px 10px",
-                  color: "rgba(244, 245, 251, 0.4)",
+                  color: "rgba(243, 239, 230, 0.4)",
                   fontSize: 11,
                   letterSpacing: 2.4,
                   textTransform: "uppercase",
@@ -60,7 +60,7 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
                   style={{
                     borderRadius: 8,
                     backgroundColor: active
-                      ? "rgba(244, 245, 251, 0.1)"
+                      ? "rgba(243, 239, 230, 0.1)"
                       : "transparent",
                     padding: "8px 10px",
                     marginBottom: 4,
@@ -74,20 +74,20 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
                       gap: 8,
                     }}
                   >
-                    <span style={{ color: "#f4f5fb", fontSize: 14 }}>{name}</span>
+                    <span style={{ color: "#f3efe6", fontSize: 14 }}>{name}</span>
                     <span
                       style={{
                         color:
                           active && signed
-                            ? "#f4f5fb"
-                            : "rgba(244, 245, 251, 0.7)",
+                            ? "#f3efe6"
+                            : "rgba(243, 239, 230, 0.7)",
                         backgroundColor:
-                          active && signed ? "#7357FF" : "transparent",
+                          active && signed ? "#9a4034" : "transparent",
                         fontSize: 10,
                         border:
                           active && signed
-                            ? "1px solid #7357FF"
-                            : "1px solid rgba(244, 245, 251, 0.15)",
+                            ? "1px solid #9a4034"
+                            : "1px solid rgba(243, 239, 230, 0.15)",
                         borderRadius: 999,
                         padding: "2px 7px",
                       }}
@@ -117,20 +117,20 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
               >
                 <div>
                   <div
-                    style={{ color: "rgba(244, 245, 251, 0.45)", fontSize: 13 }}
+                    style={{ color: "rgba(243, 239, 230, 0.45)", fontSize: 13 }}
                   >
                     Jane Doe · Details
                   </div>
                   <div
                     style={{
                       marginTop: 2,
-                      color: "#f4f5fb",
+                      color: "#f3efe6",
                       fontFamily: displayFont,
                       fontSize: 32,
                       lineHeight: 1.15,
                     }}
                   >
-                    Ready for solicitor review
+                    Review and sign your statement
                   </div>
                 </div>
                 <div
@@ -139,8 +139,8 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
                     width: "fit-content",
                     padding: "0 12px",
                     borderRadius: 8,
-                    border: "1px solid rgba(244, 245, 251, 0.15)",
-                    color: "#f4f5fb",
+                    border: "1px solid rgba(243, 239, 230, 0.15)",
+                    color: "#f3efe6",
                     display: "flex",
                     alignItems: "center",
                     fontSize: 12,
@@ -153,7 +153,7 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
                 style={{
                   display: "flex",
                   gap: 16,
-                  borderBottom: "1px solid rgba(244, 245, 251, 0.1)",
+                  borderBottom: "1px solid rgba(243, 239, 230, 0.1)",
                   fontSize: 18,
                   marginBottom: 14,
                 }}
@@ -166,10 +166,10 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
                         paddingBottom: 10,
                         borderBottom:
                           index === 0
-                            ? "2px solid #f4f5fb"
+                            ? "2px solid #f3efe6"
                             : "2px solid transparent",
                         color:
-                          index === 0 ? "#f4f5fb" : "rgba(244, 245, 251, 0.42)",
+                          index === 0 ? "#f3efe6" : "rgba(243, 239, 230, 0.42)",
                       }}
                     >
                       {tab}
@@ -188,7 +188,7 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
                   style={{
                     width: "100%",
                     backgroundColor: "#ffffff",
-                    color: "#101010",
+                    color: "#12110f",
                     borderRadius: 12,
                     padding: "22px 28px",
                     boxShadow: "0 20px 40px -28px rgba(0,0,0,0.8)",
@@ -199,7 +199,7 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
                       textAlign: "center",
                       fontSize: 15,
                       letterSpacing: 3.2,
-                      color: "rgba(16, 16, 16, 0.45)",
+                      color: "rgba(18, 17, 15, 0.45)",
                     }}
                   >
                     WITNESS STATEMENT
@@ -219,7 +219,7 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
                       marginTop: 4,
                       textAlign: "center",
                       fontSize: 16,
-                      color: "rgba(16, 16, 16, 0.45)",
+                      color: "rgba(18, 17, 15, 0.45)",
                     }}
                   >
                     Workplace accident — 14 March 2026
@@ -229,7 +229,7 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
                       marginTop: 16,
                       fontSize: 18,
                       lineHeight: 1.45,
-                      color: "rgba(16, 16, 16, 0.75)",
+                      color: "rgba(18, 17, 15, 0.75)",
                     }}
                   >
                     I believe that the facts stated in this witness statement are
@@ -245,7 +245,7 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
                       name="Signature"
                       d="M12 44C28 18 44 58 62 36C78 16 86 48 112 40C140 30 148 18 176 28C198 36 220 22 248 34"
                       fill="none"
-                      stroke="#2D35E8"
+                      stroke="#9a4034"
                       strokeWidth={3}
                       strokeLinecap="round"
                       style={{
@@ -276,9 +276,9 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
                         padding: "0 10px",
                         borderRadius: 6,
                         backgroundColor: signed
-                          ? "rgba(115, 87, 255, 0.12)"
-                          : "rgba(16, 16, 16, 0.06)",
-                        color: signed ? "#2D35E8" : "rgba(16, 16, 16, 0.55)",
+                          ? "rgba(154, 64, 52, 0.12)"
+                          : "rgba(18, 17, 15, 0.06)",
+                        color: signed ? "#9a4034" : "rgba(18, 17, 15, 0.55)",
                         display: "flex",
                         alignItems: "center",
                         fontSize: 12,
@@ -288,7 +288,7 @@ export const SignClose: React.FC<{ showProgress?: boolean }> = ({
                       {signed ? "Signed with secure e-signature" : "Awaiting secure e-signature"}
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, color: "rgba(16, 16, 16, 0.45)" }}>
+                  <div style={{ fontSize: 12, color: "rgba(18, 17, 15, 0.45)" }}>
                     Jane Doe · 19 September 2026
                   </div>
                 </div>

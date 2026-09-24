@@ -33,9 +33,9 @@ const Bubble: React.FC<{
           padding: "14px 18px",
           fontSize: 22,
           lineHeight: 1.4,
-          color: isJane ? "#101010" : "#f4f5fb",
-          backgroundColor: isJane ? "#f4f5fb" : "rgba(26, 26, 26, 0.92)",
-          border: isJane ? "none" : "1px solid rgba(244, 245, 251, 0.1)",
+          color: isJane ? "#12110f" : "#f3efe6",
+          backgroundColor: isJane ? "#f3efe6" : "rgba(26, 26, 26, 0.92)",
+          border: isJane ? "none" : "1px solid rgba(243, 239, 230, 0.1)",
           borderRadius: isJane ? "24px 4px 24px 24px" : "4px 24px 24px 24px",
         }}
       >
@@ -58,7 +58,7 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
       <ProductStage
         entrance="rise"
         tilt="fromBelow"
-        caption="Casey fills the gaps before you have to chase."
+        caption="Casey takes the account, and the photo comes with it."
         captionEntrance="scale"
       >
         <ProductFrame title="app.casey / intake">
@@ -69,23 +69,23 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
               fontFamily: sansFont,
               display: "flex",
               flexDirection: "column",
-              backgroundColor: "#141414",
+              backgroundColor: "#12110f",
             }}
           >
             <div
               style={{
-                color: "#9B8CFF",
+                color: "#c48478",
                 fontSize: 15,
                 letterSpacing: 3.2,
                 textTransform: "uppercase",
               }}
             >
-              Northbridge Law Witness intake
+              Private account
             </div>
             <div
               style={{
                 marginTop: 4,
-                color: "#f4f5fb",
+                color: "#f3efe6",
                 fontFamily: displayFont,
                 fontSize: 36,
               }}
@@ -101,7 +101,7 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
                 flexDirection: "column",
                 overflow: "hidden",
                 borderRadius: 12,
-                border: "1px solid rgba(244, 245, 251, 0.1)",
+                border: "1px solid rgba(243, 239, 230, 0.1)",
                 backgroundColor: "rgba(26, 26, 26, 0.45)",
               }}
             >
@@ -110,7 +110,7 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
                   display: "flex",
                   gap: 18,
                   padding: "0 16px",
-                  borderBottom: "1px solid rgba(244, 245, 251, 0.1)",
+                  borderBottom: "1px solid rgba(243, 239, 230, 0.1)",
                   fontSize: 18,
                   flexShrink: 0,
                 }}
@@ -123,10 +123,10 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
                         padding: "10px 0",
                         borderBottom:
                           index === 0
-                            ? "2px solid #f4f5fb"
+                            ? "2px solid #f3efe6"
                             : "2px solid transparent",
                         color:
-                          index === 0 ? "#f4f5fb" : "rgba(244, 245, 251, 0.42)",
+                          index === 0 ? "#f3efe6" : "rgba(243, 239, 230, 0.42)",
                       }}
                     >
                       {tab}
@@ -151,7 +151,7 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
                     right: 0,
                     height: 36,
                     background:
-                      "linear-gradient(to bottom, rgba(20, 20, 20, 0.92), rgba(20, 20, 20, 0))",
+                      "linear-gradient(to bottom, rgba(18, 17, 15, 0.92), rgba(18, 17, 15, 0))",
                     zIndex: 2,
                     pointerEvents: "none",
                   }}
@@ -284,17 +284,17 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
                         alignItems: "center",
                         gap: 8,
                         borderRadius: 10,
-                        border: "1px solid rgba(244, 245, 251, 0.12)",
-                        backgroundColor: "rgba(244, 245, 251, 0.06)",
+                        border: "1px solid rgba(243, 239, 230, 0.12)",
+                        backgroundColor: "rgba(243, 239, 230, 0.06)",
                         padding: "8px 12px",
-                        color: "#f4f5fb",
+                        color: "#f3efe6",
                         fontSize: 16,
                       }}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                         <path
                           d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"
-                          stroke="rgba(244,245,251,0.7)"
+                          stroke="rgba(243,239,230,0.7)"
                           strokeWidth="1.8"
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -333,13 +333,13 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
                           borderRadius: 999,
                           padding: "4px 10px",
                           fontSize: 15,
-                          color: done ? "#f4f5fb" : "rgba(244, 245, 251, 0.7)",
+                          color: done ? "#f3efe6" : "rgba(243, 239, 230, 0.7)",
                           backgroundColor: done
-                            ? "rgba(115, 87, 255, 0.28)"
-                            : "rgba(244, 245, 251, 0.08)",
+                            ? "rgba(154, 64, 52, 0.28)"
+                            : "rgba(243, 239, 230, 0.08)",
                           border: done
-                            ? "1px solid rgba(115, 87, 255, 0.4)"
-                            : "1px solid rgba(244, 245, 251, 0.12)",
+                            ? "1px solid rgba(154, 64, 52, 0.4)"
+                            : "1px solid rgba(243, 239, 230, 0.12)",
                         }}
                       >
                         {label}
@@ -348,7 +348,7 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
                     <span
                       style={{
                         fontSize: 15,
-                        color: "rgba(244, 245, 251, 0.45)",
+                        color: "rgba(243, 239, 230, 0.45)",
                         padding: "0 6px",
                       }}
                     >
@@ -363,7 +363,7 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
                   alignItems: "center",
                   gap: 8,
                   padding: 12,
-                  borderTop: "1px solid rgba(244, 245, 251, 0.1)",
+                  borderTop: "1px solid rgba(243, 239, 230, 0.1)",
                   flexShrink: 0,
                 }}
               >
@@ -372,12 +372,12 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
                     flex: 1,
                     height: 48,
                     borderRadius: 8,
-                    border: "1px solid rgba(244, 245, 251, 0.1)",
-                    backgroundColor: "#141414",
+                    border: "1px solid rgba(243, 239, 230, 0.1)",
+                    backgroundColor: "#12110f",
                     padding: "0 12px",
                     display: "flex",
                     alignItems: "center",
-                    color: "rgba(244, 245, 251, 0.35)",
+                    color: "rgba(243, 239, 230, 0.35)",
                     fontSize: 16,
                   }}
                 >
@@ -388,7 +388,7 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
                     width: 48,
                     height: 48,
                     borderRadius: 8,
-                    border: "1px solid rgba(244, 245, 251, 0.1)",
+                    border: "1px solid rgba(243, 239, 230, 0.1)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -397,7 +397,7 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <path
                       d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"
-                      stroke="rgba(244,245,251,0.5)"
+                      stroke="rgba(243,239,230,0.5)"
                       strokeWidth="1.8"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -409,8 +409,8 @@ export const Interview: React.FC<{ showProgress?: boolean }> = ({
                     height: 48,
                     padding: "0 18px",
                     borderRadius: 8,
-                    backgroundColor: "#7357FF",
-                    color: "#f4f5fb",
+                    backgroundColor: "#9a4034",
+                    color: "#f3efe6",
                     display: "flex",
                     alignItems: "center",
                     fontSize: 18,
