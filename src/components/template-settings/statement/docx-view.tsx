@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { FileInput, FileInputTrigger } from "@/components/ui/file-input";
 import { AsyncButton } from "@/components/ui/async-button";
 import { useStatementTemplateSettings } from "./context";
 import {
@@ -18,7 +17,180 @@ import {
   type DocxEditorRef,
 } from "@/components/ui/docx-editor";
 import { ReviewWithAI, ReviewWithAITrigger } from "@/components/with-ai";
-import { ZapIcon } from "@/components/icons";
+import { ChevronDown, ZapIcon } from "@/components/icons";
+
+function DocxFileActionsMenu({
+  canEdit,
+  hasUploadedDocument,
+  canDownloadStarter,
+  canUpload,
+  isUploading,
+  hasStagedFile,
+  onDownloadStarter,
+  onDownloadUploaded,
+  onDeleteUploaded,
+  onUpload,
+  onUnstage,
+}: {
+  canEdit: boolean;
+  hasUploadedDocument: boolean;
+  canDownloadStarter: boolean;
+  canUpload: boolean;
+  isUploading: boolean;
+  hasStagedFile: boolean;
+  onDownloadStarter: () => Promise<void>;
+  onDownloadUploaded: () => Promise<void>;
+  onDeleteUploaded: () => Promise<void>;
+  onUpload: (file: File) => Promise<void>;
+  onUnstage: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) {
+            void onUpload(file);
+          }
+        }}
+      />
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((current) => !current)}
+      >
+        Actions
+        <ChevronDown className="size-4" />
+      </Button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute left-0 z-30 mt-1 flex min-w-56 flex-col rounded-md border bg-card p-1 shadow"
+        >
+          <AsyncButton
+            role="menuitem"
+            variant="ghost"
+            size="sm"
+            className="justify-start"
+            pendingText="Generating..."
+            disabled={!canDownloadStarter}
+            onClick={async () => {
+              try {
+                await onDownloadStarter();
+              } finally {
+                setOpen(false);
+              }
+            }}
+          >
+            Download starter DOCX
+          </AsyncButton>
+          {hasUploadedDocument ? (
+            <AsyncButton
+              role="menuitem"
+              variant="ghost"
+              size="sm"
+              className="justify-start"
+              pendingText="Generating..."
+              onClick={async () => {
+                try {
+                  await onDownloadUploaded();
+                } finally {
+                  setOpen(false);
+                }
+              }}
+            >
+              Download uploaded DOCX
+            </AsyncButton>
+          ) : null}
+          {hasUploadedDocument ? (
+            <AsyncButton
+              role="menuitem"
+              variant="ghost"
+              size="sm"
+              className="justify-start"
+              pendingText="Deleting..."
+              disabled={!canEdit}
+              onClick={async () => {
+                try {
+                  await onDeleteUploaded();
+                } finally {
+                  setOpen(false);
+                }
+              }}
+            >
+              Delete uploaded DOCX
+            </AsyncButton>
+          ) : null}
+          <Button
+            type="button"
+            role="menuitem"
+            variant="ghost"
+            size="sm"
+            className="justify-start"
+            disabled={!canUpload || isUploading}
+            onClick={() => {
+              setOpen(false);
+              fileInputRef.current?.click();
+            }}
+          >
+            {isUploading ? "Uploading..." : "Upload customized DOCX"}
+          </Button>
+          {hasStagedFile ? (
+            <AsyncButton
+              role="menuitem"
+              variant="ghost"
+              size="sm"
+              className="justify-start"
+              pendingText="Unstaging..."
+              onClick={async () => {
+                try {
+                  await onUnstage();
+                } finally {
+                  setOpen(false);
+                }
+              }}
+            >
+              Unstage
+            </AsyncButton>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function StatementTemplateDocxView() {
   const {
@@ -128,104 +300,55 @@ export function StatementTemplateDocxView() {
         className="z-150"
       >
         <div className="space-y-3">
-          <div className="space-y-3 rounded-md border p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">Template DOCX</p>
-                <p className="text-xs text-muted-foreground">
-                  Edit and save the DOCX template for this statement.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {pendingTemplateDocx ? (
-                  <Badge variant="outline">Staged</Badge>
-                ) : null}
-                {activeTemplate?.draft_docx_template_document ? (
-                  <Badge variant="secondary">Uploaded</Badge>
-                ) : (
-                  <Badge variant="outline">Not uploaded</Badge>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <AsyncButton
-                variant="outline"
-                size="sm"
-                onClick={downloadStarterDocx}
-                pendingText="Generating..."
-                disabled={!canEditActiveTemplate || !isMainTemplateValid}
-              >
-                Download starter DOCX
-              </AsyncButton>
-
-              {activeTemplate?.draft_docx_template_document && (
-                <>
-                  <AsyncButton
-                    variant="outline"
-                    size="sm"
-                    onClick={downloadUploadedDocx}
-                    pendingText="Generating..."
-                  >
-                    Download uploaded DOCX
-                  </AsyncButton>
-
-                  <AsyncButton
-                    variant="outline"
-                    size="sm"
-                    onClick={deleteUploadedDocx}
-                    pendingText="Deleting..."
-                    disabled={!canEditActiveTemplate}
-                  >
-                    Delete uploaded DOCX
-                  </AsyncButton>
-                </>
-              )}
-
-              <FileInput
-                accept="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                disabled={
-                  !canEditActiveTemplate ||
-                  !activeTemplateId ||
-                  !isMainTemplateValid ||
-                  isUploadingTemplateDocx
-                }
-                value={pendingTemplateDocx ? [pendingTemplateDocx] : []}
-                onChange={(files) => {
-                  void stageTemplateDocx(files[0] ?? null);
-                }}
-              >
-                <FileInputTrigger
-                  size="sm"
-                  disabled={
-                    !canEditActiveTemplate ||
-                    !isMainTemplateValid ||
-                    isUploadingTemplateDocx
-                  }
-                >
-                  {isUploadingTemplateDocx
-                    ? "Uploading..."
-                    : "Upload customized DOCX"}
-                </FileInputTrigger>
-              </FileInput>
-
-              {pendingTemplateDocx && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => stageTemplateDocx(null)}
-                >
-                  Unstage
-                </Button>
-              )}
-            </div>
-
             <DocxEditorPanel
               ref={inlineEditorRef}
               mode="minimal"
               showFullscreenToggle
-              className="max-h-120 h-120"
-            />
+              className="max-h-120 h-120 gap-3"
+              heading={
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Template DOCX</p>
+                    <p className="text-xs text-muted-foreground">
+                      Edit and save the DOCX template for this statement.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {pendingTemplateDocx ? (
+                      <Badge variant="outline">Staged</Badge>
+                    ) : null}
+                    {activeTemplate?.draft_docx_template_document ? (
+                      <Badge variant="secondary">Uploaded</Badge>
+                    ) : (
+                      <Badge variant="outline">Not uploaded</Badge>
+                    )}
+                  </div>
+                </div>
+              }
+            >
+              <DocxFileActionsMenu
+                canEdit={canEditActiveTemplate}
+                hasUploadedDocument={Boolean(
+                  activeTemplate?.draft_docx_template_document,
+                )}
+                canDownloadStarter={
+                  canEditActiveTemplate && isMainTemplateValid
+                }
+                canUpload={
+                  canEditActiveTemplate &&
+                  Boolean(activeTemplateId) &&
+                  isMainTemplateValid &&
+                  !isUploadingTemplateDocx
+                }
+                isUploading={isUploadingTemplateDocx}
+                hasStagedFile={Boolean(pendingTemplateDocx)}
+                onDownloadStarter={downloadStarterDocx}
+                onDownloadUploaded={downloadUploadedDocx}
+                onDeleteUploaded={deleteUploadedDocx}
+                onUpload={stageTemplateDocx}
+                onUnstage={() => stageTemplateDocx(null)}
+              />
+            </DocxEditorPanel>
 
             {(docxErrors?.errors.length ?? 0) > 0 && (
               <Card size="sm" variant="destructive">
@@ -282,7 +405,6 @@ export function StatementTemplateDocxView() {
                 </CardHeader>
               </Card>
             )}
-          </div>
         </div>
 
         <div

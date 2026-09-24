@@ -8,6 +8,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import {
+  LEAD_TYPE_SECTIONS,
+  useTemplateSelectionRoute,
+} from "../shared/template-route";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -44,8 +48,6 @@ import type {
   TemplateStatus,
 } from "@/types";
 
-type CaseEditorTab = "simple" | "json";
-
 type CaseTemplateSettingsContextValue = {
   userTenantName: string | null;
   isLoading: boolean;
@@ -62,8 +64,6 @@ type CaseTemplateSettingsContextValue = {
   canForkGlobalTemplate: boolean;
   canEditActiveTemplate: boolean;
   isTenantAdmin: boolean;
-  editorTab: CaseEditorTab;
-  setEditorTab: (tab: CaseEditorTab) => void;
   draftName: string;
   setDraftName: (value: string) => void;
   draftTitleTemplate: string;
@@ -109,7 +109,9 @@ function withGeneratedDynamicFieldKeys(config: CaseConfig) {
   return {
     ...config,
     dynamicFields: (config.dynamicFields ?? []).map((field) => ({
-      id: uniqueSlug(slugify(field.label || "", "field"), used),
+      id: field.id?.trim()
+        ? uniqueSlug(field.id.trim(), used)
+        : uniqueSlug(slugify(field.label || "", "field"), used),
       label: field.label,
       type: field.type,
       required: field.required,
@@ -173,8 +175,6 @@ export function CaseTemplateSettingsProvider({
     useState<string[]>([]);
   const [defaultStatementTemplateId, setDefaultStatementTemplateIdState] =
     useState<string | null>(null);
-  const [editorTab, setEditorTab] = useState<CaseEditorTab>("simple");
-
   const [draftName, setDraftName] = useState("");
   const [draftTitleTemplate, setDraftTitleTemplate] =
     useState("Case {caseIndex}");
@@ -283,7 +283,6 @@ export function CaseTemplateSettingsProvider({
       formMethods.reset(empty);
       setLinkedStatementTemplateIdsState([]);
       setDefaultStatementTemplateIdState(null);
-      setEditorTab("simple");
       return;
     }
 
@@ -293,7 +292,6 @@ export function CaseTemplateSettingsProvider({
     setDraftName(template.name);
     setDraftTitleTemplate(template.title_template || "Case {caseIndex}");
     formMethods.reset(config);
-    setEditorTab("simple");
   };
 
   const refreshData = async () => {
@@ -341,12 +339,7 @@ export function CaseTemplateSettingsProvider({
   const { isLoading } = useAsync(
     async () => {
       const templates = await refreshData();
-      if (templates.length > 0) {
-        const first = templates[0];
-        setActiveTemplateId(first.id);
-        syncEditorFromTemplate(first);
-        await loadTemplateStatementLinks(first.id);
-      } else {
+      if (templates.length === 0) {
         setActiveTemplateId(null);
         syncEditorFromTemplate(null);
       }
@@ -358,9 +351,7 @@ export function CaseTemplateSettingsProvider({
       withUseEffect: true,
       onError: (error) => {
         toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to load lead types",
+          error instanceof Error ? error.message : "Failed to load lead types",
         );
       },
     },
@@ -377,6 +368,18 @@ export function CaseTemplateSettingsProvider({
     syncEditorFromTemplate(null);
     toast.info("Creating a new lead type draft");
   };
+
+  const route = useTemplateSelectionRoute({
+    sections: LEAD_TYPE_SECTIONS,
+    defaultSection: "basics",
+    isLoading,
+    activeTemplateId,
+    templates: caseTemplates,
+    onSelect: (template) => {
+      void selectTemplate(template);
+    },
+    onCreate: createNewTemplate,
+  });
 
   const persistTemplate = async (nextStatus?: TemplateStatus) => {
     if (!draftName.trim()) {
@@ -403,6 +406,7 @@ export function CaseTemplateSettingsProvider({
     };
 
     let savedId = activeTemplateId;
+    const createdNew = !activeTemplateId;
 
     if (activeTemplateId) {
       if (targetStatus === "published") {
@@ -434,6 +438,10 @@ export function CaseTemplateSettingsProvider({
     const refreshed = await refreshData();
     const updated =
       refreshed.find((template) => template.id === savedId) ?? null;
+
+    if (createdNew && savedId) {
+      route.replaceTemplate(savedId);
+    }
 
     if (updated) {
       syncEditorFromTemplate(updated);
@@ -489,6 +497,7 @@ export function CaseTemplateSettingsProvider({
     setActiveTemplateId(tenantCopy.id);
     syncEditorFromTemplate(tenantCopy);
     await loadTemplateStatementLinks(tenantCopy.id);
+    route.replaceTemplate(tenantCopy.id);
     toast.success("Lead type forked to firm scope");
   };
 
@@ -528,6 +537,7 @@ export function CaseTemplateSettingsProvider({
     setActiveTemplateId(copy.id);
     syncEditorFromTemplate(copy);
     await loadTemplateStatementLinks(copy.id);
+    route.replaceTemplate(copy.id);
     toast.success("Lead type duplicated");
   };
 
@@ -548,9 +558,11 @@ export function CaseTemplateSettingsProvider({
       setActiveTemplateId(first.id);
       syncEditorFromTemplate(first);
       await loadTemplateStatementLinks(first.id);
+      route.replaceTemplate(first.id);
     } else {
       setActiveTemplateId(null);
       syncEditorFromTemplate(null);
+      route.replaceTemplate(null);
     }
 
     toast.success("Lead type deleted");
@@ -652,8 +664,6 @@ export function CaseTemplateSettingsProvider({
     canForkGlobalTemplate,
     canEditActiveTemplate,
     isTenantAdmin,
-    editorTab,
-    setEditorTab,
     draftName,
     setDraftName,
     draftTitleTemplate,

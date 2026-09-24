@@ -2,12 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useCaseTemplateSettings } from "./context";
+import {
+  LEAD_TYPE_SECTIONS,
+  useTemplateRoute,
+} from "../shared/template-route";
 import { AsyncButton } from "@/components/ui/async-button";
+import { Button } from "@/components/ui/button";
 import { CodeEditor } from "@/components/ui/code-editor";
 
 export function CaseTemplateJsonView() {
-  const { advancedJson, canEditActiveTemplate, applyAdvancedJson } =
-    useCaseTemplateSettings();
+  const {
+    advancedJson,
+    canEditActiveTemplate,
+    applyAdvancedJson,
+  } = useCaseTemplateSettings();
+  const route = useTemplateRoute(LEAD_TYPE_SECTIONS, "basics");
 
   const [draftValue, setDraftValue] = useState(advancedJson);
 
@@ -32,6 +41,13 @@ export function CaseTemplateJsonView() {
       >
         Apply JSON
       </AsyncButton>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => route.setView("simple")}
+      >
+        Simple editor
+      </Button>
     </div>
   );
 }

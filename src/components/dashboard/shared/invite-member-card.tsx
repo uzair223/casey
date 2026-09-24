@@ -1,6 +1,5 @@
 "use client";
 
-import { ChangeEvent, useState } from "react";
 import {
   FormProvider,
   SubmitHandler,
@@ -9,15 +8,6 @@ import {
 } from "react-hook-form";
 import { AsyncButton } from "@/components/ui/async-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RhfField } from "@/components/ui/rhf-field";
 import {
@@ -29,186 +19,154 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { apiFetch } from "@/lib/api-utils";
-import { parseInviteCsv } from "@/lib/invite-csv";
 import { createInvite } from "@/lib/supabase/mutations";
 import type { UserRole } from "@/types";
 import { getRoleLabel } from "@/lib/utils";
 
-type BulkInviteResult = {
-  successCount: number;
-  failureMessages: string[];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type InviteOrganisation = {
+  id: string;
+  name: string;
 };
 
 type InviteMemberCardProps = React.ComponentProps<typeof Card> & {
   createdByUserId: string;
   tenantId: string | null;
+  organisations?: InviteOrganisation[];
+  onTenantIdChange?: (tenantId: string) => void;
   defaultRole?: UserRole;
   allowedRoles?: UserRole[];
   onInviteCreated?: () => Promise<void> | void;
 };
 
+function emailLines(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 export function InviteMemberCard({
   createdByUserId,
   tenantId = null,
+  organisations,
+  onTenantIdChange,
   defaultRole = "tenant_admin",
   allowedRoles = ["tenant_admin", "app_admin"],
   onInviteCreated,
   ...props
 }: InviteMemberCardProps) {
-  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
-  const [bulkCsvInput, setBulkCsvInput] = useState("");
-  const [bulkResult, setBulkResult] = useState<BulkInviteResult | null>(null);
-  const [bulkError, setBulkError] = useState<string | null>(null);
-
-  const inviteFormMethods = useForm<{ email: string; role: string }>({
+  const inviteFormMethods = useForm<{ emails: string; role: string }>({
     defaultValues: {
-      email: "",
+      emails: "",
       role: defaultRole,
     },
   });
 
+  const showRolePicker = allowedRoles.length > 1;
   const selectedRole = useWatch({
     control: inviteFormMethods.control,
     name: "role",
   });
 
   const handleCreateInvite: SubmitHandler<{
-    email: string;
+    emails: string;
     role: string;
   }> = async (data) => {
-    inviteFormMethods.clearErrors("email");
-
-    try {
-      const { email, token } = await createInvite(
-        data.email,
-        data.role,
-        tenantId,
-        createdByUserId,
-      );
-      if (email) {
-        await apiFetch("/api/invites/send", {
-          method: "POST",
-          body: JSON.stringify({ email, token }),
-        });
-      }
-      await onInviteCreated?.();
-      inviteFormMethods.reset({ email: "", role: data.role });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to create invite";
-      inviteFormMethods.setError("email", { message: errorMessage });
-      throw new Error(errorMessage);
-    }
-  };
-
-  const handleBulkFileSelected = async (
-    event: ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const text = await file.text();
-    setBulkCsvInput(text);
-    setBulkResult(null);
-    setBulkError(null);
-    event.target.value = "";
-  };
-
-  const handleBulkInvite = async () => {
-    setBulkError(null);
-    setBulkResult(null);
-
-    const parsed = parseInviteCsv(bulkCsvInput);
-    const allowedRolesSet = new Set<UserRole>(allowedRoles);
-
-    const roleErrors = parsed.rows
-      .filter((row) => !allowedRolesSet.has(row.role))
-      .map(
-        (row) => `Line ${row.lineNumber}: role \"${row.role}\" is not allowed`,
-      );
-
-    const parseErrors = [...parsed.errors, ...roleErrors];
-    if (parseErrors.length > 0) {
-      setBulkError(parseErrors.slice(0, 10).join("\n"));
-      return;
+    inviteFormMethods.clearErrors("emails");
+    const emails = emailLines(data.emails);
+    if (emails.length === 0) {
+      inviteFormMethods.setError("emails", {
+        message: "Enter at least one email address.",
+      });
+      throw new Error("Enter at least one email address.");
     }
 
-    let successCount = 0;
-    const failureMessages: string[] = [];
+    const invalid = emails.filter((email) => !EMAIL_PATTERN.test(email));
+    if (invalid.length > 0) {
+      const message = `These are not email addresses: ${invalid.join(", ")}`;
+      inviteFormMethods.setError("emails", { message });
+      throw new Error(message);
+    }
 
-    for (const row of parsed.rows) {
+    const role = (showRolePicker ? data.role : allowedRoles[0]) as UserRole;
+    const failures: string[] = [];
+
+    for (const email of emails) {
       try {
-        const { email, token } = await createInvite(
-          row.email,
-          row.role,
+        const created = await createInvite(
+          email,
+          role,
           tenantId,
           createdByUserId,
         );
-
-        if (email) {
+        if (created.email) {
           await apiFetch("/api/invites/send", {
             method: "POST",
-            body: JSON.stringify({ email, token }),
+            body: JSON.stringify({
+              email: created.email,
+              token: created.token,
+            }),
           });
         }
-
-        successCount += 1;
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Failed to create invite";
-        failureMessages.push(
-          `Line ${row.lineNumber} (${row.email}): ${message}`,
-        );
+        failures.push(`${email}: ${message}`);
       }
     }
 
-    setBulkResult({ successCount, failureMessages });
     await onInviteCreated?.();
+
+    if (failures.length > 0) {
+      const message = failures.slice(0, 10).join("\n");
+      inviteFormMethods.setError("emails", { message });
+      throw new Error(message);
+    }
+
+    inviteFormMethods.reset({ emails: "", role });
   };
 
   return (
     <Card {...props}>
       <CardHeader>
-        <div className="flex justify-between gap-2">
-          <CardTitle>Invite Member </CardTitle>
-          <AsyncButton
-            size="sm"
-            type="button"
-            variant="outline"
-            onClick={async () => {
-              setIsBulkDialogOpen(true);
-              setBulkError(null);
-              setBulkResult(null);
-            }}
-          >
-            Bulk CSV Invite
-          </AsyncButton>
-        </div>
+        <CardTitle>Invite Member</CardTitle>
       </CardHeader>
 
       <FormProvider {...inviteFormMethods}>
         <form onSubmit={inviteFormMethods.handleSubmit(handleCreateInvite)}>
-          <CardContent className="flex items-end gap-2 max-w-2xl">
-            <div className="flex-1">
-              <RhfField
-                form={inviteFormMethods}
-                name="email"
-                controlId="admin-invite-email"
-                label="Email"
-                registerOptions={{ required: true }}
-                renderControl={(registration, required) => (
-                  <Input
-                    id="admin-invite-email"
-                    type="email"
-                    autoComplete="off"
-                    placeholder="admin@example.com"
-                    required={required}
-                    {...registration}
-                  />
-                )}
-              />
-            </div>
-            <div className="w-48">
+          <CardContent className="space-y-4">
+            {organisations ? (
+              <div className="space-y-1">
+                <Label htmlFor="invite-organisation">Invite onto</Label>
+                <Select
+                  value={tenantId || "new"}
+                  onValueChange={(value) =>
+                    onTenantIdChange?.(value === "new" ? "" : value)
+                  }
+                >
+                  <SelectTrigger id="invite-organisation">
+                    <SelectValue placeholder="Choose an organisation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">
+                      Create the organisation when they accept
+                    </SelectItem>
+                    {organisations.map((organisation) => (
+                      <SelectItem key={organisation.id} value={organisation.id}>
+                        {organisation.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  An existing organisation lets the firm admin join without
+                  typing the name again.
+                </p>
+              </div>
+            ) : null}
+            {showRolePicker ? (
               <RhfField
                 form={inviteFormMethods}
                 name="role"
@@ -260,95 +218,36 @@ export function InviteMemberCard({
                   </>
                 )}
               />
-            </div>
-            <AsyncButton
-              className="mb-1.5"
-              type="submit"
-              pendingText="Creating..."
-            >
-              Create Invite
+            ) : null}
+            <RhfField
+              form={inviteFormMethods}
+              name="emails"
+              controlId="admin-invite-emails"
+              label="Emails"
+              registerOptions={{ required: true }}
+              renderControl={(registration, required) => (
+                <Textarea
+                  id="admin-invite-emails"
+                  rows={4}
+                  autoComplete="off"
+                  placeholder={"one@example.co.uk\ntwo@example.co.uk"}
+                  required={required}
+                  {...registration}
+                />
+              )}
+            />
+            <p className="text-xs text-muted-foreground">
+              One email address per line.
+              {showRolePicker
+                ? " Every invite uses the role above."
+                : ` Every invite is sent as ${getRoleLabel(allowedRoles[0])}.`}
+            </p>
+            <AsyncButton type="submit" pendingText="Sending...">
+              Send invites
             </AsyncButton>
           </CardContent>
         </form>
       </FormProvider>
-
-      <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
-        <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Bulk Invite Firm and App Admins</DialogTitle>
-            <DialogDescription>
-              Paste CSV data or upload a CSV file with columns email,role.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="app-admin-bulk-csv">CSV editor</Label>
-              <Textarea
-                id="app-admin-bulk-csv"
-                value={bulkCsvInput}
-                onChange={(event) => {
-                  setBulkCsvInput(event.target.value);
-                  setBulkError(null);
-                  setBulkResult(null);
-                }}
-                rows={10}
-                  placeholder={
-                    "email,role\nfirmadmin@example.com,tenant_admin\nops@example.com,app_admin"
-                  }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="app-admin-bulk-file">Upload CSV file</Label>
-              <Input
-                id="app-admin-bulk-file"
-                type="file"
-                accept=".csv,text/csv"
-                onChange={handleBulkFileSelected}
-              />
-            </div>
-
-            {bulkError && (
-              <p className="whitespace-pre-line text-sm text-destructive">
-                {bulkError}
-              </p>
-            )}
-
-            {bulkResult && (
-              <div className="space-y-1 text-sm">
-                <p className="font-medium">
-                  Created {bulkResult.successCount} invite(s).
-                </p>
-                {bulkResult.failureMessages.length > 0 && (
-                  <p className="whitespace-pre-line text-destructive">
-                    {bulkResult.failureMessages.slice(0, 10).join("\n")}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <AsyncButton
-              type="button"
-              variant="outline"
-              onClick={async () => {
-                setIsBulkDialogOpen(false);
-              }}
-            >
-              Close
-            </AsyncButton>
-            <AsyncButton
-              type="button"
-              onClick={handleBulkInvite}
-              pendingText="Sending bulk invites..."
-            >
-              Send Invites
-            </AsyncButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

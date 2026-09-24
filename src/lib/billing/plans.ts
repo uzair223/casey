@@ -78,6 +78,13 @@ export function planLabel(plan: string | null | undefined) {
   return "Trial";
 }
 
+export function billingStatusLabel(status: string | null | undefined) {
+  if (status === "active") return "Active";
+  if (status === "past_due") return "Past due";
+  if (status === "canceled") return "Canceled";
+  return "Trial";
+}
+
 export function monthlyAcceptedLeadAllowance(plan: TenantPlan | string) {
   const normalized = normalizeTenantPlan(plan);
   if (normalized === "starter") return STARTER_ACCEPTED_LEADS_PER_MONTH;

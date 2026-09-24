@@ -70,7 +70,7 @@ export function AppAdminMembersTab({ userId }: AppAdminTabProps) {
         createdByUserId={userId}
         tenantId={null}
         defaultRole="app_admin"
-        allowedRoles={["tenant_admin", "app_admin"]}
+        allowedRoles={["app_admin"]}
         onInviteCreated={refreshInvites}
       />
 

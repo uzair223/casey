@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   CaseTemplateSettingsProvider,
   CaseTemplateSettingsScreen,
@@ -5,8 +6,10 @@ import {
 
 export default function CaseTemplateSettingsPage() {
   return (
-    <CaseTemplateSettingsProvider>
-      <CaseTemplateSettingsScreen />
-    </CaseTemplateSettingsProvider>
+    <Suspense fallback={null}>
+      <CaseTemplateSettingsProvider>
+        <CaseTemplateSettingsScreen />
+      </CaseTemplateSettingsProvider>
+    </Suspense>
   );
 }

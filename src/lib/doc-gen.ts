@@ -21,13 +21,11 @@ interface DocxtemplaterWithTags extends Docxtemplater {
 
 type DocxTemplateRenderData = {
   caseMetadata: Record<string, string>;
-  witnessName: string;
-  witnessEmail: string;
-  witnessMetadata: Record<string, string>;
+  witness: Record<string, string>;
   signatureImage: string;
   signatureDate: string;
   sections: Record<string, string>;
-} & Record<string, string | Record<string, string>>;
+};
 
 type DocxTemplateGenerationPayload = {
   caseMetadata?: Record<string, string | number | null | undefined>;
@@ -221,13 +219,13 @@ export async function generateStarterDoc(params: {
   // ── Opening "I, ..." paragraph ─────────────────────────────────────────────
   const openingRuns: TextRun[] = [
     new TextRun({ text: "I, " }),
-    new TextRun({ text: "{witnessName}", bold: true }),
+    new TextRun({ text: "{witness.name}", bold: true }),
   ];
   if (hasAddress) {
-    openingRuns.push(new TextRun({ text: ", of {witnessMetadata.address}" }));
+    openingRuns.push(new TextRun({ text: ", of {witness.address}" }));
   }
   if (hasOccupation) {
-    openingRuns.push(new TextRun({ text: ", {witnessMetadata.occupation}" }));
+    openingRuns.push(new TextRun({ text: ", {witness.occupation}" }));
   }
   openingRuns.push(new TextRun({ text: ", will say as follows:" }));
 
@@ -282,7 +280,7 @@ export async function generateStarterDoc(params: {
           spacer(SP.xs),
 
           // ── Witness statement title ───────────────────────────────────────
-          centered("WITNESS STATEMENT OF {witnessName}", SZ.title),
+          centered("WITNESS STATEMENT OF {witness.name}", SZ.title),
           spacer(SP.md),
 
           // ── Opening paragraph ─────────────────────────────────────────────
@@ -296,7 +294,7 @@ export async function generateStarterDoc(params: {
             ? [
                 sectionHeading("1. Witness Details"),
                 ...remainingWitnessMeta.map((f) =>
-                  bodyPara(`${f.label}: {witnessMetadata.${f.id}}`, {
+                  bodyPara(`${f.label}: {witness.${f.id}}`, {
                     after: 0,
                   }),
                 ),
@@ -351,7 +349,7 @@ export async function generateStarterDoc(params: {
           }),
           new Paragraph({
             spacing: { after: SP.xs },
-            children: [new TextRun({ text: "Full name:  {witnessName}" })],
+            children: [new TextRun({ text: "Full name:  {witness.name}" })],
           }),
           new Paragraph({
             spacing: { after: SP.xs },
@@ -402,17 +400,23 @@ function buildTemplateData(
     string | number | null | undefined
   >;
 
-  const witnessMetadataMap: Record<string, string> = {};
-  for (const [key, value] of Object.entries(witnessMetadata)) {
-    witnessMetadataMap[key] = value == null ? "" : String(value);
+  const witness: Record<string, string> = {};
+  for (const field of data.config.witnessMetadataFields ?? []) {
+    const id = field.id?.trim();
+    if (!id || id === "name" || id === "email") continue;
+    const value = witnessMetadata[id];
+    witness[id] = value == null ? "" : String(value);
   }
+  for (const [key, value] of Object.entries(witnessMetadata)) {
+    if (key === "name" || key === "email" || key in witness) continue;
+    witness[key] = value == null ? "" : String(value);
+  }
+  witness.name = data.witnessName ?? "";
+  witness.email = data.witnessEmail ?? "";
 
   return {
-    ...sectionMap,
     caseMetadata: caseMetadataMap,
-    witnessName: data.witnessName,
-    witnessEmail: data.witnessEmail ?? "",
-    witnessMetadata: witnessMetadataMap,
+    witness,
     signatureImage: "{signatureImage}",
     signatureDate: "{signatureDate}",
     sections: sectionMap,
@@ -526,8 +530,8 @@ export const signDoc = async (params: {
 
 function getAllowedDocxTemplateFields(config: StatementConfig): Set<string> {
   const allowed = new Set<string>([
-    "witnessName",
-    "witnessEmail",
+    "witness.name",
+    "witness.email",
     "signatureImage",
     "signatureDate",
   ]);
@@ -540,15 +544,16 @@ function getAllowedDocxTemplateFields(config: StatementConfig): Set<string> {
 
   for (const section of config.sections ?? []) {
     if (section.id?.trim()) {
-      const sectionId = section.id.trim();
-      allowed.add(sectionId);
-      allowed.add(`sections.${sectionId}`);
+      allowed.add(`sections.${section.id.trim()}`);
     }
   }
 
   for (const field of config.witnessMetadataFields ?? []) {
     if (field.id?.trim()) {
-      allowed.add(`witnessMetadata.${field.id.trim()}`);
+      const fieldId = field.id.trim();
+      if (fieldId !== "name" && fieldId !== "email") {
+        allowed.add(`witness.${fieldId}`);
+      }
     }
   }
 

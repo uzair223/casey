@@ -97,6 +97,7 @@ type DocxEditorPanelProps = React.ComponentProps<typeof Card> & {
   showFullscreenToggle?: boolean;
   showError?: boolean;
   initialZoom?: number;
+  heading?: React.ReactNode;
 };
 
 type DocxEditorContextValue = SharedDocxEditorProps & {
@@ -311,6 +312,7 @@ export const DocxEditorPanel = forwardRef<DocxEditorRef, DocxEditorPanelProps>(
       showFullscreenToggle,
       showError = true,
       initialZoom,
+      heading,
       ...props
     },
     ref,
@@ -428,9 +430,10 @@ export const DocxEditorPanel = forwardRef<DocxEditorRef, DocxEditorPanelProps>(
         {...props}
       >
         {mode !== "bare" && (
-          <CardHeader>
-            {children}
-            <div className="flex flex-wrap gap-2">
+          <CardHeader className={heading ? "space-y-3" : undefined}>
+            {heading}
+            <div className="flex flex-wrap items-center gap-2">
+              {children}
               {canEdit && (
                 <Button
                   type="button"

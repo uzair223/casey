@@ -1,6 +1,10 @@
 "use client";
 
 import { useStatementTemplateSettings } from "./context";
+import {
+  ACCOUNT_TEMPLATE_SECTIONS,
+  useTemplateRoute,
+} from "../shared/template-route";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState } from "react";
 import { AsyncButton } from "@/components/ui/async-button";
@@ -17,6 +21,7 @@ export function StatementTemplateJsonView() {
     applyPendingAiPatch,
     discardPendingAiPatch,
   } = useStatementTemplateSettings();
+  const route = useTemplateRoute(ACCOUNT_TEMPLATE_SECTIONS, "basics");
 
   const [draftValue, setDraftValue] = useState(advancedJson);
 
@@ -80,6 +85,13 @@ export function StatementTemplateJsonView() {
       ) : (
         applyButton
       )}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => route.setView("simple")}
+      >
+        Simple editor
+      </Button>
     </div>
   );
 }

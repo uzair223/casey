@@ -9,8 +9,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useSearchParams } from "next/navigation";
 import { saveAs } from "file-saver";
+import {
+  ACCOUNT_TEMPLATE_SECTIONS,
+  useTemplateSelectionRoute,
+} from "../shared/template-route";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FormProvider,
@@ -72,7 +75,6 @@ type DocxErrors = Awaited<ReturnType<typeof getDocxTemplateFieldWarnings>> & {
   errors: string[];
 };
 
-type StatementEditorTab = "simple" | "json" | "docx";
 type StatementTemplateAiPatch = {
   name?: string;
   config?: Partial<StatementConfig>;
@@ -86,8 +88,6 @@ type StatementTemplateSettingsContextValue = {
   isLoading: boolean;
   setIsGenerating: (value: boolean) => void;
   isGenerating: boolean;
-  editorTab: StatementEditorTab;
-  setEditorTab: (tab: StatementEditorTab) => void;
   canForkGlobalTemplate: boolean;
   canEditActiveTemplate: boolean;
   isBusy: boolean;
@@ -225,8 +225,6 @@ export function StatementTemplateSettingsProvider({
 }: {
   children: ReactNode;
 }) {
-  const searchParams = useSearchParams();
-  const selectedTemplateId = searchParams.get("templateId");
   const { user } = useUserProtected(["app_admin", "tenant_admin", "solicitor"]);
   const [planGate, setPlanGate] = useState<CaseGate | null>(null);
 
@@ -246,7 +244,6 @@ export function StatementTemplateSettingsProvider({
 
   const [templates, setTemplates] = useState<StatementConfigTemplate[]>([]);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
-  const [editorTab, setEditorTab] = useState<StatementEditorTab>("simple");
 
   const [draftName, setDraftName] = useState("");
   const [currentStatus, setCurrentStatus] = useState<TemplateStatus>("draft");
@@ -464,34 +461,14 @@ export function StatementTemplateSettingsProvider({
   const { isLoading } = useAsync(
     async () => {
       const list = await refreshData();
-      if (list.length > 0) {
-        const initialTemplate =
-          (selectedTemplateId
-            ? list.find((template) => template.id === selectedTemplateId)
-            : null) ?? list[0];
-        const config = normalizeConfig(initialTemplate.draft_config);
-        setActiveTemplateId(initialTemplate.id);
-        syncEditorFromTemplate(initialTemplate);
-
-        if (initialTemplate.draft_docx_template_document) {
-          await preparePreviewFromUploadedDocument(
-            initialTemplate.draft_docx_template_document,
-            config,
-          );
-        } else {
-          await prepareStarterPreview(config, initialTemplate.name);
-        }
-      } else {
+      if (list.length === 0) {
         setActiveTemplateId(null);
         syncEditorFromTemplate(null);
-        await prepareStarterPreview(
-          createEmptyConfig(),
-          "Account template",
-        );
+        await prepareStarterPreview(createEmptyConfig(), "Account template");
       }
       return list;
     },
-    [user?.id, user?.tenant_id, isAppAdmin, selectedTemplateId],
+    [user?.id, user?.tenant_id, isAppAdmin],
     {
       enabled: !!user,
       withUseEffect: true,
@@ -514,9 +491,7 @@ export function StatementTemplateSettingsProvider({
     const timeoutId = setTimeout(() => {
       void prepareStarterPreview(
         withGeneratedConfigIds(normalizeConfig(draftConfig)),
-        draftName.trim() ||
-          activeTemplate?.name ||
-          "Account template",
+        draftName.trim() || activeTemplate?.name || "Account template",
       );
     }, 400);
 
@@ -553,12 +528,23 @@ export function StatementTemplateSettingsProvider({
   const createNewTemplate = async () => {
     setActiveTemplateId(null);
     syncEditorFromTemplate(null);
-    await prepareStarterPreview(
-      createEmptyConfig(),
-      "Account template",
-    );
+    await prepareStarterPreview(createEmptyConfig(), "Account template");
     toast.info("Creating new template...");
   };
+
+  const route = useTemplateSelectionRoute({
+    sections: ACCOUNT_TEMPLATE_SECTIONS,
+    defaultSection: "basics",
+    isLoading,
+    activeTemplateId,
+    templates,
+    onSelect: (template) => {
+      void selectTemplate(template);
+    },
+    onCreate: () => {
+      void createNewTemplate();
+    },
+  });
 
   const persistTemplate = async (
     nextStatus?: TemplateStatus,
@@ -636,6 +622,7 @@ export function StatementTemplateSettingsProvider({
     };
 
     let savedId = activeTemplateId;
+    const createdNew = !activeTemplateId;
 
     if (activeTemplateId) {
       if ((nextStatus ?? currentStatus) === "published") {
@@ -664,6 +651,10 @@ export function StatementTemplateSettingsProvider({
     const refreshed = await refreshData();
     const updated =
       refreshed.find((template) => template.id === savedId) ?? null;
+
+    if (createdNew && savedId) {
+      route.replaceTemplate(savedId);
+    }
 
     if (updated) {
       syncEditorFromTemplate(updated);
@@ -720,13 +711,12 @@ export function StatementTemplateSettingsProvider({
           first.name,
         );
       }
+      route.replaceTemplate(first.id);
     } else {
       setActiveTemplateId(null);
       syncEditorFromTemplate(null);
-      await prepareStarterPreview(
-        createEmptyConfig(),
-        "Account template",
-      );
+      await prepareStarterPreview(createEmptyConfig(), "Account template");
+      route.replaceTemplate(null);
     }
 
     toast.success("Template deleted");
@@ -759,6 +749,7 @@ export function StatementTemplateSettingsProvider({
 
     setActiveTemplateId(copy.id);
     syncEditorFromTemplate(copy);
+    route.replaceTemplate(copy.id);
 
     if (copy.draft_docx_template_document) {
       await preparePreviewFromUploadedDocument(
@@ -808,6 +799,7 @@ export function StatementTemplateSettingsProvider({
       await prepareStarterPreview(config, tenantCopy.name);
     }
 
+    route.replaceTemplate(tenantCopy.id);
     toast.success("Template forked to firm scope");
   };
 
@@ -1079,8 +1071,6 @@ export function StatementTemplateSettingsProvider({
     isLoading,
     setIsGenerating,
     isGenerating,
-    editorTab,
-    setEditorTab,
     canForkGlobalTemplate,
     canEditActiveTemplate,
     isBusy,

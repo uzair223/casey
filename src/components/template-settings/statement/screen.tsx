@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageTitle } from "@/components/page-title";
 import Loading from "@/components/loading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Sidebar,
   SidebarContent,
@@ -17,9 +16,12 @@ import {
 } from "@/lib/status-styles";
 import type { StatementConfig, StatementConfigTemplate } from "@/types";
 import { useStatementTemplateSettings } from "./context";
+import {
+  ACCOUNT_TEMPLATE_SECTIONS,
+  useTemplateRoute,
+} from "../shared/template-route";
 import { StatementTemplateSimpleView } from "./simple-view";
 import { StatementTemplateJsonView } from "./json-view";
-import { StatementTemplateDocxView } from "./docx-view";
 import { AsyncButton } from "@/components/ui/async-button";
 import {
   GenerateWithAI,
@@ -34,6 +36,8 @@ import {
   CalendarArrowUp,
   ArrowDownAZ,
   ArrowDownZA,
+  ChevronDown,
+  ChevronLeft,
 } from "@/components/icons";
 import {
   Select,
@@ -58,7 +62,7 @@ const StatementTemplateGenerationSchema = z
     config: StatementConfigSchema.omit({
       schemaVersion: true,
     }).describe(
-      "Account template. modelIdentity is one or two sentences beginning \"You are taking an account of a ...\". The firm prepares the written draft during review. Phase intent belongs only in objective. Do not write system prompt text.",
+      'Account template. modelIdentity is one or two sentences beginning "You are taking an account of a ...". The firm prepares the written draft during review. Phase intent belongs only in objective. Do not write system prompt text.',
     ),
   })
   .strict();
@@ -82,9 +86,89 @@ function toTemplateGenerationPatch(data: unknown) {
   return { name, config };
 }
 
+type EditorAction = {
+  key: string;
+  label: string;
+  pendingText: string;
+  onClick: () => Promise<void>;
+  disabled?: boolean;
+};
+
+function EditorActionsMenu({ items }: { items: EditorAction[] }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((current) => !current)}
+      >
+        Actions
+        <ChevronDown className="size-4" />
+      </Button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 z-20 mt-1 flex min-w-44 flex-col rounded-md border bg-card p-1 shadow"
+        >
+          {items.map((item) => (
+            <AsyncButton
+              key={item.key}
+              role="menuitem"
+              variant="ghost"
+              size="sm"
+              className="justify-start"
+              pendingText={item.pendingText}
+              disabled={item.disabled}
+              onClick={async () => {
+                try {
+                  await item.onClick();
+                } finally {
+                  setOpen(false);
+                }
+              }}
+            >
+              {item.label}
+            </AsyncButton>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function StatementTemplateSettingsScreen() {
   const { user } = useUser();
   const [templateSearch, setTemplateSearch] = useState("");
+  const route = useTemplateRoute(ACCOUNT_TEMPLATE_SECTIONS, "basics");
+  const docxSectionOpen = route.section === "docx" && route.view === "simple";
   const [sortOption, setSortOption] = useState<
     "newest" | "oldest" | "az" | "za"
   >("newest");
@@ -103,12 +187,8 @@ export function StatementTemplateSettingsScreen() {
     draftNameValidationError,
     mainTemplateValidationErrors,
     isLoading,
-    editorTab,
     setIsGenerating,
     stageAiTemplatePatch,
-    setEditorTab,
-    selectTemplate,
-    createNewTemplate,
     saveTemplate,
     deleteTemplate,
     duplicateTemplate,
@@ -165,8 +245,8 @@ export function StatementTemplateSettingsScreen() {
         return;
       }
 
-      // DOCX tab has its own dedicated save handler in docx-view.
-      if (editorTab === "docx") {
+      // The DOCX subtab has its own save handler in docx-view.
+      if (docxSectionOpen) {
         return;
       }
 
@@ -184,7 +264,7 @@ export function StatementTemplateSettingsScreen() {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [canEditActiveTemplate, editorTab, saveTemplate]);
+  }, [canEditActiveTemplate, docxSectionOpen, saveTemplate]);
 
   if (isLoading) {
     return <Loading />;
@@ -219,6 +299,8 @@ export function StatementTemplateSettingsScreen() {
 
       <SidebarWrapper>
         <Sidebar<StatementConfigTemplate>
+          className={route.isEditor ? "hidden lg:block" : undefined}
+          scrollAreaHeightClassName="h-[calc(100dvh-16rem)] lg:h-[calc(100vh-10rem)]"
           title="Account templates"
           actions={[
             <div
@@ -267,14 +349,16 @@ export function StatementTemplateSettingsScreen() {
             </div>,
             {
               label: "New",
-              onClick: () => void createNewTemplate(),
+              onClick: () => {
+                route.openNew();
+              },
             },
           ]}
           items={filteredTemplates}
           activeItemId={activeTemplate?.id}
           getItemId={(template) => template.id}
           onSelectItem={(template) => {
-            void selectTemplate(template);
+            route.openTemplate(template.id);
           }}
           renderItem={(template) => (
             <div className="flex w-full flex-col gap-2">
@@ -287,7 +371,19 @@ export function StatementTemplateSettingsScreen() {
           emptyMessage="No templates yet."
         />
 
-        <SidebarContent>
+        <SidebarContent
+          className={route.isEditor ? undefined : "hidden lg:block"}
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mb-3 lg:hidden"
+            onClick={() => route.closeEditor()}
+          >
+            <ChevronLeft className="size-4" />
+            Account templates
+          </Button>
           <Card>
             <CardHeader>
               <GenerateWithAI
@@ -324,7 +420,7 @@ export function StatementTemplateSettingsScreen() {
                   setIsGenerating(false);
                 }}
               >
-                {["simple", "json"].includes(editorTab) && (
+                {!docxSectionOpen ? (
                   <div className="fixed bottom-6 right-6">
                     <GenerateWithAITrigger
                       className="rounded-full"
@@ -333,100 +429,96 @@ export function StatementTemplateSettingsScreen() {
                       <Sparkles /> AI Assistant
                     </GenerateWithAITrigger>
                   </div>
-                )}
+                ) : null}
               </GenerateWithAI>
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle className="text-base">Editor</CardTitle>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    {activeTemplate && badges(activeTemplate)}
-                    {canForkGlobalTemplate ? (
-                      <AsyncButton
-                        size="sm"
-                        variant="outline"
-                        onClick={forkTemplate}
-                        pendingText="Forking..."
-                      >
-                        Fork to firm
-                      </AsyncButton>
-                    ) : null}
-                    {canEditActiveTemplate && activeTemplate && (
-                      <>
-                        {currentStatus !== "draft" && (
-                          <AsyncButton
-                            size="sm"
-                            variant="outline"
-                            onClick={() => saveTemplateWithStatus("draft")}
-                            pendingText="Saving..."
-                          >
-                            Move to draft
-                          </AsyncButton>
-                        )}
-                        {currentStatus !== "published" && (
-                          <AsyncButton
-                            size="sm"
-                            variant="outline"
-                            onClick={() => saveTemplateWithStatus("published")}
-                            pendingText="Saving..."
-                            disabled={!canPublishTemplate}
-                          >
-                            Publish
-                          </AsyncButton>
-                        )}
-                        {currentStatus !== "archived" && (
-                          <AsyncButton
-                            size="sm"
-                            variant="outline"
-                            onClick={() => saveTemplateWithStatus("archived")}
-                            pendingText="Saving..."
-                          >
-                            Archive
-                          </AsyncButton>
-                        )}
-                        {activeTemplate ? (
-                          <AsyncButton
-                            size="sm"
-                            variant="outline"
-                            onClick={duplicateTemplate}
-                            pendingText="Duplicating..."
-                          >
-                            Duplicate
-                          </AsyncButton>
-                        ) : null}
-                        {activeTemplate ? (
-                          <AsyncButton
-                            size="sm"
-                            variant="outline"
-                            onClick={deleteTemplate}
-                            pendingText="Deleting..."
-                          >
-                            Delete
-                          </AsyncButton>
-                        ) : null}
-                        {hasPublishedVersion ? (
-                          <AsyncButton
-                            size="sm"
-                            variant="outline"
-                            onClick={restorePreviousVersion}
-                            pendingText="Restoring..."
-                          >
-                            Restore
-                          </AsyncButton>
-                        ) : null}
-                      </>
-                    )}
-
-                    {canEditActiveTemplate && (
-                      <AsyncButton
-                        size="sm"
-                        onClick={saveTemplate}
-                        pendingText="Saving..."
-                      >
-                        Save
-                      </AsyncButton>
-                    )}
-                  </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {activeTemplate ? badges(activeTemplate) : null}
+                  <EditorActionsMenu
+                    items={[
+                      ...(canForkGlobalTemplate
+                        ? [
+                            {
+                              key: "fork",
+                              label: "Fork to firm",
+                              pendingText: "Forking...",
+                              onClick: forkTemplate,
+                            },
+                          ]
+                        : []),
+                      ...(canEditActiveTemplate && activeTemplate
+                        ? [
+                            ...(currentStatus !== "draft"
+                              ? [
+                                  {
+                                    key: "draft",
+                                    label: "Move to draft",
+                                    pendingText: "Saving...",
+                                    onClick: () =>
+                                      saveTemplateWithStatus("draft"),
+                                  },
+                                ]
+                              : []),
+                            ...(currentStatus !== "published"
+                              ? [
+                                  {
+                                    key: "publish",
+                                    label: "Publish",
+                                    pendingText: "Saving...",
+                                    onClick: () =>
+                                      saveTemplateWithStatus("published"),
+                                    disabled: !canPublishTemplate,
+                                  },
+                                ]
+                              : []),
+                            ...(currentStatus !== "archived"
+                              ? [
+                                  {
+                                    key: "archive",
+                                    label: "Archive",
+                                    pendingText: "Saving...",
+                                    onClick: () =>
+                                      saveTemplateWithStatus("archived"),
+                                  },
+                                ]
+                              : []),
+                            {
+                              key: "duplicate",
+                              label: "Duplicate",
+                              pendingText: "Duplicating...",
+                              onClick: duplicateTemplate,
+                            },
+                            {
+                              key: "delete",
+                              label: "Delete",
+                              pendingText: "Deleting...",
+                              onClick: deleteTemplate,
+                            },
+                            ...(hasPublishedVersion
+                              ? [
+                                  {
+                                    key: "restore",
+                                    label: "Restore",
+                                    pendingText: "Restoring...",
+                                    onClick: restorePreviousVersion,
+                                  },
+                                ]
+                              : []),
+                          ]
+                        : []),
+                    ]}
+                  />
+                  {canEditActiveTemplate ? (
+                    <AsyncButton
+                      size="sm"
+                      onClick={saveTemplate}
+                      pendingText="Saving..."
+                    >
+                      Save
+                    </AsyncButton>
+                  ) : null}
                 </div>
               </div>
             </CardHeader>
@@ -463,27 +555,11 @@ export function StatementTemplateSettingsScreen() {
                 </Card>
               ) : null}
 
-              <Tabs
-                value={editorTab}
-                onValueChange={(value) =>
-                  setEditorTab(value as typeof editorTab)
-                }
-              >
-                <TabsList>
-                  <TabsTrigger value="simple">Simple</TabsTrigger>
-                  <TabsTrigger value="json">JSON</TabsTrigger>
-                  <TabsTrigger value="docx">DOCX</TabsTrigger>
-                </TabsList>
-                <TabsContent value="simple" className="pt-4">
-                  <StatementTemplateSimpleView />
-                </TabsContent>
-                <TabsContent value="json" className="pt-4">
-                  <StatementTemplateJsonView />
-                </TabsContent>
-                <TabsContent value="docx" className="pt-4">
-                  <StatementTemplateDocxView />
-                </TabsContent>
-              </Tabs>
+              {route.view === "json" ? (
+                <StatementTemplateJsonView />
+              ) : (
+                <StatementTemplateSimpleView />
+              )}
             </CardContent>
           </Card>
         </SidebarContent>

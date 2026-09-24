@@ -31,13 +31,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -45,7 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { seatAllowanceLabel } from "@/lib/billing/plans";
+import { billingStatusLabel, planLabel, seatAllowanceLabel } from "@/lib/billing/plans";
 import type { TenantWithCounts } from "@/types";
 
 type AppAdminTenantsTabProps = {
@@ -196,8 +189,8 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
         <CardHeader>
           <CardTitle>Create organisation</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex-1 space-y-1">
+        <CardContent className="space-y-4">
+          <div className="space-y-1">
             <Label htmlFor="organisation-name">Name</Label>
             <Input
               id="organisation-name"
@@ -212,42 +205,18 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
         </CardContent>
       </Card>
 
-      <div className="space-y-3">
-        <div className="space-y-1">
-          <Label htmlFor="invite-organisation">Invite onto</Label>
-          <Select
-            value={inviteTenantId || "new"}
-            onValueChange={(value) =>
-              setInviteTenantId(value === "new" ? "" : value)
-            }
-          >
-            <SelectTrigger id="invite-organisation">
-              <SelectValue placeholder="Choose an organisation" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="new">
-                Create the organisation when they accept
-              </SelectItem>
-              {activeTenants.map((tenant) => (
-                <SelectItem key={tenant.id} value={tenant.id}>
-                  {tenant.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            An existing organisation lets the firm admin join without typing
-            the name again.
-          </p>
-        </div>
-        <InviteMemberCard
-          createdByUserId={userId}
-          tenantId={inviteTenantId || null}
-          defaultRole="tenant_admin"
-          allowedRoles={["tenant_admin", "app_admin"]}
-          onInviteCreated={refreshTenantInvites}
-        />
-      </div>
+      <InviteMemberCard
+        createdByUserId={userId}
+        tenantId={inviteTenantId || null}
+        organisations={activeTenants.map((tenant) => ({
+          id: tenant.id,
+          name: tenant.name,
+        }))}
+        onTenantIdChange={setInviteTenantId}
+        defaultRole="tenant_admin"
+        allowedRoles={["tenant_admin"]}
+        onInviteCreated={refreshTenantInvites}
+      />
 
       {!tenants.data || tenants.isLoading ? (
         <CardSkeleton title="Existing Organisations" />
@@ -282,8 +251,8 @@ export function AppAdminTenantsTab({ userId }: AppAdminTenantsTabProps) {
                         {tenant.softDeletedAt ? "Archived" : "Active"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {tenant.plan} · {tenant.billingStatus} ·{" "}
-                        {seatAllowanceLabel(tenant.plan)}
+                        {planLabel(tenant.plan)} ·{" "}
+                        {billingStatusLabel(tenant.billingStatus)}
                       </TableCell>
                       <TableCell>{tenant.userCount}</TableCell>
                       <TableCell>{tenant.statementCount}</TableCell>

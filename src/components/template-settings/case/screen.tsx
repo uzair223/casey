@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageTitle } from "@/components/page-title";
 import Loading from "@/components/loading";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Sidebar,
   SidebarContent,
@@ -13,6 +12,10 @@ import {
 } from "@/components/ui/sidebar";
 import type { CaseTemplate } from "@/types";
 import { useCaseTemplateSettings } from "./context";
+import {
+  LEAD_TYPE_SECTIONS,
+  useTemplateRoute,
+} from "../shared/template-route";
 import { CaseTemplateSimpleView } from "./simple-view";
 import { CaseTemplateJsonView } from "./json-view";
 import { AsyncButton } from "@/components/ui/async-button";
@@ -36,10 +39,89 @@ import {
   ArrowDownZA,
   CalendarArrowDown,
   CalendarArrowUp,
+  ChevronDown,
+  ChevronLeft,
 } from "@/components/icons";
+
+type EditorAction = {
+  key: string;
+  label: string;
+  pendingText: string;
+  onClick: () => Promise<void>;
+};
+
+function EditorActionsMenu({ items }: { items: EditorAction[] }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((current) => !current)}
+      >
+        Actions
+        <ChevronDown className="size-4" />
+      </Button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 z-20 mt-1 flex min-w-44 flex-col rounded-md border bg-card p-1 shadow"
+        >
+          {items.map((item) => (
+            <AsyncButton
+              key={item.key}
+              role="menuitem"
+              variant="ghost"
+              size="sm"
+              className="justify-start"
+              pendingText={item.pendingText}
+              onClick={async () => {
+                try {
+                  await item.onClick();
+                } finally {
+                  setOpen(false);
+                }
+              }}
+            >
+              {item.label}
+            </AsyncButton>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function CaseTemplateSettingsScreen() {
   const [templateSearch, setTemplateSearch] = useState("");
+  const route = useTemplateRoute(LEAD_TYPE_SECTIONS, "basics");
   const [sortOption, setSortOption] = useState<
     "newest" | "oldest" | "az" | "za"
   >("newest");
@@ -53,10 +135,7 @@ export function CaseTemplateSettingsScreen() {
     activeTemplate,
     defaultTemplateId,
     favouriteTemplateIds,
-    editorTab,
     currentStatus,
-    selectTemplate,
-    createNewTemplate,
     deleteTemplate,
     duplicateTemplate,
     saveTemplateWithStatus,
@@ -64,7 +143,6 @@ export function CaseTemplateSettingsScreen() {
     forkTemplate,
     toggleFavourite,
     toggleDefault,
-    setEditorTab,
   } = useCaseTemplateSettings();
 
   const filteredCaseTemplates = useMemo(() => {
@@ -164,6 +242,8 @@ export function CaseTemplateSettingsScreen() {
 
       <SidebarWrapper>
         <Sidebar<CaseTemplate>
+          className={route.isEditor ? "hidden lg:block" : undefined}
+          scrollAreaHeightClassName="h-[calc(100dvh-16rem)] lg:h-[calc(100vh-10rem)]"
           title="Lead types"
           actions={[
             <div key="case-template-filters" className="w-full flex gap-1.5">
@@ -209,14 +289,16 @@ export function CaseTemplateSettingsScreen() {
             </div>,
             {
               label: "New",
-              onClick: () => void createNewTemplate(),
+              onClick: () => {
+                route.openNew();
+              },
             },
           ]}
           items={filteredCaseTemplates}
           activeItemId={activeTemplate?.id}
           getItemId={(template) => template.id}
           onSelectItem={(template) => {
-            void selectTemplate(template);
+            route.openTemplate(template.id);
           }}
           renderItem={(template) => (
             <div className="flex w-full flex-col gap-2">
@@ -229,133 +311,133 @@ export function CaseTemplateSettingsScreen() {
           emptyMessage="No lead types yet."
         />
 
-        <SidebarContent>
+        <SidebarContent
+          className={route.isEditor ? undefined : "hidden lg:block"}
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mb-3 lg:hidden"
+            onClick={() => route.closeEditor()}
+          >
+            <ChevronLeft className="size-4" />
+            Lead types
+          </Button>
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle className="text-base">Editor</CardTitle>
-
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    {activeTemplate && badges(activeTemplate)}
-                    {canForkGlobalTemplate ? (
-                      <AsyncButton
-                        size="sm"
-                        variant="outline"
-                        onClick={forkTemplate}
-                        pendingText="Forking..."
-                      >
-                        Fork to firm
-                      </AsyncButton>
-                    ) : null}
-                    {isTenantAdmin && activeTemplate ? (
-                      <>
-                        <AsyncButton
-                          variant="outline"
-                          size="sm"
-                          onClick={toggleFavourite}
-                          pendingText="Saving..."
-                        >
-                          {favouriteTemplateIds.includes(activeTemplate.id)
-                            ? "Unfavourite"
-                            : "Favourite"}
-                        </AsyncButton>
-
-                        <AsyncButton
-                          variant="outline"
-                          size="sm"
-                          onClick={toggleDefault}
-                          pendingText="Pinning..."
-                        >
-                          {activeTemplate.id === defaultTemplateId
-                            ? "Unpin"
-                            : "Pin as default"}
-                        </AsyncButton>
-                      </>
-                    ) : null}
-                    {canEditActiveTemplate && activeTemplate && (
-                      <>
-                        {currentStatus !== "draft" && (
-                          <AsyncButton
-                            size="sm"
-                            variant="outline"
-                            onClick={() => saveTemplateWithStatus("draft")}
-                            pendingText="Saving..."
-                          >
-                            Move to draft
-                          </AsyncButton>
-                        )}
-                        {currentStatus !== "published" && (
-                          <AsyncButton
-                            size="sm"
-                            variant="outline"
-                            onClick={() => saveTemplateWithStatus("published")}
-                            pendingText="Saving..."
-                          >
-                            Publish
-                          </AsyncButton>
-                        )}
-                        {currentStatus !== "archived" && (
-                          <AsyncButton
-                            size="sm"
-                            variant="outline"
-                            onClick={() => saveTemplateWithStatus("archived")}
-                            pendingText="Saving..."
-                          >
-                            Archive
-                          </AsyncButton>
-                        )}
-                        {activeTemplate?.id ? (
-                          <AsyncButton
-                            variant="outline"
-                            size="sm"
-                            onClick={duplicateTemplate}
-                            pendingText="Duplicating..."
-                          >
-                            Duplicate
-                          </AsyncButton>
-                        ) : null}
-                        {activeTemplate?.id ? (
-                          <AsyncButton
-                            variant="outline"
-                            size="sm"
-                            onClick={deleteTemplate}
-                            pendingText="Deleting..."
-                          >
-                            Delete
-                          </AsyncButton>
-                        ) : null}
-                        <AsyncButton
-                          size="sm"
-                          onClick={saveTemplate}
-                          pendingText="Saving..."
-                        >
-                          Save
-                        </AsyncButton>
-                      </>
-                    )}
-                  </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {activeTemplate ? badges(activeTemplate) : null}
+                  <EditorActionsMenu
+                    items={[
+                      ...(canForkGlobalTemplate
+                        ? [
+                            {
+                              key: "fork",
+                              label: "Fork to firm",
+                              pendingText: "Forking...",
+                              onClick: forkTemplate,
+                            },
+                          ]
+                        : []),
+                      ...(isTenantAdmin && activeTemplate
+                        ? [
+                            {
+                              key: "favourite",
+                              label: favouriteTemplateIds.includes(
+                                activeTemplate.id,
+                              )
+                                ? "Unfavourite"
+                                : "Favourite",
+                              pendingText: "Saving...",
+                              onClick: toggleFavourite,
+                            },
+                            {
+                              key: "default",
+                              label:
+                                activeTemplate.id === defaultTemplateId
+                                  ? "Unpin"
+                                  : "Pin as default",
+                              pendingText: "Pinning...",
+                              onClick: toggleDefault,
+                            },
+                          ]
+                        : []),
+                      ...(canEditActiveTemplate && activeTemplate
+                        ? [
+                            ...(currentStatus !== "draft"
+                              ? [
+                                  {
+                                    key: "draft",
+                                    label: "Move to draft",
+                                    pendingText: "Saving...",
+                                    onClick: () =>
+                                      saveTemplateWithStatus("draft"),
+                                  },
+                                ]
+                              : []),
+                            ...(currentStatus !== "published"
+                              ? [
+                                  {
+                                    key: "publish",
+                                    label: "Publish",
+                                    pendingText: "Saving...",
+                                    onClick: () =>
+                                      saveTemplateWithStatus("published"),
+                                  },
+                                ]
+                              : []),
+                            ...(currentStatus !== "archived"
+                              ? [
+                                  {
+                                    key: "archive",
+                                    label: "Archive",
+                                    pendingText: "Saving...",
+                                    onClick: () =>
+                                      saveTemplateWithStatus("archived"),
+                                  },
+                                ]
+                              : []),
+                            ...(activeTemplate.id
+                              ? [
+                                  {
+                                    key: "duplicate",
+                                    label: "Duplicate",
+                                    pendingText: "Duplicating...",
+                                    onClick: duplicateTemplate,
+                                  },
+                                  {
+                                    key: "delete",
+                                    label: "Delete",
+                                    pendingText: "Deleting...",
+                                    onClick: deleteTemplate,
+                                  },
+                                ]
+                              : []),
+                          ]
+                        : []),
+                    ]}
+                  />
+                  {canEditActiveTemplate && activeTemplate ? (
+                    <AsyncButton
+                      size="sm"
+                      onClick={saveTemplate}
+                      pendingText="Saving..."
+                    >
+                      Save
+                    </AsyncButton>
+                  ) : null}
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Tabs
-                value={editorTab}
-                onValueChange={(value) =>
-                  setEditorTab(value as typeof editorTab)
-                }
-              >
-                <TabsList>
-                  <TabsTrigger value="simple">Simple</TabsTrigger>
-                  <TabsTrigger value="json">JSON</TabsTrigger>
-                </TabsList>
-                <TabsContent value="simple" className="pt-4">
-                  <CaseTemplateSimpleView />
-                </TabsContent>
-                <TabsContent value="json" className="pt-4">
-                  <CaseTemplateJsonView />
-                </TabsContent>
-              </Tabs>
+              {route.view === "json" ? (
+                <CaseTemplateJsonView />
+              ) : (
+                <CaseTemplateSimpleView />
+              )}
             </CardContent>
           </Card>
         </SidebarContent>
