@@ -112,8 +112,8 @@ describe("lead billing", () => {
   it("meters accepted leads and keeps the widget on growth", () => {
     expect(normalizeTenantPlan("practice")).toBe("starter");
     expect(normalizeTenantPlan("firm")).toBe("growth");
-    expect(monthlyAcceptedLeadAllowance("starter")).toBe(40);
-    expect(monthlyAcceptedLeadAllowance("growth")).toBe(120);
+    expect(monthlyAcceptedLeadAllowance("starter")).toBe(10);
+    expect(monthlyAcceptedLeadAllowance("growth")).toBe(30);
     expect(publicTurnBudget("trial")).toBe(40);
     expect(widgetEnabled("starter")).toBe(false);
     expect(widgetEnabled("growth")).toBe(true);
