@@ -75,18 +75,6 @@ jobs:
       - run: npm ci
       - name: Apply Supabase migrations
         run: npm run supabase:push
-      - name: Seed templates and clear storage
-        env:
-          APP_ADMIN_PASSWORD: ${{ secrets.APP_ADMIN_PASSWORD }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          RESEND_FROM: ${{ secrets.RESEND_FROM }}
-        run: |
-          if [ -z "$APP_ADMIN_PASSWORD" ]; then
-            APP_ADMIN_PASSWORD="$(openssl rand -base64 24 | tr -d '\n/+=' | cut -c1-24)"
-            export APP_ADMIN_PASSWORD
-          fi
-          npm run seed:production
-          node scripts/email-app-admin-password.mjs
       - name: Deploy Cloudflare Worker
         env:
           NODE_ENV: production
