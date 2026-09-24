@@ -121,8 +121,11 @@ export function useTemplateSelectionRoute<
   const appliedRouteId = useRef<string | null | undefined>(undefined);
   const onSelectRef = useRef(options.onSelect);
   const onCreateRef = useRef(options.onCreate);
-  onSelectRef.current = options.onSelect;
-  onCreateRef.current = options.onCreate;
+
+  useEffect(() => {
+    onSelectRef.current = options.onSelect;
+    onCreateRef.current = options.onCreate;
+  }, [options.onCreate, options.onSelect]);
 
   useEffect(() => {
     if (options.isLoading) return;

@@ -97,7 +97,10 @@ export function StatementTemplateSimpleView() {
   const [activeDiffIndex, setActiveDiffIndex] = useState(0);
   const pendingScrollPath = useRef<string | null>(null);
   const sectionRef = useRef(section);
-  sectionRef.current = section;
+
+  useEffect(() => {
+    sectionRef.current = section;
+  }, [section]);
   const currentTemplateTouchKey = activeTemplateId ?? "__new__";
   const boundedActiveDiffIndex =
     pendingAiPatchDiffs.length === 0

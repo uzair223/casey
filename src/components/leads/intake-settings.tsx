@@ -47,29 +47,36 @@ type ChannelResponse = {
 const DEFAULT_COLOR = "#1f3a2e";
 
 export function IntakeSettings() {
-  const [slug, setSlug] = useState("");
-  const [color, setColor] = useState(DEFAULT_COLOR);
-  const [logoUrl, setLogoUrl] = useState("");
-  const [logoPreview, setLogoPreview] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [welcome, setWelcome] = useState("");
-  const [hideCaseyMark, setHideCaseyMark] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
   const channels = useAsync(async () => {
     return apiFetch<ChannelResponse>("/api/tenant/lead-channels");
   }, []);
 
-  useEffect(() => {
-    if (!channels.data || hydrated) return;
-    const branding = channels.data.branding ?? {};
-    setSlug(channels.data.publicSlug ?? "");
-    setColor(branding.primaryColor || DEFAULT_COLOR);
-    setLogoUrl(branding.logoUrl || "");
-    setDisplayName(branding.displayName || "");
-    setWelcome(branding.welcome || "");
-    setHideCaseyMark(Boolean(branding.hideCaseyMark));
-    setHydrated(true);
-  }, [channels.data, hydrated]);
+  if (channels.isLoading && !channels.data) {
+    return <Loading />;
+  }
+
+  return (
+    <IntakeSettingsForm data={channels.data} reload={channels.handler} />
+  );
+}
+
+function IntakeSettingsForm({
+  data,
+  reload,
+}: {
+  data: ChannelResponse | null;
+  reload: () => Promise<ChannelResponse | undefined>;
+}) {
+  const branding = data?.branding ?? {};
+  const [slug, setSlug] = useState(data?.publicSlug ?? "");
+  const [color, setColor] = useState(branding.primaryColor || DEFAULT_COLOR);
+  const [logoUrl, setLogoUrl] = useState(branding.logoUrl || "");
+  const [logoPreview, setLogoPreview] = useState("");
+  const [displayName, setDisplayName] = useState(branding.displayName || "");
+  const [welcome, setWelcome] = useState(branding.welcome || "");
+  const [hideCaseyMark, setHideCaseyMark] = useState(
+    Boolean(branding.hideCaseyMark),
+  );
 
   useEffect(() => {
     return () => {
@@ -77,19 +84,15 @@ export function IntakeSettings() {
     };
   }, [logoPreview]);
 
-  if (channels.isLoading && !channels.data) {
-    return <Loading />;
-  }
-
-  const premium = Boolean(channels.data?.premium);
-  const tenantName = channels.data?.tenantName || "Your firm";
+  const premium = Boolean(data?.premium);
+  const tenantName = data?.tenantName || "Your firm";
   const address = slugifyPublicAddress(slug);
   const previewFirm = premium && displayName.trim() ? displayName.trim() : tenantName;
   const previewWelcome =
     (premium ? welcome.trim() : "") ||
     `Tell ${previewFirm} what happened. Casey will ask for the details they need.`;
-  const enabledLeadTypes = (channels.data?.leadTypes ?? []).filter((leadType) =>
-    (channels.data?.channels ?? []).some(
+  const enabledLeadTypes = (data?.leadTypes ?? []).filter((leadType) =>
+    (data?.channels ?? []).some(
       (channel) => channel.leadTypeId === leadType.id && channel.enabled,
     ),
   );
@@ -119,7 +122,7 @@ export function IntakeSettings() {
       URL.revokeObjectURL(logoPreview);
       setLogoPreview("");
     }
-    await channels.handler();
+    await reload();
     toast.success("Public intake saved");
   };
 
@@ -144,7 +147,7 @@ export function IntakeSettings() {
                   <Input
                     id="lead-slug"
                     value={slug}
-                    placeholder={channels.data?.publicSlug ?? "firm-name"}
+                    placeholder={data?.publicSlug ?? "firm-name"}
                     onChange={(event) => setSlug(event.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -258,16 +261,16 @@ export function IntakeSettings() {
                 />
                 Hide the Casey mark
               </label>
-              {channels.data?.hostedUrl ? (
+              {data?.hostedUrl ? (
                 <p className="text-sm">
                   Live page:{" "}
                   <a
                     className="underline"
-                    href={channels.data.localPath ?? channels.data.hostedUrl}
+                    href={data.localPath ?? data.hostedUrl}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    {channels.data.hostedUrl}
+                    {data.hostedUrl}
                   </a>
                 </p>
               ) : null}
@@ -285,8 +288,8 @@ export function IntakeSettings() {
             <CardTitle>Lead types on the page</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {(channels.data?.leadTypes ?? []).map((leadType) => {
-              const channel = (channels.data?.channels ?? []).find(
+            {(data?.leadTypes ?? []).map((leadType) => {
+              const channel = (data?.channels ?? []).find(
                 (item) => item.leadTypeId === leadType.id,
               );
               return (
@@ -320,7 +323,7 @@ export function IntakeSettings() {
                       pendingText={channel?.enabled ? "Pausing..." : "Enabling..."}
                       onClick={async () => {
                         const address = slugifyPublicAddress(
-                          slug || channels.data?.publicSlug || "",
+                          slug || data?.publicSlug || "",
                         );
                         if (!address) {
                           throw new Error("Choose a public address first");
@@ -334,7 +337,7 @@ export function IntakeSettings() {
                             branding: premium ? brandingPayload() : undefined,
                           }),
                         });
-                        await channels.handler();
+                        await reload();
                         toast.success(
                           channel?.enabled ? "Lead type paused" : "Lead type enabled",
                         );
