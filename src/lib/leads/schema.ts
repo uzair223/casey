@@ -49,8 +49,49 @@ export const LeadBrandingSchema = z
     displayName: z.string().trim().optional(),
     welcome: z.string().trim().optional(),
     hideCaseyMark: z.boolean().optional(),
+    hideAvatars: z.boolean().optional(),
+    selectorTitle: z.string().trim().optional(),
+    selectorCaption: z.string().trim().optional(),
+    textColor: z.string().trim().optional(),
+    backgroundColor: z.string().trim().optional(),
+    // Older saves stored a separate Casey bubble colour. Kept so those records still parse.
+    bubbleColor: z.string().trim().optional(),
+    userBubbleColor: z.string().trim().optional(),
   })
   .strict();
+
+export const DEFAULT_LEAD_HEADER_COLOR = "#1f3a2e";
+export const DEFAULT_LEAD_TEXT_COLOR = "#f3efe6";
+export const DEFAULT_LEAD_BACKGROUND_COLOR = "#12110f";
+export const DEFAULT_LEAD_USER_BUBBLE_COLOR = "#211e1b";
+export const DEFAULT_SELECTOR_CAPTION =
+  "Choose the kind of enquiry, then Casey will ask for the details the firm needs.";
+
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+export function defaultSelectorTitle(firmName: string) {
+  return `Tell ${firmName} what happened`;
+}
+
+export function leadHexColor(value: string | undefined, fallback: string) {
+  return value && HEX_COLOR.test(value) ? value : fallback;
+}
+
+export function leadColorWithAlpha(hex: string, alpha: number) {
+  const value = leadHexColor(hex, DEFAULT_LEAD_HEADER_COLOR).slice(1);
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+export function selectorCopy(
+  value: string | undefined,
+  fallback: string,
+) {
+  const trimmed = value?.trim();
+  return trimmed || fallback;
+}
 
 export const LeadTypeConfigSchema = z.object({
   qualification_slots: z.array(QualificationSlotSchema).default([]),

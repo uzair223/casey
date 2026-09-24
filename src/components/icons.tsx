@@ -25,6 +25,7 @@ export {
   CircleCheck,
   ClipboardCheck,
   Clock3,
+  Copy as CopyIcon,
   Database,
   Download as DownloadIcon,
   Expand as ExpandIcon,

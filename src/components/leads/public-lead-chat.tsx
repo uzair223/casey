@@ -2,22 +2,30 @@
 
 import { useState } from "react";
 
+import {
+  ChatAreaContent,
+  ChatAreaFooter,
+  type ChatAreaBubbleColors,
+  type ChatAreaMessage,
+} from "@/components/chat/chat-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-
-type ChatMessage = { role: "user" | "assistant"; content: string };
+import {
+  DEFAULT_LEAD_BACKGROUND_COLOR,
+  DEFAULT_LEAD_HEADER_COLOR,
+  DEFAULT_LEAD_TEXT_COLOR,
+  DEFAULT_LEAD_USER_BUBBLE_COLOR,
+  leadHexColor,
+  type LeadBranding,
+} from "@/lib/leads/schema";
 
 type PublicLeadChatProps = {
   publicKey: string;
   firmName: string;
+  enquiryName?: string;
   welcome: string;
-  branding?: {
-    primaryColor?: string;
-    logoUrl?: string;
-    displayName?: string;
-    hideCaseyMark?: boolean;
-  };
+  branding?: LeadBranding;
   turnstileSiteKey?: string;
 };
 
@@ -58,14 +66,14 @@ async function turnstileToken(siteKey?: string) {
 export function PublicLeadChat({
   publicKey,
   firmName,
+  enquiryName,
   welcome,
   branding,
   turnstileSiteKey,
 }: PublicLeadChatProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [messages, setMessages] = useState<ChatAreaMessage[]>([
     { role: "assistant", content: welcome },
   ]);
-  const [draft, setDraft] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [fallback, setFallback] = useState(false);
@@ -74,7 +82,21 @@ export function PublicLeadChat({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [summary, setSummary] = useState("");
-  const accent = branding?.primaryColor || "#1f3a2e";
+
+  const accent = leadHexColor(branding?.primaryColor, DEFAULT_LEAD_HEADER_COLOR);
+  const textColor = leadHexColor(branding?.textColor, DEFAULT_LEAD_TEXT_COLOR);
+  const backgroundColor = leadHexColor(
+    branding?.backgroundColor,
+    DEFAULT_LEAD_BACKGROUND_COLOR,
+  );
+  const userBubbleColor = leadHexColor(
+    branding?.userBubbleColor,
+    DEFAULT_LEAD_USER_BUBBLE_COLOR,
+  );
+  const bubbleColors: ChatAreaBubbleColors = {
+    assistant: { backgroundColor: accent, color: textColor },
+    user: { backgroundColor: userBubbleColor, color: textColor },
+  };
 
   async function ensureSession() {
     if (token) return token;
@@ -86,7 +108,7 @@ export function PublicLeadChat({
     });
     const payload = (await response.json()) as {
       token?: string;
-      messages?: ChatMessage[];
+      messages?: ChatAreaMessage[];
       error?: string;
       fallback?: boolean;
     };
@@ -99,11 +121,10 @@ export function PublicLeadChat({
     return payload.token;
   }
 
-  async function sendMessage() {
-    const message = draft.trim();
+  async function sendMessage(text: string) {
+    const message = text.trim();
     if (!message || busy || done) return;
     setBusy(true);
-    setDraft("");
     setMessages((current) => [...current, { role: "user", content: message }]);
     try {
       const sessionToken = await ensureSession();
@@ -178,45 +199,50 @@ export function PublicLeadChat({
   }
 
   return (
-    <div className="flex h-[32rem] flex-col rounded-2xl border bg-background shadow-sm">
+    <div
+      className="flex h-[32rem] flex-col rounded-2xl border shadow-sm"
+      style={{ backgroundColor }}
+    >
       <div
         className="flex items-center gap-3 rounded-t-2xl px-4 py-3 text-white"
         style={{ backgroundColor: accent }}
       >
         {branding?.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={branding.logoUrl} alt="" className="h-8 w-8 rounded bg-white object-contain" />
+          <img
+            src={branding.logoUrl}
+            alt=""
+            className="h-8 w-8 rounded bg-white object-contain"
+          />
         ) : null}
-        <div>
-          <p className="text-sm font-medium">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">
             {branding?.displayName || firmName}
           </p>
-          {branding?.hideCaseyMark ? null : (
-            <p className="text-xs text-white/80">Casey</p>
-          )}
+          {enquiryName || !branding?.hideCaseyMark ? (
+            <p className="truncate text-xs text-white/80">
+              {[enquiryName, branding?.hideCaseyMark ? null : "Casey"]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          ) : null}
         </div>
       </div>
-      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-        {messages.map((message, index) => (
-          <p
-            key={`${message.role}-${index}`}
-            className={
-              message.role === "user"
-                ? "ml-8 rounded-2xl bg-muted px-3 py-2 text-sm"
-                : "mr-8 rounded-2xl px-3 py-2 text-sm text-white"
-            }
-            style={
-              message.role === "assistant" ? { backgroundColor: accent } : undefined
-            }
-          >
-            {message.content}
-          </p>
-        ))}
-        {done ? (
-          <p className="text-sm text-muted-foreground">
-            You can close this chat.
-          </p>
-        ) : null}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <ChatAreaContent
+          messages={messages}
+          pending={busy}
+          userAvatar={{ name: publicKey, title: "You" }}
+          bubbleColors={bubbleColors}
+          hideAvatars={Boolean(branding?.hideAvatars)}
+          variant="lead"
+        >
+          {done ? (
+            <p className="pt-2 text-sm" style={{ color: textColor }}>
+              You can close this chat.
+            </p>
+          ) : null}
+        </ChatAreaContent>
       </div>
       {fallback && !done ? (
         <form
@@ -226,32 +252,40 @@ export function PublicLeadChat({
             void sendFallback();
           }}
         >
-          <Input placeholder="Name" value={name} onChange={(event) => setName(event.target.value)} required />
-          <Input placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
-          <Input placeholder="Phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
-          <Textarea placeholder="What happened" value={summary} onChange={(event) => setSummary(event.target.value)} />
+          <Input
+            placeholder="Name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+          />
+          <Input
+            placeholder="Email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+          <Input
+            placeholder="Phone"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+          />
+          <Textarea
+            placeholder="What happened"
+            value={summary}
+            onChange={(event) => setSummary(event.target.value)}
+          />
           <Button type="submit" disabled={busy}>
             Send details
           </Button>
         </form>
       ) : (
-        <form
-          className="flex gap-2 border-t p-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void sendMessage();
-          }}
-        >
-          <Input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="Type your reply"
+        <div className="px-3 pb-3">
+          <ChatAreaFooter
+            onSend={(text) => sendMessage(text)}
             disabled={busy || done}
+            allowAttachments={false}
+            placeholder={done ? "Conversation ended" : "Type your reply"}
           />
-          <Button type="submit" disabled={busy || done}>
-            Send
-          </Button>
-        </form>
+        </div>
       )}
     </div>
   );

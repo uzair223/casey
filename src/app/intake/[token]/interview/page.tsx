@@ -16,7 +16,7 @@ import {
   IntakeTabs,
   useWitnessStatement,
 } from "@/components/intake/intake-context";
-import { ChatAreaContent, ChatAreaFooter } from "@/components/intake/chat-area";
+import { ChatAreaContent, ChatAreaFooter } from "@/components/chat/chat-area";
 import { SupportingDocumentsView } from "@/components/intake/supporting-docs";
 import { StatementView } from "@/components/intake/statement-view";
 import { PageHeader } from "@/components/intake/page-header";

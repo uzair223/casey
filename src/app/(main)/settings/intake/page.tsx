@@ -16,7 +16,7 @@ export default function PublicIntakeSettingsPage() {
     <section className="space-y-4">
       <PageTitle
         title="Public intake"
-        description="The hosted enquiry page for this organisation. Colours, the logo, and the welcome line are part of Growth."
+        description="The hosted enquiry page for this organisation. Colours, the logo, and the wording are part of Growth."
         actions={[
           {
             label: "Back to settings",

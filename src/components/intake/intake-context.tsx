@@ -1221,8 +1221,12 @@ export function IntakeProvider({
   );
 }
 
+export function useOptionalWitnessStatement() {
+  return useContext(IntakeContext);
+}
+
 export function useWitnessStatement() {
-  const context = useContext(IntakeContext);
+  const context = useOptionalWitnessStatement();
   if (!context) {
     throw new Error(
       "useWitnessStatement must be used within a WitnessStatementProvider",

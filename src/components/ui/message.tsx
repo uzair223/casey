@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import type { CSSProperties } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Card, CardHeader } from "./card";
@@ -54,11 +55,45 @@ export function MarkdownMessage({ content }: MarkdownMessageProps) {
   );
 }
 
+function brandedBubbleStyle(
+  bubbleStyle?: CSSProperties,
+): CSSProperties | undefined {
+  if (!bubbleStyle) return undefined;
+
+  const backgroundColor = bubbleStyle.backgroundColor;
+  const color = bubbleStyle.color;
+  const mixedBackground =
+    typeof backgroundColor === "string"
+      ? `color-mix(in srgb, ${backgroundColor} 90%, transparent)`
+      : backgroundColor;
+
+  return {
+    ...bubbleStyle,
+    ...(mixedBackground !== undefined
+      ? { backgroundColor: mixedBackground }
+      : {}),
+    ...(typeof color === "string"
+      ? {
+          color,
+          // prose-invert otherwise overrides the firm text colour
+          ["--tw-prose-body" as string]: color,
+          ["--tw-prose-headings" as string]: color,
+          ["--tw-prose-bold" as string]: color,
+          ["--tw-prose-counters" as string]: color,
+          ["--tw-prose-bullets" as string]: color,
+          ["--tw-prose-quotes" as string]: color,
+          ["--tw-prose-links" as string]: color,
+        }
+      : {}),
+  };
+}
+
 export function MessageCard({
   message,
   children,
   avatar,
   avatarAnchor,
+  bubbleStyle,
 }: {
   message: {
     role: string;
@@ -68,10 +103,13 @@ export function MessageCard({
   children?: React.ReactNode;
   avatar?: React.ReactNode;
   avatarAnchor?: "user" | "assistant";
+  /** Firm branding colours; background is mixed to 90% to match --card-opacity. */
+  bubbleStyle?: CSSProperties;
 }) {
   const isUser = message.role === "user";
   const showPendingIndicator = message.status === "pending" && !isUser;
   const hasContent = message.content.trim().length > 0;
+  const resolvedBubbleStyle = brandedBubbleStyle(bubbleStyle);
 
   const bubble = (
     <>
@@ -83,6 +121,7 @@ export function MessageCard({
             isUser ? "rounded-tr-sm" : "rounded-tl-sm",
           )}
           variant={isUser ? "primary" : "default"}
+          style={resolvedBubbleStyle}
         >
           <CardHeader className="relative">
             <span className="absolute text-transparent select-text whitespace-nowrap text-[0px]">
@@ -91,7 +130,14 @@ export function MessageCard({
             {isUser ? (
               <p>{message.content}</p>
             ) : (
-              <div className="prose prose-invert">
+              <div
+                className="prose prose-invert"
+                style={
+                  typeof bubbleStyle?.color === "string"
+                    ? { color: bubbleStyle.color }
+                    : undefined
+                }
+              >
                 <MarkdownMessage content={message.content} />
               </div>
             )}
@@ -100,7 +146,11 @@ export function MessageCard({
       ) : null}
 
       {showPendingIndicator ? (
-        <Card size="sm" className="w-min rounded-md!">
+        <Card
+          size="sm"
+          className="w-min rounded-md!"
+          style={resolvedBubbleStyle}
+        >
           <CardHeader className="flex flex-row justify-center gap-1">
             <div
               role="status"
@@ -110,15 +160,30 @@ export function MessageCard({
               <span className="sr-only">Casey is typing</span>
               <div
                 className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
-                style={{ animationDelay: "0ms" }}
+                style={{
+                  animationDelay: "0ms",
+                  ...(typeof bubbleStyle?.color === "string"
+                    ? { backgroundColor: bubbleStyle.color }
+                    : {}),
+                }}
               ></div>
               <div
                 className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
-                style={{ animationDelay: "150ms" }}
+                style={{
+                  animationDelay: "150ms",
+                  ...(typeof bubbleStyle?.color === "string"
+                    ? { backgroundColor: bubbleStyle.color }
+                    : {}),
+                }}
               ></div>
               <div
                 className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
-                style={{ animationDelay: "300ms" }}
+                style={{
+                  animationDelay: "300ms",
+                  ...(typeof bubbleStyle?.color === "string"
+                    ? { backgroundColor: bubbleStyle.color }
+                    : {}),
+                }}
               ></div>
             </div>
           </CardHeader>
