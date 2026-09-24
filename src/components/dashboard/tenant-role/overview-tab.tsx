@@ -22,6 +22,7 @@ import {
   StatusBreakdownCard,
 } from "@/components/dashboard/shared/stat-card";
 import { OutstandingWorkCard } from "./outstanding-work-card";
+import { LeadAllowanceMeter } from "@/components/billing/lead-allowance-meter";
 
 export function TenantRoleOverviewTab() {
   const { data: stats, isLoading } = useAsync(
@@ -55,6 +56,7 @@ export function TenantRoleOverviewTab() {
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <OutstandingWorkCard className="col-span-full" />
+        <LeadAllowanceMeter asCard className="col-span-full" />
 
         <StatCard
           label="Leads"

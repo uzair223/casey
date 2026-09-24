@@ -1706,6 +1706,7 @@ export type Database = {
           order_firm_name: string | null
           order_start_date: string | null
           overage_credits: number
+          intake_branding: Json
           plan: string
           public_slug: string | null
           purge_after: string | null
@@ -1726,6 +1727,7 @@ export type Database = {
           name: string
           order_firm_name?: string | null
           order_start_date?: string | null
+          intake_branding?: Json
           overage_credits?: number
           plan?: string
           public_slug?: string | null
@@ -1747,6 +1749,7 @@ export type Database = {
           name?: string
           order_firm_name?: string | null
           order_start_date?: string | null
+          intake_branding?: Json
           overage_credits?: number
           plan?: string
           public_slug?: string | null

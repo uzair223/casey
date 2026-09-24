@@ -29,11 +29,33 @@ import Loading from "@/components/loading";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NotificationPreferencesCard } from "@/components/settings/notification-preferences-card";
+import { LeadAllowanceMeter } from "@/components/billing/lead-allowance-meter";
+import { PlanActionsMenu } from "@/components/billing/plan-actions";
 import { toast } from "@/lib/toast";
 import { startPlanCheckout } from "@/lib/billing/client";
-import { planLabel, seatAllowanceLabel } from "@/lib/billing/plans";
-import { LeadChannelCard } from "@/components/leads/lead-channel-card";
+import {
+  billingStatusLabel,
+  normalizeTenantPlan,
+  planLabel,
+} from "@/lib/billing/plans";
+import type { SubscriptionSummary } from "@/lib/billing/subscription-summary";
+
+function formatPeriodEnd(iso: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
+function billingStatusVariant(status: string | null) {
+  if (status === "active") return "accent" as const;
+  if (status === "past_due") return "warning" as const;
+  if (status === "canceled") return "destructive" as const;
+  return "secondary" as const;
+}
 
 export default function TenantSettingsPage() {
   const { user, refreshUser } = useUserProtected([
@@ -53,6 +75,9 @@ export default function TenantSettingsPage() {
   const [seatLimit, setSeatLimit] = useState<number | null>(null);
   const [billingStatus, setBillingStatus] = useState<string | null>(null);
   const [plan, setPlan] = useState<string>("trial");
+  const [subscription, setSubscription] = useState<SubscriptionSummary | null>(
+    null,
+  );
   const [pendingDeletionRequest, setPendingDeletionRequest] =
     useState<boolean>(false);
 
@@ -85,6 +110,13 @@ export default function TenantSettingsPage() {
       setSeatLimit(tenant.seat_limit);
       setBillingStatus(tenant.billing_status);
       setPlan(tenant.plan);
+      try {
+        setSubscription(
+          await apiFetch<SubscriptionSummary>("/api/tenant/billing/subscription"),
+        );
+      } catch {
+        setSubscription(null);
+      }
     }
   }, [refreshHasPassword, user]);
 
@@ -219,9 +251,12 @@ export default function TenantSettingsPage() {
 
   const handleSoftDelete = async () => {
     if (!canManageTenant) return;
+    const retention = Number(dataRetentionDays);
+    const retentionLabel = Number.isInteger(retention)
+      ? `${retention} days`
+      : "the data retention period";
     const ok = await toast.confirm("Close this organisation?", {
-      description:
-        "Data access will be blocked immediately and permanent deletion happens after 90 days unless restored.",
+      description: `Data access will be blocked immediately. Casey deletes the organisation after ${retentionLabel} unless it is restored.`,
       confirmLabel: "Close organisation",
     });
     if (!ok) return;
@@ -231,6 +266,59 @@ export default function TenantSettingsPage() {
     const supabase = getSupabaseClient();
     await supabase.auth.signOut();
     window.location.href = "/auth?tenantClosed=1";
+  };
+
+  const handleCancelSubscription = async () => {
+    const confirmed = await toast.confirm("Cancel the subscription?", {
+      description:
+        "It stays active until the end of the current period, then it stops. You can keep it before that date.",
+      confirmLabel: "Cancel at period end",
+    });
+    if (!confirmed) return;
+    if (!subscription?.hasSubscription) {
+      toast.error("There is no Stripe subscription to cancel");
+      return;
+    }
+    try {
+      const summary = await apiFetch<SubscriptionSummary>(
+        "/api/tenant/billing/subscription",
+        {
+          method: "POST",
+          body: JSON.stringify({ cancelAtPeriodEnd: true }),
+        },
+      );
+      setSubscription(summary);
+      const when = summary.periodEnd
+        ? ` on ${formatPeriodEnd(summary.periodEnd)}`
+        : "";
+      toast.success(`Subscription cancels${when}`);
+    } catch (error) {
+      toast.errorFromUnknown(error, "Failed to cancel the subscription");
+    }
+  };
+
+  const handleKeepSubscription = async () => {
+    try {
+      const summary = await apiFetch<SubscriptionSummary>(
+        "/api/tenant/billing/subscription",
+        {
+          method: "POST",
+          body: JSON.stringify({ cancelAtPeriodEnd: false }),
+        },
+      );
+      setSubscription(summary);
+      toast.success("Subscription will continue");
+    } catch (error) {
+      toast.errorFromUnknown(error, "Failed to keep the subscription");
+    }
+  };
+
+  const switchPlan = async (kind: "starter" | "growth") => {
+    try {
+      await startPlanCheckout({ kind });
+    } catch (error) {
+      toast.errorFromUnknown(error, "Failed to open checkout");
+    }
   };
 
   const handleExportDsar = async (scope: "user" | "tenant") => {
@@ -281,59 +369,29 @@ export default function TenantSettingsPage() {
     window.location.href = "/auth";
   };
 
+  const showOrganisation =
+    user.role === "app_admin" ||
+    user.role === "tenant_admin" ||
+    user.role === "solicitor";
+
   return (
     <section className="space-y-4">
       <PageTitle
         title="Settings"
-        description="Manage profile, organisation controls, and compliance exports."
+        description="Your account, and the organisation's page, templates, and compliance exports."
       />
-      <div className="grid grid-cols-2 gap-4">
-        {(user?.role === "app_admin" ||
-          user?.role === "tenant_admin" ||
-          user?.role === "solicitor") && (
-          <>
-            <Card>
-              <CardHeader>
-                <CardTitle>Lead types</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  Manage lead types, the default type, and the account
-                  templates used after a lead is accepted.
-                </p>
-              </CardContent>
-              <CardFooter>
-                <Button asChild variant="outline">
-                  <Link href="/settings/cases">
-                    Open lead type settings
-                  </Link>
-                </Button>
-              </CardFooter>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Account templates</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                <p>
-                  Manage the questions and document sections used after a lead
-                  is accepted, with Basic field editing and an Advanced raw
-                  JSON editor.
-                </p>
-              </CardContent>
-              <CardFooter>
-                <Button asChild variant="outline">
-                  <Link href="/settings/statements">
-                    Open account template settings
-                  </Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          </>
-        )}
-
+      <Tabs defaultValue="user" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="user">User</TabsTrigger>
+          {showOrganisation ? (
+            <TabsTrigger value="organisation">Organisation</TabsTrigger>
+          ) : null}
+        </TabsList>
+        <TabsContent value="user">
+          <div className="grid grid-cols-2 gap-4">
         <Card className="col-span-2">
           <form
+            className="flex flex-col gap-2"
             onSubmit={(event) => {
               event.preventDefault();
             }}
@@ -341,7 +399,7 @@ export default function TenantSettingsPage() {
             <CardHeader>
               <CardTitle>Profile</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
+            <CardContent className="grid gap-x-4 gap-y-2 space-y-0 md:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="settings-display-name">Display name</Label>
                 <Input
@@ -375,10 +433,21 @@ export default function TenantSettingsPage() {
 
         <Card className="col-span-2">
           <form
+            className="flex flex-col gap-2"
             onSubmit={(event) => {
               event.preventDefault();
             }}
           >
+            <input
+              type="email"
+              name="username"
+              autoComplete="username"
+              value={user.email ?? ""}
+              readOnly
+              tabIndex={-1}
+              aria-hidden
+              className="sr-only"
+            />
             <CardHeader>
               <div className="flex items-center justify-between gap-2">
                 <CardTitle>Authentication</CardTitle>
@@ -387,17 +456,7 @@ export default function TenantSettingsPage() {
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
-              <input
-                type="email"
-                name="username"
-                autoComplete="username"
-                value={user.email ?? ""}
-                readOnly
-                tabIndex={-1}
-                aria-hidden
-                className="sr-only"
-              />
+            <CardContent className="grid gap-x-4 gap-y-2 space-y-0 md:grid-cols-2">
               {hasPassword ? (
                 <div className="space-y-1 md:col-span-2">
                   <Label htmlFor="settings-current-password">
@@ -468,18 +527,135 @@ export default function TenantSettingsPage() {
           </form>
         </Card>
 
-        {canManageNotifications && (
+        {canManageNotifications ? (
           <NotificationPreferencesCard
             tenantId={user.tenant_id!}
             userId={user.id}
           />
-        )}
+        ) : null}
 
-        {canManageTenant && <LeadChannelCard />}
+        <Card className="col-span-2">
+          <CardHeader>
+            <CardTitle>Compliance</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <p>Generate a data export for your account.</p>
+          </CardContent>
+          <CardFooter>
+            <AsyncButton
+              variant="outline"
+              onClick={async () => handleExportDsar("user")}
+              pendingText="Generating..."
+            >
+              Export my data
+            </AsyncButton>
+          </CardFooter>
+        </Card>
 
-        {canManageTenant && (
+        {!canManageTenant ? (
+          <Card variant="destructive" className="col-span-2">
+            <CardHeader>
+              <CardTitle>Danger zone</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {canDirectDelete ? (
+                <p>Delete your account. This cannot be undone.</p>
+              ) : (
+                <>
+                  <p>Request deletion of your account from this organisation.</p>
+                  <p>
+                    Your firm admin will review and process this request on the
+                    Team page.
+                  </p>
+                </>
+              )}
+            </CardContent>
+            <CardFooter>
+              {canDirectDelete ? (
+                <AsyncButton
+                  variant="outline-destructive"
+                  onClick={handleDeleteOwnAccount}
+                  pendingText="Deleting account..."
+                >
+                  Delete my account now
+                </AsyncButton>
+              ) : (
+                <AsyncButton
+                  variant="outline-destructive"
+                  onClick={handleRequestAccountDeletion}
+                  pendingText="Submitting request..."
+                  disabled={pendingDeletionRequest}
+                >
+                  {pendingDeletionRequest
+                    ? "Deletion request pending"
+                    : "Request account deletion"}
+                </AsyncButton>
+              )}
+            </CardFooter>
+          </Card>
+        ) : null}
+          </div>
+        </TabsContent>
+        {showOrganisation ? (
+          <TabsContent value="organisation">
+            <div className="grid grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Lead types</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm text-muted-foreground">
+                  <p>
+                    Manage lead types, the default type, and the account
+                    templates used after a lead is accepted.
+                  </p>
+                </CardContent>
+                <CardFooter>
+                  <Button asChild variant="outline">
+                    <Link href="/settings/cases">Open lead type settings</Link>
+                  </Button>
+                </CardFooter>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Account templates</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm text-muted-foreground">
+                  <p>
+                    Manage the questions and document sections used after a lead
+                    is accepted, with Basic field editing and an Advanced raw
+                    JSON editor.
+                  </p>
+                </CardContent>
+                <CardFooter>
+                  <Button asChild variant="outline">
+                    <Link href="/settings/statements">
+                      Open account template settings
+                    </Link>
+                  </Button>
+                </CardFooter>
+              </Card>
+              {canManageTenant ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Public intake</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm text-muted-foreground">
+                    <p>
+                      The hosted enquiry page, its address, and the branding
+                      enquirers see.
+                    </p>
+                  </CardContent>
+                  <CardFooter>
+                    <Button asChild variant="outline">
+                      <Link href="/settings/intake">Open public intake</Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ) : null}
+              {canManageTenant ? (
           <Card className="col-span-2">
             <form
+              className="flex flex-col gap-2"
               onSubmit={(event) => {
                 event.preventDefault();
               }}
@@ -487,7 +663,7 @@ export default function TenantSettingsPage() {
               <CardHeader>
                 <CardTitle>Organisation</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
+              <CardContent className="grid gap-x-4 gap-y-3 space-y-0 md:grid-cols-2">
                 <div className="space-y-1">
                   <Label htmlFor="settings-org-name">Organisation name</Label>
                   <Input
@@ -514,42 +690,98 @@ export default function TenantSettingsPage() {
                     }
                   />
                   <p className="text-xs text-muted-foreground">
-                    Used only after the organisation is archived. Live matter
-                    files are not deleted on this timer.
+                    After the organisation is closed, Casey keeps its data for
+                    this many days, then deletes it. Live matters are not
+                    deleted on this timer.
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Plan</p>
-                  <p className="text-sm text-muted-foreground">
-                    {seatLimit == null
-                      ? "The plan is managed by Casey."
-                      : `${planLabel(plan)} · ${seatAllowanceLabel(plan)} · Billing: ${billingStatus ?? "trial"}. Accepted leads are billed on this plan.`}
-                  </p>
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <AsyncButton
-                      type="button"
-                      variant="outline"
-                      onClick={async (event) => {
-                        event.preventDefault();
-                        await startPlanCheckout({ kind: "starter" });
-                      }}
-                      pendingText="Opening Stripe..."
-                    >
-                      Starter
-                    </AsyncButton>
-                    <AsyncButton
-                      type="button"
-                      variant="outline"
-                      onClick={async (event) => {
-                        event.preventDefault();
-                        await startPlanCheckout({ kind: "growth" });
-                      }}
-                      pendingText="Opening Stripe..."
-                    >
-                      Growth
-                    </AsyncButton>
-                  </div>
+                <div className="space-y-1 border-t border-border pt-3 md:col-span-2">
+                  {seatLimit == null ? (
+                    <>
+                      <p className="text-sm font-medium">Plan</p>
+                      <p className="text-sm text-muted-foreground">
+                        The plan is managed by Casey.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-sm font-medium">Plan</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge variant="outline" className="rounded-full">
+                              {planLabel(plan)}
+                            </Badge>
+                            <Badge
+                              variant={billingStatusVariant(billingStatus)}
+                              className="rounded-full"
+                            >
+                              {billingStatusLabel(billingStatus)}
+                            </Badge>
+                          </div>
+                          {subscription?.periodEnd ? (
+                            <p className="text-xs text-muted-foreground">
+                              {subscription.cancelAtPeriodEnd
+                                ? "Ends"
+                                : "Renews"}{" "}
+                              on {formatPeriodEnd(subscription.periodEnd)}
+                            </p>
+                          ) : null}
+                        </div>
+                        <PlanActionsMenu
+                          items={
+                            normalizeTenantPlan(plan) === "trial"
+                              ? [
+                                  {
+                                    label: "Switch to Starter",
+                                    onSelect: () => {
+                                      void switchPlan("starter");
+                                    },
+                                  },
+                                  {
+                                    label: "Switch to Growth",
+                                    onSelect: () => {
+                                      void switchPlan("growth");
+                                    },
+                                  },
+                                ]
+                              : [
+                                  {
+                                    label: `Switch to ${planLabel(
+                                      normalizeTenantPlan(plan) === "growth"
+                                        ? "starter"
+                                        : "growth",
+                                    )}`,
+                                    onSelect: () => {
+                                      void switchPlan(
+                                        normalizeTenantPlan(plan) === "growth"
+                                          ? "starter"
+                                          : "growth",
+                                      );
+                                    },
+                                  },
+                                  subscription?.cancelAtPeriodEnd
+                                    ? {
+                                        label: "Keep subscription",
+                                        onSelect: () => {
+                                          void handleKeepSubscription();
+                                        },
+                                      }
+                                    : {
+                                        label: "Cancel",
+                                        destructive: true,
+                                        onSelect: () => {
+                                          void handleCancelSubscription();
+                                        },
+                                      },
+                                ]
+                          }
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
+                <LeadAllowanceMeter className="border-t border-border pt-3 md:col-span-2" />
               </CardContent>
               <CardFooter>
                 <AsyncButton
@@ -565,95 +797,60 @@ export default function TenantSettingsPage() {
               </CardFooter>
             </form>
           </Card>
-        )}
+        ) : null}
 
-        <Card className="col-span-2">
-          <CardHeader>
-            <CardTitle>Compliance</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>
-              Generate a data export for subject access and compliance review.
-            </p>
-          </CardContent>
-          <CardFooter className="gap-2">
-            <AsyncButton
-              variant="outline"
-              onClick={async () => handleExportDsar("user")}
-              pendingText="Generating..."
-            >
-              Export my data
-            </AsyncButton>
-            {canManageTenant && (
-              <AsyncButton
-                variant="outline"
-                onClick={async () => handleExportDsar("tenant")}
-                pendingText="Generating..."
-              >
-                Export organisation data
-              </AsyncButton>
-            )}
-          </CardFooter>
-        </Card>
-
-        <Card variant="destructive" className="col-span-2">
-          <CardHeader>
-            <CardTitle>Danger zone</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {canManageTenant ? (
-              <>
-                <p>
-                  Close your organisation. Data access is blocked immediately by
-                  RLS.
-                </p>
-                <p>
-                  Permanent deletion occurs after 90 days unless an admin
-                  restores the organisation by signing in.
-                </p>
-              </>
-            ) : (
-              <>
-                <p>Request deletion of your account from this organisation.</p>
-                <p>
-                  Your firm admin will review and process this request on the
-                  Team page.
-                </p>
-              </>
-            )}
-          </CardContent>
-          <CardFooter>
-            {canManageTenant ? (
-              <AsyncButton
-                variant="outline-destructive"
-                onClick={handleSoftDelete}
-                pendingText="Deleting organisation..."
-              >
-                Close organisation
-              </AsyncButton>
-            ) : canDirectDelete ? (
-              <AsyncButton
-                variant="outline-destructive"
-                onClick={handleDeleteOwnAccount}
-                pendingText="Deleting account..."
-              >
-                Delete my account now
-              </AsyncButton>
-            ) : (
-              <AsyncButton
-                variant="outline-destructive"
-                onClick={handleRequestAccountDeletion}
-                pendingText="Submitting request..."
-                disabled={pendingDeletionRequest}
-              >
-                {pendingDeletionRequest
-                  ? "Deletion request pending"
-                  : "Request account deletion"}
-              </AsyncButton>
-            )}
-          </CardFooter>
-        </Card>
-      </div>
+              {canManageTenant ? (
+                <Card className="col-span-2">
+                  <CardHeader>
+                    <CardTitle>Compliance</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm text-muted-foreground">
+                    <p>
+                      Generate a data export for subject access and compliance
+                      review.
+                    </p>
+                  </CardContent>
+                  <CardFooter>
+                    <AsyncButton
+                      variant="outline"
+                      onClick={async () => handleExportDsar("tenant")}
+                      pendingText="Generating..."
+                    >
+                      Export organisation data
+                    </AsyncButton>
+                  </CardFooter>
+                </Card>
+              ) : null}
+              {canManageTenant ? (
+                <Card variant="destructive" className="col-span-2">
+                  <CardHeader>
+                    <CardTitle>Danger zone</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <p>
+                      Close your organisation. Data access is blocked immediately
+                      by RLS.
+                    </p>
+                    <p>
+                      Permanent deletion occurs after {dataRetentionDays} days
+                      unless an admin restores the organisation by signing in.
+                    </p>
+                  </CardContent>
+                  <CardFooter>
+                    <AsyncButton
+                      variant="outline-destructive"
+                      onClick={handleSoftDelete}
+                      pendingText="Deleting organisation..."
+                    >
+                      Close organisation
+                    </AsyncButton>
+                  </CardFooter>
+                </Card>
+              ) : null}
+            </div>
+          </TabsContent>
+        ) : null}
+      </Tabs>
     </section>
   );
 }

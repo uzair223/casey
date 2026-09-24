@@ -2,8 +2,8 @@ import "server-only";
 
 import { getServiceClient } from "@/lib/supabase/server";
 import { widgetEnabled } from "@/lib/billing/plans";
+import { readLeadBranding } from "./logo";
 import {
-  LeadBrandingSchema,
   parseLeadTypeConfig,
   type LeadBranding,
 } from "./schema";
@@ -21,12 +21,20 @@ export type PublicLeadChannel = {
   welcome: string;
 };
 
-function publicBranding(plan: string | null, branding: unknown): LeadBranding {
+function publicBranding(
+  plan: string | null,
+  tenantBranding: unknown,
+  channelBranding: unknown,
+  leadTypeBranding?: LeadBranding,
+): LeadBranding {
   if (!widgetEnabled(plan)) {
     return {};
   }
-  const parsed = LeadBrandingSchema.safeParse(branding ?? {});
-  return parsed.success ? parsed.data : {};
+  return {
+    ...(leadTypeBranding ?? {}),
+    ...readLeadBranding(channelBranding),
+    ...readLeadBranding(tenantBranding),
+  };
 }
 
 export async function getChannelByKey(publicKey: string) {
@@ -34,7 +42,7 @@ export async function getChannelByKey(publicKey: string) {
   const { data, error } = await supabase
     .from("lead_channels")
     .select(
-      "id, tenant_id, lead_type_id, public_key, enabled, branding, tenants(name, plan, public_slug), case_templates(name, qualification_slots, participant_roles, outreach_template, decline_reasons, branding, status)",
+      "id, tenant_id, lead_type_id, public_key, enabled, branding, tenants(name, plan, public_slug, intake_branding), case_templates(name, qualification_slots, participant_roles, outreach_template, decline_reasons, branding, status)",
     )
     .eq("public_key", publicKey)
     .maybeSingle();
@@ -48,10 +56,12 @@ export async function getChannelByKey(publicKey: string) {
   if (!tenant || !leadType || leadType.status !== "published") return null;
 
   const config = parseLeadTypeConfig(leadType);
-  const branding = {
-    ...config.branding,
-    ...publicBranding(tenant.plan, data.branding),
-  };
+  const branding = publicBranding(
+    tenant.plan,
+    tenant.intake_branding,
+    data.branding,
+    config.branding,
+  );
 
   return {
     channelId: data.id,
@@ -63,7 +73,7 @@ export async function getChannelByKey(publicKey: string) {
     enabled: data.enabled,
     widget: widgetEnabled(tenant.plan),
     plan: tenant.plan,
-    branding: widgetEnabled(tenant.plan) ? branding : {},
+    branding,
     welcome:
       (widgetEnabled(tenant.plan) ? branding.welcome : undefined) ||
       `Tell ${tenant.name} what happened. Casey will ask for the details they need.`,
@@ -75,7 +85,7 @@ export async function listChannelsForSlug(slug: string) {
   const supabase = getServiceClient("lead-channels-by-slug");
   const { data: tenant, error } = await supabase
     .from("tenants")
-    .select("id, name, plan, public_slug")
+    .select("id, name, plan, public_slug, intake_branding")
     .ilike("public_slug", slug)
     .maybeSingle();
   if (error) throw error;
@@ -102,7 +112,11 @@ export async function listChannelsForSlug(slug: string) {
         leadTypeId: channel.lead_type_id,
         leadTypeName: leadType.name,
         config: parseLeadTypeConfig(leadType),
-        branding: publicBranding(tenant.plan, channel.branding),
+        branding: publicBranding(
+          tenant.plan,
+          tenant.intake_branding,
+          channel.branding,
+        ),
       },
     ];
   });

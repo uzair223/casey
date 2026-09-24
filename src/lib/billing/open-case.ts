@@ -3,6 +3,7 @@ import "server-only";
 import { userError } from "@/lib/api-utils";
 import { createCase } from "@/lib/supabase/mutations/case";
 import { getServiceClient } from "@/lib/supabase/server";
+import { countAcceptedLeads } from "@/lib/billing/lead-usage";
 import {
   FREE_CASE_LIMIT,
   monthlyAcceptedLeadAllowance,
@@ -31,25 +32,6 @@ export type OpenCaseResult =
 function monthStartIso() {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-}
-
-async function countAcceptedLeads(
-  supabase: ReturnType<typeof getServiceClient>,
-  tenantId: string,
-  acceptedFrom?: string,
-) {
-  let query = supabase
-    .from("statements")
-    .select("id", { count: "exact", head: true })
-    .eq("tenant_id", tenantId)
-    .eq("participant_kind", "primary")
-    .not("accepted_at", "is", null);
-  if (acceptedFrom) {
-    query = query.gte("accepted_at", acceptedFrom);
-  }
-  const { count, error } = await query;
-  if (error) throw error;
-  return count ?? 0;
 }
 
 async function consumeOverageCredit(

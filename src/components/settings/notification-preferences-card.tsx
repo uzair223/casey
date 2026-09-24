@@ -126,7 +126,7 @@ export function NotificationPreferencesCard({
       <CardHeader>
         <CardTitle>Notification preferences</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-4 md:grid-cols-2">
+      <CardContent className="grid gap-x-4 gap-y-2 space-y-0 md:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor="notification-reminders">Reminders</Label>
           <Select

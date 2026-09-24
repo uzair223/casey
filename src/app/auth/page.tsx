@@ -55,7 +55,7 @@ function AuthPageContent() {
   useEffect(() => {
     if (searchParams.get("tenantClosed") === "1") {
       setSuccessStatus(
-        "Organisation closed and you have been signed out. Sign in again to restore access within 90 days.",
+        "Organisation closed and you have been signed out. Sign in again before the retention period ends to restore access.",
       );
 
       const params = new URLSearchParams(searchParams.toString());

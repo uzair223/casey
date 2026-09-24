@@ -30,6 +30,7 @@ import {
 } from "@/components/dashboard/shared/cases";
 import { deleteCase } from "@/lib/supabase/mutations";
 import { toast } from "@/lib/toast";
+import { LeadAllowanceMeter } from "@/components/billing/lead-allowance-meter";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -82,6 +83,7 @@ export function TenantRoleCasesTab() {
 
   return (
     <div className="space-y-4">
+      <LeadAllowanceMeter asCard />
       <Card>
         <CardHeader className="flex-row justify-between">
           <Dialog open={isCreateCaseOpen} onOpenChange={setIsCreateCaseOpen}>

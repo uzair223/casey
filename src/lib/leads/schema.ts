@@ -31,7 +31,21 @@ export const DeclineReasonSchema = z
 export const LeadBrandingSchema = z
   .object({
     primaryColor: z.string().trim().optional(),
-    logoUrl: z.string().trim().optional(),
+    logoUrl: z
+      .string()
+      .trim()
+      .refine((value) => {
+        if (!value) return true;
+        if (value.startsWith("/api/public/firm-logo/") && !value.includes("..")) {
+          return true;
+        }
+        try {
+          return new URL(value).protocol === "https:";
+        } catch {
+          return false;
+        }
+      }, "Upload a logo image")
+      .optional(),
     displayName: z.string().trim().optional(),
     welcome: z.string().trim().optional(),
     hideCaseyMark: z.boolean().optional(),
