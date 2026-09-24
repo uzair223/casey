@@ -2,7 +2,7 @@ import "server-only";
 
 import { env } from "../env";
 import { Resend } from "resend";
-import { getAuthURL, getPasswordResetURL } from "../utils";
+import { getAuthURL, getEmailLinkURL, getPasswordResetURL } from "../utils";
 import { getServiceClient } from "../supabase/server";
 import { logServerEvent } from "@/lib/observability/logger";
 import type {
@@ -157,14 +157,19 @@ export const sendExistingUserSignInEmail = async ({
     throw error;
   }
 
-  const actionLink = data?.properties?.action_link;
-
-  if (!actionLink) {
+  const tokenHash = data?.properties?.hashed_token;
+  if (!tokenHash) {
     throw new Error("Failed to generate sign-in link");
   }
 
+  // Mailbox scanners prefetch Supabase verify URLs and hold the message.
+  // A first-party link stays inert until the recipient clicks Continue.
   const template = buildSignInEmailTemplate({
-    url: actionLink,
+    url: getEmailLinkURL({
+      tokenHash,
+      type: "magiclink",
+      inviteCode: token,
+    }),
   });
 
   await sendEmailWithLogging("auth.magic_link", {
@@ -196,14 +201,17 @@ const sendNewUserInviteEmail = async ({
     throw error;
   }
 
-  const actionLink = data?.properties?.action_link;
-
-  if (!actionLink) {
+  const tokenHash = data?.properties?.hashed_token;
+  if (!tokenHash) {
     throw new Error("Failed to generate invite link");
   }
 
   const template = buildInvitationEmailTemplate({
-    url: actionLink,
+    url: getEmailLinkURL({
+      tokenHash,
+      type: "invite",
+      inviteCode: token,
+    }),
   });
 
   await sendEmailWithLogging("invite.new_user", {

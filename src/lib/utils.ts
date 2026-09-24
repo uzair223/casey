@@ -73,6 +73,29 @@ export const getAuthURL = (inviteCode?: string | null) => {
   return url;
 };
 
+export const EMAIL_LINK_TYPES = ["magiclink", "invite"] as const;
+export type EmailLinkType = (typeof EMAIL_LINK_TYPES)[number];
+
+export function isEmailLinkType(value: string | null): value is EmailLinkType {
+  return EMAIL_LINK_TYPES.some((type) => type === value);
+}
+
+export const getEmailLinkURL = ({
+  tokenHash,
+  type,
+  inviteCode,
+}: {
+  tokenHash: string;
+  type: EmailLinkType;
+  inviteCode?: string | null;
+}) => {
+  const url = new URL("auth/confirm", getURL());
+  url.searchParams.set("token_hash", tokenHash);
+  url.searchParams.set("type", type);
+  if (inviteCode) url.searchParams.set("invite", inviteCode);
+  return url.toString();
+};
+
 export const getPasswordResetURL = (tokenHash: string) => {
   const url = new URL("auth/reset-password", getURL());
   url.searchParams.set("token_hash", tokenHash);

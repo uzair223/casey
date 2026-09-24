@@ -176,7 +176,7 @@ function AuthPageContent() {
       }
 
       setSuccessStatus(
-        "Check your email for the magic link. It may take a minute to arrive. Be sure to check your spam folder!",
+        "Check your email for the sign-in link.",
       );
     } catch (error) {
       const errorMessage =
