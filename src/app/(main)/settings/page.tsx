@@ -30,7 +30,6 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { NotificationPreferencesCard } from "@/components/settings/notification-preferences-card";
-import { getURL } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { startPlanCheckout } from "@/lib/billing/client";
 import { planLabel, seatAllowanceLabel } from "@/lib/billing/plans";
@@ -128,14 +127,11 @@ export default function TenantSettingsPage() {
       if (!email) {
         throw new Error("Could not send reset email for this account");
       }
-      const supabase = getSupabaseClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${getURL()}/auth/reset-password`,
+      await apiFetch("/api/auth/reset-password", {
+        method: "POST",
+        requireAuth: false,
+        body: JSON.stringify({ email }),
       });
-
-      if (error) {
-        throw new Error(error.message);
-      }
       toast.success("Password reset email sent");
     } catch (error) {
       const errorMessage =

@@ -348,6 +348,40 @@ export const buildSignInEmailTemplate = (
   };
 };
 
+export const buildPasswordResetEmailTemplate = (payload: {
+  url: string;
+}): EmailTemplateContent => {
+  const appName = getAppName();
+  const subject = `Reset your ${appName} password`;
+  const text = `Hello there,\nUse this link to choose a new password for your ${appName} account: ${payload.url}\n\nIf you did not request this email, you can ignore it.`;
+
+  return {
+    subject,
+    text,
+    react: (
+      <EmailLayout heading="Reset your password">
+        <p style={paragraphStyle}>
+          Use the link below to choose a new password for your {appName}{" "}
+          account.
+        </p>
+        <a
+          href={payload.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={buttonStyle}
+        >
+          Reset password
+        </a>
+        <p style={paragraphStyle}>Or copy and paste this URL:</p>
+        <p style={paragraphStyle}>{payload.url}</p>
+        <p style={footerStyle}>
+          If you did not request this email, you can ignore it.
+        </p>
+      </EmailLayout>
+    ),
+  };
+};
+
 export const buildMentionNotificationEmailTemplate = (
   payload: MentionNotificationPayload,
 ): EmailTemplateContent => {

@@ -7,6 +7,7 @@ const getRateLimitKey = vi.fn();
 const enforcePersistentRateLimit = vi.fn();
 const sendInvitationEmail = vi.fn();
 const sendExistingUserSignInEmail = vi.fn();
+const sendPasswordResetEmail = vi.fn();
 const getServiceClient = vi.fn();
 const SERVERONLY_acceptInvite = vi.fn();
 const SERVERONLY_getUserProfile = vi.fn();
@@ -31,6 +32,7 @@ vi.mock("@/lib/api-utils", async () => {
 vi.mock("@/lib/email", () => ({
   sendInvitationEmail,
   sendExistingUserSignInEmail,
+  sendPasswordResetEmail,
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -229,6 +231,48 @@ describe("authentication and tenant flows", () => {
       email: "witness@firm.co.uk",
       token: "invite-123",
     });
+  });
+
+  it("sends a password reset email for a known account", async () => {
+    sendPasswordResetEmail.mockResolvedValue(undefined);
+
+    const route = await importFresh<
+      typeof import("@/app/api/auth/reset-password/route")
+    >("@/app/api/auth/reset-password/route");
+
+    const response = await route.POST(
+      new Request("http://localhost/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ email: "user@example.com" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith({
+      email: "user@example.com",
+    });
+  });
+
+  it("does not reveal whether a password reset account exists", async () => {
+    sendPasswordResetEmail.mockRejectedValue(
+      new Error("User with this email not found"),
+    );
+
+    const route = await importFresh<
+      typeof import("@/app/api/auth/reset-password/route")
+    >("@/app/api/auth/reset-password/route");
+
+    const response = await route.POST(
+      new Request("http://localhost/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ email: "missing@example.com" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toEqual({ success: true });
   });
 
   it("does not provision unknown emails without an invite", async () => {

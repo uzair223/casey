@@ -22,9 +22,11 @@ import { toast } from "@/lib/toast";
 type RecoveryState = "loading" | "ready" | "invalid";
 
 function buildRecoveryErrorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : "This password reset link is invalid or has expired.";
+  const message = error instanceof Error ? error.message : "";
+  if (/code verifier/i.test(message)) {
+    return "This reset link only works in the browser that requested it. Request a new reset email and open that link.";
+  }
+  return message || "This password reset link is invalid or has expired.";
 }
 
 function ResetPasswordPageContent() {
@@ -50,6 +52,7 @@ function ResetPasswordPageContent() {
 
     const establishRecoverySession = async () => {
       const supabase = getSupabaseClient();
+      let verificationError: unknown = null;
 
       try {
         if (recoveryParams.tokenHash && recoveryParams.type === "recovery") {
@@ -57,18 +60,12 @@ function ResetPasswordPageContent() {
             token_hash: recoveryParams.tokenHash,
             type: "recovery",
           });
-
-          if (error) {
-            throw error;
-          }
+          if (error) verificationError = error;
         } else if (recoveryParams.code) {
           const { error } = await supabase.auth.exchangeCodeForSession(
             recoveryParams.code,
           );
-
-          if (error) {
-            throw error;
-          }
+          if (error) verificationError = error;
         } else if (typeof window !== "undefined" && window.location.hash) {
           const hashParams = new URLSearchParams(
             window.location.hash.replace(/^#/, ""),
@@ -86,10 +83,7 @@ function ResetPasswordPageContent() {
               access_token: accessToken,
               refresh_token: refreshToken,
             });
-
-            if (error) {
-              throw error;
-            }
+            if (error) verificationError = error;
           }
         }
 
@@ -99,7 +93,9 @@ function ResetPasswordPageContent() {
         } = await supabase.auth.getUser();
 
         if (error || !user) {
-          throw error ?? new Error("Recovery session not found");
+          throw (
+            verificationError ?? error ?? new Error("Recovery session not found")
+          );
         }
 
         if (!cancelled) {

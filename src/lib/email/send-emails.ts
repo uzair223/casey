@@ -2,7 +2,7 @@ import "server-only";
 
 import { env } from "../env";
 import { Resend } from "resend";
-import { getAuthURL } from "../utils";
+import { getAuthURL, getPasswordResetURL } from "../utils";
 import { getServiceClient } from "../supabase/server";
 import { logServerEvent } from "@/lib/observability/logger";
 import type {
@@ -18,6 +18,7 @@ import {
   buildStatementFinalReviewRequestTemplate,
   buildStatementFollowUpRequestTemplate,
   buildInvitationEmailTemplate,
+  buildPasswordResetEmailTemplate,
   buildSignInEmailTemplate,
   buildMentionNotificationEmailTemplate,
   buildStatementLinkEmailTemplate,
@@ -101,6 +102,35 @@ export const sendStatementLinkEmail = async (
   await sendEmailWithLogging("statement.link", {
     from,
     to: payload.to,
+    subject: template.subject,
+    text: template.text,
+    react: template.react,
+  });
+};
+
+export const sendPasswordResetEmail = async ({ email }: { email: string }) => {
+  const supabase = getServiceClient();
+  const { data, error } = await supabase.auth.admin.generateLink({
+    type: "recovery",
+    email,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const tokenHash = data?.properties?.hashed_token;
+  if (!tokenHash) {
+    throw new Error("Failed to generate password reset link");
+  }
+
+  const template = buildPasswordResetEmailTemplate({
+    url: getPasswordResetURL(tokenHash),
+  });
+
+  await sendEmailWithLogging("auth.password_reset", {
+    from: getResendFrom(),
+    to: email,
     subject: template.subject,
     text: template.text,
     react: template.react,

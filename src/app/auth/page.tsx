@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card";
 import type { InviteWithTenantName } from "@/types";
 import { apiFetch } from "@/lib/api-utils";
-import { getRoleLabel, getURL } from "@/lib/utils";
+import { getRoleLabel } from "@/lib/utils";
 import { WaitlistSignupForm } from "@/components/waitlist/waitlist-form";
 import {
   BadgeCheck,
@@ -229,14 +229,11 @@ function AuthPageContent() {
         throw new Error("Enter your email first to reset your password");
       }
 
-      const supabase = getSupabaseClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${getURL()}/auth/reset-password`,
+      await apiFetch("/api/auth/reset-password", {
+        method: "POST",
+        requireAuth: false,
+        body: JSON.stringify({ email }),
       });
-
-      if (error) {
-        throw new Error(error.message);
-      }
 
       setSuccessStatus(
         "If a password login exists for this account, a reset email has been sent.",

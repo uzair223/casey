@@ -72,3 +72,10 @@ export const getAuthURL = (inviteCode?: string | null) => {
   if (inviteCode) url += `?invite=${inviteCode}`;
   return url;
 };
+
+export const getPasswordResetURL = (tokenHash: string) => {
+  const url = new URL("auth/reset-password", getURL());
+  url.searchParams.set("token_hash", tokenHash);
+  url.searchParams.set("type", "recovery");
+  return url.toString();
+};
