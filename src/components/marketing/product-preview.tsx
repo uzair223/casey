@@ -16,7 +16,7 @@ const intakeMessages = [
   {
     role: "assistant",
     content:
-      "Before we draft, I need the sequence in your own words. Where were you immediately before the incident?",
+      "Tell me what happened, in your own words. Where were you just before the incident?",
   },
   {
     role: "user",
@@ -194,13 +194,13 @@ function DraftMock() {
       <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs text-primary/45">Statement prepared</p>
+            <p className="text-xs text-primary/45">Account ready</p>
             <h3 className="font-display text-xl text-primary">
-              Review your statement
+              Check your account
             </h3>
           </div>
           <span className="hidden rounded-full bg-brand-fill px-3 py-1.5 text-xs font-medium text-brand-foreground sm:inline-flex">
-            Submit statement
+            Send your account
           </span>
         </div>
         <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-primary/10 bg-white p-6 text-black shadow-inner sm:p-8">
@@ -415,9 +415,9 @@ const tabs = [
   },
   {
     value: "draft",
-    label: "Draft",
-    overlayTitle: "Statement drafted",
-    overlayMeta: "Completed in 3m 24s",
+    label: "Account",
+    overlayTitle: "Account sent",
+    overlayMeta: "Ready for the firm to review",
     mock: <DraftMock />,
   },
   {
@@ -430,8 +430,8 @@ const tabs = [
   {
     value: "review",
     label: "Review",
-    overlayTitle: "Ready for solicitor review",
-    overlayMeta: "Source context attached",
+    overlayTitle: "Ready for review",
+    overlayMeta: "Accounts and documents attached",
     mock: <ReviewMock />,
   },
   {

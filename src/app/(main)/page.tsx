@@ -24,34 +24,38 @@ import { env } from "@/lib/env";
 
 const steps = [
   {
-    title: "Someone answers straight away",
-    body: "The hosted page takes the enquiry while the office is closed. On Growth, the same chat can sit on your website.",
+    title: "Enquiries arrive",
+    body: "Enquirers tell Casey what happened on the firm's page or, on Growth, in a chat on the firm's own website. Casey confirms each contact before leads reach anyone.",
   },
   {
-    title: "You choose what becomes a file",
-    body: "Accept the lead, or decline it with one of your reasons. The feed shows the enquiries that are ready.",
+    title: "The firm decides",
+    body: "Leads appear in the list with the lead type and the enquirer's details. Solicitors accept them, or decline them, with the reason recorded.",
   },
   {
-    title: "The evidence follows that decision",
-    body: "After you accept, the person adds photos, records, and anyone else involved.",
+    title: "Claimants give their accounts",
+    body: "A private link arrives by email. Casey takes claimants through their accounts in stages, with photos and records added along the way, and claimants check everything before sending.",
   },
   {
-    title: "Solicitors start on the draft",
-    body: "The account and the gap list are already on the lead. The written draft is prepared in review.",
+    title: "Witnesses are asked",
+    body: "Casey picks out the colleagues and witnesses named in each account. The firm chooses who to ask, and each gets their own link.",
+  },
+  {
+    title: "Solicitors write the statements",
+    body: "Accounts, documents, chronology, and gaps are on the file. Solicitors draft the statement, ask follow-up questions, and send it for signature.",
   },
 ] as const;
 
 const deeperLinks = [
   {
     label: "Platform",
-    title: "Follow one lead from the public page to review.",
-    body: "The feed, the account, the exhibits, and who on the team sees them.",
+    title: "What claimants see, and what the team sees.",
+    body: "The enquiry page, the leads list, the accounts, and the statement.",
     href: "/platform",
   },
   {
     label: "Security",
-    title: "A private link for each person, and a trail for the firm.",
-    body: "Who opened the account, what they sent, and the signature record.",
+    title: "Private links for claimants. A record for the firm.",
+    body: "Who opened each account, what was sent, and the signature record.",
     href: "/legal/security",
   },
   {
@@ -88,8 +92,10 @@ export default function Home() {
           </Reveal>
           <Reveal eager>
             <p className="mt-8 max-w-md text-lg leading-8 text-primary/80 lg:ml-[42%]">
-              Casey answers the person first and puts a qualified lead on
-              the feed. You pay for the ones you accept. Seats are included.
+              Enquirers fill in the firm&apos;s page at 9pm. By morning Casey has
+              their names, confirmed ways to reach them, and what happened.
+              The firm decides which become files, and pays for the leads it
+              accepts.
             </p>
           </Reveal>
           <Reveal eager>
@@ -102,7 +108,7 @@ export default function Home() {
         <Reveal>
           <MarketingHeading
             eyebrow="The promise"
-            title="The story, the evidence, and the gaps."
+            title="What lands on the desk after the firm says yes."
           />
         </Reveal>
         <Reveal className="mt-14">
@@ -115,26 +121,26 @@ export default function Home() {
           <Reveal>
             <MarketingHeading
               eyebrow={`About ${env.NEXT_PUBLIC_APP_NAME}`}
-              title="Hours back for the work only a solicitor can do."
-              description="The first conversation happens before anyone at the firm picks it up."
+              title="The first conversation is done before anyone at the firm picks up the phone."
+              description="Casey holds that conversation. Solicitors spend their time on the files the firm keeps."
             />
             <div className="mt-10 grid gap-8 sm:grid-cols-2">
               {[
                 {
-                  title: "After hours",
-                  body: "An enquiry at 9pm gets an answer, and waits on the feed until morning.",
+                  title: "Out of hours",
+                  body: "Every enquiry gets a reply, including the ones at 9pm on a Friday.",
                 },
                 {
-                  title: "Your questions",
-                  body: "Each lead type asks for the facts that matter to that claim.",
+                  title: "The right questions",
+                  body: "Personal injury, accident at work, and clinical negligence come ready to use, each with its own questions. Firms add their own lead types when the work calls for it.",
                 },
                 {
-                  title: "Your reasons",
-                  body: "When a lead does not fit, the firm records why and moves on.",
+                  title: "Confirmed contacts",
+                  body: "Casey sends a short code to the email or phone enquirers give. Leads in the list are people the firm can reach.",
                 },
                 {
-                  title: "Your page",
-                  body: "The chat carries the firm's name, lead types, and wording.",
+                  title: "Your name on the door",
+                  body: "The page carries the firm's name. On Growth, its colours, logo, and welcome message too.",
                 },
               ].map((item) => (
                 <div key={item.title}>
@@ -158,7 +164,7 @@ export default function Home() {
         <Reveal>
           <MarketingHeading
             eyebrow="How Casey works"
-            title="Then the file is yours."
+            title="From enquiry to file."
           />
         </Reveal>
         <ol className="mt-12 border-t border-primary/15">
@@ -188,9 +194,9 @@ export default function Home() {
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <Reveal>
             <MarketingHeading
-              eyebrow="The first draft"
-              title="Review opens on a real file."
-              description="Dates, exhibits, and the gap list are already there. Solicitors write the draft."
+              eyebrow="Review"
+              title="The facts are on the file before review starts."
+              description="Chronology, agreed facts, conflicts, gaps, and documents are listed when solicitors sit down. The statement is theirs to write."
             />
           </Reveal>
           <Reveal>
@@ -203,7 +209,7 @@ export default function Home() {
         <Reveal>
           <MarketingHeading
             eyebrow="Go Deeper"
-            title="See the product, the safeguards, and how to start."
+            title="The product, the safeguards, and how to start."
           />
         </Reveal>
         <div className="mt-10 border-t border-primary/15">
@@ -238,7 +244,7 @@ export default function Home() {
         <Reveal>
           <MarketingHeading
             eyebrow="Pricing"
-            title="Pay for accepted leads."
+            title="Pay for the leads you accept."
             description={`${FREE_LEAD_LIMIT} free. Starter is £${STARTER_PRICE_GBP}/month for ${STARTER_ACCEPTED_LEADS_PER_MONTH} accepted leads. Growth is £${GROWTH_PRICE_GBP}/month for ${GROWTH_ACCEPTED_LEADS_PER_MONTH} accepted leads. An extra lead is £${EXTRA_LEAD_PRICE_GBP}. Seats are included.`}
           />
         </Reveal>
@@ -258,7 +264,7 @@ export default function Home() {
                 Start early access
               </p>
               <h2 className="mt-3 max-w-xl font-display text-4xl leading-[1.1] sm:text-5xl">
-                Give solicitors more time for their best thinking.
+                Every enquiry answered. Every file worth opening.
               </h2>
               <CtaPair className="mt-10" tone="light" />
             </Reveal>

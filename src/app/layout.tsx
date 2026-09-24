@@ -22,7 +22,7 @@ const sans = Source_Sans_3({
 
 export const metadata: Metadata = {
   title: env.NEXT_PUBLIC_APP_NAME,
-  description: `Casey answers a new enquiry and puts a qualified lead on the feed. You pay for the ones you accept. Seats are included.`,
+  description: `Casey answers a firm's enquiries, confirms each contact, and puts qualified leads in front of the team. The firm accepts the ones worth a file and pays for those alone.`,
   icons: { icon: "/favicon.svg" },
 };
 

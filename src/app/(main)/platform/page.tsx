@@ -13,54 +13,54 @@ import { env } from "@/lib/env";
 export const metadata = {
   title: `Platform | ${env.NEXT_PUBLIC_APP_NAME}`,
   description:
-    "One lead, from the public page to review: the feed, the account, the exhibits, and the gap list.",
+    "What a firm sees in Casey, from the first enquiry to the signed statement.",
 };
 
 const pillars = [
   {
-    label: "Intake",
-    title: "A page for each lead type",
-    body: "Personal injury, accident at work, clinical negligence: each type has its own questions. Several types can share one link.",
+    label: "Enquiry",
+    title: "The enquiry page",
+    body: "One address for the firm. Personal injury, accident at work, and clinical negligence come ready to use, and firms build their own lead types and account templates in Settings. Casey confirms each contact with a short code.",
   },
   {
-    label: "Decision",
-    title: "A feed of finished enquiries",
-    body: "Accept a lead onto the file, or decline it with a reason the firm wrote. Half-finished chats stay out of the feed.",
+    label: "Leads",
+    title: "The leads list",
+    body: "New leads show the lead type, the enquirer's details, and who is assigned. Solicitors and admins accept, or decline with the reason recorded. Paralegals add enquiries that came in by phone.",
   },
   {
-    label: "Evidence",
-    title: "Exhibits travel with the account",
-    body: "Photos, treatment records, and the other people on the matter are requested once you accept.",
+    label: "Account",
+    title: "Accounts",
+    body: "After accept, claimants get a private link, give their accounts in stages, upload photos and records, and check everything before sending.",
   },
   {
-    label: "Gaps",
-    title: "Conflicts show up early",
-    body: "Missing dates, unsupported detail, and documents that were never sent are marked on the lead.",
+    label: "Others",
+    title: "Witnesses",
+    body: "When accounts arrive, Casey lists the colleagues, witnesses, or family named in them. The firm chooses who to ask, and each gets their own link.",
+  },
+  {
+    label: "Facts",
+    title: "Facts and gaps",
+    body: "One click produces a summary, a chronology, the agreed facts, the conflicts, and the gaps across every account on the file.",
   },
   {
     label: "Draft",
-    title: "The statement is written in review",
-    body: "Solicitors prepare the draft with the account and the exhibits beside it.",
-  },
-  {
-    label: "Team",
-    title: "Seats come with the plan",
-    body: "Trial includes 5 seats. Starter includes 10. Growth includes unlimited seats.",
+    title: "Statements",
+    body: "Solicitors write them in review with the accounts and documents alongside, request follow-up where something is missing, and send them for signature.",
   },
 ] as const;
 
 const roles = [
   {
     title: "Paralegals",
-    body: "Work the feed, accept what fits, and chase the exhibits that are still outstanding.",
+    body: "See every lead, add walk-in and phone enquiries, and keep an eye on accounts that are still outstanding.",
   },
   {
     title: "Solicitors",
-    body: "Open a lead that already has an account, exhibits, and a gap list. Spend the hour on the draft.",
+    body: "Accept or decline leads, ask the follow-up questions, write the statements, and send them for signature.",
   },
   {
     title: "Admins",
-    body: "Publish lead types, set the hosted page, and invite the team. Seats are included with the plan.",
+    body: "Turn lead types on and off, build new ones, set the enquiry page and branding, invite the team, and manage the plan. Seats are included.",
   },
 ] as const;
 
@@ -69,8 +69,8 @@ export default function PlatformPage() {
     <MarketingPage>
       <MarketingPageHero
         eyebrow="Platform"
-        title="One lead, from the public page to review."
-        description="The feed, the account, the exhibits, and the gap list stay on the same matter. Paralegals, solicitors, and admins work from that file."
+        title="From the first enquiry to the signed statement."
+        description="One lead, one file. Enquiries, accounts, documents, witnesses, and statements stay together, and everyone on the team works from the same page."
       />
 
       <MarketingPageSection eyebrow="What Casey does">
@@ -106,13 +106,13 @@ export default function PlatformPage() {
 
       <MarketingPageSection
         eyebrow="On the file"
-        title="Accept it, and the rest of the matter stays attached."
-        description="A photo, the other person's name, and the missing treatment date sit on the same lead as the account."
+        title="Everything about the matter stays on the matter."
+        description="Notes, reminders, follow-up requests, signed statements, and the activity trail sit on each lead, so whoever picks it up next can see what happened."
       />
 
       <MarketingPageSection
         eyebrow="Teams"
-        title="Same lead. A different job for each role."
+        title="Same file. Different jobs."
       >
         <ul className="border-t border-primary/15">
           {roles.map((item) => (
@@ -130,8 +130,8 @@ export default function PlatformPage() {
       </MarketingPageSection>
 
       <MarketingPageCta
-        title="Bring one enquiry. See the file."
-        description="We will run it through Casey and show what lands in front of the team."
+        title="Bring one live enquiry. We will show you the file."
+        description="Send us an enquiry the firm received this week. We will run it through Casey and show what the team would have seen."
       >
         <Link
           href="/legal/security"

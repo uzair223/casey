@@ -50,7 +50,7 @@ const detailRows = [
   { label: "Evidence", cells: yes },
   { label: "Other people", cells: yes },
   { label: "Draft in review", cells: yes },
-  { label: "Markup", cells: yes },
+  { label: "Statement editor", cells: yes },
   { label: "Lead types", cells: paid },
   { label: "Account templates", cells: paid },
   { label: "Facts and gaps", cells: paid },
