@@ -31,6 +31,7 @@ export function CtaPair({
     <div className={cn("flex flex-wrap items-center gap-3", className)}>
       <Link
         href={primaryHref}
+        prefetch={false}
         className={cn(
           "inline-flex items-center justify-center rounded-full bg-brand-fill font-medium text-brand-foreground transition-opacity hover:opacity-90",
           hero
@@ -42,6 +43,7 @@ export function CtaPair({
       </Link>
       <Link
         href={demoHref}
+        prefetch={false}
         target={demoIsExternal ? "_blank" : undefined}
         rel={demoIsExternal ? "noreferrer" : undefined}
         className={cn(

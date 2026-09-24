@@ -9,7 +9,7 @@ export default function Footer() {
     <footer className="relative z-10 border-t border-border/50 pt-20 pb-10">
       <div className="container grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.15fr_repeat(4,minmax(0,1fr))]">
         <div className="max-w-sm space-y-3">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/" prefetch={false} className="flex items-center gap-2.5">
             <BrandMark />
             <p className="font-display text-[22px] leading-none tracking-tight">
               {env.NEXT_PUBLIC_APP_NAME}
@@ -68,7 +68,9 @@ export default function Footer() {
                 className="justify-start px-0"
                 asChild
               >
-                <Link href="/#early-access">Book a demo</Link>
+                <Link href="/#early-access" prefetch={false}>
+                  Book a demo
+                </Link>
               </Button>
             )}
             {env.NEXT_PUBLIC_SUPPORT_EMAIL ? (

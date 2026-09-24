@@ -3,6 +3,8 @@ import staticAssetsIncrementalCache from "@opennextjs/cloudflare/overrides/incre
 
 export default defineCloudflareConfig({
   incrementalCache: staticAssetsIncrementalCache,
-  enableCacheInterception: true,
+  // A segment prefetch was answered with the full prerendered flight, and
+  // the browser then requested that same URL about 200 times per visit.
+  enableCacheInterception: false,
   routePreloadingBehavior: "none",
 });

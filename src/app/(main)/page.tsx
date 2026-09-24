@@ -217,6 +217,7 @@ export default function Home() {
             <Link
               key={item.title}
               href={item.href}
+              prefetch={false}
               className="group grid gap-3 border-b border-primary/15 py-8 md:grid-cols-[9rem_minmax(0,1fr)_auto] md:items-baseline md:gap-8"
             >
               <p className="font-display text-lg italic text-brand">
