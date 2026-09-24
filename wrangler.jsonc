@@ -39,7 +39,9 @@
   "routes": [
     { "pattern": "caseyhq.co.uk", "custom_domain": true },
     { "pattern": "www.caseyhq.co.uk", "custom_domain": true },
-    { "pattern": "app.caseyhq.co.uk", "custom_domain": true }
+    { "pattern": "app.caseyhq.co.uk", "custom_domain": true },
+    { "pattern": "go.caseyhq.co.uk", "custom_domain": true },
+    { "pattern": "*.go.caseyhq.co.uk/*", "zone_name": "caseyhq.co.uk" }
   ],
   "services": [
     {

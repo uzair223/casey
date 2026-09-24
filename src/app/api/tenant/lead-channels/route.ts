@@ -1,5 +1,6 @@
 import { badRequest, ok, requireTenantManager, serverError } from "@/lib/api-utils";
 import { widgetEnabled } from "@/lib/billing/plans";
+import { firmPageUrl } from "@/lib/firm-page-host";
 import { LeadBrandingSchema } from "@/lib/leads/schema";
 import { generateSecureToken } from "@/lib/security";
 import { getServiceClient } from "@/lib/supabase/server";
@@ -47,9 +48,7 @@ export async function GET(request: Request) {
     return ok({
       publicSlug: tenant?.public_slug ?? null,
       premium,
-      hostedUrl: tenant?.public_slug
-        ? `https://${tenant.public_slug}.caseyhq.co.uk`
-        : null,
+      hostedUrl: tenant?.public_slug ? firmPageUrl(tenant.public_slug) : null,
       localPath: tenant?.public_slug ? `/q/${tenant.public_slug}` : null,
       leadTypes: (leadTypes ?? []).map((leadType) => ({
         id: leadType.id,
