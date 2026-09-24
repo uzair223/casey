@@ -3,28 +3,64 @@
 import { useState } from "react";
 
 import { Check } from "@/components/icons";
+import {
+  EXTRA_LEAD_PRICE_GBP,
+  FREE_LEAD_LIMIT,
+  GROWTH_ACCEPTED_LEADS_PER_MONTH,
+  GROWTH_PRICE_GBP,
+  STARTER_ACCEPTED_LEADS_PER_MONTH,
+  STARTER_INCLUDED_USERS,
+  STARTER_PRICE_GBP,
+  TRIAL_SEAT_LIMIT,
+} from "@/lib/billing/plans";
 
 const plans = [
   { name: "Trial", amount: "Free", unit: "" },
-  { name: "Starter", amount: "£149", unit: "/month" },
-  { name: "Growth", amount: "£349", unit: "/month" },
+  { name: "Starter", amount: `£${STARTER_PRICE_GBP}`, unit: "/month" },
+  { name: "Growth", amount: `£${GROWTH_PRICE_GBP}`, unit: "/month" },
 ] as const;
 
+const yes = ["Included", "Included", "Included"] as const;
+const paid = ["—", "Included", "Included"] as const;
+const growthOnly = ["—", "—", "Included"] as const;
+
 const glanceRows = [
-  { label: "Seats", cells: ["5", "10", "Unlimited"] },
-  { label: "Accepted leads", cells: ["3", "40/month", "120/month"] },
-  { label: "Extra lead", cells: ["—", "£15", "£15"] },
-  { label: "Hosted page", cells: ["Included", "Included", "Included"] },
-  { label: "Website widget", cells: ["—", "—", "Included"] },
-  { label: "Branding", cells: ["—", "—", "Included"] },
+  { label: "Seats", cells: [String(TRIAL_SEAT_LIMIT), String(STARTER_INCLUDED_USERS), "Unlimited"] },
+  {
+    label: "Accepted leads",
+    cells: [
+      String(FREE_LEAD_LIMIT),
+      `${STARTER_ACCEPTED_LEADS_PER_MONTH}/month`,
+      `${GROWTH_ACCEPTED_LEADS_PER_MONTH}/month`,
+    ],
+  },
+  {
+    label: "Extra lead",
+    cells: ["—", `£${EXTRA_LEAD_PRICE_GBP}`, `£${EXTRA_LEAD_PRICE_GBP}`],
+  },
+  { label: "Hosted page", cells: yes },
+  { label: "Website widget", cells: growthOnly },
+  { label: "Branding", cells: growthOnly },
+  { label: "Text messages", cells: growthOnly },
 ] as const;
 
 const detailRows = [
-  { label: "Text messages", cells: ["—", "—", "Included"] },
-  { label: "Evidence and other people", cells: ["Included", "Included", "Included"] },
-  { label: "Templates", cells: ["—", "Included", "Included"] },
-  { label: "Facts and gaps", cells: ["—", "Included", "Included"] },
-  { label: "Activity and signatures", cells: ["Included", "Included", "Included"] },
+  { label: "Account", cells: yes },
+  { label: "Follow-up", cells: yes },
+  { label: "Evidence", cells: yes },
+  { label: "Other people", cells: yes },
+  { label: "Draft in review", cells: yes },
+  { label: "Markup", cells: yes },
+  { label: "Lead types", cells: paid },
+  { label: "Account templates", cells: paid },
+  { label: "Facts and gaps", cells: paid },
+  { label: "Document review", cells: paid },
+  { label: "Evidence descriptions", cells: paid },
+  { label: "Template drafting", cells: paid },
+  { label: "Activity", cells: yes },
+  { label: "Signatures", cells: yes },
+  { label: "Notes", cells: yes },
+  { label: "Reminders", cells: yes },
 ] as const;
 
 function Cell({

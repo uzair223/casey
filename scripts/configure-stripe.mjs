@@ -151,11 +151,13 @@ const caseProduct = await findOrCreateProduct(
 const casePrice = await findOrCreatePrice(
   caseProduct.id,
   (item) =>
-    item.metadata?.casey_price === "extra_lead" ||
-    (!item.recurring && item.currency === "gbp" && item.unit_amount === 1500),
+    !item.recurring &&
+    item.currency === "gbp" &&
+    item.unit_amount === 800 &&
+    item.metadata?.casey_price === "extra_lead",
   {
     currency: "gbp",
-    unit_amount: 1500,
+    unit_amount: 800,
     metadata: { casey_price: "extra_lead" },
     nickname: "Casey accepted lead",
   },
@@ -247,7 +249,7 @@ console.log(
       amounts: {
         starter: "£149 / month",
         growth: "£349 / month",
-        extraLead: "£15 once",
+        extraLead: "£8 once",
       },
       caseyUrl: caseyUrl || null,
       docusealUrl: docusealUrl || null,

@@ -12,6 +12,14 @@ import { ProductPreview } from "@/components/marketing/product-preview";
 import { Reveal } from "@/components/marketing/reveal";
 import { MarketingSection, MarketingShell } from "@/components/marketing/shell";
 import { WaitlistSignupForm } from "@/components/waitlist/waitlist-form";
+import {
+  EXTRA_LEAD_PRICE_GBP,
+  FREE_LEAD_LIMIT,
+  GROWTH_ACCEPTED_LEADS_PER_MONTH,
+  GROWTH_PRICE_GBP,
+  STARTER_ACCEPTED_LEADS_PER_MONTH,
+  STARTER_PRICE_GBP,
+} from "@/lib/billing/plans";
 import { env } from "@/lib/env";
 
 const steps = [
@@ -231,7 +239,7 @@ export default function Home() {
           <MarketingHeading
             eyebrow="Pricing"
             title="Pay for accepted leads."
-            description="3 free. Starter is £149/month. Growth is £349/month. Seats are included."
+            description={`${FREE_LEAD_LIMIT} free. Starter is £${STARTER_PRICE_GBP}/month for ${STARTER_ACCEPTED_LEADS_PER_MONTH} accepted leads. Growth is £${GROWTH_PRICE_GBP}/month for ${GROWTH_ACCEPTED_LEADS_PER_MONTH} accepted leads. An extra lead is £${EXTRA_LEAD_PRICE_GBP}. Seats are included.`}
           />
         </Reveal>
         <Reveal className="mt-12">

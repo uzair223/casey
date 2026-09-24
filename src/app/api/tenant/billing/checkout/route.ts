@@ -8,10 +8,9 @@ import {
   requireTenantAdmin,
   serverError,
 } from "@/lib/api-utils";
-import { storedSeatLimit } from "@/lib/billing/plans";
+import { EXTRA_LEAD_PRICE_GBP, storedSeatLimit } from "@/lib/billing/plans";
 import {
   getStripe,
-  getStripeCasePriceId,
   getStripeGrowthPriceId,
   getStripePracticePriceId,
 } from "@/lib/billing/stripe";
@@ -81,7 +80,16 @@ export async function POST(request: Request) {
           tenantId: auth.tenantId,
           kind: "extra_lead",
         },
-        line_items: [{ price: getStripeCasePriceId(), quantity: 1 }],
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: "gbp",
+              unit_amount: EXTRA_LEAD_PRICE_GBP * 100,
+              product_data: { name: "Extra accepted lead" },
+            },
+          },
+        ],
       });
       return ok({ checkoutUrl: session.url });
     }
