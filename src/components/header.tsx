@@ -70,6 +70,7 @@ export default function Header() {
       <div className="container flex h-full items-center justify-between">
         <Link
           href="/"
+          prefetch={false}
           className="flex h-10 items-center gap-2.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {user?.tenant_name ? (
@@ -97,15 +98,21 @@ export default function Header() {
           <>
             <nav className="hidden items-center gap-5 md:flex">
               {publicLinks.map((item) => (
-                <Link key={item.href} href={item.href} className={NAV_LINK_CLASS}>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  prefetch={false}
+                  className={NAV_LINK_CLASS}
+                >
                   {item.label}
                 </Link>
               ))}
-              <Link href="/auth" className={NAV_LINK_CLASS}>
+              <Link href="/auth" prefetch={false} className={NAV_LINK_CLASS}>
                 Login
               </Link>
               <Link
                 href={demoHref}
+                prefetch={false}
                 target={demoIsExternal ? "_blank" : undefined}
                 rel={demoIsExternal ? "noreferrer" : undefined}
                 className="ml-1 inline-flex h-[34px] items-center rounded-full border border-primary/30 px-4 text-[14px] font-medium text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -114,6 +121,7 @@ export default function Header() {
               </Link>
               <Link
                 href="/#early-access"
+                prefetch={false}
                 className="inline-flex h-[34px] items-center rounded-full bg-brand-fill px-4 text-[14px] font-medium text-brand-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 Get Started
@@ -156,7 +164,9 @@ export default function Header() {
                 asChild
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                <Link href={item.href}>{item.label}</Link>
+                <Link href={item.href} prefetch={false}>
+                  {item.label}
+                </Link>
               </Button>
             ))}
             <Button
@@ -165,7 +175,9 @@ export default function Header() {
               asChild
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              <Link href="/auth">Login</Link>
+              <Link href="/auth" prefetch={false}>
+                Login
+              </Link>
             </Button>
             <Button
               variant="outline"
@@ -175,6 +187,7 @@ export default function Header() {
             >
               <Link
                 href={demoHref}
+                prefetch={false}
                 target={demoIsExternal ? "_blank" : undefined}
                 rel={demoIsExternal ? "noreferrer" : undefined}
               >
@@ -186,7 +199,9 @@ export default function Header() {
               asChild
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              <Link href="/#early-access">Get Started</Link>
+              <Link href="/#early-access" prefetch={false}>
+                Get Started
+              </Link>
             </Button>
           </nav>
         </div>

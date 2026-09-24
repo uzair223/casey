@@ -35,7 +35,13 @@ const LinkList = ({
         asChild={!isActive}
         {...props}
       >
-        {isActive ? item.label : <Link href={item.href}>{item.label}</Link>}
+        {isActive ? (
+          item.label
+        ) : (
+          <Link href={item.href} prefetch={false}>
+            {item.label}
+          </Link>
+        )}
       </Button>
     );
   });
