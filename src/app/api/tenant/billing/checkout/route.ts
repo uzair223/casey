@@ -10,9 +10,11 @@ import {
 } from "@/lib/api-utils";
 import { EXTRA_LEAD_PRICE_GBP, storedSeatLimit } from "@/lib/billing/plans";
 import {
+  ensurePriceTaxCode,
   getStripe,
   getStripeGrowthPriceId,
   getStripePracticePriceId,
+  SAAS_BUSINESS_TAX_CODE,
 } from "@/lib/billing/stripe";
 import { env } from "@/lib/env";
 import { getServiceClient } from "@/lib/supabase/server";
@@ -86,7 +88,10 @@ export async function POST(request: Request) {
             price_data: {
               currency: "gbp",
               unit_amount: EXTRA_LEAD_PRICE_GBP * 100,
-              product_data: { name: "Extra accepted lead" },
+              product_data: {
+                name: "Extra accepted lead",
+                tax_code: SAAS_BUSINESS_TAX_CODE,
+              },
             },
           },
         ],
@@ -96,6 +101,9 @@ export async function POST(request: Request) {
 
     const plan = kind;
     const seatLimit = storedSeatLimit(plan);
+    const priceId =
+      plan === "starter" ? getStripePracticePriceId() : getStripeGrowthPriceId();
+    await ensurePriceTaxCode(priceId);
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       success_url: `${dashboardUrl}?billing=success`,
@@ -118,10 +126,7 @@ export async function POST(request: Request) {
       },
       line_items: [
         {
-          price:
-            plan === "starter"
-              ? getStripePracticePriceId()
-              : getStripeGrowthPriceId(),
+          price: priceId,
           quantity: 1,
         },
       ],

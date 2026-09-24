@@ -56,15 +56,27 @@ try {
   stripeAccount = null;
 }
 
+const SAAS_BUSINESS_TAX_CODE = "txcd_10103001";
+
 async function findOrCreateProduct(metadataValue, name, description) {
   const products = await stripe.products.list({ limit: 100, active: true });
   const existing = products.data.find(
     (item) => item.metadata?.casey_product === metadataValue || item.name === name,
   );
-  if (existing) return existing;
+  if (existing) {
+    const taxCode =
+      typeof existing.tax_code === "string"
+        ? existing.tax_code
+        : existing.tax_code?.id;
+    if (taxCode === SAAS_BUSINESS_TAX_CODE) return existing;
+    return stripe.products.update(existing.id, {
+      tax_code: SAAS_BUSINESS_TAX_CODE,
+    });
+  }
   return stripe.products.create({
     name,
     description,
+    tax_code: SAAS_BUSINESS_TAX_CODE,
     metadata: { casey_product: metadataValue },
   });
 }
@@ -183,24 +195,11 @@ if (cfAccountId && cfToken) {
 }
 
 let webhookSecret = fileEnv.STRIPE_WEBHOOK_SECRET || "";
-if (caseyUrl.startsWith("https://")) {
+if (caseyUrl.startsWith("https://") && !webhookSecret) {
   const webhookUrl = `${caseyUrl.replace(/\/$/, "")}/api/webhooks/stripe`;
   const endpoints = await stripe.webhookEndpoints.list({ limit: 100 });
   let endpoint = endpoints.data.find((item) => item.url === webhookUrl);
   if (!endpoint) {
-    endpoint = await stripe.webhookEndpoints.create({
-      url: webhookUrl,
-      enabled_events: [
-        "checkout.session.completed",
-        "customer.subscription.created",
-        "customer.subscription.updated",
-        "customer.subscription.deleted",
-      ],
-      metadata: { casey: "true" },
-    });
-    webhookSecret = endpoint.secret || webhookSecret;
-  } else if (!webhookSecret) {
-    await stripe.webhookEndpoints.del(endpoint.id);
     endpoint = await stripe.webhookEndpoints.create({
       url: webhookUrl,
       enabled_events: [
