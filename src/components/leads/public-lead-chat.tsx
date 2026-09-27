@@ -139,9 +139,12 @@ function PersonCheck({
   const onTokenRef = useRef(onToken);
   const onVisibleRef = useRef(onVisible);
   const onErrorRef = useRef(onError);
-  onTokenRef.current = onToken;
-  onVisibleRef.current = onVisible;
-  onErrorRef.current = onError;
+
+  useEffect(() => {
+    onTokenRef.current = onToken;
+    onVisibleRef.current = onVisible;
+    onErrorRef.current = onError;
+  });
 
   useEffect(() => {
     const holder = holderRef.current;

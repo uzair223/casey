@@ -44,8 +44,11 @@ export function HostedLeadChooser({
     Boolean(resumeToken) && channels.length > 1,
   );
   const channelsRef = useRef(channels);
-  channelsRef.current = channels;
   const channelKeys = channels.map((channel) => channel.publicKey).join(",");
+
+  useEffect(() => {
+    channelsRef.current = channels;
+  });
 
   useEffect(() => {
     if (!resumeToken || channelsRef.current.length < 2) return;
