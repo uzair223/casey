@@ -72,8 +72,6 @@ function statementConfig(params: {
 
 function parties(defendantLabel: string, defendantDescription: string): Field[] {
   return [
-    field("court", "Court", "The court where the claim is issued."),
-    field("claimNumber", "Claim number", "The court claim number."),
     field("claimant", "Claimant", "The person bringing the claim."),
     field("defendant", defendantLabel, defendantDescription),
   ];
@@ -115,6 +113,24 @@ const publicLiabilityFields = [
     "premises",
     "Premises",
     "The shop, pavement, or other place where the accident happened.",
+  ),
+];
+
+const housingFields = [
+  ...parties(
+    "Landlord",
+    "The landlord alleged to be responsible for the disrepair.",
+  ),
+  field(
+    "disrepairDate",
+    "When it was reported",
+    "When the disrepair was reported.",
+    "date",
+  ),
+  field(
+    "property",
+    "Property",
+    "The kind of home, without a street address.",
   ),
 ];
 
@@ -524,6 +540,74 @@ const familyMember = statementConfig({
   ],
 });
 
+const housingTenant = statementConfig({
+  modelIdentity:
+    "You are interviewing the tenant about disrepair in their home. Take their account of the condition, who lives there, and what they reported.",
+  caseMetadataDeps: housingFields.map((item) => item.id),
+  phases: [
+    phase(
+      "theHome",
+      "The home",
+      "Who lives there and what kind of home it is.",
+      "structured",
+      ["Who lives there", "Kind of home"],
+    ),
+    phase(
+      "theDisrepair",
+      "The disrepair",
+      "What is wrong with the home and how long it has been like that.",
+      "narrative",
+      ["What is wrong", "How long it has been wrong"],
+    ),
+    phase(
+      "whatTheyReported",
+      "What they reported",
+      "Who they told and what happened after they reported it.",
+      "narrative",
+      ["Who they told", "What followed the report"],
+    ),
+    phase(
+      "theEffect",
+      "The effect",
+      "How the disrepair has affected the people who live there.",
+      "narrative",
+      ["Effect on daily life", "Effect on health"],
+    ),
+  ],
+  sections: [
+    section("introduction", "Introduction", "Who the tenant is and who lives in the home."),
+    section("theDisrepair", "The disrepair", "The condition of the home."),
+    section("whatTheyReported", "What I reported", "Reports to the landlord and what followed."),
+    section("theEffect", "The effect", "How the disrepair has affected the household."),
+  ],
+});
+
+const householdMember = statementConfig({
+  modelIdentity:
+    "You are interviewing someone who lives in the home about the disrepair they have seen.",
+  caseMetadataDeps: housingFields.map((item) => item.id),
+  phases: [
+    phase(
+      "whoTheyAre",
+      "Who they are",
+      "Their relationship to the tenant and that they live there.",
+      "structured",
+      ["Relationship to the tenant", "That they live there"],
+    ),
+    phase(
+      "whatTheyHaveSeen",
+      "What they have seen",
+      "The disrepair they have seen in the home.",
+      "narrative",
+      ["What they have seen", "How long they have seen it"],
+    ),
+  ],
+  sections: [
+    section("introduction", "Introduction", "Who the household member is."),
+    section("whatTheyHaveSeen", "What I have seen", "The disrepair they describe."),
+  ],
+});
+
 function statement(
   id: string,
   name: string,
@@ -535,7 +619,7 @@ function statement(
 export const SEEDED_CASE_TEMPLATES: SeededCaseTemplate[] = [
   {
     id: "11111111-1111-4111-8111-111111111101",
-    name: "Road traffic collision",
+    name: "Road Traffic Accident",
     titleTemplate: "{claimant} v {defendant}",
     config: {
       matterBrief:
@@ -563,7 +647,7 @@ export const SEEDED_CASE_TEMPLATES: SeededCaseTemplate[] = [
   },
   {
     id: "11111111-1111-4111-8111-111111111102",
-    name: "Accident at work",
+    name: "Employer Liability",
     titleTemplate: "{claimant} v {defendant}",
     config: {
       matterBrief:
@@ -591,7 +675,7 @@ export const SEEDED_CASE_TEMPLATES: SeededCaseTemplate[] = [
   },
   {
     id: "11111111-1111-4111-8111-111111111103",
-    name: "Public liability",
+    name: "Public Liability",
     titleTemplate: "{claimant} v {defendant}",
     config: {
       matterBrief:
@@ -619,7 +703,7 @@ export const SEEDED_CASE_TEMPLATES: SeededCaseTemplate[] = [
   },
   {
     id: "11111111-1111-4111-8111-111111111104",
-    name: "Clinical negligence",
+    name: "Clinical Negligence",
     titleTemplate: "{claimant} v {defendant}",
     config: {
       matterBrief:
@@ -641,6 +725,34 @@ export const SEEDED_CASE_TEMPLATES: SeededCaseTemplate[] = [
           "22222222-2222-4222-8222-222222222208",
           "Family member who was present",
           familyMember,
+        ),
+      },
+    ],
+  },
+  {
+    id: "11111111-1111-4111-8111-111111111105",
+    name: "Housing Disrepair",
+    titleTemplate: "{claimant} v {defendant}",
+    config: {
+      matterBrief:
+        "Housing disrepair. The review should follow the condition of the home, who lives there, and what was reported.",
+      dynamicFields: housingFields,
+    },
+    statements: [
+      {
+        isDefault: true,
+        template: statement(
+          "22222222-2222-4222-8222-222222222209",
+          "Housing Disrepair",
+          housingTenant,
+        ),
+      },
+      {
+        isDefault: false,
+        template: statement(
+          "22222222-2222-4222-8222-222222222210",
+          "Household member",
+          householdMember,
         ),
       },
     ],

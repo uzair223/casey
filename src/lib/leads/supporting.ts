@@ -22,16 +22,16 @@ export async function recordDraftSupportingPeople(statementId: string) {
   const { data: primary, error } = await supabase
     .from("statements")
     .select(
-      "id, tenant_id, case_id, participant_kind, lead_type_id, contact_email, case_templates(participant_roles, qualification_slots, outreach_template, decline_reasons, branding)",
+      "id, tenant_id, case_id, participant_kind, lead_type_id, contact_email, statement_config_templates!statements_lead_type_id_fkey(participant_roles, qualification_slots, outreach_template, decline_reasons, branding)",
     )
     .eq("id", statementId)
     .maybeSingle();
   if (error) throw error;
   if (!primary || primary.participant_kind !== "primary") return [];
 
-  const leadType = Array.isArray(primary.case_templates)
-    ? primary.case_templates[0]
-    : primary.case_templates;
+  const leadType = Array.isArray(primary.statement_config_templates)
+    ? primary.statement_config_templates[0]
+    : primary.statement_config_templates;
   const config = parseLeadTypeConfig(leadType ?? {});
   const roles = supportingRoles(config.participant_roles);
   if (roles.length === 0) return [];
@@ -120,7 +120,7 @@ export async function requestSupportingAccount(params: {
   const { data: primary, error: primaryError } = await supabase
     .from("statements")
     .select(
-      "qualification_answers, lead_type_id, case_templates(name, participant_roles, qualification_slots, outreach_template, decline_reasons, branding)",
+      "qualification_answers, lead_type_id, statement_config_templates!statements_lead_type_id_fkey(name, participant_roles, qualification_slots, outreach_template, decline_reasons, branding)",
     )
     .eq("id", statement.parent_statement_id)
     .maybeSingle();
@@ -133,9 +133,9 @@ export async function requestSupportingAccount(params: {
     .maybeSingle();
   if (tenantError) throw tenantError;
 
-  const leadType = Array.isArray(primary?.case_templates)
-    ? primary?.case_templates[0]
-    : primary?.case_templates;
+  const leadType = Array.isArray(primary?.statement_config_templates)
+    ? primary?.statement_config_templates[0]
+    : primary?.statement_config_templates;
   const config = parseLeadTypeConfig(leadType ?? {});
   const role =
     config.participant_roles.find((item) => item.key === statement.role_key)
@@ -154,7 +154,8 @@ export async function requestSupportingAccount(params: {
     template: config.outreach_template || DEFAULT_OUTREACH_TEMPLATE,
     role,
     firm: tenant?.name ?? "the firm",
-    summary: outreachSummary(config.qualification_slots, answers),
+    summary:
+      answers.summary || outreachSummary(config.qualification_slots, answers),
   });
 
   const email = statement.contact_email || statement.witness_email;
@@ -199,7 +200,7 @@ export async function requestSupportingAccount(params: {
 
   const { error: updateError } = await supabase
     .from("statements")
-    .update({ outreach_confirmed_at: new Date().toISOString(), status: "in_progress" })
+    .update({ outreach_confirmed_at: new Date().toISOString() })
     .eq("id", statement.id);
   if (updateError) throw updateError;
 

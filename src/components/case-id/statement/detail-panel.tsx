@@ -23,6 +23,11 @@ import { AsyncButton } from "@/components/ui/async-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Card,
   CardContent,
   CardFooter,
@@ -72,12 +77,14 @@ import { SignatureCertificateCard } from "./signature-certificate-card";
 import { StatementReminderSettingsCard } from "./settings-card";
 import { TranscriptDialog } from "./transcript-dialog";
 import {
+  showIntakeWorkspace,
   statementStatusVariant,
   statementStatusLabel,
 } from "@/lib/status-styles";
 import { toast } from "@/lib/toast";
 import { DocxEditor, DocxEditorPanel } from "@/components/ui/docx-editor";
 import { generateDoc } from "@/lib/doc-gen";
+import { leadContactHidden } from "@/lib/leads/privacy";
 
 type StatementDetailPanelProps = {
   statementId: string;
@@ -383,6 +390,11 @@ export function StatementDetailPanel({
     (section) => (sectionDrafts[section.id] ?? "").trim().length > 0,
   );
 
+  const hideContact = leadContactHidden(data.statement.lead_stage);
+  const intakeStarted = showIntakeWorkspace(
+    data.statement.status,
+    Boolean(data.latest),
+  );
   const witnessMetadataFields = statementConfig.witnessMetadataFields ?? [];
   const witnessMetadataValues = data.statement.witness_metadata;
   const progress = latestMeta?.progress;
@@ -469,16 +481,24 @@ export function StatementDetailPanel({
         );
 
         await updateStatement(data.statement.id, {
-          witness_name: formData.witness_name,
-          witness_email: formData.witness_email,
+          ...(leadContactHidden(data.statement.lead_stage)
+            ? {}
+            : {
+                witness_name: formData.witness_name,
+                witness_email: formData.witness_email,
+              }),
           witness_metadata: metadataPatch,
         });
         await Promise.all([refreshCase(), fetchStatement()]);
       } else {
         await persistStatement({
           status: formData.status,
-          witness_name: formData.witness_name,
-          witness_email: formData.witness_email,
+          ...(leadContactHidden(data.statement.lead_stage)
+            ? {}
+            : {
+                witness_name: formData.witness_name,
+                witness_email: formData.witness_email,
+              }),
           witness_metadata: metadataPatch,
         });
       }
@@ -599,121 +619,150 @@ export function StatementDetailPanel({
   return (
     <div className="min-w-0 space-y-4">
       <Tabs defaultValue="manage" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="manage">Details</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="collaboration">Follow-up</TabsTrigger>
-          <TabsTrigger value="issues">Issues</TabsTrigger>
-        </TabsList>
+        {intakeStarted ? (
+          <TabsList>
+            <TabsTrigger value="manage">Details</TabsTrigger>
+            <TabsTrigger value="documents">Documents</TabsTrigger>
+            <TabsTrigger value="collaboration">Follow-up</TabsTrigger>
+          </TabsList>
+        ) : null}
 
         <TabsContent value="manage" className="space-y-4">
+          {latestMeta?.deviation &&
+          (latestMeta.deviation.flaggedDeviation ||
+            latestMeta.deviation.stopIntake) ? (
+            <Card variant="destructive">
+              <CardHeader className="flex-row items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                <CardTitle className="text-sm">
+                  Intake{" "}
+                  {latestMeta.deviation.stopIntake
+                    ? "Stopped"
+                    : "Deviation Flagged"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm">
+                  {latestMeta.deviation.deviationReason || "Unspecified reason"}
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {latestMeta?.ignoredMissingDetails?.length ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base inline-flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  Missing details
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1 text-sm">
+                  {latestMeta.ignoredMissingDetails.map((detail, index) => (
+                    <li key={`${detail}-${index}`} className="flex gap-2">
+                      <span className="text-muted-foreground">•</span>
+                      <span>{detail}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+            <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base">Statement information</CardTitle>
               <div className="flex flex-wrap gap-2">
                 {canModify && data.statement.status === "submitted" ? (
                   <AsyncButton
                     variant="outline"
                     size="sm"
                     onClick={onSendFinalReviewRequest}
-                    pendingText={
-                      <>
-                        <SendHorizonalIcon className="h-4 w-4" />
-                        Sending final review...
-                      </>
-                    }
+                    pendingText="Sending final review..."
                   >
                     <SendHorizonalIcon className="h-4 w-4" />
                     Finalize and request signature
                   </AsyncButton>
                 ) : null}
                 {canModify ? (
-                  <>
-                    <AsyncButton
-                      variant="outline-destructive"
-                      size="sm"
-                      onClick={onDelete}
-                      pendingText="Deleting..."
-                    >
-                      <Trash2Icon className="h-4 w-4" />
-                      Delete statement
-                    </AsyncButton>
-                  </>
-                ) : null}
-                <span className="border-r" />
-                <AsyncButton
-                  variant="outline"
-                  size="sm"
-                  onClick={onRegenerateLink}
-                  disabled={isMagicLinkRegenerationBlocked}
-                  pendingText={
-                    <>
-                      <RotateCwIcon className="h-4 w-4" />
-                      Regenerating...
-                    </>
-                  }
-                >
-                  <RotateCwIcon className="h-4 w-4" />
-                  Regenerate link
-                </AsyncButton>
-                <AsyncButton
-                  variant="outline"
-                  size="sm"
-                  onClick={onSendStatementLink}
-                  disabled={!canUseCurrentLink}
-                  pendingText={
-                    <>
-                      <SendHorizonalIcon className="h-4 w-4" />
-                      Sending...
-                    </>
-                  }
-                >
-                  <SendHorizonalIcon className="h-4 w-4" />
-                  Send link
-                </AsyncButton>
-                {data.statement.link ? (
-                  <Button asChild size="sm" variant="outline">
-                    <Link
-                      href={`/intake/${data.statement.link.token}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ExternalLinkIcon className="h-4 w-4" />
-                      View intake link
-                    </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing((prev) => !prev)}
+                  >
+                    <PenIcon className="h-4 w-4" />
+                    {isEditing ? "Cancel" : "Edit"}
                   </Button>
                 ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <Badge variant={isLinkExpired ? "warning" : "secondary"}>
-                  {linkExpiryCountdown}
-                </Badge>
-                <span>{magicLinkStatusDescription}</span>
-                {isMagicLinkRegenerationBlocked ? (
-                  <span>
-                    Regeneration is disabled for{" "}
-                    {statementStatusLabel[data.statement.status]} statements.
-                  </span>
+                {canModify ? (
+                  <AsyncButton
+                    variant="outline-destructive"
+                    size="sm"
+                    onClick={onDelete}
+                    pendingText="Deleting..."
+                  >
+                    <Trash2Icon className="h-4 w-4" />
+                    Delete
+                  </AsyncButton>
                 ) : null}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Link
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="space-y-2">
+                    <div className="flex flex-col gap-2">
+                      <AsyncButton
+                        variant="outline"
+                        size="sm"
+                        onClick={onSendStatementLink}
+                        disabled={!canUseCurrentLink}
+                        pendingText="Sending..."
+                      >
+                        <SendHorizonalIcon className="h-4 w-4" />
+                        Send
+                      </AsyncButton>
+                      <AsyncButton
+                        variant="outline"
+                        size="sm"
+                        onClick={onRegenerateLink}
+                        disabled={isMagicLinkRegenerationBlocked}
+                        pendingText="Regenerating..."
+                      >
+                        <RotateCwIcon className="h-4 w-4" />
+                        Regenerate
+                      </AsyncButton>
+                      {data.statement.link ? (
+                        <Button asChild size="sm" variant="outline">
+                          <Link
+                            href={`/intake/${data.statement.link.token}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <ExternalLinkIcon className="h-4 w-4" />
+                            Open
+                          </Link>
+                        </Button>
+                      ) : null}
+                    </div>
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <Badge variant={isLinkExpired ? "warning" : "secondary"}>
+                        {linkExpiryCountdown}
+                      </Badge>
+                      <p>{magicLinkStatusDescription}</p>
+                      {isMagicLinkRegenerationBlocked ? (
+                        <p>
+                          Regeneration is disabled for{" "}
+                          {statementStatusLabel[data.statement.status]}{" "}
+                          statements.
+                        </p>
+                      ) : null}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex-row items-center justify-between gap-2">
-              <CardTitle className="text-base">Statement information</CardTitle>
-              {canModify ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditing((prev) => !prev)}
-                >
-                  <PenIcon className="h-4 w-4" />
-                  {isEditing ? "Cancel editing" : "Edit details"}
-                </Button>
-              ) : null}
             </CardHeader>
             {isEditing ? (
               <FormProvider {...formMethods}>
@@ -799,6 +848,12 @@ export function StatementDetailPanel({
                       )}
                     />
 
+                    {hideContact ? (
+                      <p className="text-sm text-muted-foreground md:col-span-2">
+                        Name and email stay hidden until this lead is accepted.
+                      </p>
+                    ) : (
+                      <>
                     <RhfField
                       form={formMethods}
                       name="witness_name"
@@ -829,6 +884,8 @@ export function StatementDetailPanel({
                         />
                       )}
                     />
+                      </>
+                    )}
 
                     {witnessMetadataFields.map((field) => {
                       const fieldName = `witness_metadata.${field.id}` as const;
@@ -899,13 +956,24 @@ export function StatementDetailPanel({
                     <p className="text-sm font-medium text-muted-foreground">
                       Email
                     </p>
-                    <Link
-                      className="text-sm hover:underline"
-                      href={`mailto:${data.statement.witness_email}`}
-                    >
-                      {data.statement.witness_email}
-                    </Link>
+                    {data.statement.witness_email?.includes("@") ? (
+                      <Link
+                        className="text-sm hover:underline"
+                        href={`mailto:${data.statement.witness_email}`}
+                      >
+                        {data.statement.witness_email}
+                      </Link>
+                    ) : (
+                      <p className="text-sm">
+                        {data.statement.witness_email || "—"}
+                      </p>
+                    )}
                   </div>
+                  {hideContact ? (
+                    <p className="col-span-2 text-sm text-muted-foreground">
+                      Name and email stay hidden until this lead is accepted.
+                    </p>
+                  ) : null}
 
                   {witnessMetadataFields
                     .filter((field) => {
@@ -927,6 +995,8 @@ export function StatementDetailPanel({
               </>
             )}
           </Card>
+          {intakeStarted ? (
+          <>
           <Card>
             <CardHeader>
               <div className="flex flex-row items-center justify-between gap-2">
@@ -1066,8 +1136,12 @@ export function StatementDetailPanel({
               </CardFooter>
             ) : null}
           </Card>
+          </>
+          ) : null}
         </TabsContent>
 
+        {intakeStarted ? (
+        <>
         <TabsContent value="documents" className="space-y-4">
           {statementDocument ? (
             <Card className="w-full min-w-0">
@@ -1122,60 +1196,8 @@ export function StatementDetailPanel({
             statementStatus={data.statement.status}
           />
         </TabsContent>
-
-        <TabsContent value="issues" className="space-y-4">
-          {latestMeta?.deviation &&
-          (latestMeta.deviation.flaggedDeviation ||
-            latestMeta.deviation.stopIntake) ? (
-            <Card variant="destructive">
-              <CardHeader className="flex-row items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                <CardTitle className="text-sm">
-                  Intake{" "}
-                  {latestMeta.deviation.stopIntake
-                    ? "Stopped"
-                    : "Deviation Flagged"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm">
-                  {latestMeta.deviation.deviationReason || "Unspecified reason"}
-                </p>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {latestMeta?.ignoredMissingDetails?.length ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base inline-flex items-center gap-2">
-                  <Info className="h-4 w-4" />
-                  Missing details
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-1 text-sm">
-                  {latestMeta.ignoredMissingDetails.map((detail, index) => (
-                    <li key={`${detail}-${index}`} className="flex gap-2">
-                      <span className="text-muted-foreground">•</span>
-                      <span>{detail}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {!latestMeta?.deviation?.flaggedDeviation &&
-          !latestMeta?.deviation?.stopIntake &&
-          !latestMeta?.ignoredMissingDetails?.length ? (
-            <Card>
-              <CardContent className="py-6 text-sm text-muted-foreground">
-                No statement issues are currently flagged.
-              </CardContent>
-            </Card>
-          ) : null}
-        </TabsContent>
+        </>
+        ) : null}
       </Tabs>
     </div>
   );

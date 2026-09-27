@@ -2,15 +2,20 @@ import { notFound } from "next/navigation";
 
 import { HostedLeadChooser } from "@/components/leads/hosted-lead-chooser";
 import { listChannelsForSlug } from "@/lib/leads/channels";
+import { configuredTurnstileSiteKey } from "@/lib/leads/abuse";
 import {
   DEFAULT_LEAD_BACKGROUND_COLOR,
   leadHexColor,
 } from "@/lib/leads/schema";
 
-type PageProps = { params: Promise<{ slug: string }> };
+type PageProps = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ session?: string }>;
+};
 
-export default async function HostedLeadPage({ params }: PageProps) {
+export default async function HostedLeadPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const { session } = await searchParams;
   const firm = await listChannelsForSlug(slug);
   if (!firm || firm.channels.length === 0) notFound();
 
@@ -33,7 +38,8 @@ export default async function HostedLeadPage({ params }: PageProps) {
             leadTypeName: channel.leadTypeName,
             branding: channel.branding,
           }))}
-          turnstileSiteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+          turnstileSiteKey={configuredTurnstileSiteKey()}
+          resumeToken={session}
         />
       </div>
     </main>

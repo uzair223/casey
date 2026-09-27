@@ -29,7 +29,7 @@ import {
 } from "@/lib/statement-utils";
 import { useAsync, UseAsyncReturn } from "@/hooks/useAsync";
 import Loading from "@/components/loading";
-import { apiFetch } from "@/lib/api-utils";
+import { ApiRequestError, apiFetch } from "@/lib/api-utils";
 import { Button } from "../ui/button";
 import { Link } from "@/components/icons";
 import { toast } from "@/lib/toast";
@@ -806,11 +806,15 @@ export function IntakeProvider({
       withUseEffect: false,
       onError(error) {
         console.error("Error in chat submission:", error);
+        const content =
+          error instanceof ApiRequestError && error.status === 409
+            ? error.message
+            : "Sorry, something went wrong.";
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            content: "Sorry, something went wrong.",
+            content,
             id: `assistant-error-${Date.now()}`,
             status: "error",
           },

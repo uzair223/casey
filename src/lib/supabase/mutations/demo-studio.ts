@@ -232,9 +232,7 @@ export async function SERVERONLY_createDemoStudioStatement(
 
   const { data: statement, error: statementError } = await supabase
     .from("statements")
-    .insert({
-      case_id: createdCase.id,
-      tenant_id: resolvedTenantId,
+    .update({
       template_id: selectedStatementTemplate?.id ?? null,
       config_snapshot_id: snapshot.id,
       title: `Statement for ${witnessName}`,
@@ -250,6 +248,7 @@ export async function SERVERONLY_createDemoStudioStatement(
       witness_metadata: normalizedWitnessMetadata as Json,
       status: "demo",
     })
+    .eq("id", createdCase.id)
     .select("id, title")
     .single();
 

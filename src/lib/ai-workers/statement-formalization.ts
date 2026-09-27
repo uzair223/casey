@@ -38,6 +38,11 @@ import {
   loadCaseModelContext,
 } from "@/lib/llm/case-runtime";
 import {
+  activeCaseFieldIds,
+  formatEnquiryTranscript,
+  readEnquiryTranscript,
+} from "@/lib/leads/case-facts";
+import {
   claimGenerationJob,
   completeGenerationJobFailure,
 } from "@/lib/ai-workers/claim";
@@ -216,7 +221,7 @@ export async function processFormalizationJob(jobId: string) {
     const { data: statement, error: statementError } = await supabase
       .from("statements")
       .select(
-        "id, tenant_id, case_id, status, witness_name, witness_metadata, supporting_documents, config_snapshot_id",
+        "id, tenant_id, case_id, status, witness_name, witness_metadata, supporting_documents, qualification_answers, config_snapshot_id",
       )
       .eq("id", job.target_id)
       .eq("tenant_id", job.tenant_id)
@@ -328,10 +333,13 @@ export async function processFormalizationJob(jobId: string) {
         buildEvidenceList(exhibits),
         {
           witnessMetadata,
+          priorEnquiry: formatEnquiryTranscript(
+            readEnquiryTranscript(statement.qualification_answers),
+          ),
           caseFacts: buildKnownCaseFacts({
             caseConfig: caseContext?.caseConfig ?? null,
             caseMetadata: caseContext?.caseMetadata ?? null,
-            dependencyIds: config.caseMetadataDeps,
+            dependencyIds: activeCaseFieldIds(config.caseMetadataDeps),
           }),
         },
       );

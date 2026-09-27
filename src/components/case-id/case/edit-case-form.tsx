@@ -208,13 +208,21 @@ export function EditCaseForm(props: EditCaseFormProps) {
                   controlId={`case_metadata_${field.id}`}
                   label={field.label}
                   registerOptions={{ required: !!field.required }}
-                  renderControl={(registration, required) => (
+                  renderControl={(registration, required) => {
+                    const stored = registration.value;
+                    const isoDate =
+                      typeof stored === "string" &&
+                      /^\d{4}-\d{2}-\d{2}$/.test(stored);
+                    const dateInput =
+                      field.type === "date" &&
+                      (isoDate || stored == null || stored === "");
+                    return (
                     <Input
                       id={`case_metadata_${field.id}`}
                       type={
                         field.type === "number"
                           ? "number"
-                          : field.type === "date"
+                          : dateInput
                             ? "date"
                             : "text"
                       }
@@ -222,7 +230,8 @@ export function EditCaseForm(props: EditCaseFormProps) {
                       placeholder={field.placeholder}
                       {...registration}
                     />
-                  )}
+                    );
+                  }}
                 />
               ))}
             </div>

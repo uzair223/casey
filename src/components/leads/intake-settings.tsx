@@ -518,22 +518,27 @@ function IntakeSettingsForm({
                 <div key={leadType.id} className="space-y-1">
                   <p className="text-sm font-medium">{leadType.name}</p>
                   {channel && premium ? (
-                    <div className="flex items-center gap-2">
-                      <code className="min-w-0 flex-1 break-all rounded-md bg-muted px-2 py-1.5 font-mono text-xs">
-                        {channel.snippet}
-                      </code>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon-sm"
-                        aria-label="Copy snippet"
-                        onClick={() => {
-                          void navigator.clipboard.writeText(channel.snippet);
-                          toast.success("Snippet copied");
-                        }}
-                      >
-                        <CopyIcon />
-                      </Button>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">
+                        Place this where the chat should sit. Its container sets the position and size, and the chat fills that box.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <code className="min-w-0 flex-1 break-all rounded-md bg-muted px-2 py-1.5 font-mono text-xs">
+                          {channel.snippet}
+                        </code>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          aria-label="Copy snippet"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(channel.snippet);
+                            toast.success("Snippet copied");
+                          }}
+                        >
+                          <CopyIcon />
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground">

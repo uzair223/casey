@@ -26,6 +26,7 @@
     "NEXT_PUBLIC_SUPPORT_EMAIL": "support@caseyhq.co.uk",
     "NEXT_PUBLIC_CALENDLY_LINK": "https://calendly.com/caseyhq/casey-demo-call",
     "AXIOM_DATASET": "casey",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAFCwV7X9amdFx_Lg",
     "CSP_ENFORCE": "1",
     "CLOUDFLARE_AI_ACCOUNT_ID": "8a14bbee799409978d0170d0bbf3e037",
     "CLOUDFLARE_AI_GATEWAY_ID": "default"

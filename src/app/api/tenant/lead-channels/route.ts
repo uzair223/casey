@@ -34,13 +34,14 @@ export async function GET(request: Request) {
         .maybeSingle(),
       supabase
         .from("lead_channels")
-        .select("id, public_key, enabled, branding, lead_type_id, case_templates(name)")
+        .select("id, public_key, enabled, branding, lead_type_id, statement_config_templates!lead_channels_lead_type_id_fkey(name)")
         .eq("tenant_id", auth.tenantId),
       supabase
-        .from("case_templates")
+        .from("statement_config_templates")
         .select("id, name, public_slug")
         .eq("template_scope", "global")
         .eq("status", "published")
+        .eq("kind", "primary")
         .not("public_slug", "is", null)
         .order("name"),
     ]);
@@ -62,9 +63,9 @@ export async function GET(request: Request) {
         publicSlug: leadType.public_slug,
       })),
       channels: (channels ?? []).map((channel) => {
-        const leadType = Array.isArray(channel.case_templates)
-          ? channel.case_templates[0]
-          : channel.case_templates;
+        const leadType = Array.isArray(channel.statement_config_templates)
+          ? channel.statement_config_templates[0]
+          : channel.statement_config_templates;
         return {
           id: channel.id,
           leadTypeId: channel.lead_type_id,
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
           enabled: channel.enabled,
           publicKey: channel.public_key,
           branding: premium ? channel.branding : {},
-          snippet: `<script src="${env.NEXT_PUBLIC_BASE_URL}/widget.js" data-key="${channel.public_key}"></script>`,
+          snippet: `<div style="width:100%;height:640px"><script src="${env.NEXT_PUBLIC_BASE_URL}/widget.js" data-key="${channel.public_key}"></script></div>`,
         };
       }),
     });

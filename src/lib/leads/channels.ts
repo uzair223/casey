@@ -42,7 +42,7 @@ export async function getChannelByKey(publicKey: string) {
   const { data, error } = await supabase
     .from("lead_channels")
     .select(
-      "id, tenant_id, lead_type_id, public_key, enabled, branding, tenants(name, plan, public_slug, intake_branding), case_templates(name, qualification_slots, participant_roles, outreach_template, decline_reasons, branding, status)",
+      "id, tenant_id, lead_type_id, public_key, enabled, branding, tenants(name, plan, public_slug, intake_branding), statement_config_templates!lead_channels_lead_type_id_fkey(name, qualification_slots, participant_roles, outreach_template, decline_reasons, branding, status)",
     )
     .eq("public_key", publicKey)
     .maybeSingle();
@@ -50,9 +50,9 @@ export async function getChannelByKey(publicKey: string) {
   if (!data || !data.enabled) return null;
 
   const tenant = Array.isArray(data.tenants) ? data.tenants[0] : data.tenants;
-  const leadType = Array.isArray(data.case_templates)
-    ? data.case_templates[0]
-    : data.case_templates;
+  const leadType = Array.isArray(data.statement_config_templates)
+    ? data.statement_config_templates[0]
+    : data.statement_config_templates;
   if (!tenant || !leadType || leadType.status !== "published") return null;
 
   const config = parseLeadTypeConfig(leadType);
@@ -94,16 +94,16 @@ export async function listChannelsForSlug(slug: string) {
   const { data: channels, error: channelError } = await supabase
     .from("lead_channels")
     .select(
-      "id, public_key, enabled, branding, lead_type_id, case_templates(name, status, qualification_slots, participant_roles, outreach_template, decline_reasons, branding)",
+      "id, public_key, enabled, branding, lead_type_id, statement_config_templates!lead_channels_lead_type_id_fkey(name, status, qualification_slots, participant_roles, outreach_template, decline_reasons, branding)",
     )
     .eq("tenant_id", tenant.id)
     .eq("enabled", true);
   if (channelError) throw channelError;
 
   const published = (channels ?? []).flatMap((channel) => {
-    const leadType = Array.isArray(channel.case_templates)
-      ? channel.case_templates[0]
-      : channel.case_templates;
+    const leadType = Array.isArray(channel.statement_config_templates)
+      ? channel.statement_config_templates[0]
+      : channel.statement_config_templates;
     if (!leadType || leadType.status !== "published") return [];
     return [
       {
@@ -128,4 +128,43 @@ export async function listChannelsForSlug(slug: string) {
     widget: widgetEnabled(tenant.plan),
     channels: published,
   };
+}
+
+export type PublishedLeadChannel = {
+  channelId: string;
+  leadTypeId: string;
+  leadTypeName: string;
+  config: ReturnType<typeof parseLeadTypeConfig>;
+};
+
+export async function listPublishedLeadChannels(
+  tenantId: string,
+): Promise<PublishedLeadChannel[]> {
+  const supabase = getServiceClient("lead-channels-published");
+  const { data, error } = await supabase
+    .from("lead_channels")
+    .select(
+      "id, lead_type_id, enabled, statement_config_templates!lead_channels_lead_type_id_fkey(name, status, qualification_slots, participant_roles, outreach_template, decline_reasons, branding)",
+    )
+    .eq("tenant_id", tenantId)
+    .eq("enabled", true);
+  if (error) throw error;
+
+  const seen = new Set<string>();
+  return (data ?? []).flatMap((channel) => {
+    const leadType = Array.isArray(channel.statement_config_templates)
+      ? channel.statement_config_templates[0]
+      : channel.statement_config_templates;
+    if (!channel.enabled || !leadType || leadType.status !== "published") return [];
+    if (seen.has(channel.lead_type_id)) return [];
+    seen.add(channel.lead_type_id);
+    return [
+      {
+        channelId: channel.id,
+        leadTypeId: channel.lead_type_id,
+        leadTypeName: leadType.name,
+        config: parseLeadTypeConfig(leadType),
+      },
+    ];
+  });
 }

@@ -14,6 +14,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { getEvidenceDocuments } from "@/lib/evidence";
 import { generateMissingStatementDocumentDescriptors } from "@/lib/ai-workers/document-descriptors";
 import { applyProgrammaticEvidenceSection } from "@/lib/statement-utils";
+import { enqueueStatementFormalization } from "@/lib/leads/formalize";
 
 function getSubmittedPathPrefix(statement: { case_id: string; id: string }) {
   return `cases/${statement.case_id}/${statement.id}/submitted/`;
@@ -142,7 +143,11 @@ export async function POST(
       statement,
     );
 
-    await describeEvidenceDocuments(token);
+    const accepted =
+      statement.lead_stage !== "new" && statement.lead_stage !== "declined";
+    if (accepted) {
+      await describeEvidenceDocuments(token);
+    }
     const statementWithDescriptors =
       await SERVERONLY_getStatementWithConfigFromToken(token);
     if (!statementWithDescriptors) {
@@ -163,6 +168,17 @@ export async function POST(
     const statementId = await SERVERONLY_submitStatement(token, {
       sections,
     });
+
+    if (accepted) {
+      try {
+        await enqueueStatementFormalization({
+          statementId,
+          tenantId: statement.tenant_id,
+        });
+      } catch (formalizeError) {
+        console.error(formalizeError);
+      }
+    }
 
     try {
       const { recordDraftSupportingPeople } = await import(

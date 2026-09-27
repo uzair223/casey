@@ -442,6 +442,32 @@ export const SERVERONLY_updateLatestAssistantConversationMeta = async (
   return latestMessage.id;
 };
 
+export async function SERVERONLY_mergeWitnessMetadata(
+  statementId: string,
+  details: Record<string, string | null> | null | undefined,
+) {
+  if (!details) return;
+  const patch: Record<string, string> = {};
+  for (const [key, value] of Object.entries(details)) {
+    if (typeof value === "string" && value.trim()) {
+      patch[key] = value.trim();
+    }
+  }
+  if (Object.keys(patch).length === 0) return;
+
+  const supabase = getServiceClient("SERVERONLY_mergeWitnessMetadata");
+  const resolved = await resolveWitnessMetadataPatch(
+    supabase,
+    statementId,
+    patch,
+  );
+  const { error } = await supabase
+    .from("statements")
+    .update({ witness_metadata: resolved as Json })
+    .eq("id", statementId);
+  if (error) throw error;
+}
+
 export const SERVERONLY_updateStatementStatus = async (
   statementId: string,
   status:

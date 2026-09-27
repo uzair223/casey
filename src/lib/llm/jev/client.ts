@@ -29,43 +29,37 @@ function toJsonState(state: unknown): EntryType {
   }
 }
 
-function readJevResult(payload: unknown): JevResult | null {
-  if (!payload || typeof payload !== "object") {
-    return null;
+type JevEnvelope = {
+  model?: unknown;
+  answers?: unknown;
+  result?: unknown;
+  usage?: { input_tokens?: unknown; output_tokens?: unknown };
+};
+
+export function readJevResult(payload: unknown): JevResult | null {
+  let current: unknown = payload;
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (!current || typeof current !== "object") return null;
+    const body = current as JevEnvelope;
+    if (body.answers && typeof body.answers === "object") {
+      return {
+        model: typeof body.model === "string" ? body.model : JEV_MODEL,
+        answers: body.answers as Record<string, unknown>,
+        usage: {
+          input_tokens:
+            typeof body.usage?.input_tokens === "number"
+              ? body.usage.input_tokens
+              : 0,
+          output_tokens:
+            typeof body.usage?.output_tokens === "number"
+              ? body.usage.output_tokens
+              : 0,
+        },
+      };
+    }
+    current = body.result;
   }
-
-  const envelope = payload as {
-    success?: boolean;
-    result?: unknown;
-    errors?: unknown;
-    model?: unknown;
-    answers?: unknown;
-    usage?: { input_tokens?: unknown; output_tokens?: unknown };
-  };
-
-  const body =
-    envelope.result && typeof envelope.result === "object"
-      ? (envelope.result as typeof envelope)
-      : envelope;
-
-  if (!body.answers || typeof body.answers !== "object") {
-    return null;
-  }
-
-  return {
-    model: typeof body.model === "string" ? body.model : JEV_MODEL,
-    answers: body.answers as Record<string, unknown>,
-    usage: {
-      input_tokens:
-        typeof body.usage?.input_tokens === "number"
-          ? body.usage.input_tokens
-          : 0,
-      output_tokens:
-        typeof body.usage?.output_tokens === "number"
-          ? body.usage.output_tokens
-          : 0,
-    },
-  };
+  return null;
 }
 
 export async function evaluateWithJev(params: {

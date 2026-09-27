@@ -10,7 +10,11 @@ export const DEFAULT_MODEL_IDENTITY =
 
 const INTERVIEW_INVARIANT = [
   "Ask one question at a time.",
-  "Stay on the current phase.",
+  "Ask one follow-up for each completion criterion that is still missing. If they say they do not recall, close that point and move on. Do not rephrase a question they have already answered. Once this phase is covered, ask the next phase.",
+  "When a place, object, injury, treatment, or workplace record comes up, ask once whether they have something that shows it, such as a photo, a medical letter, or an accident-book entry. If they say no or they are not sure, do not ask again. On that turn set metadata.evidence.requestedEvidence. Do not mention an evidence tab.",
+  "If they mention another person, ask once whether that person saw what happened, and for a name and how to reach them if they are willing.",
+  "When they state an occupation, address, or other witness detail, set that metadata.witnessDetails field on this turn and leave the other witness detail keys null. A job such as courier is the occupation.",
+  "When the account already covers what happened, or they ask to stop or say the question is repeating, thank them and say the account is complete. Do not ask another question.",
   "Do not give legal advice.",
   "Do not prepare the written draft in chat.",
 ].join(" ");
@@ -20,6 +24,7 @@ export type TemplateRuntimeContext = {
   caseFacts?: CaseFact[];
   matterBrief?: string | null;
   evidenceList?: string;
+  priorEnquiry?: string | null;
 };
 
 export function modelIdentityText(
@@ -122,6 +127,17 @@ export function buildInterviewContract(
     formatWitnessDetails(config, runtime.witnessMetadata),
     formatCaseFacts(runtime.caseFacts ?? []),
   ];
+  const priorEnquiry = runtime.priorEnquiry?.trim();
+  if (priorEnquiry) {
+    parts.push(
+      [
+        "Prior enquiry, already said. Do not ask them to repeat it.",
+        "If a case fact is still unknown and it belongs in the current phase, ask for that one fact in everyday words. Do not say defendant. Do not ask for several missing facts in one question.",
+        "When they state a case fact, set metadata.caseDetails to that field id and value, and leave the other case detail keys null.",
+        priorEnquiry,
+      ].join("\n"),
+    );
+  }
   const matterBrief = runtime.matterBrief?.trim();
   if (matterBrief) {
     parts.push(`Matter background:\n${matterBrief}`);
@@ -135,14 +151,21 @@ export function buildFormalizeContract(
 ): string {
   const evidence =
     runtime.evidenceList?.trim() || "No confirmed evidence provided.";
-  return [
+  const parts = [
     "You are writing this witness's statement.",
     modelIdentityText(config),
     formatSections(config),
     formatWitnessDetails(config, runtime.witnessMetadata),
     formatCaseFacts(runtime.caseFacts ?? []),
     `Confirmed evidence:\n${evidence}`,
-  ].join("\n\n");
+  ];
+  const priorEnquiry = runtime.priorEnquiry?.trim();
+  if (priorEnquiry) {
+    parts.push(
+      `Prior enquiry the witness already gave. Treat it as part of their account.\n${priorEnquiry}`,
+    );
+  }
+  return parts.join("\n\n");
 }
 
 export function formatStatementExpectations(params: {
@@ -181,7 +204,14 @@ export function formatStatementExpectations(params: {
 }
 
 export function openingQuestionForTemplate(config: StatementConfig): string {
-  const phase = config.phases[0];
+  return questionForPhase(config.phases[0]);
+}
+
+export function continuationQuestionForTemplate(config: StatementConfig): string {
+  return questionForPhase(config.phases[1] ?? config.phases[0]);
+}
+
+function questionForPhase(phase: StatementConfig["phases"][number] | undefined) {
   if (!phase) {
     return "Could you please describe what happened, in your own words?";
   }
@@ -191,7 +221,5 @@ export function openingQuestionForTemplate(config: StatementConfig): string {
     return firstCriterion.endsWith("?") ? firstCriterion : `${firstCriterion}?`;
   }
 
-  const about = `Could you tell me about ${phase.title.trim().toLowerCase()}?`;
-  const objective = phase.objective.trim();
-  return objective ? `${about} ${objective}` : about;
+  return `Could you tell me about ${phase.title.trim().toLowerCase()}?`;
 }

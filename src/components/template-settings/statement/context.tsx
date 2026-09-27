@@ -164,7 +164,7 @@ function createEmptyConfig(): StatementConfig {
         requiredOnCreate: false,
       },
     ],
-    caseMetadataDeps: ["court", "claimNumber", "claimant", "defendant"],
+    caseMetadataDeps: ["claimant", "defendant"],
   });
 }
 

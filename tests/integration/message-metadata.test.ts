@@ -7,6 +7,7 @@ import {
   getLastMeta,
   getLastProgress,
   getMessageResponseMeta,
+  preservePhaseHighWater,
 } from "@/lib/statement-utils";
 
 const statementConfig = {
@@ -67,5 +68,34 @@ describe("message metadata helpers", () => {
     expect(getLastProgress(history, statementConfig)).toEqual(
       assistantMeta.progress,
     );
+  });
+
+  it("keeps the highest percent a phase has reached", () => {
+    const earlier = {
+      ...defaultMeta(statementConfig),
+      progress: {
+        currentPhase: "incidentFacts",
+        overallCompletion: 77,
+        phaseCompleteness: { incidentFacts: 77 },
+        readyToPrepare: false,
+      },
+    };
+    const later = {
+      ...defaultMeta(statementConfig),
+      progress: {
+        currentPhase: "incidentFacts",
+        overallCompletion: 0,
+        phaseCompleteness: { incidentFacts: 0 },
+        readyToPrepare: false,
+      },
+    };
+    const history: IntakeChatMessage[] = [
+      { role: "assistant", content: "Earlier", meta: earlier },
+      { role: "assistant", content: "Later", meta: later },
+    ];
+
+    const preserved = preservePhaseHighWater(later, history, statementConfig);
+    expect(preserved.progress.phaseCompleteness.incidentFacts).toBe(77);
+    expect(preserved.progress.overallCompletion).toBe(77);
   });
 });

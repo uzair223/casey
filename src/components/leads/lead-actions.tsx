@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { apiFetch, ApiRequestError } from "@/lib/api-utils";
 import { CasePlanPaywall } from "@/components/billing/case-plan-paywall";
 import type { CaseGate } from "@/lib/billing/plans";
+import { leadContactHidden } from "@/lib/leads/privacy";
 import { GENERIC_DECLINE_REASONS, type DeclineReason } from "@/lib/leads/schema";
 import { toast } from "@/lib/toast";
 
@@ -37,6 +38,13 @@ export function LeadActions({
   const supporting = statements.filter(
     (statement) => statement.participant_kind === "supporting",
   );
+
+  function personLabel(statement: LeadStatement) {
+    if (leadContactHidden(statement.lead_stage)) return null;
+    const name = statement.witness_name?.trim();
+    if (!name || name === "Lead") return null;
+    return name;
+  }
 
   async function decide(action: "accept" | "decline") {
     if (!primary) return;
@@ -114,7 +122,7 @@ export function LeadActions({
               await onChanged();
             }}
           >
-            Draft {statement.witness_name || "account"}
+            Draft {personLabel(statement) || "account"}
           </AsyncButton>
         ))}
         {supporting
@@ -132,7 +140,7 @@ export function LeadActions({
                 await onChanged();
               }}
             >
-              Ask {statement.witness_name || "them"}
+              Ask {personLabel(statement) || "them"}
             </Button>
           ))}
       </div>

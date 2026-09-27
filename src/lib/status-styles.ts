@@ -39,3 +39,31 @@ export const templateStatusLabel: Record<TemplateStatus, string> = {
   published: "Published",
   archived: "Archived",
 };
+
+const SUBMITTED_ACCOUNT_STATUSES = new Set<StatementStatus>([
+  "submitted",
+  "finalized",
+  "completed",
+  "locked",
+  "demo",
+  "demo_published",
+]);
+
+export function intakeHasStarted(status: string | null | undefined) {
+  return Boolean(status) && status !== "draft";
+}
+
+export function showIntakeWorkspace(
+  status: string | null | undefined,
+  hasConversation: boolean,
+) {
+  if (!intakeHasStarted(status)) return false;
+  if (status === "in_progress" && !hasConversation) return false;
+  return true;
+}
+
+export function hasSubmittedAccount(status: string | null | undefined) {
+  return (
+    Boolean(status) && SUBMITTED_ACCOUNT_STATUSES.has(status as StatementStatus)
+  );
+}

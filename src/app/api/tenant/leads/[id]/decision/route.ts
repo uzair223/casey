@@ -11,6 +11,9 @@ import {
   freezeStatementConfig,
   statementTemplateIdForRole,
 } from "@/lib/leads/snapshot";
+import { enqueueStatementFormalization } from "@/lib/leads/formalize";
+import type { StatementSupportingDocument } from "@/types";
+import { generateMissingStatementDocumentDescriptors } from "@/lib/ai-workers/document-descriptors";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -91,20 +94,36 @@ export async function POST(request: Request, { params }: RouteContext) {
       });
       if (linkError) throw linkError;
 
+      const { data: caseRow, error: caseError } = await supabase
+        .from("cases")
+        .select("title")
+        .eq("id", lead.case_id)
+        .maybeSingle();
+      if (caseError) throw caseError;
+      const currentTitle = caseRow?.title?.trim() || "Enquiry";
+      const person = lead.witness_name?.trim() ?? "";
+      const revealedTitle =
+        person &&
+        person !== "pending" &&
+        !currentTitle.toLowerCase().includes(person.toLowerCase())
+          ? `${person} — ${currentTitle}`
+          : currentTitle;
+
       const { error: updateError } = await supabase
         .from("statements")
         .update({
           lead_stage: "intake",
           accepted_at: new Date().toISOString(),
-          status: "in_progress",
+          title: revealedTitle,
         })
         .eq("id", lead.id);
       if (updateError) throw updateError;
 
-      await supabase
+      const { error: caseUpdateError } = await supabase
         .from("cases")
-        .update({ status: "in_progress" })
+        .update({ status: "in_progress", title: revealedTitle })
         .eq("id", lead.case_id);
+      if (caseUpdateError) throw caseUpdateError;
 
       const templateId = await statementTemplateIdForRole(
         supabase,
@@ -116,6 +135,41 @@ export async function POST(request: Request, { params }: RouteContext) {
         tenantId: auth.tenantId,
         templateId,
       });
+
+      const { data: recent } = await supabase
+        .from("conversation_messages")
+        .select("meta")
+        .eq("statement_id", lead.id)
+        .eq("role", "assistant")
+        .order("created_at", { ascending: false })
+        .limit(8);
+      const readyToReview = (recent ?? []).some((message) => {
+        const meta = message.meta;
+        return (
+          !!meta &&
+          typeof meta === "object" &&
+          !Array.isArray(meta) &&
+          "readyToPrepare" in meta &&
+          meta.readyToPrepare === true
+        );
+      });
+      if (readyToReview) {
+        const { data: documents } = await supabase
+          .from("statement_supporting_documents")
+          .select("*")
+          .eq("statement_id", lead.id);
+        if (documents?.length) {
+          await generateMissingStatementDocumentDescriptors({
+            tenantId: auth.tenantId,
+            documents: documents as StatementSupportingDocument[],
+            source: "witness",
+          });
+        }
+        await enqueueStatementFormalization({
+          statementId: lead.id,
+          tenantId: auth.tenantId,
+        });
+      }
 
       const email = lead.contact_email || lead.witness_email;
       let delivered = false;
@@ -132,8 +186,9 @@ export async function POST(request: Request, { params }: RouteContext) {
             witnessName: lead.witness_name,
             caseTitle: lead.title,
             statementUrl: `${env.NEXT_PUBLIC_BASE_URL}/intake/${token}`,
-            firmMessage:
-              "The firm has accepted your enquiry. Use this link to give the fuller account, including any evidence and other people.",
+            firmMessage: readyToReview
+              ? "The firm has accepted your account. You can review it on this link."
+              : "The firm has accepted your account. Continue in the same chat when you are ready.",
             reason: "initial_intake",
           });
           delivered = true;

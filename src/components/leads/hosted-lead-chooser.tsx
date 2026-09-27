@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { SelectorChoice } from "@/components/leads/selector-choice";
 import { Button } from "@/components/ui/button";
@@ -26,15 +26,53 @@ export function HostedLeadChooser({
   widget,
   channels,
   turnstileSiteKey,
+  resumeToken,
 }: {
   firmName: string;
   widget: boolean;
   channels: HostedChannel[];
   turnstileSiteKey?: string;
+  resumeToken?: string;
 }) {
   const [publicKey, setPublicKey] = useState(
     channels.length === 1 ? channels[0].publicKey : null,
   );
+  const [linkedToken, setLinkedToken] = useState(
+    channels.length === 1 ? resumeToken : undefined,
+  );
+  const [openingResume, setOpeningResume] = useState(
+    Boolean(resumeToken) && channels.length > 1,
+  );
+  const channelsRef = useRef(channels);
+  channelsRef.current = channels;
+  const channelKeys = channels.map((channel) => channel.publicKey).join(",");
+
+  useEffect(() => {
+    if (!resumeToken || channelsRef.current.length < 2) return;
+    let cancelled = false;
+    void fetch(`/api/public/qualify/session/${resumeToken}`)
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as { publicKey?: string };
+      })
+      .then((payload) => {
+        if (cancelled) return;
+        const match = channelsRef.current.find(
+          (channel) => channel.publicKey === payload?.publicKey,
+        );
+        if (match) {
+          setPublicKey(match.publicKey);
+          setLinkedToken(resumeToken);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setOpeningResume(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [resumeToken, channelKeys]);
   const selected = channels.find((channel) => channel.publicKey === publicKey);
   const firmBranding = widget ? (channels[0]?.branding ?? {}) : {};
   const textColor = leadHexColor(firmBranding.textColor, DEFAULT_LEAD_TEXT_COLOR);
@@ -42,6 +80,14 @@ export function HostedLeadChooser({
     firmBranding.primaryColor,
     DEFAULT_LEAD_HEADER_COLOR,
   );
+
+  if (openingResume) {
+    return (
+      <p className="text-sm" style={{ color: textColor }}>
+        Opening your chat…
+      </p>
+    );
+  }
 
   if (!selected) {
     return (
@@ -103,6 +149,7 @@ export function HostedLeadChooser({
         }
         branding={widget ? selected.branding : {}}
         turnstileSiteKey={turnstileSiteKey}
+        resumeToken={linkedToken}
       />
     </div>
   );

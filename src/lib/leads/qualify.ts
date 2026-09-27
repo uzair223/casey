@@ -134,6 +134,19 @@ export function questionFor(slot: QualificationSlot) {
   return slot.label.endsWith("?") ? slot.label : `${slot.label}?`;
 }
 
+export function slotForOpeningMessage(
+  slots: QualificationSlot[],
+  pendingSlotId: string | null,
+  message: string,
+) {
+  const narrative = slots.find(
+    (slot) => slot.required && slot.type === "long_text" && !slot.reserved,
+  );
+  if (!narrative || narrative.id === pendingSlotId) return pendingSlotId;
+  if (!interpretAnswer(narrative, message)) return pendingSlotId;
+  return narrative.id;
+}
+
 export function openingMessage(slot: QualificationSlot | null) {
   if (!slot) {
     return "Tell me how to reach you and what happened.";
@@ -166,7 +179,9 @@ export function applyTurn(params: {
     return {
       answers: params.answers,
       pendingSlotId: null,
-      reply: "I have what I need. Enter the code that was just sent to you.",
+      reply: reservedValue(params.slots, params.answers, "email")
+        ? "I have what I need. I have emailed you a short code. Enter it here, and check your junk folder if you do not see it."
+        : "I have what I need. Enter the code that was just sent to you.",
       refusal: null,
       filled: false,
     };
@@ -189,8 +204,9 @@ export function applyTurn(params: {
     return {
       answers,
       pendingSlotId: null,
-      reply:
-        "Thank you. I am sending a short code to confirm this contact. Enter that code to pass this to the firm.",
+      reply: reservedValue(params.slots, answers, "email")
+        ? "Thank you. I have emailed you a short code. Enter it here to pass this to the firm. If you do not see it, check your junk folder."
+        : "Thank you. I am sending a short code to confirm this contact. Enter that code to pass this to the firm.",
       refusal: null,
       filled: true,
     };

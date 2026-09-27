@@ -3,8 +3,12 @@ import { NextResponse } from "next/server";
 
 import { IntakeChatMessage } from "@/types";
 
-import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
 import {
+  SERVERONLY_getConversationHistory,
+  SERVERONLY_getStatementWithConfigFromToken,
+} from "@/lib/supabase/queries";
+import {
+  SERVERONLY_mergeWitnessMetadata,
   SERVERONLY_saveConversationMessage,
   SERVERONLY_updateLatestAssistantConversationMeta,
   SERVERONLY_updateStatementStatus,
@@ -17,14 +21,29 @@ import {
   buildKnownCaseFacts,
   loadCaseModelContext,
 } from "@/lib/llm/case-runtime";
+import {
+  activeCaseFieldIds,
+  formatEnquiryTranscript,
+  mergeCaseFacts,
+  readEnquiryTranscript,
+  statedCaseDetails,
+} from "@/lib/leads/case-facts";
 import { getServiceClient } from "@/lib/supabase/server";
 
 import { randomUUID } from "crypto";
-import { CHAT_METADATA_MARKER, getLastMeta } from "@/lib/statement-utils";
+import {
+  CHAT_METADATA_MARKER,
+  getLastMeta,
+  preservePhaseHighWater,
+} from "@/lib/statement-utils";
 import { ResponseMetadataSchema } from "@/lib/schema";
 import { enforcePersistentRateLimit } from "@/lib/api-utils/persistent-rate-limit";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
-import { Allow, parse } from "partial-json";
+import { extractJsonStringField } from "@/lib/llm/json-content";
+import {
+  mergeWitnessDetailPatch,
+  statedWitnessDetails,
+} from "@/lib/llm/witness-details";
 import { z } from "zod";
 import { logServerEvent } from "@/lib/observability/logger";
 import { zodTextFormat } from "openai/helpers/zod";
@@ -74,6 +93,52 @@ function safeClose(controller: ReadableStreamDefaultController) {
   } catch {
     // Ignore close errors when stream is already closed/cancelled.
   }
+}
+
+function stringRecord(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const next: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === "string" && entry.trim()) next[key] = entry;
+  }
+  return next;
+}
+
+async function recordStatedCaseFacts(params: {
+  caseId: string;
+  incoming: { [key: string]: string | null } | null | undefined;
+  allowed: readonly string[];
+}) {
+  if (!params.incoming) return;
+  const allowed = new Set(params.allowed);
+  const stated: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params.incoming)) {
+    if (!allowed.has(key) || typeof value !== "string" || !value.trim()) continue;
+    stated[key] = value.trim();
+  }
+  if (!Object.keys(stated).length) return;
+
+  const supabase = getServiceClient("intake-chat-case-facts");
+  const { data, error } = await supabase
+    .from("cases")
+    .select("case_metadata")
+    .eq("id", params.caseId)
+    .maybeSingle();
+  if (error || !data) return;
+  const current = stringRecord(data.case_metadata);
+  const next = mergeCaseFacts(current, stated);
+  const changed = Object.entries(next).some(([key, value]) => current[key] !== value);
+  if (!changed) return;
+  const previous =
+    data.case_metadata &&
+    typeof data.case_metadata === "object" &&
+    !Array.isArray(data.case_metadata)
+      ? data.case_metadata
+      : {};
+  await supabase
+    .from("cases")
+    .update({ case_metadata: { ...previous, ...next } })
+    .eq("id", params.caseId);
 }
 
 function previewText(value: string, maxLength = 800): string {
@@ -238,6 +303,16 @@ export async function POST(
       return accessError;
     }
 
+    if (statement.lead_stage === "declined") {
+      return NextResponse.json(
+        {
+          error:
+            "The firm is not taking this any further. This chat has stopped.",
+        },
+        { status: 409 },
+      );
+    }
+
     if (!statement.gdpr_notice_acknowledgement) {
       await logServerEvent("warn", "api.intake.chat.precondition_failed", {
         requestId,
@@ -298,8 +373,29 @@ export async function POST(
     });
 
     const statementConfig = statement.statement_config;
+    const priorEnquiry = formatEnquiryTranscript(
+      readEnquiryTranscript(statement.qualification_answers),
+    );
 
-    const previousMetadata = getLastMeta(conversationHistory, statementConfig);
+    const storedHistory = await SERVERONLY_getConversationHistory(statement.id);
+    const scoreHistory: IntakeChatMessage[] = [
+      ...storedHistory.flatMap((row) => {
+        if (row.role !== "assistant" && row.role !== "user") return [];
+        return [
+          {
+            role: row.role,
+            content: row.content ?? "",
+            meta: row.meta ?? undefined,
+          },
+        ];
+      }),
+      ...conversationHistory,
+    ];
+    const previousMetadata = preservePhaseHighWater(
+      getLastMeta(scoreHistory, statementConfig),
+      scoreHistory,
+      statementConfig,
+    );
     const jevDecisions = await evaluateIntakeTurnWithJev({
       previousMetadata,
       statementConfig,
@@ -309,6 +405,7 @@ export async function POST(
         ...attachedFiles.map((file) => file.name),
         ...persistedAttachments.map((file) => file.name),
       ].filter((name) => name.trim().length > 0),
+      priorEnquiry,
     });
     const lastMetadata = jevDecisions.metadata;
     const modelMessages: Array<{
@@ -347,7 +444,6 @@ export async function POST(
       requestId,
       model: selectedModel,
       transcriptLength: contextCharLength,
-      temperature: 0.7,
       jevUsed: jevDecisions.usedJev,
       jevTurnKind: jevDecisions.turnKind,
     });
@@ -368,10 +464,11 @@ export async function POST(
       const chatSystemPrompt = await generateChatSystemPrompt(statementConfig, {
         witnessMetadata,
         matterBrief: caseContext?.matterBrief,
+        priorEnquiry,
         caseFacts: buildKnownCaseFacts({
           caseConfig: caseContext?.caseConfig ?? null,
           caseMetadata: caseContext?.caseMetadata ?? null,
-          dependencyIds: statementConfig.caseMetadataDeps,
+          dependencyIds: activeCaseFieldIds(statementConfig.caseMetadataDeps),
         }),
       });
       const transcript = modelMessages.flatMap((message) => {
@@ -391,10 +488,10 @@ export async function POST(
         return [{ role: message.role, content }];
       });
 
+      // Luna rejects a temperature parameter, so this call leaves it unset.
       responseStream = await streamResponsesText({
         client,
         model: selectedModel,
-        temperature: 0.3,
         instructions: chatSystemPrompt,
         promptCacheKey: statement.id,
         textFormat: zodTextFormat(responseSchema, "assistant_response"),
@@ -441,26 +538,17 @@ export async function POST(
           for await (const chunk of responseStream) {
             if (!chunk) continue;
             rawResponse += chunk;
-
-            try {
-              const partial = parse(rawResponse, Allow.OBJ | Allow.STR);
-              const nextContent =
-                partial && typeof partial.content === "string"
-                  ? partial.content
-                  : "";
-
-              if (
-                nextContent.length > streamedContent.length &&
-                nextContent.startsWith(streamedContent)
-              ) {
-                const delta = nextContent.slice(streamedContent.length);
-                streamedContent = nextContent;
-                if (canStream) {
-                  canStream = safeEnqueue(controller, encoder.encode(delta));
-                }
+            const nextContent = extractJsonStringField(rawResponse, "content");
+            if (
+              nextContent &&
+              nextContent.length > streamedContent.length &&
+              nextContent.startsWith(streamedContent)
+            ) {
+              const delta = nextContent.slice(streamedContent.length);
+              streamedContent = nextContent;
+              if (canStream) {
+                canStream = safeEnqueue(controller, encoder.encode(delta));
               }
-            } catch {
-              // Ignore partial parse failures until more tokens arrive.
             }
           }
 
@@ -468,9 +556,13 @@ export async function POST(
 
           try {
             const parsed = responseSchema.parse(JSON.parse(rawResponse));
-            metadata = jevDecisions.usedJev
-              ? overlayJevControlMetadata(parsed.metadata, jevDecisions.metadata)
-              : parsed.metadata;
+            metadata = preservePhaseHighWater(
+              jevDecisions.usedJev
+                ? overlayJevControlMetadata(parsed.metadata, jevDecisions.metadata)
+                : parsed.metadata,
+              scoreHistory,
+              statementConfig,
+            );
 
             // Ensure persisted content exactly matches parsed schema content.
             if (parsed.content.startsWith(streamedContent)) {
@@ -504,6 +596,47 @@ export async function POST(
                 );
               }
             }
+          }
+
+          const witnessPatch = mergeWitnessDetailPatch(
+            metadata.witnessDetails,
+            statedWitnessDetails({
+              userMessage: userMessageForLogging,
+              fieldIds: (statementConfig.witnessMetadataFields ?? []).map(
+                (field) => field.id,
+              ),
+              existing:
+                statement.witness_metadata &&
+                typeof statement.witness_metadata === "object" &&
+                !Array.isArray(statement.witness_metadata)
+                  ? (statement.witness_metadata as Record<string, string | null>)
+                  : {},
+            }),
+          );
+          if (Object.keys(witnessPatch).length > 0) {
+            metadata.witnessDetails = {
+              ...(metadata.witnessDetails ?? {}),
+              ...witnessPatch,
+            };
+          }
+
+          if (statement.case_id) {
+            const allowed = activeCaseFieldIds(statementConfig.caseMetadataDeps);
+            const stated = statedCaseDetails(userMessageForLogging, allowed);
+            const current = metadata.caseDetails;
+            const casePatch: Record<string, string | null> = {};
+            let statedAny = false;
+            for (const id of allowed) {
+              const modelValue = current?.[id];
+              const statedValue = stated[id];
+              const value =
+                typeof modelValue === "string" && modelValue.trim()
+                  ? modelValue.trim()
+                  : (statedValue ?? null);
+              casePatch[id] = value;
+              if (value) statedAny = true;
+            }
+            if (statedAny) metadata.caseDetails = casePatch;
           }
 
           await logServerEvent("info", "api.intake.chat.model.response", {
@@ -559,10 +692,21 @@ export async function POST(
               await SERVERONLY_updateStatementStatus(statement.id, nextStatus);
             }
 
+            if (Object.keys(witnessPatch).length > 0) {
+              await SERVERONLY_mergeWitnessMetadata(statement.id, witnessPatch);
+            }
+
             await SERVERONLY_updateLatestAssistantConversationMeta(
               statement.id,
               metadata,
             );
+            if (statement.case_id) {
+              await recordStatedCaseFacts({
+                caseId: statement.case_id,
+                incoming: metadata.caseDetails,
+                allowed: activeCaseFieldIds(statementConfig.caseMetadataDeps),
+              });
+            }
           } catch (persistError) {
             await logServerEvent(
               "error",

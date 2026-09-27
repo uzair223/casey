@@ -13,6 +13,7 @@ import {
   outreachSummary,
   readyToVerify,
   renderOutreachTemplate,
+  slotForOpeningMessage,
 } from "@/lib/leads/qualify";
 
 const slots: QualificationSlot[] = [
@@ -88,6 +89,28 @@ describe("qualification slots", () => {
     expect(message).toContain("North Firm");
     expect(message).toContain("12 March 2026");
     expect(message).not.toContain("collision");
+  });
+});
+
+describe("opening message", () => {
+  it("keeps a description of what happened out of the name field", () => {
+    expect(slotForOpeningMessage(slots, "name", "A pallet fell on my leg")).toBe(
+      "what",
+    );
+
+    const turn = applyTurn({
+      slots,
+      answers: {},
+      pendingSlotId: "what",
+      message: "A pallet fell on my leg",
+    });
+    expect(turn.answers.what).toBe("A pallet fell on my leg");
+    expect(turn.answers.name).toBeUndefined();
+    expect(turn.reply).toContain("Your name");
+  });
+
+  it("still takes a short reply as the pending question", () => {
+    expect(slotForOpeningMessage(slots, "name", "Ada")).toBe("name");
   });
 });
 

@@ -70,6 +70,9 @@ describe("template contract", () => {
 
     expect(prompt.startsWith(statementConfig.modelIdentity ?? "")).toBe(true);
     expect(prompt).toContain("Ask one question at a time.");
+    expect(prompt).toContain("metadata.evidence.requestedEvidence");
+    expect(prompt).toContain("whether that person saw what happened");
+    expect(prompt).toContain("A job such as courier is the occupation.");
     expect(prompt).toContain("How the vehicles came into contact.");
     expect(prompt).toContain("Do not ask about: legal blame");
     expect(prompt).toContain("Accident date (accidentDate): 2024-05-01");
@@ -136,8 +139,15 @@ describe("template contract", () => {
     expect(expectations).toContain("How the vehicles came into contact.");
   });
 
-  it("seeds four published claimant matters with one default statement each", () => {
-    expect(SEEDED_CASE_TEMPLATES).toHaveLength(4);
+  it("seeds the published claimant matters with one default statement each", () => {
+    expect(SEEDED_CASE_TEMPLATES).toHaveLength(5);
+    expect(SEEDED_CASE_TEMPLATES.map((template) => template.name)).toEqual([
+      "Road Traffic Accident",
+      "Employer Liability",
+      "Public Liability",
+      "Clinical Negligence",
+      "Housing Disrepair",
+    ]);
     for (const caseTemplate of SEEDED_CASE_TEMPLATES) {
       expect(CaseConfigSchema.safeParse(caseTemplate.config).success).toBe(true);
       expect(
@@ -145,8 +155,10 @@ describe("template contract", () => {
       ).toHaveLength(1);
       const fieldIds = caseTemplate.config.dynamicFields.map((field) => field.id);
       expect(fieldIds).toEqual(
-        expect.arrayContaining(["court", "claimNumber", "claimant", "defendant"]),
+        expect.arrayContaining(["claimant", "defendant"]),
       );
+      expect(fieldIds).not.toContain("court");
+      expect(fieldIds).not.toContain("claimNumber");
       for (const link of caseTemplate.statements) {
         const parsed = StatementConfigSchema.safeParse(link.template.config);
         expect(parsed.success).toBe(true);

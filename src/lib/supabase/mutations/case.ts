@@ -6,7 +6,6 @@ import {
   statementTemplateIdForRole,
 } from "@/lib/leads/snapshot";
 import { generateSecureToken } from "@/lib/security";
-import { createCaseConfigSnapshot } from "./case-template";
 import { deleteStorageFolders } from "../storage-cleanup";
 
 const DEFAULT_CASE_TITLE_TEMPLATE = "Case {caseIndex}";
@@ -251,22 +250,6 @@ export async function createCase(
   }
 
   try {
-    const configSnapshotId = await createCaseConfigSnapshot({
-      tenantId: payload.tenant_id,
-      templateId: payload.case_template_id,
-      createdForCaseId: createdCase.id,
-      supabase,
-    });
-
-    const { error: updateError } = await supabase
-      .from("cases")
-      .update({ config_snapshot_id: configSnapshotId })
-      .eq("id", createdCase.id);
-
-    if (updateError) {
-      throw updateError;
-    }
-
     let roleKey = payload.role_key?.trim() || "claimant";
     if (!payload.role_key && payload.case_template_id) {
       const { data: leadType } = await supabase
@@ -277,7 +260,7 @@ export async function createCase(
       const roles = Array.isArray(leadType?.participant_roles)
         ? leadType.participant_roles
         : [];
-      const primary = roles.find(
+      const primaryRole = roles.find(
         (role) =>
           role &&
           typeof role === "object" &&
@@ -286,59 +269,65 @@ export async function createCase(
           "key" in role &&
           typeof (role as { key?: string }).key === "string",
       ) as { key?: string } | undefined;
-      if (primary?.key) roleKey = primary.key;
+      if (primaryRole?.key) roleKey = primaryRole.key;
     }
 
     const contactName = payload.contact_name?.trim() || resolvedTitle;
     const contactEmail = payload.contact_email?.trim() || "";
-    const { data: primary, error: primaryError } = await supabase.from("statements").insert({
-      case_id: createdCase.id,
-      tenant_id: payload.tenant_id,
-      title: resolvedTitle,
-      witness_name: contactName,
-      witness_email: contactEmail || payload.contact_phone?.trim() || "pending",
-      participant_kind: "primary",
-      role_key: roleKey,
-      lead_stage: payload.lead_stage ?? "intake",
-      lead_type_id: payload.case_template_id ?? null,
-      contact_name: payload.contact_name?.trim() || contactName,
-      contact_email: contactEmail || null,
-      contact_phone: payload.contact_phone?.trim() || null,
-      qualification_answers: payload.case_metadata ?? {},
-      accepted_at:
-        payload.accepted === false ? null : new Date().toISOString(),
-      assigned_to: payload.assigned_to_ids?.[0] ?? null,
-      assigned_to_ids: payload.assigned_to_ids ?? [],
-      status: "draft",
-    })
-      .select("id")
-      .single();
+    const templateId = await statementTemplateIdForRole(
+      supabase,
+      payload.case_template_id,
+      roleKey,
+    );
+    const { error: primaryError } = await supabase
+      .from("statements")
+      .update({
+        title: resolvedTitle,
+        witness_name: contactName,
+        witness_email: contactEmail || payload.contact_phone?.trim() || "pending",
+        participant_kind: "primary",
+        role_key: roleKey,
+        lead_stage: payload.lead_stage ?? "intake",
+        lead_type_id: payload.case_template_id ?? null,
+        template_id: templateId,
+        contact_name: payload.contact_name?.trim() || contactName,
+        contact_email: contactEmail || null,
+        contact_phone: payload.contact_phone?.trim() || null,
+        qualification_answers: payload.case_metadata ?? {},
+        accepted_at:
+          payload.accepted === false ? null : new Date().toISOString(),
+        assigned_to: payload.assigned_to_ids?.[0] ?? null,
+        assigned_to_ids: payload.assigned_to_ids ?? [],
+        status: "draft",
+        ...(payload.lead_stage === "new"
+          ? {
+              gdpr_notice_acknowledgement: {
+                source: "public_enquiry",
+                acknowledgedAt: new Date().toISOString(),
+              },
+            }
+          : {}),
+      })
+      .eq("id", createdCase.id);
     if (primaryError) {
       throw primaryError;
     }
 
-    if (payload.accepted !== false) {
-      const templateId = await statementTemplateIdForRole(
-        supabase,
-        payload.case_template_id,
-        roleKey,
-      );
-      await freezeStatementConfig(supabase, {
-        statementId: primary.id,
-        tenantId: payload.tenant_id,
-        templateId,
-      });
+    await freezeStatementConfig(supabase, {
+      statementId: createdCase.id,
+      tenantId: payload.tenant_id,
+      templateId,
+    });
 
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
-      const { error: linkError } = await supabase.from("magic_links").insert({
-        token: generateSecureToken(),
-        statement_id: primary.id,
-        tenant_id: payload.tenant_id,
-        expires_at: expiresAt.toISOString(),
-      });
-      if (linkError) throw linkError;
-    }
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+    const { error: linkError } = await supabase.from("magic_links").insert({
+      token: generateSecureToken(),
+      statement_id: createdCase.id,
+      tenant_id: payload.tenant_id,
+      expires_at: expiresAt.toISOString(),
+    });
+    if (linkError) throw linkError;
   } catch (snapshotError) {
     await supabase.from("cases").delete().eq("id", createdCase.id);
     throw snapshotError;

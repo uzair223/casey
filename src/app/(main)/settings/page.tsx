@@ -164,7 +164,9 @@ export default function TenantSettingsPage() {
         requireAuth: false,
         body: JSON.stringify({ email }),
       });
-      toast.success("Password reset email sent");
+      toast.success(
+        "Password reset email sent. If you do not see it, check your junk folder.",
+      );
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to send reset email";

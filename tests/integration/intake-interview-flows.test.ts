@@ -140,14 +140,30 @@ describe("intake interview flows", () => {
     });
   });
 
-  it("falls back to the built-in greeting when no witness fields are missing", async () => {
+  it("asks the model for a natural opening even when no witness fields are missing", async () => {
     getMissingWitnessFieldLabels.mockReturnValue({
       required: [],
       optional: [],
     });
     SERVERONLY_getFullStatementFromToken.mockResolvedValue({
-      case: { title: "Accident claim" },
-      statement: { id: "statement-1", status: "draft" },
+      case: { title: "Uzair — Accident at work" },
+      statement: {
+        id: "statement-1",
+        status: "draft",
+        witness_name: "Uzair",
+      },
+    });
+    responsesCreate.mockResolvedValue({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: "response.output_text.delta",
+          delta: JSON.stringify({
+            greeting:
+              "Hi Uzair, I'm here to take your full account for your accident at work.",
+            question: "",
+          }),
+        };
+      },
     });
 
     const route = await importFresh<
@@ -164,25 +180,107 @@ describe("intake interview flows", () => {
     expect(response.status).toBe(200);
     await expect(readJson<Array<{ content: string }>>(response)).resolves.toEqual(
       [
-        { role: "assistant", content: "Welcome." },
+        {
+          role: "assistant",
+          content:
+            "Hi Uzair, I'm here to take your full account for your accident at work.",
+        },
         { role: "assistant", content: "What happened?" },
       ],
     );
-    expect(chatCompletionsCreate).not.toHaveBeenCalled();
-    expect(SERVERONLY_saveConversationMessage).toHaveBeenCalledTimes(2);
+    expect(responsesCreate).toHaveBeenCalledOnce();
+    expect(responsesCreate.mock.calls[0]?.[0]).not.toHaveProperty("temperature");
     expect(SERVERONLY_saveConversationMessage).toHaveBeenNthCalledWith(
       1,
       "statement-1",
       "assistant",
-      "Welcome.",
+      "Hi Uzair, I'm here to take your full account for your accident at work.",
       null,
     );
-    expect(SERVERONLY_saveConversationMessage).toHaveBeenNthCalledWith(
-      2,
-      "statement-1",
-      "assistant",
-      "What happened?",
-      null,
+  });
+
+  it("uses the model's question for missing witness details", async () => {
+    SERVERONLY_getFullStatementFromToken.mockResolvedValue({
+      case: { title: "Uzair — Accident at work" },
+      statement: {
+        id: "statement-1",
+        status: "draft",
+        witness_name: "Uzair",
+      },
+    });
+    responsesCreate.mockResolvedValue({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: "response.output_text.delta",
+          delta: JSON.stringify({
+            greeting:
+              "Hi Uzair, I'm here to take your full account for your accident at work.",
+            question: "What's your address, and your date of birth if you have it?",
+          }),
+        };
+      },
+    });
+
+    const route = await importFresh<
+      typeof import("@/app/api/intake/[token]/interview/greeting/route")
+    >("@/app/api/intake/[token]/interview/greeting/route");
+
+    const response = await route.POST(
+      new Request("http://localhost/api/intake/token-1/interview/greeting", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ token: "token-1" }) },
+    );
+
+    await expect(readJson<Array<{ content: string }>>(response)).resolves.toEqual(
+      [
+        {
+          role: "assistant",
+          content:
+            "Hi Uzair, I'm here to take your full account for your accident at work.",
+        },
+        {
+          role: "assistant",
+          content: "What's your address, and your date of birth if you have it?",
+        },
+      ],
+    );
+  });
+
+  it("keeps the built-in greeting when the model mentions the firm draft", async () => {
+    SERVERONLY_getFullStatementFromToken.mockResolvedValue({
+      case: { title: "Accident claim" },
+      statement: { id: "statement-1", status: "draft", witness_name: "Uzair" },
+    });
+    responsesCreate.mockResolvedValue({
+      async *[Symbol.asyncIterator]() {
+        yield {
+          type: "response.output_text.delta",
+          delta: JSON.stringify({
+            greeting:
+              "Hello Uzair. The firm prepares the written draft during review.",
+            question: "What is your address?",
+          }),
+        };
+      },
+    });
+
+    const route = await importFresh<
+      typeof import("@/app/api/intake/[token]/interview/greeting/route")
+    >("@/app/api/intake/[token]/interview/greeting/route");
+
+    const response = await route.POST(
+      new Request("http://localhost/api/intake/token-1/interview/greeting", {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ token: "token-1" }) },
+    );
+
+    await expect(readJson<Array<{ content: string }>>(response)).resolves.toEqual(
+      [
+        { role: "assistant", content: "Welcome." },
+        { role: "assistant", content: "What happened?" },
+      ],
     );
   });
 
@@ -470,6 +568,7 @@ describe("intake interview flows", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(responsesCreate.mock.calls[0]?.[0]).not.toHaveProperty("temperature");
     const body = await readStream(response);
     expect(body).toContain("Please tell me what happened next.");
     expect(evaluateWithJev).toHaveBeenCalled();

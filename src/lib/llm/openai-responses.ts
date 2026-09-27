@@ -22,7 +22,7 @@ function createParams(args: ResponsesRequest) {
     model: args.model,
     instructions: args.instructions,
     input: args.input,
-    temperature: args.temperature,
+    ...(args.temperature === undefined ? {} : { temperature: args.temperature }),
     store: false as const,
     ...(args.promptCacheKey ? { prompt_cache_key: args.promptCacheKey } : {}),
     ...(args.textFormat ? { text: { format: args.textFormat } } : {}),

@@ -39,6 +39,7 @@ import { AsyncButton } from "@/components/ui/async-button";
 import { getCaseById } from "@/lib/supabase/queries";
 import { deleteCase } from "@/lib/supabase/mutations";
 import {
+  hasSubmittedAccount,
   statementStatusLabel,
   statementStatusVariant,
 } from "@/lib/status-styles";
@@ -47,6 +48,10 @@ import Loading from "@/components/loading";
 import { useTenant } from "@/contexts/tenant-context";
 import { toast } from "@/lib/toast";
 import { LeadActions } from "@/components/leads/lead-actions";
+import {
+  isContactMetadataKey,
+  leadContactHidden,
+} from "@/lib/leads/privacy";
 import { parseLeadTypeConfig } from "@/lib/leads/schema";
 
 export default function CaseDetailPage() {
@@ -159,6 +164,24 @@ export default function CaseDetailPage() {
     return <Loading />;
   }
 
+  const primaryStatement =
+    data.statements.find((statement) => statement.participant_kind === "primary") ??
+    data.statements[0];
+  const contactHidden = leadContactHidden(primaryStatement?.lead_stage);
+  const awaitingDecision = Boolean(
+    primaryStatement && leadContactHidden(primaryStatement.lead_stage),
+  );
+  const showFacts = data.statements.some((statement) =>
+    hasSubmittedAccount(statement.status),
+  );
+  const overview = data.case_metadata?.summary?.trim() ?? "";
+  const detailFields =
+    caseTemplate?.published_config?.dynamicFields?.filter((field) => {
+      if (field.id === "summary") return false;
+      if (contactHidden && isContactMetadataKey(field.id)) return false;
+      return true;
+    }) ?? [];
+
   return (
     <section className="space-y-4">
       <Card>
@@ -228,10 +251,16 @@ export default function CaseDetailPage() {
             />
           ) : (
             <>
+              {overview ? (
+                <div className="mb-6">
+                  <h3 className="mb-2 text-sm font-semibold">Overview</h3>
+                  <p className="text-sm leading-relaxed">{overview}</p>
+                </div>
+              ) : null}
               <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Lead name
+                    {contactHidden ? "Enquiry" : "Lead name"}
                   </p>
                   <p className="text-sm">{data.title || "-"}</p>
                 </div>
@@ -251,11 +280,11 @@ export default function CaseDetailPage() {
                 </div>
               </div>
               {/* Case metadata fields */}
-              {caseTemplate?.published_config?.dynamicFields?.length ? (
+              {detailFields.length ? (
                 <div className="mt-6">
                   <h3 className="text-sm font-semibold mb-2">Details</h3>
                   <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
-                    {caseTemplate.published_config.dynamicFields.map(
+                    {detailFields.map(
                       (field) => (
                         <div key={field.id}>
                           <p className="text-sm font-medium text-muted-foreground">
@@ -286,7 +315,11 @@ export default function CaseDetailPage() {
         </CardContent>
       </Card>
 
-      <CaseAnalysisCard caseId={data.id} statements={data.statements} />
+      {awaitingDecision ? null : (
+        <>
+      {showFacts ? (
+        <CaseAnalysisCard caseId={data.id} statements={data.statements} />
+      ) : null}
 
       <Tabs defaultValue="witnesses" className="space-y-4">
         <TabsList>
@@ -393,6 +426,8 @@ export default function CaseDetailPage() {
           />
         </TabsContent>
       </Tabs>
+        </>
+      )}
     </section>
   );
 }

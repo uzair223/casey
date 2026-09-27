@@ -118,26 +118,13 @@ export function formatCaseFieldsForAnalysis(params: {
   return lines.length > 0 ? lines.join("\n") : "No case fields recorded.";
 }
 
-function snapshotConfig(relation: unknown): unknown {
-  if (!relation) {
-    return null;
-  }
-  const snapshot = Array.isArray(relation) ? relation[0] : relation;
-  if (!snapshot || typeof snapshot !== "object") {
-    return null;
-  }
-  return (snapshot as { config_json?: unknown }).config_json ?? null;
-}
-
 export async function loadCaseModelContext(
   supabase: SupabaseClient<Database>,
   caseId: string,
 ): Promise<CaseModelContext> {
   const { data, error } = await supabase
     .from("cases")
-    .select(
-      "case_metadata, case_config_snapshots!cases_config_snapshot_id_fkey(config_json)",
-    )
+    .select("case_metadata, case_template_id")
     .eq("id", caseId)
     .maybeSingle();
 
@@ -145,9 +132,18 @@ export async function loadCaseModelContext(
     throw error;
   }
 
-  const caseConfig = parseCaseConfig(
-    snapshotConfig(data?.case_config_snapshots),
-  );
+  let publishedConfig: unknown = null;
+  if (data?.case_template_id) {
+    const { data: template, error: templateError } = await supabase
+      .from("case_templates")
+      .select("published_config")
+      .eq("id", data.case_template_id)
+      .maybeSingle();
+    if (templateError) throw templateError;
+    publishedConfig = template?.published_config ?? null;
+  }
+
+  const caseConfig = parseCaseConfig(publishedConfig);
   const caseMetadata = isRecord(data?.case_metadata) ? data.case_metadata : {};
 
   return {

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { CHAT_METADATA_MARKER } from "@/lib/statement-utils";
 
 import {
   ChatAreaContent,
@@ -8,6 +10,7 @@ import {
   type ChatAreaBubbleColors,
   type ChatAreaMessage,
 } from "@/components/chat/chat-area";
+import { ExpandIcon, MinimizeIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,40 +30,164 @@ type PublicLeadChatProps = {
   welcome: string;
   branding?: LeadBranding;
   turnstileSiteKey?: string;
+  resumeToken?: string;
+  fill?: boolean;
 };
 
-async function turnstileToken(siteKey?: string) {
-  if (!siteKey || typeof window === "undefined") return "dev-turnstile";
-  const existing = document.querySelector<HTMLScriptElement>(
-    "script[data-turnstile]",
-  );
-  if (!existing) {
-    await new Promise<void>((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
-      script.async = true;
-      script.dataset.turnstile = "true";
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error("Turnstile failed to load"));
-      document.head.appendChild(script);
-    });
-  }
-  const turnstile = (
+type ResumedEnquiry = {
+  token?: string;
+  status?: string;
+  publicKey?: string;
+  leadTypeName?: string;
+  messages?: ChatAreaMessage[];
+  intakeToken?: string | null;
+  error?: string;
+};
+
+function enquiryStorageKey(publicKey: string) {
+  return `casey-enquiry:${publicKey}`;
+}
+
+type TurnstileApi = {
+  ready: (callback: () => void) => void;
+  render: (
+    element: HTMLElement,
+    options: {
+      sitekey: string;
+      theme?: "auto" | "light" | "dark";
+      appearance?: "always" | "execute" | "interaction-only";
+      callback: (token: string) => void;
+      "expired-callback"?: () => void;
+      "error-callback"?: () => void;
+      "timeout-callback"?: () => void;
+      "before-interactive-callback"?: () => void;
+      "unsupported-callback"?: () => void;
+    },
+  ) => string;
+  reset: (widgetId?: string) => void;
+  remove: (widgetId?: string) => void;
+};
+
+type HumanWaiter = {
+  resolve: (token: string) => void;
+  reject: (error: Error) => void;
+};
+
+function turnstileApi() {
+  return (
     window as Window & {
-      turnstile?: {
-        render: (
-          element: HTMLElement,
-          options: { sitekey: string; callback: (token: string) => void },
-        ) => void;
-      };
+      turnstile?: TurnstileApi;
     }
   ).turnstile;
-  if (!turnstile) return "dev-turnstile";
-  const holder = document.createElement("div");
-  document.body.appendChild(holder);
-  return new Promise<string>((resolve) => {
-    turnstile.render(holder, { sitekey: siteKey, callback: resolve });
+}
+
+let turnstileLoader: Promise<TurnstileApi> | null = null;
+
+function loadTurnstile() {
+  const existing = turnstileApi();
+  if (existing?.render) return Promise.resolve(existing);
+  if (!turnstileLoader) {
+    turnstileLoader = new Promise<TurnstileApi>((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src =
+        "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.dataset.turnstile = "true";
+      script.onload = () => {
+        const api = turnstileApi();
+        if (!api?.render) {
+          reject(new Error("Turnstile failed to load"));
+          return;
+        }
+        resolve(api);
+      };
+      script.onerror = () => reject(new Error("Turnstile failed to load"));
+      document.head.appendChild(script);
+    }).catch((error: unknown) => {
+      turnstileLoader = null;
+      throw error;
+    });
+  }
+  return turnstileLoader;
+}
+
+function turnstileIsShown(holder: HTMLElement) {
+  const nodes = [holder, ...holder.querySelectorAll<HTMLElement>("div, iframe")];
+  return nodes.some((node) => {
+    const style = window.getComputedStyle(node);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+    if (Number(style.opacity) === 0) return false;
+    const box = node.getBoundingClientRect();
+    return box.height > 20 && box.width > 40;
   });
+}
+
+function PersonCheck({
+  siteKey,
+  resetRef,
+  onToken,
+  onVisible,
+  onError,
+}: {
+  siteKey: string;
+  resetRef: { current: (() => void) | null };
+  onToken: (token: string | null) => void;
+  onVisible: () => void;
+  onError: () => void;
+}) {
+  const holderRef = useRef<HTMLDivElement>(null);
+  const onTokenRef = useRef(onToken);
+  const onVisibleRef = useRef(onVisible);
+  const onErrorRef = useRef(onError);
+  onTokenRef.current = onToken;
+  onVisibleRef.current = onVisible;
+  onErrorRef.current = onError;
+
+  useEffect(() => {
+    const holder = holderRef.current;
+    if (!holder) return;
+    let cancelled = false;
+    let widgetId: string | undefined;
+    const observer = new ResizeObserver(() => {
+      if (turnstileIsShown(holder)) onVisibleRef.current();
+    });
+    observer.observe(holder);
+
+    void loadTurnstile()
+      .then((api) => {
+        if (cancelled) return;
+        widgetId = api.render(holder, {
+          sitekey: siteKey,
+          theme: "auto",
+          appearance: "interaction-only",
+          callback: (token) => onTokenRef.current(token),
+          "expired-callback": () => onTokenRef.current(null),
+          "before-interactive-callback": () => onVisibleRef.current(),
+          "error-callback": () => onErrorRef.current(),
+          "timeout-callback": () => onErrorRef.current(),
+          "unsupported-callback": () => onErrorRef.current(),
+        });
+        resetRef.current = () => {
+          if (widgetId) api.reset(widgetId);
+        };
+      })
+      .catch(() => {
+        if (!cancelled) onErrorRef.current();
+      });
+
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+      resetRef.current = null;
+      if (!widgetId) return;
+      const id = widgetId;
+      void loadTurnstile()
+        .then((api) => api.remove(id))
+        .catch(() => undefined);
+    };
+  }, [resetRef, siteKey]);
+
+  return <div ref={holderRef} className="flex justify-center" />;
 }
 
 export function PublicLeadChat({
@@ -70,18 +197,172 @@ export function PublicLeadChat({
   welcome,
   branding,
   turnstileSiteKey,
+  resumeToken,
+  fill = false,
 }: PublicLeadChatProps) {
+  const [enquiryLabel, setEnquiryLabel] = useState(enquiryName);
   const [messages, setMessages] = useState<ChatAreaMessage[]>([
     { role: "assistant", content: welcome },
   ]);
   const [token, setToken] = useState<string | null>(null);
+  const [intakeToken, setIntakeToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [restoring, setRestoring] = useState(true);
+  const [awaitingCode, setAwaitingCode] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const [fallback, setFallback] = useState(false);
+  const [humanShown, setHumanShown] = useState(false);
+  const [humanOk, setHumanOk] = useState(false);
   const [done, setDone] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [summary, setSummary] = useState("");
+  const panelRef = useRef<HTMLDivElement>(null);
+  const humanTokenRef = useRef<string | null>(null);
+  const humanWaitersRef = useRef<HumanWaiter[]>([]);
+  const humanFailedRef = useRef(false);
+  const resetHumanCheckRef = useRef<(() => void) | null>(null);
+
+  function rememberToken(next: string) {
+    setToken(next);
+    window.localStorage.setItem(enquiryStorageKey(publicKey), next);
+  }
+
+  function forgetToken() {
+    window.localStorage.removeItem(enquiryStorageKey(publicKey));
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    const stored = window.localStorage.getItem(enquiryStorageKey(publicKey));
+    const candidates = [resumeToken, stored].filter(
+      (value, index, all): value is string => Boolean(value) && all.indexOf(value) === index,
+    );
+    if (candidates.length === 0) {
+      setRestoring(false);
+      return;
+    }
+    void (async () => {
+      let restored: ResumedEnquiry | null = null;
+      for (const candidate of candidates) {
+        const response = await fetch(`/api/public/qualify/session/${candidate}`);
+        if (!response.ok) {
+          if (candidate === stored) forgetToken();
+          continue;
+        }
+        const payload = (await response.json()) as ResumedEnquiry;
+        if (payload.token && payload.publicKey === publicKey) {
+          restored = payload;
+          break;
+        }
+        if (candidate === stored) forgetToken();
+      }
+      if (cancelled || !restored?.token) return;
+      if (restored.leadTypeName) setEnquiryLabel(restored.leadTypeName);
+      if (restored.messages?.length) setMessages(restored.messages);
+      if (restored.status === "verify") setAwaitingCode(true);
+      if (restored.status === "promoted" && restored.intakeToken) {
+        setIntakeToken(restored.intakeToken);
+        setAwaitingCode(false);
+        rememberToken(restored.token);
+        return;
+      }
+      if (restored.status === "promoted" || restored.status === "closed") {
+        setDone(true);
+        forgetToken();
+        setToken(restored.token);
+        return;
+      }
+      rememberToken(restored.token);
+    })()
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setRestoring(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [publicKey, resumeToken]);
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setFullscreen(document.fullscreenElement != null);
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+      return;
+    }
+    const target = window.parent !== window ? document.documentElement : panelRef.current;
+    void target?.requestFullscreen();
+  }
+
+  function noteHumanToken(next: string | null) {
+    if (!next) {
+      humanTokenRef.current = null;
+      setHumanOk(false);
+      return;
+    }
+    setHumanOk(true);
+    humanFailedRef.current = false;
+    const pending = humanWaitersRef.current.splice(0);
+    if (pending.length === 0) {
+      humanTokenRef.current = next;
+      return;
+    }
+    for (const waiter of pending) waiter.resolve(next);
+    resetHumanCheckRef.current?.();
+  }
+
+  function failHumanCheck() {
+    humanFailedRef.current = true;
+    humanTokenRef.current = null;
+    const pending = humanWaitersRef.current.splice(0);
+    for (const waiter of pending) {
+      waiter.reject(new Error("Confirm you are a person."));
+    }
+  }
+
+  function takeHumanToken() {
+    if (!turnstileSiteKey) return Promise.resolve("dev-turnstile");
+    if (humanFailedRef.current) {
+      humanFailedRef.current = false;
+      resetHumanCheckRef.current?.();
+    }
+    const ready = humanTokenRef.current;
+    if (ready) {
+      humanTokenRef.current = null;
+      resetHumanCheckRef.current?.();
+      return Promise.resolve(ready);
+    }
+    return new Promise<string>((resolve, reject) => {
+      const waiter: HumanWaiter = {
+        resolve: (token) => {
+          window.clearTimeout(timeout);
+          resolve(token);
+        },
+        reject: (error) => {
+          window.clearTimeout(timeout);
+          reject(error);
+        },
+      };
+      const timeout = window.setTimeout(() => {
+        humanWaitersRef.current = humanWaitersRef.current.filter(
+          (item) => item !== waiter,
+        );
+        reject(new Error("Confirm you are a person."));
+      }, 90_000);
+      humanWaitersRef.current.push(waiter);
+    });
+  }
+
+  const mustConfirmHuman =
+    Boolean(turnstileSiteKey) && humanShown && !humanOk && (!token || fallback);
 
   const accent = leadHexColor(branding?.primaryColor, DEFAULT_LEAD_HEADER_COLOR);
   const textColor = leadHexColor(branding?.textColor, DEFAULT_LEAD_TEXT_COLOR);
@@ -100,7 +381,9 @@ export function PublicLeadChat({
 
   async function ensureSession() {
     if (token) return token;
-    const human = await turnstileToken(turnstileSiteKey);
+    const stored = window.localStorage.getItem(enquiryStorageKey(publicKey));
+    if (stored) return stored;
+    const human = await takeHumanToken();
     const response = await fetch("/api/public/qualify/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -116,17 +399,27 @@ export function PublicLeadChat({
       if (payload.fallback) setFallback(true);
       throw new Error(payload.error || "The chat could not start");
     }
-    setToken(payload.token);
-    if (payload.messages?.length) setMessages(payload.messages);
+    rememberToken(payload.token);
+    if (payload.messages?.length) {
+      setMessages((current) =>
+        current.some((message) => message.role === "user")
+          ? current
+          : payload.messages!,
+      );
+    }
     return payload.token;
   }
 
-  async function sendMessage(text: string) {
+  async function sendMessage(text: string, files?: File[]) {
     const message = text.trim();
-    if (!message || busy || done) return;
+    if ((!message && !files?.length) || busy || done || restoring || mustConfirmHuman) return;
     setBusy(true);
     setMessages((current) => [...current, { role: "user", content: message }]);
     try {
+      if (intakeToken) {
+        await sendAccountTurn(message, files);
+        return;
+      }
       const sessionToken = await ensureSession();
       const response = await fetch(
         `/api/public/qualify/session/${sessionToken}/message`,
@@ -141,9 +434,32 @@ export function PublicLeadChat({
         error?: string;
         fallback?: boolean;
         promoted?: boolean;
+        intakeToken?: string | null;
+        discarded?: boolean;
+        leadTypeName?: string;
+        status?: string;
+        needsVerification?: boolean;
       };
-      if (payload.fallback) setFallback(true);
-      if (payload.promoted) setDone(true);
+      if (payload.discarded) {
+        setDone(true);
+        setFallback(false);
+        forgetToken();
+      } else if (payload.fallback) {
+        setFallback(true);
+      }
+      if (payload.promoted && payload.intakeToken) {
+        setIntakeToken(payload.intakeToken);
+        setAwaitingCode(false);
+      } else if (payload.promoted) {
+        setDone(true);
+        forgetToken();
+      }
+      if (payload.status === "verify" || payload.needsVerification) {
+        setAwaitingCode(true);
+      } else if (!payload.error) {
+        setAwaitingCode(false);
+      }
+      if (payload.leadTypeName) setEnquiryLabel(payload.leadTypeName);
       setMessages((current) => [
         ...current,
         {
@@ -165,10 +481,67 @@ export function PublicLeadChat({
     }
   }
 
+  async function sendAccountTurn(message: string, files?: File[]) {
+    if (!intakeToken) return;
+    const history = messages.filter((item) => item.content !== welcome);
+    const body = files?.length
+      ? (() => {
+          const form = new FormData();
+          form.append("conversationHistory", JSON.stringify(history));
+          form.append("userMessage", message);
+          files.forEach((file, index) => form.append(`file_${index}`, file));
+          return form;
+        })()
+      : JSON.stringify({
+          conversationHistory: history,
+          userMessage: message,
+        });
+    const response = await fetch(`/api/intake/${intakeToken}/interview/chat`, {
+      method: "POST",
+      body,
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      let message = text || "Something went wrong.";
+      try {
+        const payload = JSON.parse(text) as { error?: unknown } | string;
+        if (typeof payload === "string" && payload.trim()) {
+          message = payload;
+        } else if (
+          payload &&
+          typeof payload === "object" &&
+          typeof payload.error === "string" &&
+          payload.error.trim()
+        ) {
+          message = payload.error;
+        }
+      } catch {
+        // The response was not JSON, so the raw text is the message.
+      }
+      throw new Error(message);
+    }
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("No response body");
+    const decoder = new TextDecoder();
+    let raw = "";
+    while (true) {
+      const step = await reader.read();
+      if (step.value) raw += decoder.decode(step.value, { stream: !step.done });
+      if (step.done) break;
+    }
+    const marker = raw.indexOf(CHAT_METADATA_MARKER);
+    const reply = (marker >= 0 ? raw.slice(0, marker) : raw).trim();
+    setMessages((current) => [
+      ...current,
+      { role: "assistant", content: reply || "Something went wrong." },
+    ]);
+  }
+
   async function sendFallback() {
+    if (mustConfirmHuman) return;
     setBusy(true);
     try {
-      const human = await turnstileToken(turnstileSiteKey);
+      const human = await takeHumanToken();
       const response = await fetch("/api/public/qualify/fallback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -200,11 +573,20 @@ export function PublicLeadChat({
 
   return (
     <div
-      className="flex h-[32rem] flex-col rounded-2xl border shadow-sm"
+      ref={panelRef}
+      className={
+        fullscreen
+          ? "flex h-dvh min-h-0 w-full flex-col"
+          : fill
+            ? "flex h-full min-h-0 flex-col"
+            : "flex h-[32rem] flex-col rounded-2xl border shadow-sm"
+      }
       style={{ backgroundColor }}
     >
       <div
-        className="flex items-center gap-3 rounded-t-2xl px-4 py-3 text-white"
+        className={`flex items-center gap-3 px-4 py-3 text-white ${
+          fill || fullscreen ? "" : "rounded-t-2xl"
+        }`}
         style={{ backgroundColor: accent }}
       >
         {branding?.logoUrl ? (
@@ -215,18 +597,30 @@ export function PublicLeadChat({
             className="h-8 w-8 rounded bg-white object-contain"
           />
         ) : null}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">
             {branding?.displayName || firmName}
           </p>
-          {enquiryName || !branding?.hideCaseyMark ? (
+          {enquiryLabel || !branding?.hideCaseyMark ? (
             <p className="truncate text-xs text-white/80">
-              {[enquiryName, branding?.hideCaseyMark ? null : "Casey"]
+              {[enquiryLabel, branding?.hideCaseyMark ? null : "Casey"]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
           ) : null}
         </div>
+        <button
+          type="button"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-white hover:bg-white/15"
+          aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+          onClick={toggleFullscreen}
+        >
+          {fullscreen ? (
+            <MinimizeIcon className="h-4 w-4" />
+          ) : (
+            <ExpandIcon className="h-4 w-4" />
+          )}
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <ChatAreaContent
@@ -244,6 +638,17 @@ export function PublicLeadChat({
           ) : null}
         </ChatAreaContent>
       </div>
+      {turnstileSiteKey && (!token || fallback) && !done ? (
+        <div className="px-3 pt-3">
+          <PersonCheck
+            siteKey={turnstileSiteKey}
+            resetRef={resetHumanCheckRef}
+            onToken={noteHumanToken}
+            onVisible={() => setHumanShown(true)}
+            onError={failHumanCheck}
+          />
+        </div>
+      ) : null}
       {fallback && !done ? (
         <form
           className="space-y-2 border-t p-3"
@@ -273,17 +678,27 @@ export function PublicLeadChat({
             value={summary}
             onChange={(event) => setSummary(event.target.value)}
           />
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy || mustConfirmHuman}>
             Send details
           </Button>
         </form>
       ) : (
         <div className="px-3 pb-3">
           <ChatAreaFooter
-            onSend={(text) => sendMessage(text)}
-            disabled={busy || done}
-            allowAttachments={false}
-            placeholder={done ? "Conversation ended" : "Type your reply"}
+            onSend={(text, files) => sendMessage(text, files)}
+            disabled={busy || done || restoring || mustConfirmHuman}
+            allowAttachments={Boolean(intakeToken)}
+            placeholder={
+              done
+                ? "Conversation ended"
+                : restoring
+                  ? "Opening your chat"
+                  : mustConfirmHuman
+                    ? "Confirm you are a person"
+                    : awaitingCode
+                      ? "Enter the code"
+                      : "Type your reply"
+            }
           />
         </div>
       )}

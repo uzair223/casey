@@ -407,7 +407,9 @@ const suite = describe.skipIf(!hasLocalSupabaseEnv())("local Supabase RLS", () =
     expect(statementsA.error).toBeNull();
     expect(messagesA.error).toBeNull();
     expect(casesA.data?.map((item) => item.id)).toEqual([seed.caseAId]);
-    expect(statementsA.data?.map((item) => item.id)).toEqual([seed.statementAId]);
+    expect(statementsA.data?.map((item) => item.id).sort()).toEqual(
+      [seed.caseAId, seed.statementAId].sort(),
+    );
     expect(messagesA.data).toHaveLength(1);
 
     const casesB = await solicitorB.from("cases").select("id,title");
@@ -466,6 +468,7 @@ const suite = describe.skipIf(!hasLocalSupabaseEnv())("local Supabase RLS", () =
     const allowedCaseTemplateIds = new Set([
       seed.templateGlobalCaseId,
       ...SEEDED_CASE_TEMPLATE_IDS,
+      ...SEEDED_STATEMENT_TEMPLATE_IDS,
       ...(personalInjury.data?.id ? [personalInjury.data.id] : []),
     ]);
     expect(caseTemplateIds.every((id) => allowedCaseTemplateIds.has(id))).toBe(

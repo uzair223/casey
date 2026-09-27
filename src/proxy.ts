@@ -11,6 +11,10 @@ function redactSensitivePath(pathname: string) {
     .replace(
       /^\/api\/invites\/accept\/[^/]+/,
       "/api/invites/accept/[redacted-token]",
+    )
+    .replace(
+      /^\/api\/public\/qualify\/session\/[^/]+/,
+      "/api/public/qualify/session/[redacted-token]",
     );
 }
 

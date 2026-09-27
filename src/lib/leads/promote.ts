@@ -1,7 +1,13 @@
 import "server-only";
 
 import { openTenantCase } from "@/lib/billing/open-case";
+import { parseCaseConfig } from "@/lib/llm/case-runtime";
 import { getServiceClient } from "@/lib/supabase/server";
+import {
+  leadFactsFromEnquiry,
+  mergeCaseFacts,
+  type EnquiryMessage,
+} from "./case-facts";
 import { isDisposableEmail, reservedValue, type SlotAnswers } from "./qualify";
 import {
   primaryRole,
@@ -34,6 +40,7 @@ export async function promoteQualifiedLead(params: {
   answers: SlotAnswers;
   plan: string | null | undefined;
   unverified?: boolean;
+  messages?: EnquiryMessage[];
 }) {
   const contact = contactFromAnswers(params.config, params.answers);
   if (!params.unverified && (!contact.name || (!contact.email && !contact.phone))) {
@@ -47,10 +54,32 @@ export async function promoteQualifiedLead(params: {
     throw new Error("Use a regular email address.");
   }
 
+  const summary = (params.answers.summary ?? "").trim();
+  const messages = params.messages ?? [];
   const supabase = getServiceClient("promote-qualified-lead");
+  const { data: templateRow, error: templateError } = await supabase
+    .from("case_templates")
+    .select("published_config")
+    .eq("id", params.leadTypeId)
+    .maybeSingle();
+  if (templateError) throw templateError;
+  const facts = leadFactsFromEnquiry({
+    fields: parseCaseConfig(templateRow?.published_config)?.dynamicFields ?? [],
+    name: contact.name,
+    summary,
+    messages,
+  });
+  const metadata = {
+    ...(summary ? { summary } : {}),
+    ...facts,
+  };
+  const qualificationAnswers = {
+    ...metadata,
+    ...(messages.length ? { enquiry_transcript: messages } : {}),
+  };
   let duplicateQuery = supabase
     .from("statements")
-    .select("id, qualification_answers")
+    .select("id, case_id, qualification_answers")
     .eq("tenant_id", params.tenantId)
     .eq("participant_kind", "primary")
     .neq("lead_stage", "declined")
@@ -77,25 +106,50 @@ export async function promoteQualifiedLead(params: {
     const { error } = await supabase
       .from("statements")
       .update({
-        qualification_answers: { ...previous, ...params.answers },
+        qualification_answers: {
+          ...previous,
+          ...qualificationAnswers,
+        },
         contact_name: contact.name || null,
         contact_email: contact.email || null,
         contact_phone: contact.phone || null,
       })
       .eq("id", existing.id);
     if (error) throw error;
-    return { statementId: existing.id, duplicate: true, caseId: null };
+    if (existing.case_id && (summary || Object.keys(facts).length)) {
+      const { data: caseRow, error: caseError } = await supabase
+        .from("cases")
+        .select("case_metadata")
+        .eq("id", existing.case_id)
+        .maybeSingle();
+      if (caseError) throw caseError;
+      const previousMetadata =
+        caseRow?.case_metadata &&
+        typeof caseRow.case_metadata === "object" &&
+        !Array.isArray(caseRow.case_metadata)
+          ? caseRow.case_metadata
+          : {};
+      const merged = {
+        ...previousMetadata,
+        ...mergeCaseFacts(previousMetadata as Record<string, string>, facts),
+      };
+      if (summary) merged.summary = summary;
+      const { error: metadataError } = await supabase
+        .from("cases")
+        .update({ case_metadata: merged })
+        .eq("id", existing.case_id);
+      if (metadataError) throw metadataError;
+    }
+    return { statementId: existing.id, duplicate: true, caseId: existing.case_id };
   }
 
   const role = primaryRole(params.config.participant_roles);
   const opened = await openTenantCase(
     params.tenantId,
     {
-      title: contact.name
-        ? `${contact.name} — ${params.leadTypeName}`
-        : params.leadTypeName,
+      title: params.leadTypeName.trim() || "Enquiry",
       case_template_id: params.leadTypeId,
-      case_metadata: params.answers,
+      case_metadata: metadata,
       status: "draft",
       contact_name: contact.name,
       contact_email: contact.email,
@@ -118,6 +172,14 @@ export async function promoteQualifiedLead(params: {
     .maybeSingle();
   if (primaryError) throw primaryError;
   if (!primary) throw new Error("Lead could not be created.");
+
+  if (messages.length) {
+    const { error: answersError } = await supabase
+      .from("statements")
+      .update({ qualification_answers: qualificationAnswers })
+      .eq("id", primary.id);
+    if (answersError) throw answersError;
+  }
 
   return { statementId: primary.id, duplicate: false, caseId: opened.id };
 }

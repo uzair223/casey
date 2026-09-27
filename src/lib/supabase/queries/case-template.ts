@@ -85,6 +85,22 @@ function toStatementConfigTemplate(
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
     created_by: (row.created_by as string | null | undefined) ?? null,
+    kind: typeof row.kind === "string" ? row.kind : "supporting",
+    branding: (row.branding as StatementConfigTemplate["branding"]) ?? {},
+    decline_reasons:
+      (row.decline_reasons as StatementConfigTemplate["decline_reasons"]) ?? [],
+    outreach_template:
+      (row.outreach_template as string | null | undefined) ?? null,
+    participant_roles:
+      (row.participant_roles as StatementConfigTemplate["participant_roles"]) ??
+      [],
+    public_slug: (row.public_slug as string | null | undefined) ?? null,
+    qualification_slots:
+      (row.qualification_slots as StatementConfigTemplate["qualification_slots"]) ??
+      [],
+    title_template: (row.title_template as string | null | undefined) ?? null,
+    brief_guidance: (row.brief_guidance as string | null | undefined) ?? null,
+    matter_config: (row.matter_config as StatementConfigTemplate["matter_config"]) ?? null,
   };
 }
 

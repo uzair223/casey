@@ -176,7 +176,7 @@ function AuthPageContent() {
       }
 
       setSuccessStatus(
-        "Check your email for the sign-in link.",
+        "Check your email for the sign-in link. If you do not see it, check your junk folder.",
       );
     } catch (error) {
       const errorMessage =
@@ -236,7 +236,7 @@ function AuthPageContent() {
       });
 
       setSuccessStatus(
-        "If a password login exists for this account, a reset email has been sent.",
+        "If a password login exists for this account, a reset email has been sent. If you do not see it, check your junk folder.",
       );
     } catch (error) {
       const errorMessage =

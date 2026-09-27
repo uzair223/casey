@@ -155,39 +155,20 @@ async function main() {
   }
 
   for (const template of SEEDED_CASE_TEMPLATES) {
-    const { error } = await supabase.from("case_templates").upsert(
-      {
-        id: template.id,
-        tenant_id: null,
+    const primary = template.statements.find((link) => link.isDefault)?.template;
+    if (!primary) continue;
+    const { error } = await supabase
+      .from("statement_config_templates")
+      .update({
         name: template.name,
-        status: "published",
-        template_scope: "global",
-        draft_config: template.config as unknown as Json,
-        published_config: template.config as unknown as Json,
-        published_at: new Date().toISOString(),
-        created_by: null,
+        kind: "primary",
+        public_slug: template.name.toLowerCase().replace(/\s+/g, "-"),
         title_template: template.titleTemplate,
-      },
-      { onConflict: "id" },
-    );
+        matter_config: template.config as unknown as Json,
+      })
+      .eq("id", primary.id);
     if (error) {
       throw error;
-    }
-
-    for (const link of template.statements) {
-      const { error: linkError } = await supabase
-        .from("case_template_statement_templates")
-        .upsert(
-          {
-            case_template_id: template.id,
-            statement_template_id: link.template.id,
-            is_default: link.isDefault,
-          },
-          { onConflict: "case_template_id,statement_template_id" },
-        );
-      if (linkError) {
-        throw linkError;
-      }
     }
   }
 

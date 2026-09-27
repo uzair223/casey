@@ -8,6 +8,7 @@ import type {
   UploadedDocument,
 } from "@/types";
 import { EMPTY_STATEMENT_CONFIG, normalizeConfig } from "@/lib/statement-utils";
+import { redactFirmStatementView } from "@/lib/leads/privacy";
 import { getSupabaseClient } from "../client";
 import { getServiceClient } from "../server";
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -197,7 +198,7 @@ async function loadStatementWithRelations(
   const { data, error } = await supabase
     .from("statements")
     .select(
-      "*, cases(*), tenants(name), magic_links(token, expires_at), statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, template_document), statement_formalization_snapshots!statements_formalization_snapshot_id_fkey(sections)",
+      "*, tenants(name), magic_links(token, expires_at), statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, template_document), statement_formalization_snapshots!statements_formalization_snapshot_id_fkey(sections)",
     )
     .eq("id", statementId)
     .single();
@@ -210,7 +211,14 @@ async function loadStatementWithRelations(
     throw new Error("Statement not found");
   }
 
-  return data as StatementWithRelations;
+  const { data: caseRow, error: caseError } = await supabase
+    .from("cases")
+    .select("*")
+    .eq("id", data.case_id)
+    .maybeSingle();
+  if (caseError) throw caseError;
+
+  return { ...data, cases: caseRow } as StatementWithRelations;
 }
 
 async function loadStatementWithSnapshot(
@@ -491,7 +499,9 @@ export async function getFullStatementFromId(
   includeFullHistory: boolean,
 ): Promise<unknown> {
   const supabase = getSupabaseClient();
-  return loadFullStatementById(id, includeFullHistory, supabase);
+  return redactFirmStatementView(
+    await loadFullStatementById(id, includeFullHistory, supabase),
+  );
 }
 
 export async function SERVERONLY_getStatementSubmissionNotificationRecipients(
@@ -513,7 +523,7 @@ export async function SERVERONLY_getStatementSubmissionNotificationRecipients(
   const { data: statement, error: statementError } = await supabase
     .from("statements")
     .select(
-      "id, case_id, tenant_id, witness_name, cases(title, status, assigned_to, assigned_to_ids), tenants(name)",
+      "id, case_id, tenant_id, witness_name, tenants(name)",
     )
     .eq("id", statementId)
     .maybeSingle();
@@ -521,6 +531,13 @@ export async function SERVERONLY_getStatementSubmissionNotificationRecipients(
   if (statementError || !statement) {
     throw new Error("Statement not found");
   }
+
+  const { data: caseRow, error: caseError } = await supabase
+    .from("cases")
+    .select("title, status, assigned_to, assigned_to_ids")
+    .eq("id", statement.case_id)
+    .maybeSingle();
+  if (caseError) throw caseError;
 
   const tenantName = (
     statement as { tenants?: { name?: string | null } | null }
@@ -530,12 +547,7 @@ export async function SERVERONLY_getStatementSubmissionNotificationRecipients(
     throw new Error("Tenant not found");
   }
 
-  const assigneeIds =
-    (
-      statement as {
-        cases?: { assigned_to_ids?: string[] | null } | null;
-      }
-    ).cases?.assigned_to_ids ?? [];
+  const assigneeIds = caseRow?.assigned_to_ids ?? [];
 
   let recipientUserIds: string[] = [];
 
@@ -585,9 +597,7 @@ export async function SERVERONLY_getStatementSubmissionNotificationRecipients(
     caseId: statement.case_id,
     statementId: statement.id,
     tenantName,
-    statementTitle:
-      (statement as { cases?: { title?: string | null } | null }).cases
-        ?.title ?? "",
+    statementTitle: caseRow?.title ?? "",
     witnessName: statement.witness_name,
     recipientUserIds,
     recipientEmails,

@@ -48,6 +48,7 @@ const connectSrc = [
   "https://cdn.docuseal.com",
   "https://js.stripe.com",
   "https://api.stripe.com",
+  "https://challenges.cloudflare.com",
   ...(docusealOrigin ? [docusealOrigin] : []),
   ...(supabaseHostname
     ? [`https://${supabaseHostname}`, `wss://${supabaseHostname}`]
@@ -61,27 +62,60 @@ const imgSrc = [
   ...(supabaseHostname ? [`https://${supabaseHostname}`] : []),
 ].join(" ");
 
-const cspPolicy = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  "object-src 'none'",
-  `img-src ${imgSrc}`,
-  "font-src 'self' data:",
-  "style-src 'self' 'unsafe-inline'",
-  `script-src 'self' 'unsafe-inline' https://cdn.docuseal.com https://js.stripe.com${
-    docusealOrigin ? ` ${docusealOrigin}` : ""
-  }`,
-  `connect-src ${connectSrc}`,
-  "worker-src 'self' blob:",
-  `frame-src 'self' https://cdn.docuseal.com https://js.stripe.com https://hooks.stripe.com${
-    docusealOrigin ? ` ${docusealOrigin}` : ""
-  }`,
-  "report-uri /api/security/csp-report",
-  "report-to csp-endpoint",
-  "upgrade-insecure-requests",
-].join("; ");
+function cspPolicy(frameable: boolean) {
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    frameable ? "frame-ancestors *" : "frame-ancestors 'none'",
+    "object-src 'none'",
+    `img-src ${imgSrc}`,
+    "font-src 'self' data:",
+    "style-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'unsafe-inline' https://cdn.docuseal.com https://js.stripe.com https://challenges.cloudflare.com${
+      docusealOrigin ? ` ${docusealOrigin}` : ""
+    }`,
+    `connect-src ${connectSrc}`,
+    "worker-src 'self' blob:",
+    `frame-src 'self' https://cdn.docuseal.com https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com${
+      docusealOrigin ? ` ${docusealOrigin}` : ""
+    }`,
+    "report-uri /api/security/csp-report",
+    "report-to csp-endpoint",
+    "upgrade-insecure-requests",
+  ].join("; ");
+}
+
+function securityHeaders(frameable: boolean) {
+  return [
+    { key: "X-Content-Type-Options", value: "nosniff" },
+    ...(frameable ? [] : [{ key: "X-Frame-Options", value: "DENY" }]),
+    {
+      key: "Referrer-Policy",
+      value: "strict-origin-when-cross-origin",
+    },
+    {
+      key: "Permissions-Policy",
+      value: "camera=(), microphone=(), geolocation=()",
+    },
+    { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+    {
+      key: "Strict-Transport-Security",
+      value: "max-age=31536000; includeSubDomains",
+    },
+    { key: "Report-To", value: cspReportTo },
+    {
+      key: "Reporting-Endpoints",
+      value: 'csp-endpoint="/api/security/csp-report"',
+    },
+    {
+      key: cspEnforce
+        ? "Content-Security-Policy"
+        : "Content-Security-Policy-Report-Only",
+      value: cspPolicy(frameable),
+    },
+  ];
+}
 
 const cspReportTo = JSON.stringify({
   group: "csp-endpoint",
@@ -95,35 +129,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/:path*",
-        headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "DENY" },
-          {
-            key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin",
-          },
-          {
-            key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
-          },
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=31536000; includeSubDomains",
-          },
-          { key: "Report-To", value: cspReportTo },
-          {
-            key: "Reporting-Endpoints",
-            value: 'csp-endpoint="/api/security/csp-report"',
-          },
-          {
-            key: cspEnforce
-              ? "Content-Security-Policy"
-              : "Content-Security-Policy-Report-Only",
-            value: cspPolicy,
-          },
-        ],
+        source: "/widget/:path*",
+        headers: securityHeaders(true),
+      },
+      {
+        source: "/((?!widget(?:/|$)).*)",
+        headers: securityHeaders(false),
       },
     ];
   },

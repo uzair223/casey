@@ -433,7 +433,7 @@ export async function processCaseAnalysisJob(jobId: string) {
     const { data: caseRecord, error: caseError } = await supabase
       .from("cases")
       .select(
-        "id, tenant_id, title, case_metadata, case_config_snapshots!cases_config_snapshot_id_fkey(config_json)",
+        "id, tenant_id, title, case_metadata, case_template_id",
       )
       .eq("id", job.target_id)
       .eq("tenant_id", job.tenant_id)
@@ -441,6 +441,19 @@ export async function processCaseAnalysisJob(jobId: string) {
 
     if (caseError) throw caseError;
     if (!caseRecord) throw new Error("Case not found.");
+
+    let caseConfig: { config_json?: unknown } | null = null;
+    if (caseRecord.case_template_id) {
+      const { data: template, error: templateError } = await supabase
+        .from("case_templates")
+        .select("published_config")
+        .eq("id", caseRecord.case_template_id)
+        .maybeSingle();
+      if (templateError) throw templateError;
+      caseConfig = template?.published_config
+        ? { config_json: template.published_config }
+        : null;
+    }
 
     const { data: statements, error: statementsError } = await supabase
       .from("statements")
@@ -507,7 +520,7 @@ export async function processCaseAnalysisJob(jobId: string) {
                   text: buildCaseAnalysisUserText({
                     title: caseRecord.title,
                     caseMetadata: caseRecord.case_metadata,
-                    caseConfig: caseRecord.case_config_snapshots,
+                    caseConfig,
                     statements: sourceStatements,
                     statementCorpus: buildStatementCorpus(
                       sourceStatements,

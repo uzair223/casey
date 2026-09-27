@@ -1,6 +1,26 @@
 import { StatementConfig } from "@/types";
 import { z } from "zod";
 
+import { activeCaseFieldIds } from "@/lib/leads/case-facts";
+
+function caseDetailsSchema(statementConfig: StatementConfig) {
+  const ids = activeCaseFieldIds(statementConfig.caseMetadataDeps);
+  const description =
+    "Case fields the person has just stated. Use null for a field they did not state on this turn. Use null for the whole object when nothing new was stated.";
+  if (ids.length === 0) {
+    return z.null().describe(description);
+  }
+  return z
+    .object(
+      Object.fromEntries(
+        ids.map((id) => [id, z.string().trim().nullable()]),
+      ),
+    )
+    .strict()
+    .nullable()
+    .describe(description);
+}
+
 export function ResponseMetadataSchema(statementConfig: StatementConfig) {
   return z
     .object({
@@ -75,6 +95,7 @@ export function ResponseMetadataSchema(statementConfig: StatementConfig) {
             ),
         })
         .strict(),
+      caseDetails: caseDetailsSchema(statementConfig),
       deviation: z
         .object({
           stopIntake: z

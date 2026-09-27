@@ -11,6 +11,11 @@ import {
   generateGreeting,
   getMissingWitnessFieldLabels,
 } from "@/lib/llm/prompts";
+import {
+  readEnquirySummary,
+  readEnquiryTranscript,
+  formatEnquiryTranscript,
+} from "@/lib/leads/case-facts";
 import type { IntakeChatMessage } from "@/types";
 import { selectModel } from "@/lib/llm/model-config";
 import { collectResponsesText } from "@/lib/llm/openai-responses";
@@ -21,9 +26,49 @@ import {
 
 const client = new OpenAI(getCloudflareAiClientOptions());
 
-const greetingQuestionSchema = z.object({
-  question: z.string().trim().min(1),
+const greetingSchema = z.object({
+  greeting: z.string().trim().min(1).max(900),
+  question: z.string().trim().max(240),
 });
+
+const GREETING_INSTRUCTIONS = `You write the opening of a witness account interview.
+
+Return JSON with greeting and question.
+
+greeting:
+- Three or four short sentences, the way a person would speak.
+- Greet them by their first name.
+- Say you are here to take their full account.
+- If enquirySummary is set, restate what they already said in everyday words: what happened and when. Say "you". Never say "the lead", "defendant", or the raw case title.
+- Say briefly what this conversation will cover, using phaseTitles in everyday words.
+- Describe the matter in everyday words. An internal title like "Uzair — Accident at work" should become "your accident at work".
+- Do not mention a written draft, the firm, review, or what happens after this conversation.
+- Do not give legal advice.
+- Example: "Hi Uzair, I'm here to take your full account of your accident at work. You told us loose packages fell on your foot at work on 3 September. We'll go through the job you were doing, how you were hurt, what happened straight after, your treatment, and work since."
+
+question:
+- Ask one short question about firstPhase only.
+- Do not ask for a list of missing facts such as employer, workplace, and time of day together.
+- Do not use the word defendant.
+- If firstPhase is empty and a missing field list is set, ask one short question for those details.
+- If firstPhase is empty and both missing field lists are empty, return an empty string.
+- Address them as "you". Do not repeat their name.`;
+
+function witnessFacingGreeting(text: string) {
+  const value = text
+    .trim()
+    .replace(/[’‘]/g, "'")
+    .replace(/[“”]/g, '"');
+  if (!value) return null;
+  if (/written draft|during review|the firm|defendant/i.test(value)) return null;
+  return value;
+}
+
+function acceptableOpeningQuestion(text: string) {
+  const value = text.trim();
+  if (!value || /defendant/i.test(value)) return null;
+  return value;
+}
 
 export async function POST(
   request: Request,
@@ -59,13 +104,21 @@ export async function POST(
       }
     };
 
-    const fallback = generateGreeting(data.case, data.statement);
+    const phases = data.statement.statement_config?.phases ?? [];
+    const phaseTitles = phases.map((phase) => phase.title);
+    const enquirySummary = readEnquirySummary(
+      data.statement.qualification_answers,
+    );
+    const priorEnquiry = formatEnquiryTranscript(
+      readEnquiryTranscript(data.statement.qualification_answers),
+    );
+    const fallback = generateGreeting(data.case, data.statement, {
+      enquirySummary,
+      phaseTitles,
+    });
     const missing = getMissingWitnessFieldLabels(data.statement);
 
-    if (
-      (missing.required.length === 0 && missing.optional.length === 0) ||
-      !isCloudflareAiConfigured()
-    ) {
+    if (!isCloudflareAiConfigured()) {
       await persistGreeting(fallback);
       return NextResponse.json(fallback);
     }
@@ -76,37 +129,51 @@ export async function POST(
       const generated = await collectResponsesText({
         client,
         model: selectedModel,
-        temperature: 0.2,
         promptCacheKey: `greeting:${data.statement.id}`,
-        instructions:
-          "Write one warm, concise intake question asking for missing witness details in natural language. Ask exactly one question and keep it under 30 words. Address the witness directly in second person only (use 'you'/'your'). Never refer to the witness in third person and never include the witness's name. Required fields should be asked directly. Optional fields should be invited as non-blocking using wording like 'if available'.",
-        textFormat: zodTextFormat(
-          greetingQuestionSchema,
-          "greeting_missing_fields_question",
-        ),
+        instructions: GREETING_INSTRUCTIONS,
+        textFormat: zodTextFormat(greetingSchema, "account_greeting"),
         input: [
           {
             role: "user",
             content: JSON.stringify({
-              requiredMissingFields: missing.required,
-              optionalMissingFields: missing.optional,
+              witnessName: data.statement.witness_name,
+              caseTitle: data.case.title,
+              enquirySummary,
+              phaseTitles,
+              firstPhase: phases[0]
+                ? {
+                    title: phases[0].title,
+                    objective: phases[0].objective,
+                  }
+                : null,
+              requiredMissingFields: phases.length ? [] : missing.required,
+              optionalMissingFields: phases.length ? [] : missing.optional,
+              priorEnquiry: priorEnquiry || null,
             }),
           },
         ],
       });
-      const parsed = greetingQuestionSchema.safeParse(JSON.parse(generated));
+      const parsed = greetingSchema.safeParse(JSON.parse(generated));
+      const greeting = parsed.success
+        ? witnessFacingGreeting(parsed.data.greeting)
+        : null;
 
-      if (!parsed.success) {
+      if (!parsed.success || !greeting) {
         await persistGreeting(fallback);
         return NextResponse.json(fallback);
       }
 
       const result = [...fallback];
-      if (result[1]) {
-        result[1] = {
-          ...result[1],
-          content: parsed.data.question,
-        };
+      if (result[0]) {
+        result[0] = { ...result[0], content: greeting };
+      }
+      const question = acceptableOpeningQuestion(parsed.data.question);
+      const canReplaceQuestion =
+        phases.length > 0 ||
+        missing.required.length > 0 ||
+        missing.optional.length > 0;
+      if (question && result[1] && canReplaceQuestion) {
+        result[1] = { ...result[1], content: question };
       }
 
       await persistGreeting(result);

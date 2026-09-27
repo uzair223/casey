@@ -2,6 +2,7 @@ export const JEV_MODEL = "typesafe/jev";
 export const JEV_TIMEOUT_MS = 8_000;
 
 export const JEV_CHOICE_CONFIDENCE_MIN = 0.45;
+export const JEV_ENQUIRY_TYPE_CONFIDENCE_MIN = 0.6;
 export const JEV_SCORE_CONFIDENCE_MIN = 0.45;
 export const JEV_NOUL_STOP_MIN = 0.8;
 export const JEV_NOUL_JAILBREAK_MIN = 0.8;

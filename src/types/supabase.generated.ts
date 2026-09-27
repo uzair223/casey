@@ -803,7 +803,7 @@ export type Database = {
             foreignKeyName: "lead_channels_lead_type_id_fkey"
             columns: ["lead_type_id"]
             isOneToOne: false
-            referencedRelation: "case_templates"
+            referencedRelation: "statement_config_templates"
             referencedColumns: ["id"]
           },
           {
@@ -885,7 +885,7 @@ export type Database = {
             foreignKeyName: "lead_sessions_lead_type_id_fkey"
             columns: ["lead_type_id"]
             isOneToOne: false
-            referencedRelation: "case_templates"
+            referencedRelation: "statement_config_templates"
             referencedColumns: ["id"]
           },
           {
@@ -1103,15 +1103,25 @@ export type Database = {
           draft_config: Json
           draft_docx_template_document: Json | null
           id: string
+          kind: string
           name: string
+          outreach_template: string | null
+          participant_roles: Json
+          public_slug: string | null
           published_at: string | null
           published_config: Json | null
           published_docx_template_document: Json | null
+          qualification_slots: Json
           source_template_id: string | null
           status: string
           template_scope: string
           tenant_id: string | null
+          title_template: string | null
           updated_at: string
+          branding: Json
+          brief_guidance: string | null
+          decline_reasons: Json
+          matter_config: Json | null
         }
         Insert: {
           created_at?: string
@@ -1119,15 +1129,25 @@ export type Database = {
           draft_config?: Json
           draft_docx_template_document?: Json | null
           id?: string
+          kind?: string
           name: string
+          outreach_template?: string | null
+          participant_roles?: Json
+          public_slug?: string | null
           published_at?: string | null
           published_config?: Json | null
           published_docx_template_document?: Json | null
+          qualification_slots?: Json
           source_template_id?: string | null
           status?: string
           template_scope: string
           tenant_id?: string | null
+          title_template?: string | null
           updated_at?: string
+          branding?: Json
+          brief_guidance?: string | null
+          decline_reasons?: Json
+          matter_config?: Json | null
         }
         Update: {
           created_at?: string
@@ -1135,15 +1155,25 @@ export type Database = {
           draft_config?: Json
           draft_docx_template_document?: Json | null
           id?: string
+          kind?: string
           name?: string
+          outreach_template?: string | null
+          participant_roles?: Json
+          public_slug?: string | null
           published_at?: string | null
           published_config?: Json | null
           published_docx_template_document?: Json | null
+          qualification_slots?: Json
           source_template_id?: string | null
           status?: string
           template_scope?: string
           tenant_id?: string | null
+          title_template?: string | null
           updated_at?: string
+          branding?: Json
+          brief_guidance?: string | null
+          decline_reasons?: Json
+          matter_config?: Json | null
         }
         Relationships: [
           {
@@ -1637,7 +1667,7 @@ export type Database = {
             foreignKeyName: "statements_lead_type_id_fkey"
             columns: ["lead_type_id"]
             isOneToOne: false
-            referencedRelation: "case_templates"
+            referencedRelation: "statement_config_templates"
             referencedColumns: ["id"]
           },
           {

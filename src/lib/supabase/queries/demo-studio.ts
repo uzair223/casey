@@ -193,7 +193,7 @@ export async function SERVERONLY_listDemoStudioStatements() {
   const { data, error } = await supabase
     .from("statements")
     .select(
-      "id, title, status, witness_name, witness_email, created_at, cases(title), tenants(name), magic_links(token, expires_at)",
+      "id, title, status, witness_name, witness_email, created_at, case_id, tenants(name), magic_links(token, expires_at)",
     )
     .in("status", ["demo", "demo_published"])
     .order("created_at", { ascending: false });
@@ -201,6 +201,13 @@ export async function SERVERONLY_listDemoStudioStatements() {
   if (error) {
     throw error;
   }
+
+  const caseIds = [...new Set((data ?? []).map((statement) => statement.case_id))];
+  const { data: caseRows, error: caseError } = caseIds.length
+    ? await supabase.from("cases").select("id, title").in("id", caseIds)
+    : { data: [], error: null };
+  if (caseError) throw caseError;
+  const caseTitles = new Map((caseRows ?? []).map((row) => [row.id, row.title]));
 
   return (data ?? []).map((statement) => ({
     id: statement.id,
@@ -210,7 +217,7 @@ export async function SERVERONLY_listDemoStudioStatements() {
     witness_email: statement.witness_email ?? "",
     created_at: statement.created_at,
     tenant_name: statement.tenants?.name ?? "",
-    case_title: statement.cases?.title ?? "",
+    case_title: caseTitles.get(statement.case_id) ?? "",
     intake_url: "",
     magic_link_token: statement.magic_links?.[0]?.token ?? "",
     magic_link_expires_at: statement.magic_links?.[0]?.expires_at ?? "",

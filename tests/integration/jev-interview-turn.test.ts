@@ -204,6 +204,63 @@ describe("Jev intake turn merge", () => {
     expect(merged.progress.phaseCompleteness.injuries).toBe(40);
   });
 
+  it("does not lower a phase percent once it has risen", () => {
+    const previous = defaultMeta(statementConfig);
+    previous.progress.currentPhase = "incidentFacts";
+    previous.progress.phaseCompleteness.incidentFacts = 67;
+
+    const merged = mergeIntakeTurnDecisions({
+      previousMetadata: previous,
+      statementConfig,
+      answers: answers({
+        phaseCompleteness: {
+          type: "score",
+          score: 1,
+          confidence: 0.9,
+        },
+      }),
+    });
+
+    expect(merged.progress.phaseCompleteness.incidentFacts).toBe(67);
+    expect(merged.progress.currentPhase).toBe("injuries");
+  });
+
+  it("moves to the next phase once the current phase is complete", () => {
+    const merged = mergeIntakeTurnDecisions({
+      previousMetadata: defaultMeta(statementConfig),
+      statementConfig,
+      answers: answers({
+        phaseCompleteness: {
+          type: "score",
+          score: 3,
+          confidence: 0.9,
+        },
+      }),
+    });
+
+    expect(merged.progress.phaseCompleteness.incidentFacts).toBe(100);
+    expect(merged.progress.currentPhase).toBe("injuries");
+  });
+
+  it("closes for review when the witness asks to stop, even if stop confidence is high", () => {
+    const merged = mergeIntakeTurnDecisions({
+      previousMetadata: defaultMeta(statementConfig),
+      statementConfig,
+      answers: answers({
+        turnKind: {
+          type: "choice",
+          choice: "close_request",
+          confidence: 0.93,
+        },
+        shouldStopNow: { type: "noul", noul: 0.96 },
+        readyToPrepare: { type: "noul", noul: 0.1 },
+      }),
+    });
+
+    expect(merged.deviation).toBeNull();
+    expect(merged.progress.readyToPrepare).toBe(true);
+  });
+
   it("overlays Jev progress and deviation onto LLM metadata", () => {
     const llm = defaultMeta(statementConfig);
     llm.progress.currentPhase = "injuries";

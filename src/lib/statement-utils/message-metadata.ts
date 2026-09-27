@@ -28,6 +28,7 @@ export const defaultMeta = (
 ): ResponseMetadata => {
   return {
     witnessDetails: null,
+    caseDetails: null,
     progress: defaultProgress(statementConfig),
     ignoredMissingDetails: null,
     evidence: { record: [], requestedEvidence: null },
@@ -35,11 +36,17 @@ export const defaultMeta = (
   };
 };
 
+function withCaseDetails(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  if ("caseDetails" in value) return value;
+  return { ...value, caseDetails: null };
+}
+
 export const getResponseMetadata = (
   value: unknown,
   config: StatementConfig,
 ): ResponseMetadata | null => {
-  const parsed = ResponseMetadataSchema(config).safeParse(value);
+  const parsed = ResponseMetadataSchema(config).safeParse(withCaseDetails(value));
   return parsed.success ? parsed.data : null;
 };
 
@@ -77,3 +84,32 @@ export const getLastProgress = (
     .map((message) => getMessageResponseMeta(message, config))
     .find((metadata) => metadata?.progress)?.progress ??
   defaultProgress(config);
+
+export function preservePhaseHighWater(
+  metadata: ResponseMetadata,
+  history: IntakeChatMessage[],
+  config: StatementConfig,
+): ResponseMetadata {
+  const next = structuredClone(metadata);
+  for (const message of history) {
+    if (message.role !== "assistant") continue;
+    const prior = getMessageResponseMeta(message, config);
+    if (!prior) continue;
+    for (const [phase, value] of Object.entries(prior.progress.phaseCompleteness)) {
+      if (!(phase in next.progress.phaseCompleteness) || typeof value !== "number") {
+        continue;
+      }
+      next.progress.phaseCompleteness[phase] = Math.max(
+        next.progress.phaseCompleteness[phase] ?? 0,
+        value,
+      );
+    }
+  }
+  const values = Object.values(next.progress.phaseCompleteness);
+  if (values.length > 0) {
+    next.progress.overallCompletion = Math.round(
+      values.reduce((sum, value) => sum + value, 0) / values.length,
+    );
+  }
+  return next;
+}

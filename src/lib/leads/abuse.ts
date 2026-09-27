@@ -12,11 +12,22 @@ export function clientIp(request: Request) {
   );
 }
 
+export function configuredTurnstileSiteKey() {
+  return process.env.TURNSTILE_SITE_KEY?.trim() || undefined;
+}
+
+function turnstileHostAllowed(hostname: string) {
+  const host = hostname.trim().toLowerCase().replace(/\.$/, "");
+  if (host === "localhost" || host === "127.0.0.1") {
+    return process.env.NODE_ENV !== "production";
+  }
+  return host === "caseyhq.co.uk" || host.endsWith(".caseyhq.co.uk");
+}
+
 export async function verifyTurnstile(token: string | null, ip: string) {
   const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
-  if (!secret) {
-    return process.env.NODE_ENV !== "production" && token === "dev-turnstile";
-  }
+  // Turnstile is not configured, so there is no check for the visitor to complete.
+  if (!secret) return true;
   if (!token) return false;
 
   const body = new URLSearchParams({ secret, response: token });
@@ -29,8 +40,15 @@ export async function verifyTurnstile(token: string | null, ip: string) {
     { method: "POST", body },
   );
   if (!response.ok) return false;
-  const payload = (await response.json()) as { success?: boolean };
-  return payload.success === true;
+  const payload = (await response.json()) as {
+    success?: boolean;
+    hostname?: string;
+  };
+  return (
+    payload.success === true &&
+    typeof payload.hostname === "string" &&
+    turnstileHostAllowed(payload.hostname)
+  );
 }
 
 export async function enforcePublicTurnBudget(params: {
@@ -50,12 +68,13 @@ export async function enforcePublicTurnBudget(params: {
 
 export async function enforcePublicIpLimit(
   request: Request,
-  scope: "public-qualify-session" | "public-qualify-message",
+  scope: "public-qualify-session" | "public-qualify-message" | "public-qualify-resume",
 ) {
+  const resume = scope === "public-qualify-resume";
   return enforcePersistentRateLimit({
     request,
     scope,
-    limit: scope === "public-qualify-session" ? 10 : 20,
-    windowSeconds: scope === "public-qualify-session" ? 3_600 : 60,
+    limit: scope === "public-qualify-session" ? 10 : resume ? 30 : 20,
+    windowSeconds: scope === "public-qualify-session" ? 3_600 : resume ? 600 : 60,
   });
 }

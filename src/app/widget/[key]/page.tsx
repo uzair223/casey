@@ -2,15 +2,20 @@ import { notFound } from "next/navigation";
 
 import { PublicLeadChat } from "@/components/leads/public-lead-chat";
 import { getChannelByKey } from "@/lib/leads/channels";
+import { configuredTurnstileSiteKey } from "@/lib/leads/abuse";
 import {
   DEFAULT_LEAD_BACKGROUND_COLOR,
   leadHexColor,
 } from "@/lib/leads/schema";
 
-type PageProps = { params: Promise<{ key: string }> };
+type PageProps = {
+  params: Promise<{ key: string }>;
+  searchParams: Promise<{ session?: string }>;
+};
 
-export default async function WidgetPage({ params }: PageProps) {
+export default async function WidgetPage({ params, searchParams }: PageProps) {
   const { key } = await params;
+  const { session } = await searchParams;
   const channel = await getChannelByKey(key);
   if (!channel) notFound();
 
@@ -26,7 +31,7 @@ export default async function WidgetPage({ params }: PageProps) {
 
   return (
     <main
-      className="min-h-screen p-2"
+      className="h-dvh"
       style={{
         backgroundColor: leadHexColor(
           channel.branding.backgroundColor,
@@ -40,7 +45,9 @@ export default async function WidgetPage({ params }: PageProps) {
         enquiryName={channel.leadTypeName}
         welcome={channel.welcome}
         branding={channel.branding}
-        turnstileSiteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+        turnstileSiteKey={configuredTurnstileSiteKey()}
+        resumeToken={session}
+        fill
       />
     </main>
   );

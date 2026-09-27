@@ -30,11 +30,16 @@ function StatementContent() {
     isDemo,
     isDemoTabsUnlocked,
     isReadyToPrepare,
+    data,
     statementSubmission,
     acknowledgePrivacyNotice,
     hasAcknowledgedPrivacyNotice,
   } = useWitnessStatement();
   const [consentChecked, setConsentChecked] = React.useState(false);
+  const awaitingFirm =
+    data?.statement.lead_stage === "new" ||
+    data?.statement.lead_stage === "declined";
+  const accountReady = isReadyToPrepare && !awaitingFirm;
 
   const responsiveTabLabel = (
     mobileLabel: string,
@@ -63,7 +68,7 @@ function StatementContent() {
     {
       id: "evidence" as IntakeTabs,
       label: responsiveTabLabel("Evidence", "Evidence"),
-      disabled: (isDemo && !isDemoTabsUnlocked) || !isReadyToPrepare,
+      disabled: (isDemo && !isDemoTabsUnlocked) || !accountReady,
       main: <SupportingDocumentsView />,
       scroll: true,
     },
@@ -72,7 +77,7 @@ function StatementContent() {
       label: statementSubmission.data
         ? responsiveTabLabel("Review", "Account sent")
         : responsiveTabLabel("Review", "Your account"),
-      disabled: (isDemo && !isDemoTabsUnlocked) || !isReadyToPrepare,
+      disabled: (isDemo && !isDemoTabsUnlocked) || !accountReady,
       main: <StatementView />,
       scroll: false,
     },
@@ -132,7 +137,7 @@ function StatementContent() {
         asChild
         value={tab}
         onValueChange={setTab as (value: string) => void}
-        defaultValue={isDemo ? "chat" : isReadyToPrepare ? "statement" : "chat"}
+        defaultValue={isDemo ? "chat" : accountReady ? "statement" : "chat"}
       >
         <ScrollAreaPrimitive.ScrollArea asChild>
           <Card className="flex min-h-0 flex-1 flex-col">
