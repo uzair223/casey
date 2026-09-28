@@ -207,8 +207,190 @@ export function openingQuestionForTemplate(config: StatementConfig): string {
   return questionForPhase(config.phases[0]);
 }
 
-export function continuationQuestionForTemplate(config: StatementConfig): string {
-  return questionForPhase(config.phases[1] ?? config.phases[0]);
+const SPECIFIC_CRITERION_QUESTIONS: Array<{
+  match: RegExp;
+  question: string;
+  answered?: RegExp;
+}> = [
+  {
+    match: /role and duties|^their job$|^role$/,
+    question: "What did that job involve?",
+    answered: /\b(courier|driver|nurse|carer|cleaner|operative|warehouse|manager|teacher|chef|builder|i (?:am|was) an?|my job|i work)\b/i,
+  },
+  {
+    match: /task at the time/,
+    question: "What were you doing at the moment it happened?",
+  },
+  {
+    match: /training or instructions/,
+    question: "What training or instructions had you been given for that work?",
+    answered: /\b(training|induction|instructed|shown how)\b/i,
+  },
+  {
+    match: /what the claimant was doing|what they were doing/,
+    question: "What were you doing in the moment before it happened?",
+  },
+  {
+    match: /how they were hurt|how the claimant was hurt|how the accident happened/,
+    question: "How were you hurt?",
+    answered: /\b(fractur|broke|broken|injur|sprain|cut|burn|bruise|pain|hurt|fell)\b/i,
+  },
+  {
+    match: /equipment or conditions/,
+    question: "What equipment or workplace conditions were involved?",
+  },
+  {
+    match: /point of impact/,
+    question: "Where did the other vehicle hit yours?",
+  },
+  {
+    match: /what the claimant saw|^what they saw$/,
+    question: "What did you see just before it happened?",
+  },
+  {
+    match: /what the claimant did/,
+    question: "What did you do as it happened?",
+  },
+  {
+    match: /journey and destination/,
+    question: "Where were you going?",
+    answered: /\b(going to|on my way|driving to|heading to)\b/i,
+  },
+  {
+    match: /who was in the vehicle/,
+    question: "Who else was in the vehicle?",
+    answered: /\b(alone|on my own|passenger|nobody else|no one else)\b/i,
+  },
+  {
+    match: /road and weather/,
+    question: "What were the road and the weather like?",
+  },
+  {
+    match: /who was told|^who they told$/,
+    question: "Who did you tell afterwards?",
+    answered: /\b(i told|told my|reported it|let my manager)\b/i,
+  },
+  {
+    match: /first aid or medical/,
+    question: "Did anyone give first aid, or have you seen a doctor?",
+  },
+  {
+    match: /recorded/,
+    question: "Was it written down at work?",
+  },
+  {
+    match: /^injuries noticed$|^injuries$/,
+    question: "What injuries did you notice?",
+    answered: /\b(fractur|broke|broken|injur|sprain|cut|burn|bruise)\b/i,
+  },
+  {
+    match: /^treatment received$|^treatment$/,
+    question: "What treatment have you had?",
+    answered: /\b(hospital|doctor|a&e|gp|physio|x-ray|surgery|treatment)\b/i,
+  },
+  {
+    match: /treatment is ongoing/,
+    question: "Is that treatment still going on?",
+  },
+  {
+    match: /time off work/,
+    question: "Have you been back to work since?",
+    answered: /\b(time off|off work|signed off|not been back)\b/i,
+  },
+  {
+    match: /reason for being there|^why they were there$/,
+    question: "Why were you there?",
+  },
+  {
+    match: /what the hazard was/,
+    question: "What was it that caused you to be hurt?",
+  },
+  {
+    match: /warning was visible|warning the witness saw/,
+    question: "Was there a warning you could see?",
+  },
+  {
+    match: /what the claimant was looking at/,
+    question: "What were you looking at when it happened?",
+  },
+  {
+    match: /^symptoms$/,
+    question: "What symptoms did you have?",
+  },
+  {
+    match: /why they attended/,
+    question: "Why did you go in for treatment?",
+  },
+  {
+    match: /who saw them/,
+    question: "Who saw you?",
+  },
+  {
+    match: /what was done/,
+    question: "What did they actually do?",
+  },
+  {
+    match: /advice or warnings/,
+    question: "What were you told about the risks?",
+  },
+  {
+    match: /offered a choice/,
+    question: "Were you offered a choice?",
+  },
+  {
+    match: /who lives there/,
+    question: "Who lives there with you?",
+  },
+  {
+    match: /kind of home/,
+    question: "What kind of home is it?",
+  },
+  {
+    match: /what is wrong/,
+    question: "What is wrong with the home?",
+    answered: /\b(damp|mould|mold|leak|ceiling|heating|boiler|window|roof)\b/i,
+  },
+  {
+    match: /how long it has been wrong|how long they have seen it/,
+    question: "How long has it been like that?",
+  },
+];
+
+function questionForCriterion(criterion: string) {
+  const text = criterion.trim().replace(/[?.]$/, "").toLowerCase();
+  const known = SPECIFIC_CRITERION_QUESTIONS.find((item) => item.match.test(text));
+  if (known) return known.question;
+  if (/^(what|who|where|when|how|did|was|were|is|are)\b/i.test(text)) {
+    return `${text}?`;
+  }
+  if (/^whether\b/i.test(text)) {
+    const rest = text.replace(/^whether\s+/i, "");
+    return `${rest.charAt(0).toUpperCase()}${rest.slice(1)}?`;
+  }
+  const lower = text.charAt(0).toLowerCase() + text.slice(1);
+  return `What was ${lower}?`;
+}
+
+function criterionAlreadyAnswered(criterion: string, priorAccount: string) {
+  const text = criterion.trim().replace(/[?.]$/, "").toLowerCase();
+  const known = SPECIFIC_CRITERION_QUESTIONS.find((item) => item.match.test(text));
+  return Boolean(known?.answered && known.answered.test(priorAccount));
+}
+
+export function continuationQuestionForTemplate(
+  config: StatementConfig,
+  priorAccount = "",
+): string {
+  const account = priorAccount.trim();
+  for (const phase of config.phases) {
+    for (const criterion of phase.completionCriteria ?? []) {
+      const text = criterion.trim();
+      if (!text) continue;
+      if (account && criterionAlreadyAnswered(text, account)) continue;
+      return questionForCriterion(text);
+    }
+  }
+  return "What were you doing in the moment before it happened?";
 }
 
 function questionForPhase(phase: StatementConfig["phases"][number] | undefined) {

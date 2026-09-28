@@ -610,6 +610,7 @@ export async function confirmQualificationCode(params: {
   const continuation = await continuationAfterEnquiry(
     supabase,
     promoted.statementId,
+    asMessages(session.messages),
   );
   const transcript = asMessages(session.messages);
   if (!promoted.duplicate) {
@@ -674,17 +675,30 @@ function redactEnquiryContact(text: string) {
     .trim();
 }
 
+function priorAccountText(messages: SessionMessage[]) {
+  return messages
+    .filter((message) => message.role === "user")
+    .map((message) => message.content.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
 async function continuationAfterEnquiry(
   supabase: ReturnType<typeof getServiceClient>,
   statementId: string,
+  messages: SessionMessage[],
 ) {
+  const priorAccount = priorAccountText(messages);
   const { data: statement } = await supabase
     .from("statements")
     .select("config_snapshot_id")
     .eq("id", statementId)
     .maybeSingle();
   if (!statement?.config_snapshot_id) {
-    return "Thanks. I'll carry on from what you've told me. Could you tell me a bit more about what happened?";
+    return continuationQuestionForTemplate(
+      { phases: [] } as StatementConfig,
+      priorAccount,
+    );
   }
   const { data: snapshot } = await supabase
     .from("statement_config_snapshots")
@@ -692,11 +706,18 @@ async function continuationAfterEnquiry(
     .eq("id", statement.config_snapshot_id)
     .maybeSingle();
   const config = snapshot?.config_json;
-  const question =
-    config && typeof config === "object" && !Array.isArray(config) && "phases" in config
-      ? continuationQuestionForTemplate(config as StatementConfig)
-      : "Could you tell me a bit more about what happened?";
-  return `Thanks. I'll carry on from what you've told me. ${question}`;
+  if (
+    config &&
+    typeof config === "object" &&
+    !Array.isArray(config) &&
+    "phases" in config
+  ) {
+    return continuationQuestionForTemplate(config as StatementConfig, priorAccount);
+  }
+  return continuationQuestionForTemplate(
+    { phases: [] } as StatementConfig,
+    priorAccount,
+  );
 }
 
 export async function storeFallbackEnquiry(params: {

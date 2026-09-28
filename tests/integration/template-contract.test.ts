@@ -7,6 +7,7 @@ import {
 import {
   buildFormalizeContract,
   buildInterviewContract,
+  continuationQuestionForTemplate,
   DEFAULT_MODEL_IDENTITY,
   formatStatementExpectations,
 } from "@/lib/llm/template-contract";
@@ -175,5 +176,19 @@ describe("template contract", () => {
         );
       }
     }
+  });
+
+  it("continues with the next specific gap, not the phase title", () => {
+    const worker = SEEDED_CASE_TEMPLATES.find(
+      (template) => template.name === "Employer Liability",
+    )?.statements.find((link) => link.isDefault)?.template.config;
+    expect(worker).toBeTruthy();
+    const prior =
+      "I was involved in an incident at work where some parcels fell on my foot resulting in fractures and time off\nEvri Courier\nYes it was at the Blackburn Depot";
+
+    const question = continuationQuestionForTemplate(worker!, prior);
+
+    expect(question).toBe("What were you doing at the moment it happened?");
+    expect(question.toLowerCase()).not.toContain("about the accident");
   });
 });
