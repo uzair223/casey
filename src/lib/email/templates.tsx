@@ -91,12 +91,17 @@ export const buildStatementLinkEmailTemplate = (
 ): EmailTemplateContent => {
   const witnessName = payload.witnessName?.trim() || "there";
   const isBackToReview = payload.reason === "back_to_review";
+  const isWhenReady = payload.reason === "when_ready";
   const subject = isBackToReview
     ? `${payload.caseTitle}: Your account is back in review`
-    : `${payload.caseTitle}: Continue your account`;
+    : isWhenReady
+      ? `${payload.caseTitle}: Your account link`
+      : `${payload.caseTitle}: Continue your account`;
   const intro = isBackToReview
     ? `${payload.tenantName} has moved your account for ${payload.caseTitle} back into review.`
-    : `${payload.tenantName} is asking for your account of ${payload.caseTitle}.`;
+    : isWhenReady
+      ? `Thank you for contacting ${payload.tenantName}. Your link is ready whenever you want to give your full account of ${payload.caseTitle}.`
+      : `${payload.tenantName} is asking for your account of ${payload.caseTitle}.`;
   const message = payload.firmMessage?.trim();
   const text = `Hello ${witnessName},\n\n${intro}${
     message ? `\n\nMessage from ${payload.tenantName}:\n${message}` : ""
@@ -110,16 +115,28 @@ export const buildStatementLinkEmailTemplate = (
         heading={
           isBackToReview
             ? "Account back in review"
-            : "Your account"
+            : isWhenReady
+              ? "Your account link"
+              : "Your account"
         }
       >
         <p style={paragraphStyle}>Hello {witnessName},</p>
         <p style={paragraphStyle}>
-          <strong>{payload.tenantName}</strong>{" "}
-          {isBackToReview
-            ? "has moved your account back into review for"
-            : "is asking for your account of"}{" "}
-          <strong>{payload.caseTitle}</strong>.
+          {isWhenReady ? (
+            <>
+              Thank you for contacting <strong>{payload.tenantName}</strong>.
+              Your link is ready whenever you want to give your full account of{" "}
+              <strong>{payload.caseTitle}</strong>.
+            </>
+          ) : (
+            <>
+              <strong>{payload.tenantName}</strong>{" "}
+              {isBackToReview
+                ? "has moved your account back into review for"
+                : "is asking for your account of"}{" "}
+              <strong>{payload.caseTitle}</strong>.
+            </>
+          )}
         </p>
         {message ? (
           <>

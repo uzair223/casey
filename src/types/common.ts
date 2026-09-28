@@ -146,6 +146,7 @@ export type PublishedStatementConfigTemplate = Pick<
 
 export type StatementStatus =
   | "draft"
+  | "waiting_for_response"
   | "in_progress"
   | "submitted"
   | "finalized"

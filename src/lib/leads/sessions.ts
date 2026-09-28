@@ -20,8 +20,7 @@ import {
   rememberDeclinedLeadType,
   withRedirectOffer,
 } from "@/lib/llm/jev/enquiry-turn";
-import { continuationQuestionForTemplate } from "@/lib/llm/template-contract";
-import type { StatementConfig } from "@/types";
+import { env } from "@/lib/env";
 import { listPublishedLeadChannels } from "./channels";
 import { enquiryContact, settleEnquiryTurn } from "./enquiry";
 import { generateEnquiryTurn } from "./enquiry-model";
@@ -91,7 +90,6 @@ type PublicEnquirySession =
       publicKey: string;
       leadTypeName: string;
       messages: SessionMessage[];
-      intakeToken?: string | null;
     };
 
 export async function loadPublicEnquirySession(token: string): Promise<PublicEnquirySession> {
@@ -112,25 +110,12 @@ export async function loadPublicEnquirySession(token: string): Promise<PublicEnq
   if (!leadType?.name || !channel?.public_key) {
     return { error: "This chat is unavailable.", status: 404 as const };
   }
-  let intakeToken: string | null = null;
-  if (session.status === "promoted" && session.promoted_statement_id) {
-    const supabase = getServiceClient("lead-session-intake-token");
-    const { data: link } = await supabase
-      .from("magic_links")
-      .select("token")
-      .eq("statement_id", session.promoted_statement_id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    intakeToken = link?.token ?? null;
-  }
   return {
     token: session.token,
     status: session.status,
     publicKey: channel.public_key,
     leadTypeName: leadType.name,
     messages: asMessages(session.messages),
-    intakeToken,
   };
 }
 
@@ -607,111 +592,131 @@ export async function confirmQualificationCode(params: {
   });
 
   const supabase = getServiceClient("lead-session-promote");
-  const continuation = await continuationAfterEnquiry(
-    supabase,
-    promoted.statementId,
-    asMessages(session.messages),
-  );
   const transcript = asMessages(session.messages);
-  if (!promoted.duplicate) {
-    for (const message of transcript) {
-      const content = redactEnquiryContact(message.content);
-      if (!content) continue;
-      const { error: messageError } = await supabase
-        .from("conversation_messages")
-        .insert({
-          statement_id: promoted.statementId,
-          role: message.role,
-          content,
-        });
-      if (messageError) throw messageError;
-    }
-    const { error: continuationError } = await supabase
-      .from("conversation_messages")
-      .insert({
-        statement_id: promoted.statementId,
-        role: "assistant",
-        content: continuation,
-      });
-    if (continuationError) throw continuationError;
-  }
-
-  const { data: link, error: linkError } = await supabase
-    .from("magic_links")
-    .select("token")
-    .eq("statement_id", promoted.statementId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (linkError) throw linkError;
+  const reply = await deliverIntakeLink(supabase, {
+    statementId: promoted.statementId,
+    tenantName: tenant.name,
+  });
 
   const { error } = await supabase
     .from("lead_sessions")
     .update({
       status: "promoted",
       promoted_statement_id: promoted.statementId,
-      messages: [
-        ...transcript,
-        { role: "assistant", content: continuation },
-      ],
+      messages: [...transcript, { role: "assistant", content: reply }],
     })
     .eq("id", session.id);
   if (error) throw error;
 
   return {
-    reply: continuation,
+    reply,
     promoted: true,
     duplicate: promoted.duplicate,
     statementId: promoted.statementId,
-    intakeToken: link?.token ?? null,
   };
 }
 
-function redactEnquiryContact(text: string) {
-  return text
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "")
-    .replace(/(?:\+?\d[\d\s()-]{7,}\d)/g, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+const INTAKE_LINK_EMAIL_REPLY =
+  "Thanks. I've emailed you a link to give your full account when you're ready. You can close this chat.";
+const INTAKE_LINK_SMS_REPLY =
+  "Thanks. I've texted you a link to give your full account when you're ready. You can close this chat.";
+const INTAKE_LINK_FAILED_REPLY =
+  "Your enquiry is with the firm, but the link to your full account could not be sent. Ask them to resend it.";
+
+async function deliverIntakeLink(
+  supabase: ReturnType<typeof getServiceClient>,
+  params: { statementId: string; tenantName: string },
+) {
+  const { data: statement, error } = await supabase
+    .from("statements")
+    .select(
+      "id, tenant_id, status, title, witness_name, contact_email, contact_phone",
+    )
+    .eq("id", params.statementId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!statement) return INTAKE_LINK_FAILED_REPLY;
+
+  const token = await currentIntakeToken(supabase, statement.id, statement.tenant_id);
+  if (!token) return INTAKE_LINK_FAILED_REPLY;
+
+  const statementUrl = `${env.NEXT_PUBLIC_BASE_URL}/intake/${token}`;
+  const firmMessage =
+    "You can give your full account on this link whenever you are ready. You do not have to finish it now.";
+  try {
+    if (statement.contact_email) {
+      await sendStatementLinkEmail({
+        to: statement.contact_email,
+        tenantName: params.tenantName,
+        witnessName: statement.witness_name,
+        caseTitle: statement.title || "Your account",
+        statementUrl,
+        firmMessage,
+        reason: "when_ready",
+      });
+      await markWaitingForResponse(supabase, statement.id, statement.status);
+      return INTAKE_LINK_EMAIL_REPLY;
+    }
+
+    if (statement.contact_phone && smsConfigured()) {
+      const sms = await sendSms(
+        statement.contact_phone,
+        `${params.tenantName}: your full account is ready when you are. ${statementUrl}`,
+      );
+      if (sms.sent) {
+        await markWaitingForResponse(supabase, statement.id, statement.status);
+        return INTAKE_LINK_SMS_REPLY;
+      }
+    }
+  } catch {
+    return INTAKE_LINK_FAILED_REPLY;
+  }
+
+  return INTAKE_LINK_FAILED_REPLY;
 }
 
-function priorAccountText(messages: SessionMessage[]) {
-  return messages
-    .filter((message) => message.role === "user")
-    .map((message) => message.content.trim())
-    .filter(Boolean)
-    .join("\n");
-}
-
-async function continuationAfterEnquiry(
+async function currentIntakeToken(
   supabase: ReturnType<typeof getServiceClient>,
   statementId: string,
-  messages: SessionMessage[],
+  tenantId: string,
 ) {
-  const priorAccount = priorAccountText(messages);
-  const { data: statement } = await supabase
+  const { data: link, error } = await supabase
+    .from("magic_links")
+    .select("token, expires_at")
+    .eq("statement_id", statementId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (link?.token && new Date(link.expires_at).getTime() > Date.now()) {
+    return link.token;
+  }
+
+  const token = generateSecureToken();
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 30);
+  const { error: insertError } = await supabase.from("magic_links").insert({
+    token,
+    statement_id: statementId,
+    tenant_id: tenantId,
+    expires_at: expiresAt.toISOString(),
+  });
+  if (insertError) throw insertError;
+  return token;
+}
+
+async function markWaitingForResponse(
+  supabase: ReturnType<typeof getServiceClient>,
+  statementId: string,
+  status: string,
+) {
+  if (status !== "draft") return;
+  const { error } = await supabase
     .from("statements")
-    .select("config_snapshot_id")
+    .update({ status: "waiting_for_response" })
     .eq("id", statementId)
-    .maybeSingle();
-  if (!statement?.config_snapshot_id) {
-    return continuationQuestionForTemplate({ phases: [] }, priorAccount);
-  }
-  const { data: snapshot } = await supabase
-    .from("statement_config_snapshots")
-    .select("config_json")
-    .eq("id", statement.config_snapshot_id)
-    .maybeSingle();
-  const config = snapshot?.config_json;
-  if (
-    config &&
-    typeof config === "object" &&
-    !Array.isArray(config) &&
-    "phases" in config
-  ) {
-    return continuationQuestionForTemplate(config as StatementConfig, priorAccount);
-  }
-  return continuationQuestionForTemplate({ phases: [] }, priorAccount);
+    .eq("status", "draft");
+  if (error) throw error;
 }
 
 export async function storeFallbackEnquiry(params: {

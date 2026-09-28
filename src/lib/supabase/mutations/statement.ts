@@ -472,6 +472,7 @@ export const SERVERONLY_updateStatementStatus = async (
   statementId: string,
   status:
     | "draft"
+    | "waiting_for_response"
     | "in_progress"
     | "submitted"
     | "finalized"

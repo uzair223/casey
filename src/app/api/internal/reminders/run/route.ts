@@ -21,6 +21,7 @@ type StatementRow = {
   id: string;
   status:
     | "draft"
+    | "waiting_for_response"
     | "in_progress"
     | "submitted"
     | "locked"

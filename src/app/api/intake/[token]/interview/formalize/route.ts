@@ -151,6 +151,16 @@ export async function POST(request: Request, { params }: RouteContext) {
       return accessError;
     }
 
+    if (
+      statement.lead_stage === "new" ||
+      statement.lead_stage === "declined"
+    ) {
+      return NextResponse.json(
+        { error: "The firm has not accepted this account yet." },
+        { status: 409 },
+      );
+    }
+
     if (isFormalizeBlocked(statement.status)) {
       await logServerEvent("warn", "api.intake.formalize.precondition_failed", {
         requestId,

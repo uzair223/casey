@@ -41,7 +41,9 @@ function isAnalysisStale(
     ]),
   );
   const statementsWithPotentialContent = statements.filter(
-    (statement) => statement.status !== "draft",
+    (statement) =>
+      statement.status !== "draft" &&
+      statement.status !== "waiting_for_response",
   );
 
   if (analysedVersions.size !== statementsWithPotentialContent.length) {

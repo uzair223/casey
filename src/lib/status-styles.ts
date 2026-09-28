@@ -8,6 +8,7 @@ type VariantRecord<T extends string | number | symbol> = Record<
 
 export const statementStatusVariant: VariantRecord<StatementStatus> = {
   draft: "secondary",
+  waiting_for_response: "warning",
   in_progress: "default",
   submitted: "accent",
   finalized: "warning",
@@ -19,6 +20,7 @@ export const statementStatusVariant: VariantRecord<StatementStatus> = {
 
 export const statementStatusLabel: Record<StatementStatus, string> = {
   draft: "Draft",
+  waiting_for_response: "Waiting for response",
   in_progress: "Collecting",
   submitted: "Review",
   finalized: "Final Review",
@@ -50,7 +52,9 @@ const SUBMITTED_ACCOUNT_STATUSES = new Set<StatementStatus>([
 ]);
 
 export function intakeHasStarted(status: string | null | undefined) {
-  return Boolean(status) && status !== "draft";
+  return (
+    Boolean(status) && status !== "draft" && status !== "waiting_for_response"
+  );
 }
 
 export function showIntakeWorkspace(

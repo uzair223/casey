@@ -2,10 +2,7 @@ import { NextResponse } from "next/server";
 
 import { badRequest, ok, requireTenantManager, serverError } from "@/lib/api-utils";
 import { reserveAcceptedLeadSlot } from "@/lib/billing/open-case";
-import { env } from "@/lib/env";
-import { sendStatementLinkEmail } from "@/lib/email";
 import { getServiceClient } from "@/lib/supabase/server";
-import { generateSecureToken } from "@/lib/security";
 import { GENERIC_DECLINE_REASONS, parseLeadTypeConfig } from "@/lib/leads/schema";
 import {
   freezeStatementConfig,
@@ -83,17 +80,6 @@ export async function POST(request: Request, { params }: RouteContext) {
     }
 
     try {
-      const token = generateSecureToken();
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
-      const { error: linkError } = await supabase.from("magic_links").insert({
-        token,
-        statement_id: lead.id,
-        tenant_id: auth.tenantId,
-        expires_at: expiresAt.toISOString(),
-      });
-      if (linkError) throw linkError;
-
       const { data: caseRow, error: caseError } = await supabase
         .from("cases")
         .select("title")
@@ -171,33 +157,7 @@ export async function POST(request: Request, { params }: RouteContext) {
         });
       }
 
-      const email = lead.contact_email || lead.witness_email;
-      let delivered = false;
-      if (email && email !== "pending") {
-        const { data: tenant } = await supabase
-          .from("tenants")
-          .select("name")
-          .eq("id", auth.tenantId)
-          .maybeSingle();
-        try {
-          await sendStatementLinkEmail({
-            to: email,
-            tenantName: tenant?.name ?? "Casey",
-            witnessName: lead.witness_name,
-            caseTitle: lead.title,
-            statementUrl: `${env.NEXT_PUBLIC_BASE_URL}/intake/${token}`,
-            firmMessage: readyToReview
-              ? "The firm has accepted your account. You can review it on this link."
-              : "The firm has accepted your account. Continue in the same chat when you are ready.",
-            reason: "initial_intake",
-          });
-          delivered = true;
-        } catch (emailError) {
-          console.error("Accepted-lead continuation email failed", emailError);
-        }
-      }
-
-      return ok({ id: lead.id, lead_stage: "intake", delivered });
+      return ok({ id: lead.id, lead_stage: "intake", delivered: false });
     } catch (acceptError) {
       if (reserved.consumedCredits != null) {
         await supabase

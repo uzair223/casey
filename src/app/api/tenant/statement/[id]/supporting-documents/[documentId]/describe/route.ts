@@ -5,6 +5,7 @@ import { requireTenantUser } from "@/lib/api-utils/auth";
 import { handleApiError } from "@/lib/api-utils";
 import { generateStatementDocumentDescriptor } from "@/lib/ai-workers/document-descriptors";
 import { getStatementSupportingDocumentsWithClient } from "@/lib/supabase/queries";
+import { getServiceClient } from "@/lib/supabase/server";
 
 export async function POST(
   request: Request,
@@ -20,6 +21,24 @@ export async function POST(
       tenantId: auth.tenantId,
     });
     if (denied) return denied;
+
+    const service = getServiceClient("tenant-document-describe");
+    const { data: statement, error: statementError } = await service
+      .from("statements")
+      .select("lead_stage")
+      .eq("id", statementId)
+      .eq("tenant_id", auth.tenantId)
+      .maybeSingle();
+    if (statementError) throw statementError;
+    if (
+      statement?.lead_stage === "new" ||
+      statement?.lead_stage === "declined"
+    ) {
+      return NextResponse.json(
+        { error: "The firm has not accepted this account yet." },
+        { status: 409 },
+      );
+    }
 
     const documents = await getStatementSupportingDocumentsWithClient(
       auth.supabase,

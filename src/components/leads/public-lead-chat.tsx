@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { CHAT_METADATA_MARKER } from "@/lib/statement-utils";
-
 import {
   ChatAreaContent,
   ChatAreaFooter,
@@ -40,7 +38,6 @@ type ResumedEnquiry = {
   publicKey?: string;
   leadTypeName?: string;
   messages?: ChatAreaMessage[];
-  intakeToken?: string | null;
   error?: string;
 };
 
@@ -208,7 +205,6 @@ export function PublicLeadChat({
     { role: "assistant", content: welcome },
   ]);
   const [token, setToken] = useState<string | null>(null);
-  const [intakeToken, setIntakeToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [restoring, setRestoring] = useState(true);
   const [awaitingCode, setAwaitingCode] = useState(false);
@@ -265,12 +261,6 @@ export function PublicLeadChat({
       if (restored.leadTypeName) setEnquiryLabel(restored.leadTypeName);
       if (restored.messages?.length) setMessages(restored.messages);
       if (restored.status === "verify") setAwaitingCode(true);
-      if (restored.status === "promoted" && restored.intakeToken) {
-        setIntakeToken(restored.intakeToken);
-        setAwaitingCode(false);
-        rememberToken(restored.token);
-        return;
-      }
       if (restored.status === "promoted" || restored.status === "closed") {
         setDone(true);
         forgetToken();
@@ -419,10 +409,6 @@ export function PublicLeadChat({
     setBusy(true);
     setMessages((current) => [...current, { role: "user", content: message }]);
     try {
-      if (intakeToken) {
-        await sendAccountTurn(message, files);
-        return;
-      }
       const sessionToken = await ensureSession();
       const response = await fetch(
         `/api/public/qualify/session/${sessionToken}/message`,
@@ -437,7 +423,6 @@ export function PublicLeadChat({
         error?: string;
         fallback?: boolean;
         promoted?: boolean;
-        intakeToken?: string | null;
         discarded?: boolean;
         leadTypeName?: string;
         status?: string;
@@ -450,11 +435,9 @@ export function PublicLeadChat({
       } else if (payload.fallback) {
         setFallback(true);
       }
-      if (payload.promoted && payload.intakeToken) {
-        setIntakeToken(payload.intakeToken);
-        setAwaitingCode(false);
-      } else if (payload.promoted) {
+      if (payload.promoted) {
         setDone(true);
+        setAwaitingCode(false);
         forgetToken();
       }
       if (payload.status === "verify" || payload.needsVerification) {
@@ -482,62 +465,6 @@ export function PublicLeadChat({
     } finally {
       setBusy(false);
     }
-  }
-
-  async function sendAccountTurn(message: string, files?: File[]) {
-    if (!intakeToken) return;
-    const history = messages.filter((item) => item.content !== welcome);
-    const body = files?.length
-      ? (() => {
-          const form = new FormData();
-          form.append("conversationHistory", JSON.stringify(history));
-          form.append("userMessage", message);
-          files.forEach((file, index) => form.append(`file_${index}`, file));
-          return form;
-        })()
-      : JSON.stringify({
-          conversationHistory: history,
-          userMessage: message,
-        });
-    const response = await fetch(`/api/intake/${intakeToken}/interview/chat`, {
-      method: "POST",
-      body,
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      let message = text || "Something went wrong.";
-      try {
-        const payload = JSON.parse(text) as { error?: unknown } | string;
-        if (typeof payload === "string" && payload.trim()) {
-          message = payload;
-        } else if (
-          payload &&
-          typeof payload === "object" &&
-          typeof payload.error === "string" &&
-          payload.error.trim()
-        ) {
-          message = payload.error;
-        }
-      } catch {
-        // The response was not JSON, so the raw text is the message.
-      }
-      throw new Error(message);
-    }
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("No response body");
-    const decoder = new TextDecoder();
-    let raw = "";
-    while (true) {
-      const step = await reader.read();
-      if (step.value) raw += decoder.decode(step.value, { stream: !step.done });
-      if (step.done) break;
-    }
-    const marker = raw.indexOf(CHAT_METADATA_MARKER);
-    const reply = (marker >= 0 ? raw.slice(0, marker) : raw).trim();
-    setMessages((current) => [
-      ...current,
-      { role: "assistant", content: reply || "Something went wrong." },
-    ]);
   }
 
   async function sendFallback() {
@@ -690,7 +617,7 @@ export function PublicLeadChat({
           <ChatAreaFooter
             onSend={(text, files) => sendMessage(text, files)}
             disabled={busy || done || restoring || mustConfirmHuman}
-            allowAttachments={Boolean(intakeToken)}
+            allowAttachments={false}
             placeholder={
               done
                 ? "Conversation ended"
