@@ -378,7 +378,7 @@ function criterionAlreadyAnswered(criterion: string, priorAccount: string) {
 }
 
 export function continuationQuestionForTemplate(
-  config: StatementConfig,
+  config: Pick<StatementConfig, "phases">,
   priorAccount = "",
 ): string {
   const account = priorAccount.trim();

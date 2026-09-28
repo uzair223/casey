@@ -695,10 +695,7 @@ async function continuationAfterEnquiry(
     .eq("id", statementId)
     .maybeSingle();
   if (!statement?.config_snapshot_id) {
-    return continuationQuestionForTemplate(
-      { phases: [] } as StatementConfig,
-      priorAccount,
-    );
+    return continuationQuestionForTemplate({ phases: [] }, priorAccount);
   }
   const { data: snapshot } = await supabase
     .from("statement_config_snapshots")
@@ -714,10 +711,7 @@ async function continuationAfterEnquiry(
   ) {
     return continuationQuestionForTemplate(config as StatementConfig, priorAccount);
   }
-  return continuationQuestionForTemplate(
-    { phases: [] } as StatementConfig,
-    priorAccount,
-  );
+  return continuationQuestionForTemplate({ phases: [] }, priorAccount);
 }
 
 export async function storeFallbackEnquiry(params: {
