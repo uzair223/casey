@@ -31,11 +31,9 @@ export async function countAcceptedLeads(
   acceptedFrom?: string,
 ) {
   let query = supabase
-    .from("statements")
+    .from("accepted_lead_charges")
     .select("id", { count: "exact", head: true })
-    .eq("tenant_id", tenantId)
-    .eq("participant_kind", "primary")
-    .not("accepted_at", "is", null);
+    .eq("tenant_id", tenantId);
   if (acceptedFrom) {
     query = query.gte("accepted_at", acceptedFrom);
   }

@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      accepted_lead_charges: {
+        Row: {
+          accepted_at: string
+          created_at: string
+          id: string
+          statement_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          accepted_at: string
+          created_at?: string
+          id?: string
+          statement_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          accepted_at?: string
+          created_at?: string
+          id?: string
+          statement_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accepted_lead_charges_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accepted_lead_charges_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      },
       account_deletion_requests: {
         Row: {
           created_at: string
