@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { badRequest, ok, requireTenantManager, serverError } from "@/lib/api-utils";
 import { reserveAcceptedLeadSlot } from "@/lib/billing/open-case";
 import { getServiceClient } from "@/lib/supabase/server";
+import { leadListTitle, leadTypeFromTitle } from "@/lib/leads/privacy";
 import { GENERIC_DECLINE_REASONS, parseLeadTypeConfig } from "@/lib/leads/schema";
 import {
   freezeStatementConfig,
@@ -88,12 +89,10 @@ export async function POST(request: Request, { params }: RouteContext) {
       if (caseError) throw caseError;
       const currentTitle = caseRow?.title?.trim() || "Enquiry";
       const person = lead.witness_name?.trim() ?? "";
-      const revealedTitle =
-        person &&
-        person !== "pending" &&
-        !currentTitle.toLowerCase().includes(person.toLowerCase())
-          ? `${person} — ${currentTitle}`
-          : currentTitle;
+      const revealedTitle = leadListTitle(
+        person,
+        leadTypeFromTitle(currentTitle, person),
+      );
 
       const { error: updateError } = await supabase
         .from("statements")

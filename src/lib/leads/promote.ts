@@ -9,6 +9,7 @@ import {
   type EnquiryMessage,
 } from "./case-facts";
 import { isDisposableEmail, reservedValue, type SlotAnswers } from "./qualify";
+import { leadListTitle } from "./privacy";
 import {
   primaryRole,
   type LeadTypeConfig,
@@ -147,7 +148,7 @@ export async function promoteQualifiedLead(params: {
   const opened = await openTenantCase(
     params.tenantId,
     {
-      title: params.leadTypeName.trim() || "Enquiry",
+      title: leadListTitle(contact.name, params.leadTypeName),
       case_template_id: params.leadTypeId,
       case_metadata: metadata,
       status: "draft",

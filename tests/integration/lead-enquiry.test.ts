@@ -8,7 +8,6 @@ import {
 import {
   redactCaseForFirm,
   REDACTED_CONTACT,
-  REDACTED_LEAD_NAME,
 } from "@/lib/leads/privacy";
 import type { QualificationSlot } from "@/lib/leads/schema";
 import type { CaseStatementJoin } from "@/types";
@@ -161,10 +160,10 @@ function lead(stage: string): CaseStatementJoin {
 }
 
 describe("lead contact redaction", () => {
-  it("hides name and email until the lead is accepted", () => {
+  it("shows the first name with the lead type and hides email until accepted", () => {
     const hidden = redactCaseForFirm(lead("new"));
-    expect(hidden.title).toBe("Accident at work");
-    expect(hidden.statements[0]?.witness_name).toBe(REDACTED_LEAD_NAME);
+    expect(hidden.title).toBe("Uzair - Accident at work");
+    expect(hidden.statements[0]?.witness_name).toBe("Uzair");
     expect(hidden.statements[0]?.witness_email).toBe(REDACTED_CONTACT);
     expect(hidden.statements[0]?.contact_email).toBeNull();
     expect(hidden.statements[0]?.contact_phone).toBeNull();
@@ -178,9 +177,15 @@ describe("lead contact redaction", () => {
     expect(hidden.statements[0]?.witness_email).toBe(REDACTED_CONTACT);
   });
 
+  it("uses only the first name when the lead has a full name", () => {
+    const named = lead("new");
+    named.statements[0] = { ...named.statements[0], witness_name: "Uzair Patel" };
+    expect(redactCaseForFirm(named).title).toBe("Uzair - Accident at work");
+  });
+
   it("shows contact after the lead is accepted", () => {
     const shown = redactCaseForFirm(lead("intake"));
-    expect(shown.title).toBe("Uzair — Accident at work");
+    expect(shown.title).toBe("Uzair - Accident at work");
     expect(shown.statements[0]?.witness_name).toBe("Uzair");
     expect(shown.statements[0]?.witness_email).toBe("uzair@example.com");
   });

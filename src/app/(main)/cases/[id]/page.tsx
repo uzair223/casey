@@ -260,7 +260,7 @@ export default function CaseDetailPage() {
               <div className="grid gap-3 grid-cols-2 lg:grid-cols-3">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    {contactHidden ? "Enquiry" : "Lead name"}
+                    Lead
                   </p>
                   <p className="text-sm">{data.title || "-"}</p>
                 </div>

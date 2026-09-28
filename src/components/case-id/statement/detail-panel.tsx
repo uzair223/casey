@@ -849,9 +849,19 @@ export function StatementDetailPanel({
                     />
 
                     {hideContact ? (
-                      <p className="text-sm text-muted-foreground md:col-span-2">
-                        Name and email stay hidden until this lead is accepted.
-                      </p>
+                      <>
+                        <div className="md:col-span-2">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            Name
+                          </p>
+                          <p className="text-sm">
+                            {data.statement.witness_name || "—"}
+                          </p>
+                        </div>
+                        <p className="text-sm text-muted-foreground md:col-span-2">
+                          Email and phone stay hidden until this lead is accepted.
+                        </p>
+                      </>
                     ) : (
                       <>
                     <RhfField
@@ -971,7 +981,7 @@ export function StatementDetailPanel({
                   </div>
                   {hideContact ? (
                     <p className="col-span-2 text-sm text-muted-foreground">
-                      Name and email stay hidden until this lead is accepted.
+                      Email and phone stay hidden until this lead is accepted.
                     </p>
                   ) : null}
 

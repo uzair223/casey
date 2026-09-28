@@ -1,6 +1,5 @@
 import type { CaseStatementJoin } from "@/types";
 
-export const REDACTED_LEAD_NAME = "Lead";
 export const REDACTED_CONTACT = "Hidden until accepted";
 
 const CONTACT_METADATA_KEYS = new Set([
@@ -28,6 +27,44 @@ export function isContactMetadataKey(id: string) {
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function firstName(name: string | null | undefined) {
+  const trimmed = name?.trim() ?? "";
+  if (!trimmed || trimmed.toLowerCase() === "pending") return "";
+  return trimmed.split(/\s+/)[0] ?? "";
+}
+
+export function leadTypeFromTitle(
+  title: string | null | undefined,
+  name: string | null | undefined,
+) {
+  const current = title?.trim() ?? "";
+  if (!current) return "";
+  const person = name?.trim() ?? "";
+  const first = firstName(person);
+  const parts = current.split(/\s[-—–]\s/);
+  if (parts.length >= 2) {
+    const left = parts[0]?.trim().toLowerCase() ?? "";
+    const right = parts.slice(1).join(" - ").trim();
+    if (
+      (first && left === first.toLowerCase()) ||
+      (person && left === person.toLowerCase())
+    ) {
+      return right;
+    }
+  }
+  return titleWithoutContact(current, person);
+}
+
+export function leadListTitle(
+  name: string | null | undefined,
+  leadType: string | null | undefined,
+) {
+  const first = firstName(name);
+  const type = leadType?.trim() ?? "";
+  if (first && type) return `${first} - ${type}`;
+  return first || type || "Enquiry";
 }
 
 export function titleWithoutContact(
@@ -124,7 +161,6 @@ function redactStatement<T extends StatementContact>(statement: T): T {
   if (!leadContactHidden(statement.lead_stage)) return statement;
   return {
     ...statement,
-    witness_name: REDACTED_LEAD_NAME,
     witness_email: REDACTED_CONTACT,
     contact_name: null,
     contact_email: null,
@@ -141,21 +177,24 @@ export function redactCaseForFirm(caseItem: CaseStatementJoin): CaseStatementJoi
   const primary =
     caseItem.statements.find((statement) => statement.participant_kind === "primary") ??
     caseItem.statements[0];
-  if (!primary || !leadContactHidden(primary.lead_stage)) return caseItem;
-  const stripped = titleWithoutContact(caseItem.title, primary.witness_name);
-  const title =
-    stripped === "Enquiry" && caseItem.case_template_name
-      ? caseItem.case_template_name
-      : stripped;
-  return {
+  if (!primary?.lead_stage) return caseItem;
+  const titled = {
     ...caseItem,
-    title,
+    title: leadListTitle(
+      primary.witness_name,
+      caseItem.case_template_name ||
+        leadTypeFromTitle(caseItem.title, primary.witness_name),
+    ),
+  };
+  if (!leadContactHidden(primary.lead_stage)) return titled;
+  return {
+    ...titled,
     case_metadata: redactMetadata(caseItem.case_metadata, {
       name: primary.witness_name,
       email: primary.witness_email || primary.contact_email,
       phone: primary.contact_phone,
     }),
-    statements: caseItem.statements.map((statement) => redactStatement(statement)),
+    statements: titled.statements.map((statement) => redactStatement(statement)),
   };
 }
 
@@ -165,18 +204,27 @@ export function redactFirmStatementView<
     case: { title?: string | null; case_metadata?: unknown };
   },
 >(view: T): T {
-  if (!leadContactHidden(view.statement.lead_stage)) return view;
+  if (!view.statement.lead_stage) return view;
   const contact = {
     name: view.statement.witness_name,
     email: view.statement.witness_email || view.statement.contact_email,
     phone: view.statement.contact_phone,
   };
+  const titledCase = {
+    ...view.case,
+    title: leadListTitle(
+      contact.name,
+      leadTypeFromTitle(view.case.title, contact.name),
+    ),
+  };
+  if (!leadContactHidden(view.statement.lead_stage)) {
+    return { ...view, case: titledCase };
+  }
   return {
     ...view,
     statement: redactStatement(view.statement),
     case: {
-      ...view.case,
-      title: titleWithoutContact(view.case.title, contact.name),
+      ...titledCase,
       case_metadata: redactMetadata(view.case.case_metadata, contact),
     },
   };
