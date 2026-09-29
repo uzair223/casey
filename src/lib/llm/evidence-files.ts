@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import {
   extractDocumentContent,
+  extractPdfText,
   getFileExtension,
   isAudioFile,
   isImageFile,
@@ -71,12 +72,41 @@ export async function loadEvidenceFile(
 ): Promise<LoadedEvidenceFile> {
   const mime = document.type || "application/octet-stream";
 
-  if (
-    isImageFile(document) ||
-    isPdfFile(document) ||
-    isAudioFile(document) ||
-    isVideoFile(document)
-  ) {
+  if (isPdfFile(document)) {
+    if (blob.size > MAX_INLINE_FILE_BYTES) {
+      return {
+        name: document.name,
+        type: "application/pdf",
+        handledAs: "metadata_only",
+        text: null,
+        warning: "File is too large to send to the model.",
+      };
+    }
+
+    try {
+      const text = await extractPdfText(await blob.arrayBuffer());
+      if (text) {
+        return {
+          name: document.name,
+          type: "application/pdf",
+          handledAs: "text",
+          text,
+        };
+      }
+    } catch {
+      // Scanned or unreadable PDFs stay as metadata so the model call can continue.
+    }
+
+    return {
+      name: document.name,
+      type: "application/pdf",
+      handledAs: "metadata_only",
+      text: null,
+      warning: "PDF text could not be extracted.",
+    };
+  }
+
+  if (isImageFile(document) || isAudioFile(document) || isVideoFile(document)) {
     if (blob.size > MAX_INLINE_FILE_BYTES) {
       return {
         name: document.name,
@@ -99,16 +129,6 @@ export async function loadEvidenceFile(
           type: "image_url",
           image_url: { url: toDataUrl(imageMime, base64) },
         },
-      };
-    }
-
-    if (isPdfFile(document)) {
-      return {
-        name: document.name,
-        type: "application/pdf",
-        handledAs: "pdf",
-        text: null,
-        part: filePart(document.name, "application/pdf", base64),
       };
     }
 

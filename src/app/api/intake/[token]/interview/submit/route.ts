@@ -14,6 +14,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { getEvidenceDocuments } from "@/lib/evidence";
 import { generateMissingStatementDocumentDescriptors } from "@/lib/ai-workers/document-descriptors";
 import { applyProgrammaticEvidenceSection } from "@/lib/statement-utils";
+import { enqueueCaseAnalysis } from "@/lib/leads/analyse";
 import { enqueueStatementFormalization } from "@/lib/leads/formalize";
 
 function getSubmittedPathPrefix(statement: { case_id: string; id: string }) {
@@ -177,6 +178,16 @@ export async function POST(
         });
       } catch (formalizeError) {
         console.error(formalizeError);
+      }
+      if (statement.case_id) {
+        try {
+          await enqueueCaseAnalysis({
+            caseId: statement.case_id,
+            tenantId: statement.tenant_id,
+          });
+        } catch (analysisError) {
+          console.error(analysisError);
+        }
       }
     }
 

@@ -113,7 +113,6 @@ Upload source: ${params.documentRow.uploaded_by_type}`;
         const generated = await collectResponsesText({
           client,
           model,
-          temperature: 0.1,
           signal: modelTimeout.signal,
           instructions: descriptorInstructions,
           textFormat: zodTextFormat(

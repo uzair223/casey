@@ -710,12 +710,12 @@ async function markWaitingForResponse(
   statementId: string,
   status: string,
 ) {
-  if (status !== "draft") return;
+  if (status !== "draft" && status !== "extracted") return;
   const { error } = await supabase
     .from("statements")
     .update({ status: "waiting_for_response" })
     .eq("id", statementId)
-    .eq("status", "draft");
+    .eq("status", status);
   if (error) throw error;
 }
 

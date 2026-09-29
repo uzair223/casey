@@ -6,7 +6,7 @@ const CASE_ROW_SELECT =
   "id, tenant_id, title, status, assigned_to, assigned_to_ids, case_metadata, case_template_id, config_snapshot_id, created_at, updated_at";
 
 const PERSON_SELECT =
-  "id, witness_name, witness_email, status, updated_at, participant_kind, role_key, lead_stage, contact_email, contact_phone, outreach_confirmed_at, parent_statement_id, case_id";
+  "id, witness_name, witness_email, witness_metadata, status, updated_at, participant_kind, role_key, lead_stage, contact_email, contact_phone, outreach_confirmed_at, parent_statement_id, case_id";
 
 type CaseRow = Tables<"cases">;
 type PersonRow = Pick<
@@ -14,6 +14,7 @@ type PersonRow = Pick<
   | "id"
   | "witness_name"
   | "witness_email"
+  | "witness_metadata"
   | "status"
   | "updated_at"
   | "participant_kind"

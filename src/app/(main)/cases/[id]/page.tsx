@@ -10,6 +10,7 @@ import {
 import { useUserProtected } from "@/contexts/user-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StatementStatusBadge } from "@/components/ui/statement-status-badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,11 +39,7 @@ import {
 import { AsyncButton } from "@/components/ui/async-button";
 import { getCaseById } from "@/lib/supabase/queries";
 import { deleteCase } from "@/lib/supabase/mutations";
-import {
-  hasSubmittedAccount,
-  statementStatusLabel,
-  statementStatusVariant,
-} from "@/lib/status-styles";
+import { hasSubmittedAccount } from "@/lib/status-styles";
 import Link from "next/link";
 import Loading from "@/components/loading";
 import { useTenant } from "@/contexts/tenant-context";
@@ -366,9 +363,10 @@ export default function CaseDetailPage() {
                       <span className="font-medium">
                         {statement.witness_name || "Unnamed person"}
                       </span>
-                      <Badge variant={statementStatusVariant[statement.status]}>
-                        {statementStatusLabel[statement.status]}
-                      </Badge>
+                      <StatementStatusBadge
+                        status={statement.status}
+                        witnessMetadata={statement.witness_metadata}
+                      />
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {statement.witness_email}

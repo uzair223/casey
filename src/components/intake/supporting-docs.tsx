@@ -61,6 +61,11 @@ export function SupportingDocumentsView() {
     }));
   }, [evidenceFiles, suggestedGroups]);
 
+  const visibleGroups = knownGroups.filter((group) => {
+    if (group.name !== "other" || group.files.length > 0) return true;
+    return knownGroups.length === 1;
+  });
+
   return (
     <div className="space-y-4 px-4 sm:px-6 lg:px-8">
       <PageTitle
@@ -80,7 +85,7 @@ export function SupportingDocumentsView() {
       />
 
       <div className="grid gap-2.5 md:grid-cols-2">
-        {knownGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <Card key={group.name}>
             <CardHeader>
               <CardTitle className="flex flex-col items-start gap-3 sm:ml-1 sm:flex-row sm:items-center sm:justify-between">

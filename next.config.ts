@@ -68,7 +68,9 @@ function cspPolicy(frameable: boolean) {
     "base-uri 'self'",
     "form-action 'self'",
     frameable ? "frame-ancestors *" : "frame-ancestors 'none'",
-    "object-src 'none'",
+    `object-src 'self' blob:${
+      supabaseHostname ? ` https://${supabaseHostname}` : ""
+    }`,
     `img-src ${imgSrc}`,
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
@@ -77,7 +79,9 @@ function cspPolicy(frameable: boolean) {
     }`,
     `connect-src ${connectSrc}`,
     "worker-src 'self' blob:",
-    `frame-src 'self' https://cdn.docuseal.com https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com${
+    `frame-src 'self' blob:${
+      supabaseHostname ? ` https://${supabaseHostname}` : ""
+    } https://cdn.docuseal.com https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com${
       docusealOrigin ? ` ${docusealOrigin}` : ""
     }`,
     "report-uri /api/security/csp-report",

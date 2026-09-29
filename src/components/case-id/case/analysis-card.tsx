@@ -43,6 +43,7 @@ function isAnalysisStale(
   const statementsWithPotentialContent = statements.filter(
     (statement) =>
       statement.status !== "draft" &&
+      statement.status !== "extracted" &&
       statement.status !== "waiting_for_response",
   );
 

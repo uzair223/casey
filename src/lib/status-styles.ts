@@ -8,6 +8,7 @@ type VariantRecord<T extends string | number | symbol> = Record<
 
 export const statementStatusVariant: VariantRecord<StatementStatus> = {
   draft: "secondary",
+  extracted: "secondary",
   waiting_for_response: "warning",
   in_progress: "default",
   submitted: "accent",
@@ -20,6 +21,7 @@ export const statementStatusVariant: VariantRecord<StatementStatus> = {
 
 export const statementStatusLabel: Record<StatementStatus, string> = {
   draft: "Draft",
+  extracted: "Extracted",
   waiting_for_response: "Waiting for response",
   in_progress: "Collecting",
   submitted: "Review",
@@ -53,8 +55,26 @@ const SUBMITTED_ACCOUNT_STATUSES = new Set<StatementStatus>([
 
 export function intakeHasStarted(status: string | null | undefined) {
   return (
-    Boolean(status) && status !== "draft" && status !== "waiting_for_response"
+    Boolean(status) &&
+    status !== "draft" &&
+    status !== "extracted" &&
+    status !== "waiting_for_response"
   );
+}
+
+export function visibleStatementStatus(statement: {
+  status: string;
+  witness_metadata?: unknown;
+}): StatementStatus {
+  const metadata = statement.witness_metadata;
+  const extracted =
+    statement.status === "draft" &&
+    !!metadata &&
+    typeof metadata === "object" &&
+    !Array.isArray(metadata) &&
+    (metadata as { source?: unknown }).source === "extracted";
+  if (statement.status === "extracted" || extracted) return "extracted";
+  return statement.status as StatementStatus;
 }
 
 export function showIntakeWorkspace(

@@ -9,6 +9,7 @@ import {
   freezeStatementConfig,
   statementTemplateIdForRole,
 } from "@/lib/leads/snapshot";
+import { enqueueCaseAnalysis } from "@/lib/leads/analyse";
 import { enqueueStatementFormalization } from "@/lib/leads/formalize";
 import type { StatementSupportingDocument } from "@/types";
 import { generateMissingStatementDocumentDescriptors } from "@/lib/ai-workers/document-descriptors";
@@ -154,6 +155,15 @@ export async function POST(request: Request, { params }: RouteContext) {
           statementId: lead.id,
           tenantId: auth.tenantId,
         });
+        try {
+          await enqueueCaseAnalysis({
+            caseId: lead.case_id,
+            tenantId: auth.tenantId,
+            requestedByUserId: auth.userId,
+          });
+        } catch (analysisError) {
+          console.error(analysisError);
+        }
       }
 
       return ok({ id: lead.id, lead_stage: "intake", delivered: false });

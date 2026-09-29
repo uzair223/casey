@@ -21,6 +21,7 @@ import {
 } from "@/components/icons";
 import { AsyncButton } from "@/components/ui/async-button";
 import { Badge } from "@/components/ui/badge";
+import { StatementStatusBadge } from "@/components/ui/statement-status-badge";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -78,7 +79,6 @@ import { StatementReminderSettingsCard } from "./settings-card";
 import { TranscriptDialog } from "./transcript-dialog";
 import {
   showIntakeWorkspace,
-  statementStatusVariant,
   statementStatusLabel,
 } from "@/lib/status-styles";
 import { toast } from "@/lib/toast";
@@ -947,12 +947,10 @@ export function StatementDetailPanel({
                     <p className="text-sm font-medium text-muted-foreground">
                       Status
                     </p>
-                    <Badge
-                      variant={statementStatusVariant[data.statement.status]}
-                      className="capitalize"
-                    >
-                      {statementStatusLabel[data.statement.status]}
-                    </Badge>
+                    <StatementStatusBadge
+                      status={data.statement.status}
+                      witnessMetadata={data.statement.witness_metadata}
+                    />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">
@@ -1068,53 +1066,71 @@ export function StatementDetailPanel({
           </Card>
           <Card>
             <CardHeader className="flex-row items-center justify-between gap-2">
-              <CardTitle className="text-base">Statement sections</CardTitle>
-              {canModify && !isContentLocked ? (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditingSections((prev) => !prev)}
-                    disabled={isSavingSections}
-                  >
-                    <PenIcon className="h-4 w-4" />
-                    {isEditingSections
-                      ? "Cancel section edits"
-                      : "Edit sections"}
-                  </Button>
-                </div>
+              <CardTitle className="text-base">Statement</CardTitle>
+              {canModify && !isContentLocked && !isEditingSections ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditingSections(true)}
+                  disabled={isSavingSections}
+                >
+                  <PenIcon className="h-4 w-4" />
+                  Edit
+                </Button>
               ) : null}
             </CardHeader>
-            <CardContent className="space-y-4">
-              {(isEditingSections
-                ? statementConfig.sections
-                : sectionsWithContent
-              ).map((section) => (
-                <div key={section.id}>
-                  <div className="mb-2">
-                    <p className="text-sm font-medium">{section.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {section.description}
-                    </p>
-                  </div>
-                  {isEditingSections ? (
-                    <Textarea
-                      value={sectionDrafts[section.id] || ""}
-                      onChange={(event) =>
-                        setSectionDrafts((prev) => ({
-                          ...prev,
-                          [section.id]: event.target.value,
-                        }))
-                      }
-                      rows={6}
-                    />
-                  ) : (
-                    <p className="min-h-14 whitespace-pre-wrap rounded-md border bg-muted/20 px-3 py-2 text-sm">
-                      {sectionDrafts[section.id]}
-                    </p>
-                  )}
+            <CardContent>
+              {isEditingSections ? (
+                <div className="space-y-4">
+                  {statementConfig.sections.map((section) => (
+                    <div key={section.id}>
+                      <div className="mb-2">
+                        <p className="text-sm font-medium">{section.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {section.description}
+                        </p>
+                      </div>
+                      <Textarea
+                        value={sectionDrafts[section.id] || ""}
+                        onChange={(event) =>
+                          setSectionDrafts((prev) => ({
+                            ...prev,
+                            [section.id]: event.target.value,
+                          }))
+                        }
+                        rows={6}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <article className="mx-auto max-w-3xl space-y-8 rounded-md bg-white px-8 py-10 text-zinc-900 shadow-sm">
+                  <header className="space-y-1 border-b border-zinc-200 pb-4">
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      Statement
+                    </p>
+                    <h2 className="font-display text-3xl text-zinc-950">
+                      {data.statement.witness_name || "Statement"}
+                    </h2>
+                  </header>
+                  {sectionsWithContent.length === 0 ? (
+                    <p className="text-sm text-zinc-500">
+                      This statement has no sections yet.
+                    </p>
+                  ) : (
+                    sectionsWithContent.map((section) => (
+                      <section key={section.id} className="space-y-2">
+                        <h3 className="font-display text-xl text-zinc-950">
+                          {section.title}
+                        </h3>
+                        <p className="whitespace-pre-wrap text-[15px] leading-7">
+                          {sectionDrafts[section.id]}
+                        </p>
+                      </section>
+                    ))
+                  )}
+                </article>
+              )}
             </CardContent>
             {isEditingSections ? (
               <CardFooter>

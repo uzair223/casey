@@ -2,12 +2,11 @@ import { randomUUID } from "crypto";
 
 import { NextResponse } from "next/server";
 
-import { enqueueAiJob } from "@/lib/ai-workers/jobs";
 import { paidAiDenial } from "@/lib/billing/paid-plan";
 import { requireTenantUser } from "@/lib/api-utils/auth";
 import { forbidden, notFound } from "@/lib/api-utils/response";
+import { enqueueCaseAnalysis } from "@/lib/leads/analyse";
 import { logServerEvent } from "@/lib/observability/logger";
-import { getServiceClient } from "@/lib/supabase/server";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -48,37 +47,12 @@ export async function POST(request: Request, context: RouteContext) {
     });
     if (denied) return denied;
 
-    const service = getServiceClient("api.case_analysis.enqueue");
-    const { data: job, error: jobError } = await service
-      .from("ai_generation_jobs")
-      .insert({
-        tenant_id: auth.tenantId,
-        kind: "case_analysis",
-        target_id: caseId,
-        status: "queued",
-        requested_by_user_id: auth.userId,
-        request_payload: { requestId },
-      })
-      .select("id, status, created_at")
-      .single();
-
-    if (jobError || !job) {
-      throw jobError ?? new Error("Failed to enqueue case analysis job.");
-    }
-
-    try {
-      await enqueueAiJob({
-        jobId: job.id,
-        kind: "case_analysis",
-      });
-    } catch (error) {
-      await logServerEvent("error", "api.case_analysis.enqueue_failed", {
-        requestId,
-        caseId,
-        jobId: job.id,
-        error,
-      });
-    }
+    const job = await enqueueCaseAnalysis({
+      caseId,
+      tenantId: auth.tenantId,
+      requestId,
+      requestedByUserId: auth.userId,
+    });
 
     return NextResponse.json(
       {

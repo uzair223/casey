@@ -47,6 +47,7 @@ export function buildUpdateWitnessDetailsSchema(config: StatementConfig) {
   return z.object({
     status: z.enum([
       "draft",
+      "extracted",
       "waiting_for_response",
       "in_progress",
       "submitted",
@@ -75,6 +76,7 @@ export type CreateWitnessFormData = {
 export type UpdateWitnessDetailsFormData = {
   status:
     | "draft"
+    | "extracted"
     | "waiting_for_response"
     | "in_progress"
     | "submitted"

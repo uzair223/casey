@@ -130,6 +130,8 @@ const APP_ACTIONS: Record<
 
 const STATEMENT_STATUS_TITLES: Record<string, string> = {
   draft: "Person added",
+  extracted: "Person extracted",
+  waiting_for_response: "Waiting for their account",
   in_progress: "Account started",
   submitted: "Account sent",
   finalized: "Written draft prepared",

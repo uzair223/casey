@@ -10,6 +10,7 @@ export const StatementSchema = z.object({
   status: z
     .enum([
       "draft",
+      "extracted",
       "waiting_for_response",
       "in_progress",
       "submitted",

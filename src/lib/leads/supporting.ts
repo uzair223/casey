@@ -35,12 +35,14 @@ export async function recordDraftSupportingPeople(statementId: string) {
 
   const { data: messages, error: messageError } = await supabase
     .from("conversation_messages")
-    .select("content")
+    .select("role, content")
     .eq("statement_id", statementId)
     .order("created_at", { ascending: true });
   if (messageError) throw messageError;
 
-  const transcript = (messages ?? []).map((message) => message.content).join("\n");
+  const transcript = (messages ?? [])
+    .map((message) => `${message.role}: ${message.content}`)
+    .join("\n");
   const proposed = await inferSupportingPeople({
     transcript,
     roles: roles.map((role) => ({ key: role.key, label: role.label })),
@@ -75,7 +77,8 @@ export async function recordDraftSupportingPeople(statementId: string) {
       contact_email: person.email || null,
       contact_phone: person.phone || null,
       template_id: role.statement_template_id ?? null,
-      status: "draft",
+      witness_metadata: { source: "extracted" },
+      status: "extracted",
     })
       .select("id")
       .single();
@@ -199,9 +202,16 @@ export async function requestSupportingAccount(params: {
     throw new Error("This person has no email address or text number.");
   }
 
+  const nextStatus =
+    statement.status === "draft" || statement.status === "extracted"
+      ? "waiting_for_response"
+      : statement.status;
   const { error: updateError } = await supabase
     .from("statements")
-    .update({ outreach_confirmed_at: new Date().toISOString() })
+    .update({
+      outreach_confirmed_at: new Date().toISOString(),
+      status: nextStatus,
+    })
     .eq("id", statement.id);
   if (updateError) throw updateError;
 

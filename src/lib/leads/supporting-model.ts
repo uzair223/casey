@@ -42,7 +42,9 @@ export async function inferSupportingPeople(params: {
   const roleList = params.roles
     .map((role) => `${role.key} (${role.label})`)
     .join(", ");
-  try {
+  const roleKeys = params.roles.map((role) => role.key);
+
+  const requestPeople = async (source: string) => {
     const text = await collectResponsesText({
       client,
       model: selectModel("intake-chat"),
@@ -55,18 +57,29 @@ export async function inferSupportingPeople(params: {
         "If someone is named and no email or phone was given, still include them.",
         "Do not invent a person or a contact detail.",
       ].join(" "),
-      input: [{ role: "user", content: transcript }],
+      input: [{ role: "user", content: source }],
     });
     return parseSupportingPeople({
       raw: text,
       transcript,
-      roleKeys: params.roles.map((role) => role.key),
+      roleKeys,
       claimantEmail: params.claimantEmail,
     });
+  };
+
+  try {
+    return await requestPeople(transcript);
   } catch (error) {
     await logServerEvent("warn", "leads.supporting_people.llm_failed", {
       error,
     });
-    return [];
+    try {
+      return await requestPeople(transcript);
+    } catch (retryError) {
+      await logServerEvent("warn", "leads.supporting_people.llm_failed", {
+        error: retryError,
+      });
+      return [];
+    }
   }
 }

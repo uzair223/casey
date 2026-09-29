@@ -4,6 +4,9 @@ type StructuredChoice = {
     content?: string | null;
     parsed?: unknown;
     refusal?: string | null;
+    tool_calls?: Array<{
+      function?: { arguments?: string | null };
+    } | null> | null;
   } | null;
   error?: unknown;
 };
@@ -74,6 +77,13 @@ export function getStructuredResponseJson(response: StructuredResponse) {
     return JSON.stringify(message.parsed);
   }
 
+  const toolArguments = message?.tool_calls?.find(
+    (call) => call?.function?.arguments?.trim(),
+  )?.function?.arguments;
+  if (toolArguments) {
+    return toolArguments;
+  }
+
   if (message?.refusal) {
     throw new Error(`LLM refused the request: ${message.refusal}`);
   }
@@ -86,5 +96,8 @@ export function getStructuredResponseJson(response: StructuredResponse) {
   const finishReason = choice?.finish_reason
     ? ` Finish reason: ${choice.finish_reason}.`
     : "";
-  throw new Error(`No response content from LLM.${finishReason}`);
+  const messageKeys = message ? Object.keys(message).join(", ") : "none";
+  throw new Error(
+    `No response content from LLM.${finishReason} Message keys: ${messageKeys}.`,
+  );
 }

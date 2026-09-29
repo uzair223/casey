@@ -77,7 +77,9 @@ export function ResponseMetadataSchema(statementConfig: StatementConfig) {
                   name: z
                     .string()
                     .trim()
-                    .describe("short description of evidence required"),
+                    .describe(
+                      "Short label of a few words, such as 'Accident book' or 'Fit note'",
+                    ),
                   type: z.string().trim().describe("mime-type"),
                 })
                 .strict(),

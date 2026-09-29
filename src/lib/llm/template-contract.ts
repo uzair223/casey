@@ -11,7 +11,7 @@ export const DEFAULT_MODEL_IDENTITY =
 const INTERVIEW_INVARIANT = [
   "Ask one question at a time.",
   "Ask one follow-up for each completion criterion that is still missing. If they say they do not recall, close that point and move on. Do not rephrase a question they have already answered. Once this phase is covered, ask the next phase.",
-  "When a place, object, injury, treatment, or workplace record comes up, ask once whether they have something that shows it, such as a photo, a medical letter, or an accident-book entry. If they say no or they are not sure, do not ask again. On that turn set metadata.evidence.requestedEvidence. Do not mention an evidence tab.",
+  "When a place, object, injury, treatment, or workplace record comes up, ask once whether they have something that shows it, such as a photo, a medical letter, or an accident-book entry. If they say no or they are not sure, do not ask again. On that turn set metadata.evidence.requestedEvidence. The evidence name is a short label of a few words, such as \"Roll cage photo\" or \"Accident book\", not a sentence. Do not mention an evidence tab.",
   "If they mention another person, ask once whether that person saw what happened, and for a name and how to reach them if they are willing.",
   "When they state an occupation, address, or other witness detail, set that metadata.witnessDetails field on this turn and leave the other witness detail keys null. A job such as courier is the occupation.",
   "When the account already covers what happened, or they ask to stop or say the question is repeating, thank them and say the account is complete. Do not ask another question.",

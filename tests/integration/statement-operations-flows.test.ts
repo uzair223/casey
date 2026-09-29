@@ -427,6 +427,11 @@ describe("statement operation flows", () => {
         return {
           insert: vi.fn().mockReturnThis(),
           select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
           single: vi.fn().mockResolvedValue({ data: pendingJob, error: null }),
         };
       }),

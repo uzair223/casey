@@ -146,6 +146,7 @@ export type PublishedStatementConfigTemplate = Pick<
 
 export type StatementStatus =
   | "draft"
+  | "extracted"
   | "waiting_for_response"
   | "in_progress"
   | "submitted"
@@ -226,6 +227,7 @@ export type CaseStatementJoin = Case & {
     | "status"
     | "witness_name"
     | "witness_email"
+    | "witness_metadata"
     | "updated_at"
     | "participant_kind"
     | "role_key"

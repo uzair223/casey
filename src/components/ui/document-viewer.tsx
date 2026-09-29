@@ -122,6 +122,8 @@ export function DocumentViewer({
   const [open, setOpen] = useState(false);
   const [preloadRequested, setPreloadRequested] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [framedUrl, setFramedUrl] = useState<string | null>(null);
+  const framedObjectUrl = useRef<string | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [docxSource, setDocxSource] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -151,10 +153,34 @@ export function DocumentViewer({
     }
   }, [open, previewKind]);
 
+  const replaceFramedUrl = (next: string | null) => {
+    if (framedObjectUrl.current) {
+      URL.revokeObjectURL(framedObjectUrl.current);
+      framedObjectUrl.current = null;
+    }
+    if (next?.startsWith("blob:")) {
+      framedObjectUrl.current = next;
+    }
+    setFramedUrl(next);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (framedObjectUrl.current) {
+        URL.revokeObjectURL(framedObjectUrl.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     setSignedUrl(null);
     setImagePreviewUrl(null);
     setDocxSource(null);
+    if (framedObjectUrl.current) {
+      URL.revokeObjectURL(framedObjectUrl.current);
+      framedObjectUrl.current = null;
+    }
+    setFramedUrl(null);
     setError(null);
     setIsLoading(false);
   }, [bucketId, sourceUrl, uploaded.path]);
@@ -176,6 +202,31 @@ export function DocumentViewer({
         setSignedUrl(null);
         setImagePreviewUrl(null);
         setDocxSource(null);
+      }
+
+      async function loadFramedPreview(url: string) {
+        if (previewKind !== "pdf" && previewKind !== "text") {
+          replaceFramedUrl(null);
+          return;
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error("Failed to load file preview");
+        }
+
+        const blob = await response.blob();
+        const type =
+          previewKind === "pdf" ? "application/pdf" : blob.type || "text/plain";
+        const objectUrl = URL.createObjectURL(
+          new Blob([await blob.arrayBuffer()], { type }),
+        );
+        if (cancelled) {
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+
+        replaceFramedUrl(objectUrl);
       }
 
       if (sourceUrl) {
@@ -201,6 +252,18 @@ export function DocumentViewer({
         if (previewKind === "image") {
           setImagePreviewUrl(sourceUrl);
         }
+        try {
+          await loadFramedPreview(sourceUrl);
+        } catch (previewError) {
+          if (cancelled) return;
+          setError(
+            previewError instanceof Error
+              ? previewError.message
+              : "Failed to load file preview",
+          );
+          setIsLoading(false);
+          return;
+        }
         setIsLoading(false);
         return;
       }
@@ -218,6 +281,18 @@ export function DocumentViewer({
       }
 
       setSignedUrl(data.signedUrl);
+      try {
+        await loadFramedPreview(data.signedUrl);
+      } catch (previewError) {
+        if (cancelled) return;
+        setError(
+          previewError instanceof Error
+            ? previewError.message
+            : "Failed to load file preview",
+        );
+        setIsLoading(false);
+        return;
+      }
 
       if (previewKind === "image") {
         setImagePreviewUrl(data.signedUrl);
@@ -363,10 +438,20 @@ export function DocumentViewer({
     }
 
     if (previewKind === "pdf" || previewKind === "text") {
+      if (!framedUrl) {
+        return (
+          <Card size="sm" className="border-dashed">
+            <CardContent className="pt-4 text-sm text-muted-foreground">
+              Loading preview…
+            </CardContent>
+          </Card>
+        );
+      }
+
       return (
         <iframe
           title={uploaded.name}
-          src={signedUrl}
+          src={framedUrl}
           className="h-[65vh] w-full rounded-lg border bg-white"
         />
       );

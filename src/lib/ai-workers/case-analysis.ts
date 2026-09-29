@@ -304,6 +304,7 @@ type StatementForAnalysis = {
   sections: unknown;
   supporting_documents: unknown;
   updated_at: string;
+  transcript?: string;
   statement_formalization_snapshots?: { sections: unknown } | null;
   statement_config_snapshots?:
     | { config_json: unknown; config_name: string }
@@ -311,8 +312,14 @@ type StatementForAnalysis = {
     | null;
 };
 
+function accountText(statement: StatementForAnalysis) {
+  const sections = stringifySections(getStatementSections(statement)).trim();
+  if (sections) return sections;
+  return statement.transcript?.trim() ?? "";
+}
+
 function hasStatementContent(statement: StatementForAnalysis) {
-  return stringifySections(getStatementSections(statement)).trim().length > 0;
+  return accountText(statement).length > 0;
 }
 
 function snapshotRecord(relation: unknown): {
@@ -411,7 +418,7 @@ witnessMetadata: ${witnessMetadata}
 supportingDocuments:
 ${supportingDocumentIndex}
 
-${stringifySections(getStatementSections(statement))}`;
+${accountText(statement)}`;
     })
     .join("\n\n---\n\n");
 }
@@ -466,9 +473,36 @@ export async function processCaseAnalysisJob(jobId: string) {
 
     if (statementsError) throw statementsError;
 
-    const sourceStatements = (
-      (statements ?? []) as StatementForAnalysis[]
-    ).filter(hasStatementContent);
+    const loadedStatements = (statements ?? []) as StatementForAnalysis[];
+    if (!loadedStatements.length) {
+      throw new Error("No account content is available to analyse.");
+    }
+
+    const { data: transcripts, error: transcriptError } = await supabase
+      .from("conversation_messages")
+      .select("statement_id, role, content")
+      .in(
+        "statement_id",
+        loadedStatements.map((statement) => statement.id),
+      )
+      .order("created_at", { ascending: true });
+    if (transcriptError) throw transcriptError;
+
+    const transcriptByStatement = new Map<string, string[]>();
+    for (const message of transcripts ?? []) {
+      const line = `${message.role}: ${message.content}`.trim();
+      if (!line) continue;
+      const existing = transcriptByStatement.get(message.statement_id) ?? [];
+      existing.push(line);
+      transcriptByStatement.set(message.statement_id, existing);
+    }
+
+    const sourceStatements = loadedStatements
+      .map((statement) => ({
+        ...statement,
+        transcript: (transcriptByStatement.get(statement.id) ?? []).join("\n"),
+      }))
+      .filter(hasStatementContent);
 
     if (!sourceStatements.length) {
       throw new Error("No account content is available to analyse.");
