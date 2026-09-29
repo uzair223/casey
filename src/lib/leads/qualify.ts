@@ -261,38 +261,80 @@ export function isDisposableEmail(email: string) {
   return DISPOSABLE_EMAIL_DOMAINS.has(domain);
 }
 
-const PERSON_EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
-const PERSON_NAME_PATTERN = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\b/g;
+export type SupportingPersonProposal = {
+  roleKey: string;
+  name: string;
+  email: string;
+  phone: string;
+};
 
-export function extractSupportingPeople(params: {
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function contactAppearsInTranscript(value: string, transcript: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+  const haystack = transcript.toLowerCase();
+  if (haystack.includes(trimmed.toLowerCase())) return true;
+  const digits = digitsOnly(trimmed);
+  return digits.length >= 7 && digitsOnly(transcript).includes(digits);
+}
+
+export function parseSupportingPeople(params: {
+  raw: string;
   transcript: string;
   roleKeys: string[];
-}) {
+  claimantEmail?: string | null;
+}): SupportingPersonProposal[] {
+  const cleaned = params.raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    return [];
+  }
+  const rows =
+    parsed &&
+    typeof parsed === "object" &&
+    !Array.isArray(parsed) &&
+    "people" in parsed &&
+    Array.isArray(parsed.people)
+      ? parsed.people
+      : [];
   const fallbackRole = params.roleKeys[0] ?? "witness";
-  const people: Array<{
-    roleKey: string;
-    name: string;
-    email: string;
-    phone: string;
-  }> = [];
+  const claimantEmail = params.claimantEmail?.trim().toLowerCase() ?? "";
   const seen = new Set<string>();
+  const people: SupportingPersonProposal[] = [];
 
-  for (const match of params.transcript.matchAll(PERSON_EMAIL_PATTERN)) {
-    const email = match[0].toLowerCase();
-    if (seen.has(email)) continue;
-    const window = params.transcript.slice(
-      Math.max(0, (match.index ?? 0) - 80),
-      (match.index ?? 0) + match[0].length,
-    );
-    const names = [...window.matchAll(PERSON_NAME_PATTERN)].map((item) => item[1]);
-    const name = names.at(-1);
-    if (!name) continue;
-    const roleKey =
-      params.roleKeys.find((key) =>
-        window.toLowerCase().includes(key.toLowerCase()),
-      ) ?? fallbackRole;
-    seen.add(email);
-    people.push({ roleKey, name, email, phone: "" });
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const record = row as {
+      name?: unknown;
+      roleKey?: unknown;
+      email?: unknown;
+      phone?: unknown;
+    };
+    const name = typeof record.name === "string" ? record.name.trim() : "";
+    if (name.length < 2) continue;
+    const email =
+      typeof record.email === "string" ? record.email.trim().toLowerCase() : "";
+    const phone = typeof record.phone === "string" ? record.phone.trim() : "";
+    if (email && email === claimantEmail) continue;
+    if (!contactAppearsInTranscript(email, params.transcript)) continue;
+    if (!contactAppearsInTranscript(phone, params.transcript)) continue;
+    const requestedRole =
+      typeof record.roleKey === "string" ? record.roleKey.trim() : "";
+    const roleKey = params.roleKeys.includes(requestedRole)
+      ? requestedRole
+      : fallbackRole;
+    const key = email || name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    people.push({ roleKey, name, email, phone });
   }
 
   return people;

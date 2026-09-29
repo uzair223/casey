@@ -9,7 +9,7 @@ import {
 import type { QualificationSlot } from "@/lib/leads/schema";
 import {
   applyTurn,
-  extractSupportingPeople,
+  parseSupportingPeople,
   outreachSummary,
   readyToVerify,
   renderOutreachTemplate,
@@ -115,16 +115,46 @@ describe("opening message", () => {
 });
 
 describe("supporting people", () => {
-  it("creates a proposal from a named email", () => {
-    const people = extractSupportingPeople({
-      transcript: "My passenger was Sam Patel, sam@example.com.",
-      roleKeys: ["witness", "passenger"],
+  it("keeps a named email that was said and a name with no email", () => {
+    const transcript =
+      "Aisha Khan saw the cage tip, and her email is aisha.khan@caseyhq.co.uk. Tom Reid helped lift the cage.";
+    const people = parseSupportingPeople({
+      raw: JSON.stringify({
+        people: [
+          {
+            name: "Aisha Khan",
+            roleKey: "colleague",
+            email: "aisha.khan@caseyhq.co.uk",
+            phone: null,
+          },
+          {
+            name: "Tom Reid",
+            roleKey: "colleague",
+            email: null,
+            phone: null,
+          },
+          {
+            name: "Pat Stone",
+            roleKey: "colleague",
+            email: "pat.stone@example.com",
+            phone: null,
+          },
+        ],
+      }),
+      transcript,
+      roleKeys: ["colleague"],
     });
     expect(people).toEqual([
       {
-        roleKey: "passenger",
-        name: "Sam Patel",
-        email: "sam@example.com",
+        roleKey: "colleague",
+        name: "Aisha Khan",
+        email: "aisha.khan@caseyhq.co.uk",
+        phone: "",
+      },
+      {
+        roleKey: "colleague",
+        name: "Tom Reid",
+        email: "",
         phone: "",
       },
     ]);

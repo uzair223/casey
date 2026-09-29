@@ -5,11 +5,8 @@ import { sendStatementLinkEmail } from "@/lib/email";
 import { getServiceClient } from "@/lib/supabase/server";
 import { generateSecureToken } from "@/lib/security";
 import { sendSms, smsConfigured } from "@/lib/sms/send";
-import {
-  extractSupportingPeople,
-  outreachSummary,
-  renderOutreachTemplate,
-} from "./qualify";
+import { outreachSummary, renderOutreachTemplate } from "./qualify";
+import { inferSupportingPeople } from "./supporting-model";
 import {
   DEFAULT_OUTREACH_TEMPLATE,
   parseLeadTypeConfig,
@@ -43,19 +40,23 @@ export async function recordDraftSupportingPeople(statementId: string) {
     .order("created_at", { ascending: true });
   if (messageError) throw messageError;
 
-  const proposed = extractSupportingPeople({
-    transcript: (messages ?? []).map((message) => message.content).join("\n"),
-    roleKeys: roles.map((role) => role.key),
-  }).filter((person) => person.email !== (primary.contact_email ?? "").toLowerCase());
+  const transcript = (messages ?? []).map((message) => message.content).join("\n");
+  const proposed = await inferSupportingPeople({
+    transcript,
+    roles: roles.map((role) => ({ key: role.key, label: role.label })),
+    claimantEmail: primary.contact_email,
+  });
 
   const created: string[] = [];
   for (const person of proposed) {
-    const { data: existing, error: existingError } = await supabase
+    let existingQuery = supabase
       .from("statements")
       .select("id")
-      .eq("parent_statement_id", primary.id)
-      .ilike("contact_email", person.email)
-      .maybeSingle();
+      .eq("parent_statement_id", primary.id);
+    existingQuery = person.email
+      ? existingQuery.ilike("contact_email", person.email)
+      : existingQuery.ilike("witness_name", person.name);
+    const { data: existing, error: existingError } = await existingQuery.maybeSingle();
     if (existingError) throw existingError;
     if (existing) continue;
 
@@ -69,9 +70,9 @@ export async function recordDraftSupportingPeople(statementId: string) {
       lead_type_id: primary.lead_type_id,
       title: `${role.label}: ${person.name}`,
       witness_name: person.name,
-      witness_email: person.email,
+      witness_email: person.email || "",
       contact_name: person.name,
-      contact_email: person.email,
+      contact_email: person.email || null,
       contact_phone: person.phone || null,
       template_id: role.statement_template_id ?? null,
       status: "draft",
@@ -87,7 +88,7 @@ export async function recordDraftSupportingPeople(statementId: string) {
       tenantId: primary.tenant_id,
       templateId: role.statement_template_id ?? null,
     });
-    created.push(person.email);
+    created.push(person.email || person.name);
   }
 
   return created;
