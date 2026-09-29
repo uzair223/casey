@@ -1,5 +1,7 @@
 import type { CaseFact } from "@/lib/llm/case-runtime";
 
+import { plausibleName } from "./enquiry";
+
 export const RETIRED_CASE_FIELD_IDS = new Set(["court", "claimNumber"]);
 
 export function activeCaseFieldIds(ids: readonly string[] | null | undefined) {
@@ -69,71 +71,53 @@ export function spokenDateIn(text: string) {
   return spoken[0].replace(/\s+/g, " ").trim();
 }
 
-function enquiryText(summary: string, messages: EnquiryMessage[]) {
-  const spoken = messages
-    .filter((message) => message.role === "user")
-    .map((message) => message.content)
-    .join("\n");
-  return [summary.trim(), spoken].filter(Boolean).join("\n");
+function valueWasSaid(value: string, transcript: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return transcript.toLowerCase().includes(trimmed.toLowerCase());
 }
 
-function isPersonName(value: string) {
-  const name = value.trim();
-  if (name.length < 2) return false;
-  if (/^(lead|pending)$/i.test(name)) return false;
-  return true;
-}
-
-const WORKPLACE_IN_TEXT =
-  /\b(?:at|in) the ([A-Z][A-Za-z0-9&'’.-]*(?:\s+[A-Z][A-Za-z0-9&'’.-]*){0,5}\s+depot)\b/;
-const EMPLOYER_IN_TEXT =
-  /\b(?:courier at|work(?:ing)? (?:for|at)|employed by|my employer is)\s+([A-Z][A-Za-z0-9&'’.-]*)\b/;
-
-export function statedCaseDetails(text: string, fieldIds: readonly string[]) {
-  const allowed = new Set(fieldIds);
-  const facts: Record<string, string> = {};
-  if (allowed.has("workplace")) {
-    const workplace = text.match(WORKPLACE_IN_TEXT)?.[1]?.replace(/\s+/g, " ").trim();
-    if (workplace) facts.workplace = workplace;
-  }
-  if (allowed.has("defendant")) {
-    const employer = text.match(EMPLOYER_IN_TEXT)?.[1]?.trim();
-    if (employer) facts.defendant = employer;
-  }
-  return facts;
-}
-
-export function leadFactsFromEnquiry(params: {
+export function parseEnquiryCaseFacts(params: {
+  raw: string;
+  transcript: string;
   fields: LeadField[];
-  name: string;
-  summary?: string | null;
-  messages?: EnquiryMessage[];
 }) {
+  const cleaned = params.raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    return {};
+  }
+  const rows =
+    parsed &&
+    typeof parsed === "object" &&
+    !Array.isArray(parsed) &&
+    "facts" in parsed &&
+    Array.isArray(parsed.facts)
+      ? parsed.facts
+      : [];
+  const fields = new Map(params.fields.map((field) => [field.id, field]));
   const facts: Record<string, string> = {};
-  const name = params.name.trim();
-  const text = enquiryText(params.summary ?? "", params.messages ?? []);
-  const date = text ? spokenDateIn(text) : null;
-  let dateUsed = false;
-  Object.assign(
-    facts,
-    statedCaseDetails(
-      text,
-      params.fields.map((field) => field.id),
-    ),
-  );
 
-  for (const field of params.fields) {
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const record = row as { id?: unknown; value?: unknown };
+    const id = typeof record.id === "string" ? record.id.trim() : "";
+    const field = fields.get(id);
+    const value = typeof record.value === "string" ? record.value.trim() : "";
+    if (!field || !value || facts[id]) continue;
+    if (!valueWasSaid(value, params.transcript)) continue;
     if (
       (field.id === "claimant" || field.label.trim().toLowerCase() === "claimant") &&
-      isPersonName(name)
+      !plausibleName(value)
     ) {
-      facts[field.id] = name;
       continue;
     }
-    if (field.type === "date" && date && !dateUsed) {
-      facts[field.id] = date;
-      dateUsed = true;
-    }
+    facts[id] = value;
   }
 
   return facts;

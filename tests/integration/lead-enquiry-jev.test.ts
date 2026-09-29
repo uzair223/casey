@@ -134,9 +134,9 @@ describe("enquiry JEV decisions", () => {
     expect(decision.action).toBe("end");
     expect(decision.disposition).toBe("send_to_firm");
     expect(enquiryClosesWithoutLead(decision)).toBe(false);
-    expect(turn.answers.summary).toContain("The lead reported");
+    expect(turn.answers.summary).toBeUndefined();
     expect(turn.readyToVerify).toBe(false);
-    expect(turn.reply.toLowerCase()).toMatch(/email|phone|name|reach/);
+    expect(turn.reply.toLowerCase()).toContain("what happened");
   });
 
   it("discards an ended enquiry that should not reach the firm", () => {

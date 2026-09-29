@@ -113,7 +113,7 @@ export function enquiryInstructions(params: {
       ? "You already have enough for the overview. Do not keep interviewing them about the incident."
       : "Stay with the incident until the overview can be written. Do not ask for their name or contact details yet.",
     contactAsk,
-    'summary is one or two sentences in the third person, or null when the overview is not ready. Call the person "the lead" only. Never include their name, email, phone, or street address.',
+    'summary is one or two sentences in the third person, or null when the overview is not ready. Call the person "the lead" once. Never write "the lead is the lead". Never include their name, email, phone, or street address. Use the words they used for what happened.',
     `Write the summary the way a colleague would brief the firm. ${briefForLeadType(params.leadTypeName, params.briefGuidance)}`,
     "overviewReady is true only when what happened, when, and the result are clear enough for that overview.",
     "name is the full name the person has actually said. If they have only given a first name, set name to that first name and still ask for their full name. Do not invent a surname. email and phone are values they have actually said, otherwise null.",
@@ -161,6 +161,22 @@ export function normalizeEnquiryPhone(value: string | null | undefined) {
   return compact;
 }
 
+const NAME_STOPWORDS = new Set([
+  "a",
+  "an",
+  "the",
+  "at",
+  "for",
+  "of",
+  "in",
+  "on",
+  "to",
+  "and",
+  "or",
+  "my",
+  "i",
+]);
+
 export function plausibleName(value: string | null | undefined) {
   const name = value?.replace(/\s+/g, " ").trim() ?? "";
   if (name.length < 2 || name.length > 80) return "";
@@ -168,14 +184,8 @@ export function plausibleName(value: string | null | undefined) {
   if (/[.!?]/.test(name)) return "";
   const words = name.split(" ");
   if (words.length > 4) return "";
+  if (words.some((word) => NAME_STOPWORDS.has(word.toLowerCase()))) return "";
   return name;
-}
-
-function nameFromMessage(message: string) {
-  const introduced = message.match(
-    /\b(?:my name is|i am|i'm|this is)\s+([A-Za-z]+(?:\s+[A-Za-z]+){0,3})\b/i,
-  );
-  return plausibleName(introduced?.[1]);
 }
 
 function attested(name: string, message: string) {
@@ -191,7 +201,7 @@ export function sanitizeEnquirySummary(
   contact: { name?: string | null; email?: string | null; phone?: string | null },
 ) {
   let text = summary.replace(EMAIL_PATTERN, " ").replace(PHONE_PATTERN, " ");
-  const name = contact.name?.trim() ?? "";
+  const name = plausibleName(contact.name);
   if (name.length >= 2) {
     const pattern = new RegExp(`\\b${escapeRegExp(name)}\\b`, "gi");
     text = text.replace(pattern, (match, offset: number) => {
@@ -254,11 +264,8 @@ export function settleEnquiryTurn(params: {
   if (phone) answers = writeContact(params.slots, answers, "phone", phone);
 
   const extractedName = plausibleName(params.extraction?.name);
-  const introduced = nameFromMessage(params.message);
-  const wholeMessage = plausibleName(params.message);
-  const nameCandidate = [extractedName, introduced, wholeMessage].find(
-    (name) => name && attested(name, spoken),
-  );
+  const nameCandidate =
+    extractedName && attested(extractedName, spoken) ? extractedName : "";
   const currentName = enquiryContact(params.slots, answers).name;
   const name = chooseName(currentName, nameCandidate ?? "");
   if (name && name !== currentName) {
@@ -276,23 +283,6 @@ export function settleEnquiryTurn(params: {
       name: contactForSummary.name || extractedName,
     });
     if (cleaned.length >= 40) summary = cleaned;
-  }
-  if (!summary && (params.wrapUp || !params.extraction)) {
-    const lines = spoken
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(
-        (line) =>
-          line.length >= 12 &&
-          !normalizeEnquiryEmail(line) &&
-          !plausibleName(line),
-      );
-    if (lines.length >= (params.wrapUp ? 1 : 2)) {
-      const cleaned = sanitizeEnquirySummary(`The lead reported: ${lines.join(" ")}`, {
-        name: nameCandidate,
-      });
-      if (cleaned.length >= 40) summary = cleaned;
-    }
   }
   if (summary) answers[ENQUIRY_SUMMARY_KEY] = summary;
 

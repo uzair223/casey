@@ -119,6 +119,30 @@ describe("enquiry conversation", () => {
     expect(parsed?.overviewReady).toBe(false);
   });
 
+  it("does not treat a job description as the person's name", () => {
+    const message =
+      "I am an Evri courier at the Blackburn depot. On 26 July 2026 a roll cage of parcels tipped onto my left foot.";
+    const summary =
+      "The lead is an Evri courier at the Blackburn depot who was injured when a roll cage of parcels tipped onto their left foot on 26 July 2026.";
+    const turn = settleEnquiryTurn({
+      slots,
+      answers: {},
+      message,
+      extraction: {
+        reply: "What happened to your foot afterwards?",
+        overviewReady: true,
+        summary,
+        name: "an Evri courier at",
+        email: null,
+        phone: null,
+      },
+    });
+
+    expect(turn.answers.name).toBeUndefined();
+    expect(turn.answers.summary).toBe(summary);
+    expect(turn.answers.summary).not.toContain("the lead the");
+  });
+
   it("strips contact details from a summary", () => {
     const summary = sanitizeEnquirySummary(
       "Uzair (uzair@example.com, 07700900123) was off work.",

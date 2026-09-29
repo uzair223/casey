@@ -5,10 +5,9 @@ import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
 import {
   accountGaps,
   isClearerCaseFact,
-  leadFactsFromEnquiry,
+  parseEnquiryCaseFacts,
   questionForAccountGaps,
   spokenDateIn,
-  statedCaseDetails,
 } from "@/lib/leads/case-facts";
 
 const workFields = [
@@ -19,35 +18,31 @@ const workFields = [
 ];
 
 describe("lead facts from an enquiry", () => {
-  it("fills the claimant and a spoken date without inventing a year", () => {
-    expect(
-      spokenDateIn(
-        "The lead fractured their foot when a pallet fell on it at work on 8 September.",
-      ),
-    ).toBe("8 September");
+  it("keeps case details the model copied from what was said", () => {
+    const transcript =
+      "I am Uzair Patel, a courier at Evri. A roll cage tipped on my foot at the Blackburn depot on 26 July 2026.";
 
+    expect(spokenDateIn(transcript)).toBe("26 July 2026");
     expect(
-      leadFactsFromEnquiry({
+      parseEnquiryCaseFacts({
+        raw: JSON.stringify({
+          facts: [
+            { id: "claimant", value: "an Evri courier at" },
+            { id: "claimant", value: "Uzair Patel" },
+            { id: "defendant", value: "Evri" },
+            { id: "defendant", value: "Acme" },
+            { id: "workplace", value: "Blackburn depot" },
+            { id: "accidentDate", value: "26 July 2026" },
+          ],
+        }),
+        transcript,
         fields: workFields,
-        name: "Uzair",
-        summary:
-          "The lead fractured their foot when a pallet fell on it at work on 8 September.",
       }),
     ).toEqual({
-      claimant: "Uzair",
-      accidentDate: "8 September",
-    });
-  });
-
-  it("saves an employer and a depot named in the account", () => {
-    expect(
-      statedCaseDetails(
-        "I'm a courier at Evri. Loose packages fell on my foot at the Evri Blackburn depot.",
-        ["defendant", "workplace", "accidentDate"],
-      ),
-    ).toEqual({
+      claimant: "Uzair Patel",
       defendant: "Evri",
-      workplace: "Evri Blackburn depot",
+      workplace: "Blackburn depot",
+      accidentDate: "26 July 2026",
     });
   });
 

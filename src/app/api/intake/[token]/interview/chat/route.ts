@@ -26,7 +26,6 @@ import {
   formatEnquiryTranscript,
   mergeCaseFacts,
   readEnquiryTranscript,
-  statedCaseDetails,
 } from "@/lib/leads/case-facts";
 import { getServiceClient } from "@/lib/supabase/server";
 
@@ -40,10 +39,7 @@ import { ResponseMetadataSchema } from "@/lib/schema";
 import { enforcePersistentRateLimit } from "@/lib/api-utils/persistent-rate-limit";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { extractJsonStringField } from "@/lib/llm/json-content";
-import {
-  mergeWitnessDetailPatch,
-  statedWitnessDetails,
-} from "@/lib/llm/witness-details";
+import { modelWitnessDetails } from "@/lib/llm/witness-details";
 import { z } from "zod";
 import { logServerEvent } from "@/lib/observability/logger";
 import { zodTextFormat } from "openai/helpers/zod";
@@ -598,21 +594,7 @@ export async function POST(
             }
           }
 
-          const witnessPatch = mergeWitnessDetailPatch(
-            metadata.witnessDetails,
-            statedWitnessDetails({
-              userMessage: userMessageForLogging,
-              fieldIds: (statementConfig.witnessMetadataFields ?? []).map(
-                (field) => field.id,
-              ),
-              existing:
-                statement.witness_metadata &&
-                typeof statement.witness_metadata === "object" &&
-                !Array.isArray(statement.witness_metadata)
-                  ? (statement.witness_metadata as Record<string, string | null>)
-                  : {},
-            }),
-          );
+          const witnessPatch = modelWitnessDetails(metadata.witnessDetails);
           if (Object.keys(witnessPatch).length > 0) {
             metadata.witnessDetails = {
               ...(metadata.witnessDetails ?? {}),
@@ -621,22 +603,20 @@ export async function POST(
           }
 
           if (statement.case_id) {
-            const allowed = activeCaseFieldIds(statementConfig.caseMetadataDeps);
-            const stated = statedCaseDetails(userMessageForLogging, allowed);
+            const allowed = new Set(
+              activeCaseFieldIds(statementConfig.caseMetadataDeps),
+            );
             const current = metadata.caseDetails;
-            const casePatch: Record<string, string | null> = {};
-            let statedAny = false;
-            for (const id of allowed) {
-              const modelValue = current?.[id];
-              const statedValue = stated[id];
-              const value =
-                typeof modelValue === "string" && modelValue.trim()
-                  ? modelValue.trim()
-                  : (statedValue ?? null);
-              casePatch[id] = value;
-              if (value) statedAny = true;
+            const casePatch: Record<string, string> = {};
+            for (const [id, modelValue] of Object.entries(current ?? {})) {
+              if (!allowed.has(id)) continue;
+              if (typeof modelValue === "string" && modelValue.trim()) {
+                casePatch[id] = modelValue.trim();
+              }
             }
-            if (statedAny) metadata.caseDetails = casePatch;
+            if (Object.keys(casePatch).length > 0) {
+              metadata.caseDetails = casePatch;
+            }
           }
 
           await logServerEvent("info", "api.intake.chat.model.response", {

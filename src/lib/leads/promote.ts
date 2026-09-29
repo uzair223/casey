@@ -3,11 +3,9 @@ import "server-only";
 import { openTenantCase } from "@/lib/billing/open-case";
 import { parseCaseConfig } from "@/lib/llm/case-runtime";
 import { getServiceClient } from "@/lib/supabase/server";
-import {
-  leadFactsFromEnquiry,
-  mergeCaseFacts,
-  type EnquiryMessage,
-} from "./case-facts";
+import { inferEnquiryCaseFacts } from "./case-facts-model";
+import { mergeCaseFacts, type EnquiryMessage } from "./case-facts";
+import { plausibleName } from "./enquiry";
 import { isDisposableEmail, reservedValue, type SlotAnswers } from "./qualify";
 import { leadListTitle } from "./privacy";
 import {
@@ -64,12 +62,17 @@ export async function promoteQualifiedLead(params: {
     .eq("id", params.leadTypeId)
     .maybeSingle();
   if (templateError) throw templateError;
-  const facts = leadFactsFromEnquiry({
-    fields: parseCaseConfig(templateRow?.published_config)?.dynamicFields ?? [],
-    name: contact.name,
-    summary,
-    messages,
+  const fields = parseCaseConfig(templateRow?.published_config)?.dynamicFields ?? [];
+  const spoken = messages
+    .filter((message) => message.role === "user")
+    .map((message) => message.content)
+    .join("\n");
+  const facts = await inferEnquiryCaseFacts({
+    transcript: spoken,
+    fields,
   });
+  const personName = plausibleName(contact.name);
+  if (!facts.claimant && personName) facts.claimant = personName;
   const metadata = {
     ...(summary ? { summary } : {}),
     ...facts,
