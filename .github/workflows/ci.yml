@@ -23,6 +23,9 @@ jobs:
       - run: npm run lint
       - run: npx tsc --noEmit
       - name: Verify migrations apply on a fresh database
+        env:
+          # GitHub runners exhaust the anonymous pull quota on public.ecr.aws.
+          SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
         run: npx supabase db start
       - run: npm run test:integration
 
