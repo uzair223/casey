@@ -35,6 +35,7 @@ import {
   formatCaseFieldsForAnalysis,
   parseCaseConfig,
 } from "@/lib/llm/case-runtime";
+import { modelTemporalAwareness } from "@/lib/llm/model-clock";
 import { formatStatementExpectations } from "@/lib/llm/template-contract";
 
 const MAX_EVIDENCE_FILES_PER_CASE = 8;
@@ -544,7 +545,7 @@ export async function processCaseAnalysisJob(jobId: string) {
           messages: [
             {
               role: "system",
-              content: CASE_ANALYSIS_SYSTEM_PROMPT,
+              content: `${CASE_ANALYSIS_SYSTEM_PROMPT}\n\n${modelTemporalAwareness()}`,
             },
             {
               role: "user",

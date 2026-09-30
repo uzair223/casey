@@ -74,6 +74,8 @@ describe("template contract", () => {
     expect(prompt).toContain("Never say the lead.");
     expect(prompt).toContain("metadata.evidence.requestedEvidence");
     expect(prompt).toContain("whether that person saw what happened");
+    expect(prompt).toContain("Today is ");
+    expect(prompt).toContain("A date before today has already passed.");
     expect(prompt).toContain("A job such as courier is the occupation.");
     expect(prompt).toContain("Do not ask them to repeat their job.");
     expect(prompt).toContain(
@@ -117,6 +119,7 @@ describe("template contract", () => {
     expect(prompt.startsWith("You are writing this witness's statement.")).toBe(
       true,
     );
+    expect(prompt).toContain("A date before today has already passed.");
     expect(prompt).toContain(statementConfig.modelIdentity);
     expect(prompt).toContain("The claimant's account of impact.");
     expect(prompt).toContain("Photograph of the junction");

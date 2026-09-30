@@ -1,3 +1,4 @@
+import { modelTemporalAwareness } from "@/lib/llm/model-clock";
 import { secondPersonSpeech } from "@/lib/llm/second-person";
 
 import type { QualificationSlot } from "./schema";
@@ -120,6 +121,7 @@ export function enquiryInstructions(params: {
     "overviewReady is true only when what happened, when, and the result are clear enough for that overview.",
     "name is the full name the person has actually said. If they have only given a first name, set name to that first name and still ask for their full name. Do not invent a surname. email and phone are values they have actually said, otherwise null.",
     "reply is spoken to the person, in one or two sentences, and in the second person only. Say you and your. Never say the lead.",
+    modelTemporalAwareness(),
   ]
     .filter(Boolean)
     .join(" ");

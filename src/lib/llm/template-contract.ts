@@ -4,6 +4,7 @@ import {
   formatCaseFacts,
   type CaseFact,
 } from "@/lib/llm/case-runtime";
+import { modelTemporalAwareness } from "@/lib/llm/model-clock";
 import { secondPersonSpeech } from "@/lib/llm/second-person";
 
 export const DEFAULT_MODEL_IDENTITY =
@@ -126,6 +127,7 @@ export function buildInterviewContract(
       : "Interview phases: none.";
   const parts = [
     modelIdentityText(config),
+    modelTemporalAwareness(),
     INTERVIEW_INVARIANT,
     phases,
     formatWitnessDetails(config, runtime.witnessMetadata),
@@ -157,6 +159,7 @@ export function buildFormalizeContract(
     runtime.evidenceList?.trim() || "No confirmed evidence provided.";
   const parts = [
     "You are writing this witness's statement.",
+    modelTemporalAwareness(),
     modelIdentityText(config),
     formatSections(config),
     formatWitnessDetails(config, runtime.witnessMetadata),

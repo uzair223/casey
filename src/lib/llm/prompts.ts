@@ -1,5 +1,6 @@
 import { IntakeChatMessage, StatementConfig } from "@/types";
 import { defaultMeta as defaultMetadata } from "../statement-utils/message-metadata";
+import { modelTemporalAwareness } from "./model-clock";
 import { overviewAsSpoken } from "./second-person";
 import {
   buildFormalizeContract,
@@ -186,6 +187,7 @@ export function generateIntakeStatePrompt(
   if (decisions?.usedJev) {
     return `STATE
 
+${modelTemporalAwareness()}
 Speak to this person in the second person only. Say you and your. Never say the lead.
 Use the transcript messages as the factual conversation history.
 Interview control decisions below are already made by the decision engine.
@@ -207,6 +209,7 @@ ${JSON.stringify(previousMetadata)}`;
 
   return `STATE
 
+${modelTemporalAwareness()}
 Speak to this person in the second person only. Say you and your. Never say the lead.
 Use the transcript messages as the factual conversation history.
 Start from the previous metadata below and update only what this next turn changes.

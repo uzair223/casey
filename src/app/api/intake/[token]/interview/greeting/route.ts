@@ -18,6 +18,7 @@ import {
 } from "@/lib/leads/case-facts";
 import type { IntakeChatMessage } from "@/types";
 import { selectModel } from "@/lib/llm/model-config";
+import { modelTemporalAwareness } from "@/lib/llm/model-clock";
 import {
   overviewAsSpoken,
   secondPersonSpeech,
@@ -140,7 +141,7 @@ export async function POST(
         client,
         model: selectedModel,
         promptCacheKey: `greeting:${data.statement.id}`,
-        instructions: GREETING_INSTRUCTIONS,
+        instructions: `${GREETING_INSTRUCTIONS}\n\n${modelTemporalAwareness()}`,
         textFormat: zodTextFormat(greetingSchema, "account_greeting"),
         input: [
           {

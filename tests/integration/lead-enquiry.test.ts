@@ -153,6 +153,8 @@ describe("enquiry conversation", () => {
       hasEmail: false,
       hasPhone: false,
     });
+    expect(instructions).toContain("Today is ");
+    expect(instructions).toContain("A date before today has already passed.");
     expect(instructions).toContain("second person only");
     expect(instructions).toContain("only in the summary");
 

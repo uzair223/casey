@@ -5,6 +5,7 @@ import { z } from "zod";
 import { zodResponseFormat, zodTextFormat } from "openai/helpers/zod";
 
 import { selectDocumentDescriptorModel } from "@/lib/llm/model-config";
+import { modelTemporalAwareness } from "@/lib/llm/model-clock";
 import {
   createModelRequestTimeout,
   getModelRequestError,
@@ -70,7 +71,7 @@ Upload source: ${params.documentRow.uploaded_by_type}`;
       "Document descriptor model request",
     );
     const descriptorInstructions =
-      "Produce concise legal-document descriptors for a solicitor reviewing statement evidence. Stay neutral, do not infer facts beyond the supplied file, and keep each key detail short.";
+      `Produce concise legal-document descriptors for a solicitor reviewing statement evidence. Stay neutral, do not infer facts beyond the supplied file, and keep each key detail short.\n\n${modelTemporalAwareness()}`;
 
     let descriptorJson: unknown;
     try {

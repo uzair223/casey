@@ -9,6 +9,7 @@ import { paidAiDenial } from "@/lib/billing/paid-plan";
 import { badRequest } from "@/lib/api-utils/response";
 import { logServerEvent } from "@/lib/observability/logger";
 import { selectModel } from "@/lib/llm/model-config";
+import { modelTemporalAwareness } from "@/lib/llm/model-clock";
 import { collectResponsesText } from "@/lib/llm/openai-responses";
 import {
   getCloudflareAiClientOptions,
@@ -231,7 +232,7 @@ export async function POST(request: Request) {
         model: selectedModel,
         temperature: 0.2,
         instructions:
-          "You are a professional document reviewer. Review the provided DOCX document and suggest improvements. Return comments for suggestions without changes, and proposals for concrete text replacements. Focus on clarity, consistency, professionalism, and legal accuracy. Every comment and proposal MUST include paragraphIndex that matches the [index] prefix in the provided document content. Also return generatedResponse: a concise conversational summary collated from the comments and proposals you return. Do not invent items not present in comments/proposals.",
+          `You are a professional document reviewer. Review the provided DOCX document and suggest improvements. Return comments for suggestions without changes, and proposals for concrete text replacements. Focus on clarity, consistency, professionalism, and legal accuracy. Every comment and proposal MUST include paragraphIndex that matches the [index] prefix in the provided document content. Also return generatedResponse: a concise conversational summary collated from the comments and proposals you return. Do not invent items not present in comments/proposals.\n\n${modelTemporalAwareness()}`,
         textFormat: zodTextFormat(ReviewResponseSchema, "docx_review"),
         input: [
           {
