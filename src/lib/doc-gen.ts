@@ -121,11 +121,7 @@ export async function generateStarterDoc(params: {
   const { config } = params;
 
   // ── Key resolution helpers ─────────────────────────────────────────────────
-  const PARTY_KEYS = new Set(["court", "claimNumber", "claimant", "defendant"]);
   const depSet = new Set(config.caseMetadataDeps ?? []);
-  const nonPartyDeps = (config.caseMetadataDeps ?? []).filter(
-    (d) => !PARTY_KEYS.has(d),
-  );
   const hasDep = (key: string) => depSet.has(key);
 
   const witnessFieldIds = new Set(
@@ -244,25 +240,6 @@ export async function generateStarterDoc(params: {
           },
         },
         children: [
-          // ── Non-party case metadata ──────────────────────────────────────
-          ...(nonPartyDeps.length > 0
-            ? [
-                bodyPara("Case Metadata", { bold: true }),
-                ...nonPartyDeps.map((dep) =>
-                  bodyPara(`${dep}: {caseMetadata.${dep}}`),
-                ),
-                spacer(SP.sm),
-              ]
-            : []),
-
-          // ── Court & claim number ─────────────────────────────────────────
-          ...(hasDep("court")
-            ? [centered("IN THE {caseMetadata.court}", SZ.heading, SP.md)]
-            : []),
-          ...(hasDep("claimNumber")
-            ? [centered("CLAIM NO: {caseMetadata.claimNumber}", SZ.body, SP.md)]
-            : []),
-
           // ── Parties block ────────────────────────────────────────────────
           ...(hasDep("claimant") && hasDep("defendant")
             ? [

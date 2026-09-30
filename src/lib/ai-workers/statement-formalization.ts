@@ -6,6 +6,7 @@ import { zodResponseFormat } from "openai/helpers/zod";
 
 import type { Json } from "@/types";
 import { getServiceClient } from "@/lib/supabase/server";
+import { SERVERONLY_mergeWitnessMetadata } from "@/lib/supabase/mutations/statement";
 import { logServerEvent } from "@/lib/observability/logger";
 import { selectModel } from "@/lib/llm/model-config";
 import {
@@ -13,6 +14,7 @@ import {
   getModelRequestError,
 } from "@/lib/llm/request";
 import { parseStructuredJson } from "@/lib/llm/responses";
+import { statedOccupation } from "@/lib/llm/witness-details";
 import {
   loadEvidenceFile,
   readEvidenceMedia,
@@ -66,15 +68,19 @@ function buildEvidenceList(exhibits: EvidenceExhibit[]) {
     .join("\n");
 }
 
-function buildFormalizeResponseSchema(config: StatementConfig) {
+function buildFormalizeResponseSchema(
+  config: StatementConfig,
+  includeOccupation: boolean,
+) {
   const evidenceSection = getProgrammaticEvidenceSection(config);
-  return z.object(
-    Object.fromEntries(
+  return z.object({
+    ...Object.fromEntries(
       config.sections
         .filter((section) => section.id !== evidenceSection?.id)
         .map((section) => [section.id, z.string()]),
     ),
-  );
+    ...(includeOccupation ? { occupation: z.string().nullable() } : {}),
+  });
 }
 
 function normalizeFormalizedSections(
@@ -318,13 +324,17 @@ export async function processFormalizationJob(jobId: string) {
     });
 
     let response: Awaited<ReturnType<typeof client.chat.completions.parse>>;
+    const witnessMetadata =
+      statement.witness_metadata &&
+      typeof statement.witness_metadata === "object" &&
+      !Array.isArray(statement.witness_metadata)
+        ? (statement.witness_metadata as Record<string, unknown>)
+        : {};
+    const occupationValue = witnessMetadata.occupation;
+    const includeOccupation =
+      config.witnessMetadataFields?.some((field) => field.id === "occupation") ===
+        true && !(typeof occupationValue === "string" && occupationValue.trim());
     try {
-      const witnessMetadata =
-        statement.witness_metadata &&
-        typeof statement.witness_metadata === "object" &&
-        !Array.isArray(statement.witness_metadata)
-          ? (statement.witness_metadata as Record<string, unknown>)
-          : {};
       const caseContext = statement.case_id
         ? await loadCaseModelContext(supabase, statement.case_id)
         : null;
@@ -368,7 +378,7 @@ export async function processFormalizationJob(jobId: string) {
             },
           ],
           response_format: zodResponseFormat(
-            buildFormalizeResponseSchema(config),
+            buildFormalizeResponseSchema(config, includeOccupation),
             "witness_statement",
           ),
         },
@@ -383,11 +393,10 @@ export async function processFormalizationJob(jobId: string) {
       modelTimeout.clear();
     }
 
+    const formalized = parseStructuredJson(response, "witness_statement");
+    const occupation = includeOccupation ? statedOccupation(formalized) : "";
     const parsed = applyProgrammaticEvidenceSection(
-      normalizeFormalizedSections(
-        parseStructuredJson(response, "witness_statement"),
-        config,
-      ),
+      normalizeFormalizedSections(formalized, config),
       {
         config,
         rows: supportingDocumentRows,
@@ -428,6 +437,10 @@ export async function processFormalizationJob(jobId: string) {
         formalization_snapshot_id: formalizationSnapshot.id,
       })
       .eq("id", statement.id);
+
+    if (occupation) {
+      await SERVERONLY_mergeWitnessMetadata(statement.id, { occupation });
+    }
 
     await supabase
       .from("ai_generation_jobs")

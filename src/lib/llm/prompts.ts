@@ -145,9 +145,13 @@ export const generateGreeting = (
   ]
     .filter(Boolean)
     .join(" ");
-  const firstQuestion = statementConfig.phases.length
-    ? openingQuestionForTemplate(statementConfig)
-    : requiredMissingStr
+  const needsAddress = missing.required.some((label) => /\baddress\b/.test(label));
+  const firstQuestion =
+    statementConfig.phases.length && needsAddress
+      ? "What is your address?"
+      : statementConfig.phases.length
+        ? openingQuestionForTemplate(statementConfig)
+        : requiredMissingStr
       ? optionalMissingStr
         ? `To begin, could you please provide your ${requiredMissingStr}, and if available, your ${optionalMissingStr}?`
         : `To begin, could you please provide your ${requiredMissingStr}?`
@@ -192,7 +196,8 @@ You may still update witnessDetails, caseDetails, and evidence from this turn.
 If deviation.flaggedDeviation is true, redirect the witness back to the current phase.
 Do not answer off-topic requests or give legal advice.
 If deviation.stopIntake is true, briefly explain that the interview cannot continue and they should contact the law firm.
-If TURN KIND is close_request, or progress.readyToPrepare is true, thank them and say this account is complete. Do not ask another question. Do not describe the interview as stopped or abusive.
+If their address is still missing and ignoredMissingDetails does not include "address", and they have not just stated an address in this message, ask for their address instead of closing. If they just stated an address, save it in witnessDetails.address and continue. If they decline or do not know it, add "address" to ignoredMissingDetails and move on. Do not ask for their occupation.
+If TURN KIND is close_request, or progress.readyToPrepare is true, and their address is known or declined, thank them and say this account is complete. Do not ask another question. Do not describe the interview as stopped or abusive.
 
 TURN KIND: ${decisions.turnKind ?? "unspecified"}
 
@@ -210,7 +215,8 @@ Use the previous deviation state for escalation decisions:
 - if prior deviation exists and the user deviates again, increment consecutiveDeviationCount and try to redirect before stopping
 - stopIntake should normally be set only once consecutiveDeviationCount reaches 3, unless the current deviation is clearly malicious or blocking
 - if the user returns to substantive case facts, clear deviation back to null
-- if they ask to stop, or say the question is repeating, and they have already described what happened, set readyToPrepare true, clear deviation, thank them, and do not ask another question
+- if they ask to stop, or say the question is repeating, and they have already described what happened, set readyToPrepare true, clear deviation, thank them, and do not ask another question, unless their address is still missing and ignoredMissingDetails does not include "address"
+- if their address is still missing and not declined, and they have not just stated an address, ask for their address instead of closing. If they just stated an address, save it in witnessDetails.address and continue. If they decline or do not know it, add "address" to ignoredMissingDetails and move on. Do not ask for their occupation
 - a request to stop is not abusive language
 
 PREVIOUS METADATA:

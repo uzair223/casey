@@ -15,8 +15,10 @@ const INTERVIEW_INVARIANT = [
   "Ask one follow-up for each completion criterion that is still missing. If they say they do not recall, close that point and move on. Do not rephrase a question they have already answered. Once this phase is covered, ask the next phase.",
   "When a place, object, injury, treatment, or workplace record comes up, ask once whether they have something that shows it, such as a photo, a medical letter, or an accident-book entry. If they say no or they are not sure, do not ask again. On that turn set metadata.evidence.requestedEvidence. The evidence name is a short label of a few words, such as \"Roll cage photo\" or \"Accident book\", not a sentence. Do not mention an evidence tab.",
   "If they mention another person, ask once whether that person saw what happened, and for a name and how to reach them if they are willing.",
-  "When they state an occupation, address, or other witness detail, set that metadata.witnessDetails field on this turn and leave the other witness detail keys null. A job such as courier is the occupation.",
-  "When the account already covers what happened, or they ask to stop or say the question is repeating, thank them and say the account is complete. Do not ask another question.",
+  "When they state an address or other witness detail, set that metadata.witnessDetails field on this turn and leave the other witness detail keys null.",
+  "If their occupation is still empty and their job is already known from the prior enquiry or this conversation, set metadata.witnessDetails.occupation to a short description such as \"courier\". A job such as courier is the occupation. Do not ask them to repeat their job.",
+  "If their address is still missing and metadata.ignoredMissingDetails does not include \"address\", ask for their address before you say the account is complete. If they decline or do not know it, add \"address\" to metadata.ignoredMissingDetails and move on. Do not ask for their occupation.",
+  "When the account already covers what happened, or they ask to stop or say the question is repeating, and their address is known or they have declined to give it, thank them and say the account is complete. Do not ask another question.",
   "Do not give legal advice.",
   "Do not prepare the written draft in chat.",
 ].join(" ");
@@ -165,6 +167,15 @@ export function buildFormalizeContract(
   if (priorEnquiry) {
     parts.push(
       `Prior enquiry the witness already gave. Treat it as part of their account.\n${priorEnquiry}`,
+    );
+  }
+  const occupation = runtime.witnessMetadata?.occupation;
+  const occupationMissing =
+    config.witnessMetadataFields?.some((field) => field.id === "occupation") &&
+    !(typeof occupation === "string" && occupation.trim());
+  if (occupationMissing) {
+    parts.push(
+      'If they have already stated their job, set occupation to a short description such as "courier". If they never stated a job, set occupation to null. Do not invent one.',
     );
   }
   return parts.join("\n\n");

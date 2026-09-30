@@ -75,6 +75,10 @@ describe("template contract", () => {
     expect(prompt).toContain("metadata.evidence.requestedEvidence");
     expect(prompt).toContain("whether that person saw what happened");
     expect(prompt).toContain("A job such as courier is the occupation.");
+    expect(prompt).toContain("Do not ask them to repeat their job.");
+    expect(prompt).toContain(
+      'add "address" to metadata.ignoredMissingDetails and move on',
+    );
     expect(prompt).toContain("How the vehicles came into contact.");
     expect(prompt).toContain("Do not ask about: legal blame");
     expect(prompt).toContain("Accident date (accidentDate): 2024-05-01");
@@ -116,7 +120,18 @@ describe("template contract", () => {
     expect(prompt).toContain(statementConfig.modelIdentity);
     expect(prompt).toContain("The claimant's account of impact.");
     expect(prompt).toContain("Photograph of the junction");
+    expect(prompt).toContain(
+      'set occupation to a short description such as "courier"',
+    );
     expect(prompt).not.toContain("{{");
+  });
+
+  it("does not ask the formalizer for an occupation that is already stored", () => {
+    const prompt = buildFormalizeContract(statementConfig, {
+      witnessMetadata: { occupation: "Driver" },
+    });
+
+    expect(prompt).not.toContain("set occupation to a short description");
   });
 
   it("shows every case field to analysis, including the statement identity", () => {

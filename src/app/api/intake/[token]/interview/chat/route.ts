@@ -40,7 +40,11 @@ import { ResponseMetadataSchema } from "@/lib/schema";
 import { enforcePersistentRateLimit } from "@/lib/api-utils/persistent-rate-limit";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { extractJsonStringField } from "@/lib/llm/json-content";
-import { modelWitnessDetails } from "@/lib/llm/witness-details";
+import {
+  addressStillUnasked,
+  declinedToGiveAddress,
+  modelWitnessDetails,
+} from "@/lib/llm/witness-details";
 import { z } from "zod";
 import { logServerEvent } from "@/lib/observability/logger";
 import { zodTextFormat } from "openai/helpers/zod";
@@ -404,6 +408,37 @@ export async function POST(
       ].filter((name) => name.trim().length > 0),
       priorEnquiry,
     });
+    const witnessMetadata =
+      statement.witness_metadata &&
+      typeof statement.witness_metadata === "object" &&
+      !Array.isArray(statement.witness_metadata)
+        ? (statement.witness_metadata as Record<string, unknown>)
+        : {};
+    const previousQuestion =
+      [...scoreHistory]
+        .reverse()
+        .find((message) => message.role === "assistant" && message.content.trim())
+        ?.content ?? "";
+    const addressDeclined = declinedToGiveAddress(
+      previousQuestion,
+      userMessageForLogging,
+    );
+    if (addressDeclined) {
+      const ignored = new Set(jevDecisions.metadata.ignoredMissingDetails ?? []);
+      ignored.add("address");
+      jevDecisions.metadata.ignoredMissingDetails = [...ignored];
+    }
+    const accountReadyBeforeAddress =
+      jevDecisions.metadata.progress.readyToPrepare;
+    if (
+      addressStillUnasked({
+        config: statementConfig,
+        witnessMetadata,
+        ignoredMissingDetails: jevDecisions.metadata.ignoredMissingDetails,
+      })
+    ) {
+      jevDecisions.metadata.progress.readyToPrepare = false;
+    }
     const lastMetadata = jevDecisions.metadata;
     const modelMessages: Array<{
       role: "system" | "user" | "assistant";
@@ -446,12 +481,6 @@ export async function POST(
     });
 
     try {
-      const witnessMetadata =
-        statement.witness_metadata &&
-        typeof statement.witness_metadata === "object" &&
-        !Array.isArray(statement.witness_metadata)
-          ? (statement.witness_metadata as Record<string, unknown>)
-          : {};
       const caseContext = statement.case_id
         ? await loadCaseModelContext(
             getServiceClient("intake-chat"),
@@ -601,6 +630,23 @@ export async function POST(
               ...(metadata.witnessDetails ?? {}),
               ...witnessPatch,
             };
+          }
+          if (addressDeclined) {
+            const ignored = new Set(metadata.ignoredMissingDetails ?? []);
+            ignored.add("address");
+            metadata.ignoredMissingDetails = [...ignored];
+          }
+          const mergedWitness = { ...witnessMetadata, ...witnessPatch };
+          if (
+            addressStillUnasked({
+              config: statementConfig,
+              witnessMetadata: mergedWitness,
+              ignoredMissingDetails: metadata.ignoredMissingDetails,
+            })
+          ) {
+            metadata.progress.readyToPrepare = false;
+          } else if (witnessPatch.address && accountReadyBeforeAddress) {
+            metadata.progress.readyToPrepare = true;
           }
 
           if (statement.case_id) {

@@ -51,7 +51,8 @@ greeting:
 - Example: "Hi Uzair, I'm here to take your full account of your accident at work. You told us loose packages fell on your foot at work on 3 September. We'll go through the job you were doing, how you were hurt, what happened straight after, your treatment, and work since."
 
 question:
-- Ask one short question about firstPhase only.
+- If requiredMissingFields includes "address", ask one short question for their address only. Do not ask about firstPhase on that turn.
+- Otherwise ask one short question about firstPhase only.
 - Do not ask for a list of missing facts such as employer, workplace, and time of day together.
 - Do not use the word defendant.
 - If firstPhase is empty and a missing field list is set, ask one short question for those details.
@@ -72,9 +73,10 @@ function witnessFacingGreeting(text: string) {
   return value;
 }
 
-function acceptableOpeningQuestion(text: string) {
+function acceptableOpeningQuestion(text: string, requireAddress = false) {
   const value = secondPersonSpeech(text.trim());
   if (!value || /defendant|\bthe lead\b/i.test(value)) return null;
+  if (requireAddress && !/\baddress\b/i.test(value)) return null;
   return value;
 }
 
@@ -154,7 +156,7 @@ export async function POST(
                     objective: phases[0].objective,
                   }
                 : null,
-              requiredMissingFields: phases.length ? [] : missing.required,
+              requiredMissingFields: missing.required,
               optionalMissingFields: phases.length ? [] : missing.optional,
               priorEnquiry: priorEnquiry
                 ? secondPersonSpeech(priorEnquiry)
@@ -177,7 +179,10 @@ export async function POST(
       if (result[0]) {
         result[0] = { ...result[0], content: greeting };
       }
-      const question = acceptableOpeningQuestion(parsed.data.question);
+      const question = acceptableOpeningQuestion(
+        parsed.data.question,
+        missing.required.some((label) => /\baddress\b/.test(label)),
+      );
       const canReplaceQuestion =
         phases.length > 0 ||
         missing.required.length > 0 ||
