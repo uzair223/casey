@@ -5,13 +5,9 @@ import { sendStatementLinkEmail } from "@/lib/email";
 import { getServiceClient } from "@/lib/supabase/server";
 import { generateSecureToken } from "@/lib/security";
 import { sendSms, smsConfigured } from "@/lib/sms/send";
-import { outreachSummary, renderOutreachTemplate } from "./qualify";
+import { composeSupportingOutreachNote } from "./outreach-note";
 import { inferSupportingPeople } from "./supporting-model";
-import {
-  DEFAULT_OUTREACH_TEMPLATE,
-  parseLeadTypeConfig,
-  supportingRoles,
-} from "./schema";
+import { parseLeadTypeConfig, supportingRoles } from "./schema";
 import { freezeStatementConfig } from "./snapshot";
 
 export async function recordDraftSupportingPeople(statementId: string) {
@@ -124,7 +120,7 @@ export async function requestSupportingAccount(params: {
   const { data: primary, error: primaryError } = await supabase
     .from("statements")
     .select(
-      "qualification_answers, lead_type_id, statement_config_templates!statements_lead_type_id_fkey(name, participant_roles, qualification_slots, outreach_template, decline_reasons, branding)",
+      "witness_name, statement_config_templates!statements_lead_type_id_fkey(participant_roles)",
     )
     .eq("id", statement.parent_statement_id)
     .maybeSingle();
@@ -144,22 +140,12 @@ export async function requestSupportingAccount(params: {
   const role =
     config.participant_roles.find((item) => item.key === statement.role_key)
       ?.label ?? statement.role_key;
-  const answers =
-    primary?.qualification_answers &&
-    typeof primary.qualification_answers === "object" &&
-    !Array.isArray(primary.qualification_answers)
-      ? Object.fromEntries(
-          Object.entries(primary.qualification_answers).flatMap(([key, value]) =>
-            typeof value === "string" ? [[key, value]] : [],
-          ),
-        )
-      : {};
-  const message = renderOutreachTemplate({
-    template: config.outreach_template || DEFAULT_OUTREACH_TEMPLATE,
+  const firm = tenant?.name ?? "the firm";
+  const message = await composeSupportingOutreachNote({
+    witnessName: statement.witness_name ?? "",
+    clientName: primary?.witness_name ?? "",
     role,
-    firm: tenant?.name ?? "the firm",
-    summary:
-      answers.summary || outreachSummary(config.qualification_slots, answers),
+    firm,
   });
 
   const email = statement.contact_email || statement.witness_email;
@@ -180,12 +166,12 @@ export async function requestSupportingAccount(params: {
   if (email) {
     await sendStatementLinkEmail({
       to: email,
-      tenantName: tenant?.name ?? "Casey",
+      tenantName: firm,
       witnessName: statement.witness_name,
       caseTitle: role,
       statementUrl: link,
       firmMessage: message,
-      reason: "initial_intake",
+      reason: "supporting_outreach",
     });
     sent = true;
   }

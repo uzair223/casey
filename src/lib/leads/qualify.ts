@@ -248,6 +248,32 @@ export function renderOutreachTemplate(params: {
     .trim();
 }
 
+const OUTREACH_LEAK =
+  /\bthe lead\b|\binjur|\btreatment\b|\bhospital\b|time off/i;
+
+export function supportingOutreachFallback(params: {
+  witnessName: string;
+  clientName: string;
+  role: string;
+  firm: string;
+}) {
+  const witness = params.witnessName.trim();
+  const client = params.clientName.trim();
+  const role = params.role.trim().toLowerCase() || "colleague";
+  const firm = params.firm.trim() || "the firm";
+  const hello = witness ? `Hello ${witness}` : "Hello";
+  const named = client
+    ? `${client} named you as a ${role} regarding an incident that occurred.`
+    : `you were named as a ${role} regarding an incident that occurred.`;
+  return `${hello}, ${named} ${firm} is asking for your account.`;
+}
+
+export function acceptableOutreachNote(draft: string) {
+  const text = draft.replace(/\s+/g, " ").trim();
+  if (!text || text.length > 500) return false;
+  return !OUTREACH_LEAK.test(text);
+}
+
 const DISPOSABLE_EMAIL_DOMAINS = new Set([
   "mailinator.com",
   "guerrillamail.com",

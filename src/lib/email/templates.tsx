@@ -90,22 +90,27 @@ export const buildStatementLinkEmailTemplate = (
   payload: StatementEmailPayload,
 ): EmailTemplateContent => {
   const witnessName = payload.witnessName?.trim() || "there";
+  const isSupporting = payload.reason === "supporting_outreach";
   const isBackToReview = payload.reason === "back_to_review";
   const isWhenReady = payload.reason === "when_ready";
-  const subject = isBackToReview
-    ? `${payload.caseTitle}: Your account is back in review`
-    : isWhenReady
-      ? `${payload.caseTitle}: Your account link`
-      : `${payload.caseTitle}: Continue your account`;
+  const subject = isSupporting
+    ? `${payload.tenantName} is asking for your account`
+    : isBackToReview
+      ? `${payload.caseTitle}: Your account is back in review`
+      : isWhenReady
+        ? `${payload.caseTitle}: Your account link`
+        : `${payload.caseTitle}: Continue your account`;
   const intro = isBackToReview
     ? `${payload.tenantName} has moved your account for ${payload.caseTitle} back into review.`
     : isWhenReady
       ? `Thank you for contacting ${payload.tenantName}. Your link is ready whenever you want to give your full account of ${payload.caseTitle}.`
       : `${payload.tenantName} is asking for your account of ${payload.caseTitle}.`;
   const message = payload.firmMessage?.trim();
-  const text = `Hello ${witnessName},\n\n${intro}${
-    message ? `\n\nMessage from ${payload.tenantName}:\n${message}` : ""
-  }\n\nUse this secure link to continue: ${payload.statementUrl}\n\nIf you did not expect this email, you can ignore it.`;
+  const text = isSupporting
+    ? `${message}\n\nUse this secure link to continue: ${payload.statementUrl}\n\nIf you did not expect this email, you can ignore it.`
+    : `Hello ${witnessName},\n\n${intro}${
+        message ? `\n\nMessage from ${payload.tenantName}:\n${message}` : ""
+      }\n\nUse this secure link to continue: ${payload.statementUrl}\n\nIf you did not expect this email, you can ignore it.`;
 
   return {
     subject,
@@ -120,25 +125,31 @@ export const buildStatementLinkEmailTemplate = (
               : "Your account"
         }
       >
-        <p style={paragraphStyle}>Hello {witnessName},</p>
-        <p style={paragraphStyle}>
-          {isWhenReady ? (
-            <>
-              Thank you for contacting <strong>{payload.tenantName}</strong>.
-              Your link is ready whenever you want to give your full account of{" "}
-              <strong>{payload.caseTitle}</strong>.
-            </>
-          ) : (
-            <>
-              <strong>{payload.tenantName}</strong>{" "}
-              {isBackToReview
-                ? "has moved your account back into review for"
-                : "is asking for your account of"}{" "}
-              <strong>{payload.caseTitle}</strong>.
-            </>
-          )}
-        </p>
-        {message ? (
+        {isSupporting ? (
+          <p style={paragraphStyle}>{message}</p>
+        ) : (
+          <>
+            <p style={paragraphStyle}>Hello {witnessName},</p>
+            <p style={paragraphStyle}>
+              {isWhenReady ? (
+                <>
+                  Thank you for contacting <strong>{payload.tenantName}</strong>.
+                  Your link is ready whenever you want to give your full account of{" "}
+                  <strong>{payload.caseTitle}</strong>.
+                </>
+              ) : (
+                <>
+                  <strong>{payload.tenantName}</strong>{" "}
+                  {isBackToReview
+                    ? "has moved your account back into review for"
+                    : "is asking for your account of"}{" "}
+                  <strong>{payload.caseTitle}</strong>.
+                </>
+              )}
+            </p>
+          </>
+        )}
+        {message && !isSupporting ? (
           <>
             <p style={paragraphStyle}>
               <strong>Message:</strong>

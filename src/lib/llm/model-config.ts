@@ -6,6 +6,7 @@ export type UseCase =
   | "case-analysis"
   | "formalize"
   | "document-descriptor"
+  | "supporting-outreach"
   | "default";
 
 export const CLOUDFLARE_MODELS = {
@@ -19,6 +20,7 @@ const MODEL_BY_USE_CASE: Record<UseCase, string> = {
   "intake-greeting": CLOUDFLARE_MODELS.luna,
   "intake-chat": CLOUDFLARE_MODELS.luna,
   "document-descriptor": CLOUDFLARE_MODELS.luna,
+  "supporting-outreach": CLOUDFLARE_MODELS.luna,
   formalize: CLOUDFLARE_MODELS.sonnet,
   "case-analysis": CLOUDFLARE_MODELS.flash,
   "template-generation": CLOUDFLARE_MODELS.terra,

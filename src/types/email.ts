@@ -5,7 +5,11 @@ export type StatementEmailPayload = {
   caseTitle: string;
   statementUrl: string;
   firmMessage?: string | null;
-  reason?: "initial_intake" | "back_to_review" | "when_ready";
+  reason?:
+    | "initial_intake"
+    | "back_to_review"
+    | "when_ready"
+    | "supporting_outreach";
 };
 
 export type StatementSubmittedNotificationPayload = {

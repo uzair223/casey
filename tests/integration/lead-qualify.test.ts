@@ -8,12 +8,14 @@ import {
 } from "@/lib/billing/plans";
 import type { QualificationSlot } from "@/lib/leads/schema";
 import {
+  acceptableOutreachNote,
   applyTurn,
   parseSupportingPeople,
   outreachSummary,
   readyToVerify,
   renderOutreachTemplate,
   slotForOpeningMessage,
+  supportingOutreachFallback,
 } from "@/lib/leads/qualify";
 
 const slots: QualificationSlot[] = [
@@ -89,6 +91,47 @@ describe("qualification slots", () => {
     expect(message).toContain("North Firm");
     expect(message).toContain("12 March 2026");
     expect(message).not.toContain("collision");
+  });
+
+  it("asks for an account without the firm overview", () => {
+    expect(
+      supportingOutreachFallback({
+        witnessName: "Aisha",
+        clientName: "Uzair Patel",
+        role: "Colleague",
+        firm: "Demo",
+      }),
+    ).toBe(
+      "Hello Aisha, Uzair Patel named you as a colleague regarding an incident that occurred. Demo is asking for your account.",
+    );
+    expect(
+      supportingOutreachFallback({
+        witnessName: "Aisha",
+        clientName: "",
+        role: "Colleague",
+        firm: "Demo",
+      }),
+    ).toBe(
+      "Hello Aisha, you were named as a colleague regarding an incident that occurred. Demo is asking for your account.",
+    );
+    expect(acceptableOutreachNote("Hello Aisha, the lead saw the incident.")).toBe(
+      false,
+    );
+    expect(
+      acceptableOutreachNote(
+        "Hello Aisha, hospital treatment kept them off work.",
+      ),
+    ).toBe(false);
+    expect(
+      acceptableOutreachNote(
+        supportingOutreachFallback({
+          witnessName: "Aisha",
+          clientName: "Uzair Patel",
+          role: "Colleague",
+          firm: "Demo",
+        }),
+      ),
+    ).toBe(true);
   });
 });
 
