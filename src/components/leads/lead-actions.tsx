@@ -107,24 +107,6 @@ export function LeadActions({
             </AsyncButton>
           </>
         ) : null}
-        {statements
-          .filter((statement) => statement.status === "submitted")
-          .map((statement) => (
-          <AsyncButton
-            key={`draft-${statement.id}`}
-            variant="outline"
-            pendingText="Drafting..."
-            onClick={async () => {
-              await apiFetch(`/api/tenant/statement/${statement.id}/formalize`, {
-                method: "POST",
-              });
-              toast.success("Draft started");
-              await onChanged();
-            }}
-          >
-            Draft {personLabel(statement) || "account"}
-          </AsyncButton>
-        ))}
         {supporting
           .filter((statement) => !statement.outreach_confirmed_at)
           .map((statement) => (

@@ -591,6 +591,16 @@ export function StatementDetailPanel({
     }
   };
 
+  const onDraftAccount = async () => {
+    if (!data) return;
+
+    await apiFetch(`/api/tenant/statement/${data.statement.id}/formalize`, {
+      method: "POST",
+    });
+    toast.success("Draft started");
+    await Promise.all([refreshCase(), fetchStatement()]);
+  };
+
   const onSendFinalReviewRequest = async () => {
     if (!data) return;
 
@@ -694,6 +704,16 @@ export function StatementDetailPanel({
             <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
               <CardTitle className="text-base">Statement information</CardTitle>
               <div className="flex flex-wrap gap-2">
+                {data.statement.status === "submitted" ? (
+                  <AsyncButton
+                    variant="outline"
+                    size="sm"
+                    onClick={onDraftAccount}
+                    pendingText="Drafting..."
+                  >
+                    Draft account
+                  </AsyncButton>
+                ) : null}
                 {canModify && data.statement.status === "submitted" ? (
                   <AsyncButton
                     variant="outline"
