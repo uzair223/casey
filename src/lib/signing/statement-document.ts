@@ -1,7 +1,5 @@
 import type { UploadedDocument } from "@/types";
-import { generateDoc } from "@/lib/doc-gen";
 import { getServiceClient } from "@/lib/supabase/server";
-import { SERVERONLY_getFullStatementFromToken } from "@/lib/supabase/queries";
 
 export async function downloadStorageDocument(params: {
   supabase: ReturnType<typeof getServiceClient>;
@@ -54,60 +52,4 @@ export function getStatementDocumentName(data: {
   statement: { witness_name: string };
 }) {
   return `${data.case.title || "case"} ${data.statement.witness_name} Witness Statement.docx`;
-}
-
-export async function renderUnsignedStatementDocument(params: {
-  data: NonNullable<
-    Awaited<ReturnType<typeof SERVERONLY_getFullStatementFromToken>>
-  >;
-  supabase: ReturnType<typeof getServiceClient>;
-}) {
-  const templateDocument = params.data.statement.template_document_snapshot
-    ? await downloadStorageDocument({
-        supabase: params.supabase,
-        bucketId:
-          params.data.statement.template_document_snapshot.bucketId ??
-          params.data.tenant_id,
-        path: params.data.statement.template_document_snapshot.path,
-      })
-    : null;
-
-  return generateDoc(
-    {
-      caseMetadata:
-        (params.data.case.case_metadata as Record<
-          string,
-          string | number | null | undefined
-        >) ?? {},
-      witnessName: params.data.statement.witness_name,
-      witnessEmail: params.data.statement.witness_email,
-      witnessMetadata:
-        (params.data.statement.witness_metadata as Record<
-          string,
-          string | number | null | undefined
-        >) ?? {},
-      sections: params.data.statement.sections,
-      config: params.data.statement.statement_config,
-    },
-    templateDocument,
-  );
-}
-
-export async function getOrRenderUnsignedStatementBytes(params: {
-  data: NonNullable<
-    Awaited<ReturnType<typeof SERVERONLY_getFullStatementFromToken>>
-  >;
-  supabase: ReturnType<typeof getServiceClient>;
-}) {
-  const existingSignedDocument = params.data.statement.signed_document;
-  if (existingSignedDocument?.path) {
-    return downloadStorageDocument({
-      supabase: params.supabase,
-      bucketId: existingSignedDocument.bucketId ?? params.data.tenant_id,
-      path: existingSignedDocument.path,
-    });
-  }
-
-  const rendered = await renderUnsignedStatementDocument(params);
-  return new Uint8Array(await rendered.arrayBuffer());
 }

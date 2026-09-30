@@ -198,7 +198,10 @@ function isAlreadyApplied(version, probe) {
     return probe.hasBillingStatus && probe.hasSignatureEvents;
   }
   if (version === "20260917140000") {
-    return probe.hasDocusealColumn;
+    return probe.hasDocusealColumn || probe.hasSignatureImageHash;
+  }
+  if (version === "20260930160000") {
+    return probe.hasSignatureImageHash && !probe.hasDocusealColumn;
   }
   return false;
 }
@@ -212,16 +215,21 @@ async function probeLiveSchema(url, serviceKey) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const [tenants, billing, attempts, signatures, docuseal] = await Promise.all([
-    supabase.from("tenants").select("id").limit(1),
-    supabase.from("tenants").select("billing_status").limit(1),
-    supabase.from("ai_generation_jobs").select("attempt_count").limit(1),
-    supabase.from("statement_signature_events").select("id").limit(1),
-    supabase
-      .from("statement_signature_events")
-      .select("docuseal_submission_id")
-      .limit(1),
-  ]);
+  const [tenants, billing, attempts, signatures, docuseal, signatureImage] =
+    await Promise.all([
+      supabase.from("tenants").select("id").limit(1),
+      supabase.from("tenants").select("billing_status").limit(1),
+      supabase.from("ai_generation_jobs").select("attempt_count").limit(1),
+      supabase.from("statement_signature_events").select("id").limit(1),
+      supabase
+        .from("statement_signature_events")
+        .select("docuseal_submission_id")
+        .limit(1),
+      supabase
+        .from("statement_signature_events")
+        .select("signature_image_sha256")
+        .limit(1),
+    ]);
 
   return {
     hasTenants: !tenants.error,
@@ -229,6 +237,7 @@ async function probeLiveSchema(url, serviceKey) {
     hasAttemptCount: !attempts.error,
     hasSignatureEvents: !signatures.error,
     hasDocusealColumn: !docuseal.error,
+    hasSignatureImageHash: !signatureImage.error,
   };
 }
 

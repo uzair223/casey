@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import Stripe from "stripe";
@@ -180,7 +179,6 @@ const cfAccountId =
 const cfToken =
   fileEnv.CLOUDFLARE_ADMIN_API_TOKEN || process.env.CLOUDFLARE_ADMIN_API_TOKEN;
 let caseyUrl = fileEnv.NEXT_PUBLIC_BASE_URL || "";
-let docusealUrl = fileEnv.DOCUSEAL_URL || "";
 if (cfAccountId && cfToken) {
   const subdomainRes = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/workers/subdomain`,
@@ -190,7 +188,6 @@ if (cfAccountId && cfToken) {
   const subdomain = subdomainJson?.result?.subdomain;
   if (subdomain) {
     caseyUrl = `https://casey.${subdomain}.workers.dev`;
-    docusealUrl = `https://casey-docuseal.${subdomain}.workers.dev`;
   }
 }
 
@@ -223,12 +220,6 @@ const secretUpdates = {
 if (webhookSecret) {
   secretUpdates.STRIPE_WEBHOOK_SECRET = webhookSecret;
 }
-if (!fileEnv.DOCUSEAL_SECRET_KEY_BASE) {
-  secretUpdates.DOCUSEAL_SECRET_KEY_BASE = randomBytes(64).toString("hex");
-}
-if (!fileEnv.DOCUSEAL_WEBHOOK_SECRET) {
-  secretUpdates.DOCUSEAL_WEBHOOK_SECRET = `whsec_${randomBytes(32).toString("hex")}`;
-}
 
 upsertEnv(envPath, secretUpdates);
 
@@ -251,7 +242,6 @@ console.log(
         extraLead: "£8 once",
       },
       caseyUrl: caseyUrl || null,
-      docusealUrl: docusealUrl || null,
       webhookCreated: Boolean(webhookSecret),
     },
     null,

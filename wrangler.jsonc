@@ -19,8 +19,6 @@
   "vars": {
     "NEXT_PUBLIC_APP_NAME": "Casey",
     "NEXT_PUBLIC_BASE_URL": "https://caseyhq.co.uk",
-    "NEXT_PUBLIC_DOCUSEAL_URL": "https://sign.caseyhq.co.uk",
-    "DOCUSEAL_URL": "https://sign.caseyhq.co.uk",
     "NEXT_PUBLIC_SUPABASE_URL": "https://tkkvksnmigchatjaodmm.supabase.co",
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_rQ_umaVFvCFfbZHomZsteA_aRca_XDF",
     "NEXT_PUBLIC_SUPPORT_EMAIL": "support@caseyhq.co.uk",

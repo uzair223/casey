@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import React, { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import React, { useEffect, useState } from "react";
 import confetti from "canvas-confetti";
 
 import { useAsync } from "@/hooks/useAsync";
 import { apiFetch } from "@/lib/api-utils";
-import { signDoc } from "@/lib/doc-gen";
-import { DocusealEmbed } from "@/components/intake/docuseal-embed";
+import { STATEMENT_OF_TRUTH } from "@/lib/signing/statement-of-truth";
 import {
   SignaturePad,
   SignaturePadProvider,
@@ -22,11 +22,31 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { UploadedDocument } from "@/types";
-import { DocxEditor, DocxEditorPanel } from "@/components/ui/docx-editor";
+import type { StatementConfig, UploadedDocument } from "@/types";
 import { PageTitle } from "@/components/page-title";
 import { AttachmentPreviewCard } from "@/components/ui/attachment-preview-card";
 import { toast } from "@/lib/toast";
+
+function blobToBase64(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+const StatementDocxPreview = dynamic(
+  () =>
+    import("@/components/intake/statement-docx-preview").then(
+      (mod) => mod.StatementDocxPreview,
+    ),
+  { ssr: false },
+);
 
 type FinalReviewData = {
   tenantId: string;
@@ -40,9 +60,12 @@ type FinalReviewData = {
   signedDocument: UploadedDocument | null;
   documentName: string;
   supportingDocuments: UploadedDocument[];
+  caseMetadata: Record<string, string | number | null | undefined>;
+  witnessMetadata: Record<string, string | number | null | undefined>;
+  config: StatementConfig;
+  hasTemplate: boolean;
   canSign: boolean;
   alreadyCompleted: boolean;
-  signingMethod: "canvas" | "docuseal";
 };
 
 export default function FinalReviewPage({
@@ -51,11 +74,9 @@ export default function FinalReviewPage({
   params: React.Usable<{ token: string }>;
 }) {
   const { token } = React.use(params);
-  const [signatureImageDataUrl, setSignatureImageDataUrl] = useState<
-    string | null
-  >(null);
   const [intentAttested, setIntentAttested] = useState(false);
-  const [certifiedComplete, setCertifiedComplete] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [baseDocumentBlob, setBaseDocumentBlob] = useState<Blob | null>(null);
   const [documentBlob, setDocumentBlob] = useState<Blob | null>(null);
   const [documentUrl, setDocumentUrl] = useState<string | null>(null);
@@ -74,62 +95,17 @@ export default function FinalReviewPage({
   );
   const finalReviewData = finalReview.data;
 
-  const startCertifiedSigning = useAsync(
-    async () => {
-      if (!finalReviewData || !intentAttested) {
-        return null;
-      }
-      return apiFetch<{ embedSrc: string }>(
-        `/api/intake/${token}/final-review/embedded`,
-        {
-          method: "POST",
-          requireAuth: "optional",
-          body: JSON.stringify({
-            signatureName: finalReviewData.witnessName,
-            intentAttested: true,
-          }),
-        },
-      );
-    },
-    [token, finalReviewData, intentAttested],
-    {
-      withUseEffect: false,
-      onlyFirstLoad: false,
-      initialLoading: false,
-    },
-  );
+  function rememberDocument(blob: Blob) {
+    setBaseDocumentBlob(blob);
+    setDocumentBlob(blob);
+    setDocumentUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return URL.createObjectURL(blob);
+    });
+  }
 
-  const submitFinalReview = useAsync(
-    async () => {
-      if (!finalReviewData || !signatureImageDataUrl || !intentAttested) {
-        return false;
-      }
-      if (finalReviewData.status === "demo_published") {
-        return true;
-      }
-
-      await apiFetch(`/api/intake/${token}/final-review`, {
-        method: "POST",
-        requireAuth: "optional",
-        body: JSON.stringify({
-          signatureImageDataUrl,
-          signatureName: finalReviewData.witnessName,
-          intentAttested: true,
-        }),
-      });
-      await finalReview.handler();
-      return true;
-    },
-    [token, signatureImageDataUrl, finalReviewData, intentAttested],
-    {
-      withUseEffect: false,
-      onlyFirstLoad: false,
-      initialLoading: false,
-    },
-  );
-
-  // Load the review document on demand. Before completion this is generated
-  // server-side from the latest statement snapshot rather than persisted.
+  // The Word file is built in the browser. The review request only downloads a
+  // stored file, so the page does not render a document on the worker.
   useEffect(() => {
     let cancelled = false;
 
@@ -145,33 +121,45 @@ export default function FinalReviewPage({
       }
 
       try {
-        const response = await fetch(
-          `/api/intake/${token}/shared/final-review-file?kind=signed`,
-        );
-
-        if (cancelled) return;
-
-        if (!response.ok) {
-          console.error("Failed to load document", response.status);
-          setBaseDocumentBlob(null);
-          setDocumentBlob(null);
-          setDocumentUrl((current) => {
-            if (current) URL.revokeObjectURL(current);
-            return null;
-          });
-          return;
+        if (finalReviewData.signedDocument?.path) {
+          const stored = await fetch(
+            `/api/intake/${token}/shared/final-review-file?kind=signed`,
+          );
+          if (cancelled) return;
+          if (stored.ok) {
+            rememberDocument(await stored.blob());
+            return;
+          }
         }
 
-        const data = await response.blob();
+        let template: Uint8Array | null = null;
+        if (finalReviewData.hasTemplate) {
+          const templateResponse = await fetch(
+            `/api/intake/${token}/shared/final-review-file?kind=template`,
+          );
+          if (cancelled) return;
+          if (templateResponse.ok) {
+            template = new Uint8Array(await templateResponse.arrayBuffer());
+          }
+        }
 
-        setBaseDocumentBlob(data);
-        setDocumentBlob(data);
-        setDocumentUrl((current) => {
-          if (current) URL.revokeObjectURL(current);
-          return URL.createObjectURL(data);
-        });
+        const { generateDoc } = await import("@/lib/doc-gen");
+        const generated = await generateDoc(
+          {
+            caseMetadata: finalReviewData.caseMetadata,
+            witnessName: finalReviewData.witnessName,
+            witnessEmail: finalReviewData.witnessEmail,
+            witnessMetadata: finalReviewData.witnessMetadata,
+            sections: finalReviewData.sections,
+            config: finalReviewData.config,
+          },
+          template,
+        );
+        if (cancelled) return;
+        rememberDocument(generated);
       } catch (err) {
         console.error("Error loading document", err);
+        if (cancelled) return;
         setBaseDocumentBlob(null);
         setDocumentBlob(null);
         setDocumentUrl((current) => {
@@ -181,20 +169,16 @@ export default function FinalReviewPage({
       }
     }
 
-    loadDocumentBlob();
+    void loadDocumentBlob();
 
     return () => {
       cancelled = true;
     };
-  }, [
-    token,
-    finalReviewData,
-    certifiedComplete,
-  ]);
+  }, [token, finalReviewData]);
 
   // Confetti effect when submission is complete
   useEffect(() => {
-    if (!submitFinalReview.data && !certifiedComplete) return;
+    if (!submitted) return;
 
     const defaults = {
       spread: 65,
@@ -226,7 +210,7 @@ export default function FinalReviewPage({
     }, 350);
 
     return () => clearTimeout(followUp);
-  }, [submitFinalReview.data, certifiedComplete]);
+  }, [submitted]);
 
   const onCaptureSignature = async (canvas: HTMLCanvasElement) => {
     try {
@@ -235,7 +219,8 @@ export default function FinalReviewPage({
         return;
       }
 
-      if (!finalReview.data) {
+      if (!finalReview.data || !baseDocumentBlob) {
+        toast.error("The statement is still being prepared.");
         return;
       }
 
@@ -247,61 +232,41 @@ export default function FinalReviewPage({
         throw new Error("Failed to capture signature");
       }
 
-      setSignatureImageDataUrl(canvas.toDataURL("image/png"));
+      setSubmitting(true);
+      const { signDoc } = await import("@/lib/doc-gen");
+      const signedBlob = await signDoc({
+        file: baseDocumentBlob,
+        signatureImage: blob,
+        signatureDate: new Date().toLocaleDateString("en-GB"),
+      });
+      setDocumentBlob(signedBlob);
+      setDocumentUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return URL.createObjectURL(signedBlob);
+      });
 
-      if (baseDocumentBlob) {
-        const signedBlob = await signDoc({
-          file: baseDocumentBlob,
-          signatureImage: blob,
-          signatureDate: new Date().toLocaleDateString("en-GB"),
+      if (finalReview.data.status !== "demo_published") {
+        await apiFetch(`/api/intake/${token}/final-review`, {
+          method: "POST",
+          requireAuth: "optional",
+          body: JSON.stringify({
+            intentAttested: true,
+            signedDocumentBase64: await blobToBase64(signedBlob),
+            signatureImageBase64: await blobToBase64(blob),
+          }),
         });
-        setDocumentBlob(signedBlob);
-        await submitFinalReview.handler();
+        await finalReview.handler();
       }
+      setSubmitted(true);
     } catch (error) {
       toast.errorFromUnknown(
         error,
         "Failed to capture signature. Please try again.",
       );
+    } finally {
+      setSubmitting(false);
     }
   };
-
-  const onDocusealComplete = useCallback(() => {
-    setCertifiedComplete(true);
-    void finalReview.handler();
-  }, [finalReview.handler]);
-
-  const embedSrc = startCertifiedSigning.data?.embedSrc ?? null;
-
-  useEffect(() => {
-    if (finalReview.data?.alreadyCompleted) {
-      setCertifiedComplete(true);
-      return;
-    }
-    if (!embedSrc) {
-      return;
-    }
-
-    let cancelled = false;
-    let attempts = 0;
-    const poll = async () => {
-      attempts += 1;
-      await finalReview.handler();
-    };
-
-    const timer = window.setInterval(() => {
-      if (cancelled || attempts >= 60) {
-        window.clearInterval(timer);
-        return;
-      }
-      void poll();
-    }, 2000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [embedSrc, finalReview.data?.alreadyCompleted, finalReview.handler]);
 
   if (finalReview.isLoading) {
     return (
@@ -340,10 +305,7 @@ export default function FinalReviewPage({
     );
   }
 
-  const signedOff =
-    finalReview.data.alreadyCompleted ||
-    Boolean(submitFinalReview.data) ||
-    certifiedComplete;
+  const signedOff = finalReview.data.alreadyCompleted || submitted;
   const documentIsPdf =
     Boolean(documentBlob?.type.includes("pdf")) ||
     finalReview.data.documentName.toLowerCase().endsWith(".pdf");
@@ -373,13 +335,7 @@ export default function FinalReviewPage({
           )}
         </CardHeader>
         <CardContent className="space-y-5">
-          {!signedOff && finalReview.data.canSign && embedSrc ? (
-            <DocusealEmbed
-              src={embedSrc}
-              email={finalReview.data.witnessEmail}
-              onComplete={onDocusealComplete}
-            />
-          ) : !signedOff && finalReview.data.canSign ? (
+          {!signedOff && finalReview.data.canSign ? (
             <div className="space-y-3">
               <label className="flex items-start gap-2 text-sm">
                 <input
@@ -389,42 +345,21 @@ export default function FinalReviewPage({
                   onChange={(event) => setIntentAttested(event.target.checked)}
                 />
                 <span>
-                  I intend to sign this statement as {finalReview.data.witnessName}
-                  and confirm that the account is true to the best of my knowledge.
+                  {STATEMENT_OF_TRUTH} I sign as {finalReview.data.witnessName}.
                 </span>
               </label>
-              {finalReview.data.signingMethod === "docuseal" ? (
-                <Button
-                  onClick={() => {
-                    void startCertifiedSigning.handler().catch((error) => {
-                      toast.errorFromUnknown(
-                        error,
-                        "Failed to start certified signing.",
-                      );
-                    });
-                  }}
-                  disabled={!intentAttested || startCertifiedSigning.isLoading}
+              <SignaturePadProvider>
+                <SignaturePad />
+                <SignaturePadSubmitButton
+                  className="mr-1"
+                  onCaptureSignature={onCaptureSignature}
+                  disabled={!intentAttested || submitting}
                 >
-                  {startCertifiedSigning.isLoading
-                    ? "Opening signature..."
-                    : "Sign statement"}
-                </Button>
-              ) : (
-                <SignaturePadProvider>
-                  <SignaturePad />
-                  <SignaturePadSubmitButton
-                    className="mr-1"
-                    onCaptureSignature={onCaptureSignature}
-                    disabled={
-                      !intentAttested || submitFinalReview.isLoading
-                    }
-                  >
-                    {submitFinalReview.isLoading
-                      ? "Submitting..."
-                      : "Submit Final Signed Statement"}
-                  </SignaturePadSubmitButton>
-                </SignaturePadProvider>
-              )}
+                  {submitting
+                    ? "Submitting..."
+                    : "Submit Final Signed Statement"}
+                </SignaturePadSubmitButton>
+              </SignaturePadProvider>
             </div>
           ) : null}
 
@@ -435,16 +370,10 @@ export default function FinalReviewPage({
               className="h-[50vh] w-full rounded-md border sm:h-[65vh]"
             />
           ) : documentBlob ? (
-            <DocxEditor
-              source={documentBlob}
-              documentName={finalReview.data.documentName}
-              canEdit={false}
-            >
-              <DocxEditorPanel
-                mode="bare"
-                className="h-[50vh] max-h-[50vh] sm:h-[65vh] sm:max-h-[65vh]"
-              />
-            </DocxEditor>
+            <StatementDocxPreview
+              blob={documentBlob}
+              name={finalReview.data.documentName}
+            />
           ) : (
             <div className="rounded-md border p-3 bg-muted/20">
               <p className="text-sm text-muted-foreground">

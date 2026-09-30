@@ -40,8 +40,6 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=4096
       NEXT_PUBLIC_APP_NAME: Casey
       NEXT_PUBLIC_BASE_URL: https://caseyhq.co.uk
-      NEXT_PUBLIC_DOCUSEAL_URL: https://sign.caseyhq.co.uk
-      DOCUSEAL_URL: https://sign.caseyhq.co.uk
       NEXT_PUBLIC_SUPPORT_EMAIL: support@caseyhq.co.uk
       NEXT_PUBLIC_CALENDLY_LINK: https://calendly.com/caseyhq/casey-demo-call
       AXIOM_DATASET: casey
@@ -68,8 +66,6 @@ jobs:
       STRIPE_PRACTICE_PRICE_ID: ${{ secrets.STRIPE_PRACTICE_PRICE_ID }}
       STRIPE_GROWTH_PRICE_ID: ${{ secrets.STRIPE_GROWTH_PRICE_ID }}
       STRIPE_CASE_PRICE_ID: ${{ secrets.STRIPE_CASE_PRICE_ID }}
-      DOCUSEAL_API_KEY: ${{ secrets.DOCUSEAL_API_KEY }}
-      DOCUSEAL_WEBHOOK_SECRET: ${{ secrets.DOCUSEAL_WEBHOOK_SECRET }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

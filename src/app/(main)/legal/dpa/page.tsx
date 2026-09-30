@@ -30,7 +30,6 @@ const subprocessors = [
   "Cloudflare AI Gateway — model inference for interview, formalization, analysis, and Jev decision scoring",
   "Resend — transactional email",
   "Stripe — subscription and extra accepted-lead payments",
-  "Self-hosted DocuSeal — certified electronic signature when enabled",
 ] as const;
 
 const processorDuties = [

@@ -13,7 +13,6 @@
     "upload": "node scripts/with-cloudflare-admin.mjs opennextjs-cloudflare build && node scripts/with-cloudflare-admin.mjs opennextjs-cloudflare upload",
     "cf-typegen": "node scripts/with-cloudflare-admin.mjs wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "configure:stripe": "node scripts/configure-stripe.mjs",
-    "deploy:docuseal": "node scripts/with-cloudflare-admin.mjs wrangler deploy -c deploy/docuseal/wrangler.jsonc",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:integration": "vitest run --config vitest.config.ts tests/integration",

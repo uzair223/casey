@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
 import { SERVERONLY_getFullStatementFromToken } from "@/lib/supabase/queries";
 import { getServiceClient } from "@/lib/supabase/server";
-import { generateDoc } from "@/lib/doc-gen";
 import type { StatementSupportingDocument, UploadedDocument } from "@/types";
 
 function sanitizeFilename(value: string) {
@@ -42,51 +41,6 @@ async function downloadStorageDocument(params: {
   return data;
 }
 
-function getStatementDocumentName(fullStatement: {
-  case: { title: string };
-  statement: { witness_name: string };
-}) {
-  return `${fullStatement.case.title || "case"} ${fullStatement.statement.witness_name} Witness Statement.docx`;
-}
-
-async function renderUnsignedStatementDocument(params: {
-  fullStatement: NonNullable<
-    Awaited<ReturnType<typeof SERVERONLY_getFullStatementFromToken>>
-  >;
-  supabase: ReturnType<typeof getServiceClient>;
-}) {
-  const templateDocument = params.fullStatement.statement
-    .template_document_snapshot
-    ? await downloadStorageDocument({
-        supabase: params.supabase,
-        bucketId:
-          params.fullStatement.statement.template_document_snapshot.bucketId ??
-          params.fullStatement.tenant_id,
-        path: params.fullStatement.statement.template_document_snapshot.path,
-      })
-    : null;
-
-  return generateDoc(
-    {
-      caseMetadata:
-        (params.fullStatement.case.case_metadata as Record<
-          string,
-          string | number | null | undefined
-        >) ?? {},
-      witnessName: params.fullStatement.statement.witness_name,
-      witnessEmail: params.fullStatement.statement.witness_email,
-      witnessMetadata:
-        (params.fullStatement.statement.witness_metadata as Record<
-          string,
-          string | number | null | undefined
-        >) ?? {},
-      sections: params.fullStatement.statement.sections,
-      config: params.fullStatement.statement.statement_config,
-    },
-    templateDocument,
-  );
-}
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -119,21 +73,10 @@ export async function GET(
 
     const supabase = getServiceClient("GET intake final review file");
     let file: UploadedDocument | null = null;
-    let generatedFile: Blob | null = null;
     if (kind === "signed") {
       file = fullStatement.statement.signed_document as UploadedDocument | null;
-      if (!file?.path) {
-        generatedFile = await renderUnsignedStatementDocument({
-          fullStatement,
-          supabase,
-        });
-        file = {
-          name: getStatementDocumentName(fullStatement),
-          path: "",
-          type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          uploadedAt: new Date().toISOString(),
-        };
-      }
+    } else if (kind === "template") {
+      file = fullStatement.statement.template_document_snapshot ?? null;
     } else if (kind === "supporting") {
       file = getSupportingDocument(
         fullStatement.statement.supporting_documents,
@@ -141,12 +84,12 @@ export async function GET(
       );
     } else {
       return NextResponse.json(
-        { error: "Invalid file kind. Use kind=signed or kind=supporting." },
+        { error: "Invalid file kind. Use kind=signed, kind=template, or kind=supporting." },
         { status: 400 },
       );
     }
 
-    if (!file?.path && !generatedFile) {
+    if (!file?.path) {
       return NextResponse.json(
         { error: "Requested file not available" },
         { status: 404 },
@@ -154,21 +97,12 @@ export async function GET(
     }
 
     const resolvedFile = file;
-    if (!resolvedFile) {
-      return NextResponse.json(
-        { error: "Requested file not available" },
-        { status: 404 },
-      );
-    }
-
     const bucketId = resolvedFile.bucketId ?? fullStatement.tenant_id;
-    const data =
-      generatedFile ??
-      (await downloadStorageDocument({
-        supabase,
-        bucketId,
-        path: resolvedFile.path,
-      }));
+    const data = await downloadStorageDocument({
+      supabase,
+      bucketId,
+      path: resolvedFile.path,
+    });
 
     const filename = sanitizeFilename(resolvedFile.name || "final-review-file");
 

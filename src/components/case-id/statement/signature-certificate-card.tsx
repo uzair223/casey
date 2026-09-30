@@ -24,8 +24,9 @@ type SignatureCertificate = {
   userAgent: string | null;
   unsignedDocumentSha256: string | null;
   signedDocumentSha256: string | null;
+  signatureImageSha256: string | null;
+  attestationText: string | null;
   dropboxSignatureRequestId: string | null;
-  docusealSubmissionId: string | null;
 };
 
 export function SignatureCertificateCard({
@@ -62,7 +63,9 @@ export function SignatureCertificateCard({
       <CardContent className="space-y-2 text-sm">
         <p>
           {record.appName} recorded a simple electronic signature for{" "}
-          {record.statementTitle}.
+          {record.statementTitle}. This is the signatory&apos;s signature on
+          the statement, kept with the time, the signatory, and the hashes
+          below. It is not a qualified electronic signature.
         </p>
         <p>
           Signer: {record.signerName} ({record.witnessEmail})
@@ -70,26 +73,30 @@ export function SignatureCertificateCard({
         <p>Signed at: {new Date(record.signedAt).toLocaleString("en-GB")}</p>
         <p>
           Method:{" "}
-          {record.method === "docuseal"
-            ? "DocuSeal"
-            : record.method === "dropbox_sign"
-              ? "Dropbox Sign"
-              : "In-app signature pad"}
+          {record.method === "dropbox_sign"
+            ? "Dropbox Sign"
+            : "Signature on the statement"}
         </p>
-        <p>Intent attested: {record.intentAttested ? "Yes" : "No"}</p>
+        <p>Statement of truth accepted: {record.intentAttested ? "Yes" : "No"}</p>
+        {record.attestationText ? <p>{record.attestationText}</p> : null}
         {record.ipAddress ? <p>IP address: {record.ipAddress}</p> : null}
+        {record.userAgent ? (
+          <p className="break-all">Browser: {record.userAgent}</p>
+        ) : null}
         {record.unsignedDocumentSha256 ? (
           <p className="break-all">
-            Unsigned document SHA-256: {record.unsignedDocumentSha256}
+            Statement text SHA-256: {record.unsignedDocumentSha256}
+          </p>
+        ) : null}
+        {record.signatureImageSha256 ? (
+          <p className="break-all">
+            Signature image SHA-256: {record.signatureImageSha256}
           </p>
         ) : null}
         {record.signedDocumentSha256 ? (
           <p className="break-all">
-            Signed document SHA-256: {record.signedDocumentSha256}
+            Signed file SHA-256: {record.signedDocumentSha256}
           </p>
-        ) : null}
-        {record.docusealSubmissionId ? (
-          <p>DocuSeal submission: {record.docusealSubmissionId}</p>
         ) : null}
         {record.dropboxSignatureRequestId ? (
           <p>Legacy Dropbox Sign request: {record.dropboxSignatureRequestId}</p>

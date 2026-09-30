@@ -1415,15 +1415,14 @@ export type Database = {
       statement_signature_events: {
         Row: {
           created_at: string
+          attestation_text: string | null
           dropbox_signature_id: string | null
           dropbox_signature_request_id: string | null
-          docuseal_submission_id: string | null
-          docuseal_submitter_id: string | null
-          docuseal_submitter_slug: string | null
           id: string
           intent_attested: boolean
           ip_address: string | null
           method: string
+          signature_image_sha256: string | null
           signed_at: string
           signed_document_sha256: string | null
           signer_name: string
@@ -1434,15 +1433,14 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          attestation_text?: string | null
           dropbox_signature_id?: string | null
           dropbox_signature_request_id?: string | null
-          docuseal_submission_id?: string | null
-          docuseal_submitter_id?: string | null
-          docuseal_submitter_slug?: string | null
           id?: string
           intent_attested?: boolean
           ip_address?: string | null
           method: string
+          signature_image_sha256?: string | null
           signed_at?: string
           signed_document_sha256?: string | null
           signer_name: string
@@ -1453,15 +1451,14 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          attestation_text?: string | null
           dropbox_signature_id?: string | null
           dropbox_signature_request_id?: string | null
-          docuseal_submission_id?: string | null
-          docuseal_submitter_id?: string | null
-          docuseal_submitter_slug?: string | null
           id?: string
           intent_attested?: boolean
           ip_address?: string | null
           method?: string
+          signature_image_sha256?: string | null
           signed_at?: string
           signed_document_sha256?: string | null
           signer_name?: string

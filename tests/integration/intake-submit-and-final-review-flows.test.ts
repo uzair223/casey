@@ -216,17 +216,17 @@ describe("intake submission and final review flows", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          signatureImageDataUrl:
-            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/w8AAgMBgN4XvGkAAAAASUVORK5CYII=",
-          signatureName: "Casey Witness",
           intentAttested: true,
+          signedDocumentBase64: "UEsDBA==",
+          signatureImageBase64:
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
         }),
       }),
       { params: Promise.resolve({ token: "token-1" }) },
     );
 
     expect(response.status).toBe(200);
-    expect(signDoc).toHaveBeenCalled();
+    expect(signDoc).not.toHaveBeenCalled();
     expect(SERVERONLY_updateStatementByToken).toHaveBeenCalledWith(
       "token-1",
       expect.objectContaining({

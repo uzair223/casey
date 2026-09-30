@@ -7,17 +7,18 @@ import {
   SERVERONLY_updateStatementStatus,
 } from "@/lib/supabase/mutations";
 import { getServiceClient } from "@/lib/supabase/server";
-import { signDoc } from "@/lib/doc-gen";
 import { getRequestIp, getRequestUserAgent, sha256Hex } from "@/lib/crypto/hash";
 import {
-  getOrRenderUnsignedStatementBytes,
+  decodeSignaturePng,
+  decodeSignedDocx,
+  statementContentSha256,
+} from "@/lib/signing/evidence";
+import { recordSignatureEvent } from "@/lib/signing/record";
+import { STATEMENT_OF_TRUTH } from "@/lib/signing/statement-of-truth";
+import {
   getStatementDocumentName,
   uploadStorageDocument,
 } from "@/lib/signing/statement-document";
-import {
-  getStatementSigningMethod,
-  recordSignatureEvent,
-} from "@/lib/signing/record";
 
 export async function GET(
   request: Request,
@@ -43,11 +44,6 @@ export async function GET(
       return accessError;
     }
 
-    const signingMethod = await getStatementSigningMethod({
-      tenantId: data.tenant_id,
-      statementStatus: data.statement.status,
-    });
-
     return NextResponse.json({
       tenantId: data.tenant_id,
       caseId: data.case.id,
@@ -63,11 +59,15 @@ export async function GET(
       supportingDocuments: data.statement.supporting_documents.map(
         (row) => row.document,
       ),
+      caseMetadata: data.case.case_metadata ?? {},
+      witnessMetadata: data.statement.witness_metadata ?? {},
+      config: data.statement.statement_config,
+      hasTemplate: Boolean(data.statement.template_document_snapshot?.path),
       canSign:
         data.statement.status === "finalized" ||
         data.statement.status === "demo_published",
       alreadyCompleted: data.statement.status === "completed",
-      signingMethod,
+      statementOfTruth: STATEMENT_OF_TRUTH,
     });
   } catch (error) {
     const message =
@@ -112,76 +112,52 @@ export async function POST(
       );
     }
 
-    const signingMethod = await getStatementSigningMethod({
-      tenantId: data.tenant_id,
-      statementStatus: data.statement.status,
-    });
-    if (signingMethod !== "canvas") {
+    const signerName = data.statement.witness_name?.trim() ?? "";
+    if (!signerName) {
       return NextResponse.json(
-        { error: "This statement must be signed with the certified provider." },
+        { error: "This account has no name to sign with." },
         { status: 409 },
       );
     }
 
     const body = (await request.json()) as {
-      signatureImageDataUrl?: unknown;
-      signatureName?: string;
       intentAttested?: unknown;
+      signedDocumentBase64?: unknown;
+      signatureImageBase64?: unknown;
     };
 
-    const signatureImageDataUrl =
-      typeof body.signatureImageDataUrl === "string"
-        ? body.signatureImageDataUrl.trim()
-        : "";
-    const signatureName =
-      typeof body.signatureName === "string" ? body.signatureName.trim() : "";
     const intentAttested = body.intentAttested === true;
+    const signedBytes = decodeSignedDocx(body.signedDocumentBase64);
+    const signatureImage = decodeSignaturePng(body.signatureImageBase64);
 
-    if (!signatureImageDataUrl || !signatureName || !intentAttested) {
+    if (!intentAttested || !signedBytes || !signatureImage) {
       return NextResponse.json(
         {
           error:
-            "signatureImageDataUrl, signatureName, and intent attestation are required",
+            "The statement of truth, a signature, and the signed statement are required.",
         },
         { status: 400 },
       );
     }
 
-    const MAX_SIGNATURE_IMAGE_BYTES = 500 * 1024;
-    const signatureBase64 = signatureImageDataUrl.replace(
-      /^data:image\/png;base64,/,
-      "",
-    );
-    const maxBase64Length = Math.ceil((MAX_SIGNATURE_IMAGE_BYTES * 4) / 3) + 64;
-    if (signatureBase64.length > maxBase64Length) {
-      return NextResponse.json(
-        { error: "Signature image is too large." },
-        { status: 400 },
-      );
-    }
-    const signatureImage = Uint8Array.from(
-      Buffer.from(signatureBase64, "base64"),
-    );
-    if (signatureImage.byteLength > MAX_SIGNATURE_IMAGE_BYTES) {
-      return NextResponse.json(
-        { error: "Signature image is too large." },
-        { status: 400 },
-      );
-    }
-
-    const unsignedBytes = await getOrRenderUnsignedStatementBytes({
-      data,
-      supabase,
+    const sections =
+      data.statement.sections &&
+      typeof data.statement.sections === "object" &&
+      !Array.isArray(data.statement.sections)
+        ? Object.fromEntries(
+            Object.entries(data.statement.sections).flatMap(([key, value]) =>
+              typeof value === "string" ? [[key, value]] : [],
+            ),
+          )
+        : {};
+    const statementHash = statementContentSha256({
+      statementId: data.statement.id,
+      witnessName: signerName,
+      witnessEmail: data.statement.witness_email ?? "",
+      sections,
     });
-    const unsignedHash = sha256Hex(unsignedBytes);
-
-    const signedBlob = await signDoc({
-      file: unsignedBytes,
-      signatureImage,
-      signatureDate: new Date().toLocaleDateString("en-GB"),
-    });
-    const signedBytes = new Uint8Array(await signedBlob.arrayBuffer());
     const signedHash = sha256Hex(signedBytes);
+    const signatureImageHash = sha256Hex(signatureImage);
 
     const existingSignedDocument = data.statement.signed_document;
     const finalDocName =
@@ -196,7 +172,7 @@ export async function POST(
       path: finalDocPath,
       file: signedBytes,
       name: finalDocName,
-      description: `Final signed account by ${signatureName}`,
+      description: `Final signed account by ${signerName}`,
       contentType:
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
@@ -204,20 +180,22 @@ export async function POST(
     await SERVERONLY_updateStatementByToken(token, {
       signed_document: signedDocument,
       witness_metadata: {
-        final_signature_name: signatureName,
+        final_signature_name: signerName,
       },
     });
 
     await recordSignatureEvent({
       tenantId: data.tenant_id,
       statementId: data.statement.id,
-      signerName: signatureName,
+      signerName,
       intentAttested: true,
+      attestationText: STATEMENT_OF_TRUTH,
       method: "canvas",
       ipAddress: getRequestIp(request),
       userAgent: getRequestUserAgent(request),
-      unsignedDocumentSha256: unsignedHash,
+      unsignedDocumentSha256: statementHash,
       signedDocumentSha256: signedHash,
+      signatureImageSha256: signatureImageHash,
     });
 
     await SERVERONLY_updateStatementStatus(data.statement.id, "completed");

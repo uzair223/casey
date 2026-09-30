@@ -50,8 +50,9 @@ export async function GET(
         userAgent: event.user_agent,
         unsignedDocumentSha256: event.unsigned_document_sha256,
         signedDocumentSha256: event.signed_document_sha256,
+        signatureImageSha256: event.signature_image_sha256,
+        attestationText: event.attestation_text,
         dropboxSignatureRequestId: event.dropbox_signature_request_id,
-        docusealSubmissionId: event.docuseal_submission_id,
       },
     });
   } catch (error) {

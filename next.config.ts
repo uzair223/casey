@@ -30,26 +30,11 @@ const cspEnforce =
     process.env.CSP_ENFORCE !== "0" &&
     process.env.CSP_ENFORCE !== "false");
 
-const originFromEnv = (value?: string) => {
-  if (!value) return undefined;
-  try {
-    return new URL(value).origin;
-  } catch {
-    return undefined;
-  }
-};
-
-const docusealOrigin = originFromEnv(
-  process.env.NEXT_PUBLIC_DOCUSEAL_URL || process.env.DOCUSEAL_URL,
-);
-
 const connectSrc = [
   "'self'",
-  "https://cdn.docuseal.com",
   "https://js.stripe.com",
   "https://api.stripe.com",
   "https://challenges.cloudflare.com",
-  ...(docusealOrigin ? [docusealOrigin] : []),
   ...(supabaseHostname
     ? [`https://${supabaseHostname}`, `wss://${supabaseHostname}`]
     : []),
@@ -74,16 +59,12 @@ function cspPolicy(frameable: boolean) {
     `img-src ${imgSrc}`,
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
-    `script-src 'self' 'unsafe-inline' https://cdn.docuseal.com https://js.stripe.com https://challenges.cloudflare.com${
-      docusealOrigin ? ` ${docusealOrigin}` : ""
-    }`,
+    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://challenges.cloudflare.com",
     `connect-src ${connectSrc}`,
     "worker-src 'self' blob:",
     `frame-src 'self' blob:${
       supabaseHostname ? ` https://${supabaseHostname}` : ""
-    } https://cdn.docuseal.com https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com${
-      docusealOrigin ? ` ${docusealOrigin}` : ""
-    }`,
+    } https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com`,
     "report-uri /api/security/csp-report",
     "report-to csp-endpoint",
     "upgrade-insecure-requests",
