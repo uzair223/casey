@@ -95,7 +95,7 @@ describe("lead facts from an enquiry", () => {
     );
   });
 
-  it("opens on the first phase and restates the enquiry", () => {
+  it("restates the enquiry and asks for the address before the first phase", () => {
     const [greeting, question] = generateGreeting(
       { title: "Uzair — Accident at work" },
       {
@@ -139,6 +139,6 @@ describe("lead facts from an enquiry", () => {
     );
     expect(greeting?.content).toContain("We'll go through the job.");
     expect(greeting?.content).not.toMatch(/defendant/i);
-    expect(question?.content).toBe("Could you tell me about the job?");
+    expect(question?.content).toBe("What is your address?");
   });
 });
