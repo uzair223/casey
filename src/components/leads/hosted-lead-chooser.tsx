@@ -6,6 +6,7 @@ import { SelectorChoice } from "@/components/leads/selector-choice";
 import { Button } from "@/components/ui/button";
 import { PublicLeadChat } from "@/components/leads/public-lead-chat";
 import {
+  DEFAULT_LEAD_BACKGROUND_COLOR,
   DEFAULT_LEAD_HEADER_COLOR,
   DEFAULT_LEAD_TEXT_COLOR,
   DEFAULT_SELECTOR_CAPTION,
@@ -131,28 +132,43 @@ export function HostedLeadChooser({
     );
   }
 
+  const chatBackground = leadHexColor(
+    widget ? selected.branding.backgroundColor : undefined,
+    DEFAULT_LEAD_BACKGROUND_COLOR,
+  );
+
   return (
-    <div className="space-y-3">
+    <div
+      className="fixed inset-0 z-20 flex h-dvh min-h-0 flex-col"
+      style={{ backgroundColor: chatBackground }}
+    >
       {channels.length > 1 ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setPublicKey(null)}
-        >
-          Choose a different enquiry
-        </Button>
+        <div className="shrink-0 px-2 pt-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            style={{ color: textColor }}
+            onClick={() => setPublicKey(null)}
+          >
+            Choose a different enquiry
+          </Button>
+        </div>
       ) : null}
-      <PublicLeadChat
-        key={selected.publicKey}
-        publicKey={selected.publicKey}
-        firmName={widget ? selected.branding.displayName || firmName : firmName}
-        enquiryName={selected.leadTypeName}
-        welcome={selected.welcome}
-        branding={widget ? selected.branding : {}}
-        turnstileSiteKey={turnstileSiteKey}
-        resumeToken={linkedToken}
-      />
+      <div className="min-h-0 flex-1">
+        <PublicLeadChat
+          key={selected.publicKey}
+          publicKey={selected.publicKey}
+          firmName={widget ? selected.branding.displayName || firmName : firmName}
+          enquiryName={selected.leadTypeName}
+          welcome={selected.welcome}
+          branding={widget ? selected.branding : {}}
+          turnstileSiteKey={turnstileSiteKey}
+          resumeToken={linkedToken}
+          fill
+          hideFullscreen
+        />
+      </div>
     </div>
   );
 }

@@ -30,6 +30,7 @@ type PublicLeadChatProps = {
   turnstileSiteKey?: string;
   resumeToken?: string;
   fill?: boolean;
+  hideFullscreen?: boolean;
 };
 
 type ResumedEnquiry = {
@@ -199,6 +200,7 @@ export function PublicLeadChat({
   turnstileSiteKey,
   resumeToken,
   fill = false,
+  hideFullscreen = false,
 }: PublicLeadChatProps) {
   const [enquiryLabel, setEnquiryLabel] = useState(enquiryName);
   const [messages, setMessages] = useState<ChatAreaMessage[]>([
@@ -279,12 +281,13 @@ export function PublicLeadChat({
   }, [publicKey, resumeToken]);
 
   useEffect(() => {
+    if (hideFullscreen) return;
     function onFullscreenChange() {
       setFullscreen(document.fullscreenElement != null);
     }
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
-  }, []);
+  }, [hideFullscreen]);
 
   function toggleFullscreen() {
     if (document.fullscreenElement) {
@@ -539,18 +542,20 @@ export function PublicLeadChat({
             </p>
           ) : null}
         </div>
-        <button
-          type="button"
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-white hover:bg-white/15"
-          aria-label={fullscreen ? "Exit full screen" : "Full screen"}
-          onClick={toggleFullscreen}
-        >
-          {fullscreen ? (
-            <MinimizeIcon className="h-4 w-4" />
-          ) : (
-            <ExpandIcon className="h-4 w-4" />
-          )}
-        </button>
+        {hideFullscreen ? null : (
+          <button
+            type="button"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-white hover:bg-white/15"
+            aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+            onClick={toggleFullscreen}
+          >
+            {fullscreen ? (
+              <MinimizeIcon className="h-4 w-4" />
+            ) : (
+              <ExpandIcon className="h-4 w-4" />
+            )}
+          </button>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <ChatAreaContent
