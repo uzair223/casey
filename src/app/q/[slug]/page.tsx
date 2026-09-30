@@ -36,6 +36,7 @@ export default async function HostedLeadPage({ params, searchParams }: PageProps
           channels={firm.channels.map((channel) => ({
             publicKey: channel.publicKey,
             leadTypeName: channel.leadTypeName,
+            welcome: channel.welcome,
             branding: channel.branding,
           }))}
           turnstileSiteKey={configuredTurnstileSiteKey()}

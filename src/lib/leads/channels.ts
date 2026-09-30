@@ -5,6 +5,7 @@ import { widgetEnabled } from "@/lib/billing/plans";
 import { readLeadBranding } from "./logo";
 import {
   parseLeadTypeConfig,
+  resolveLeadWelcome,
   type LeadBranding,
 } from "./schema";
 
@@ -74,9 +75,10 @@ export async function getChannelByKey(publicKey: string) {
     widget: widgetEnabled(tenant.plan),
     plan: tenant.plan,
     branding,
-    welcome:
-      (widgetEnabled(tenant.plan) ? branding.welcome : undefined) ||
-      `Tell ${tenant.name} what happened. Casey will ask for the details they need.`,
+    welcome: resolveLeadWelcome({
+      leadTypeName: leadType.name,
+      leadTypeWelcome: readLeadBranding(data.branding).welcome,
+    }),
     config,
   };
 }
@@ -112,6 +114,10 @@ export async function listChannelsForSlug(slug: string) {
         leadTypeId: channel.lead_type_id,
         leadTypeName: leadType.name,
         config: parseLeadTypeConfig(leadType),
+        welcome: resolveLeadWelcome({
+          leadTypeName: leadType.name,
+          leadTypeWelcome: readLeadBranding(channel.branding).welcome,
+        }),
         branding: publicBranding(
           tenant.plan,
           tenant.intake_branding,

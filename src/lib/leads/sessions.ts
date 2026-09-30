@@ -124,6 +124,7 @@ export async function createQualificationSession(params: {
   tenantId: string;
   leadTypeId: string;
   slots: QualificationSlot[];
+  welcome: string;
 }) {
   const supabase = getServiceClient("lead-session-create");
   const token = generateSecureToken();
@@ -138,7 +139,7 @@ export async function createQualificationSession(params: {
       messages: [
         {
           role: "assistant",
-          content: "Tell me what happened, in your own words.",
+          content: params.welcome,
         },
       ],
       slots: {},

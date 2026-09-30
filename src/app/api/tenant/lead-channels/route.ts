@@ -7,7 +7,10 @@ import {
 } from "@/lib/api-utils";
 import { widgetEnabled } from "@/lib/billing/plans";
 import { firmPageUrl } from "@/lib/firm-page-host";
-import { LeadBrandingSchema } from "@/lib/leads/schema";
+import {
+  brandingKeepingWelcome,
+  LeadBrandingSchema,
+} from "@/lib/leads/schema";
 import {
   readLeadBranding,
   resolveFirmLogoUrl,
@@ -72,6 +75,7 @@ export async function GET(request: Request) {
           leadTypeName: leadType?.name ?? "Lead type",
           enabled: channel.enabled,
           publicKey: channel.public_key,
+          welcome: readLeadBranding(channel.branding).welcome ?? "",
           branding: premium ? channel.branding : {},
           snippet: `<div style="width:100%;height:640px"><script src="${env.NEXT_PUBLIC_BASE_URL}/widget.js" data-key="${channel.public_key}"></script></div>`,
         };
@@ -91,6 +95,7 @@ export async function POST(request: Request) {
       publicSlug?: string;
       branding?: unknown;
       enabled?: boolean;
+      welcome?: string;
     } | null;
 
     const supabase = getServiceClient("lead-channels-save");
@@ -150,11 +155,22 @@ export async function POST(request: Request) {
       .eq("id", tenant.id);
     if (brandingError) throw brandingError;
 
-    const { error: channelBrandingError } = await supabase
+    const { data: firmChannels, error: firmChannelsError } = await supabase
       .from("lead_channels")
-      .update({ branding: brandingJson })
+      .select("id, branding")
       .eq("tenant_id", tenant.id);
-    if (channelBrandingError) throw channelBrandingError;
+    if (firmChannelsError) throw firmChannelsError;
+    for (const channel of firmChannels ?? []) {
+      const nextBranding = brandingKeepingWelcome(
+        branding,
+        readLeadBranding(channel.branding),
+      );
+      const { error: channelBrandingError } = await supabase
+        .from("lead_channels")
+        .update({ branding: nextBranding as Json })
+        .eq("id", channel.id);
+      if (channelBrandingError) throw channelBrandingError;
+    }
 
     if (!body?.leadTypeId) {
       return ok({
@@ -167,23 +183,48 @@ export async function POST(request: Request) {
 
     const { data: existing } = await supabase
       .from("lead_channels")
-      .select("id, public_key")
+      .select("id, public_key, branding")
       .eq("tenant_id", tenant.id)
       .eq("lead_type_id", body.leadTypeId)
       .maybeSingle();
 
-    if (existing) {
-      const { error } = await supabase
-        .from("lead_channels")
-        .update({
-          enabled: body.enabled ?? true,
-          branding: brandingJson,
-        })
-        .eq("id", existing.id);
-      if (error) throw error;
-      return ok({ id: existing.id, publicKey: existing.public_key, publicSlug: slug });
+    if (typeof body.welcome === "string" && !existing) {
+      return badRequest("Enable this lead type first");
     }
 
+    if (existing) {
+      const patch: { enabled?: boolean; branding?: Json } = {};
+      if (typeof body.enabled === "boolean") patch.enabled = body.enabled;
+      if (typeof body.welcome === "string") {
+        const welcome = body.welcome.trim();
+        if (welcome.length > 280) return badRequest("Welcome line is too long");
+        const next = brandingKeepingWelcome(
+          branding,
+          readLeadBranding(existing.branding),
+        );
+        if (welcome) next.welcome = welcome;
+        else delete next.welcome;
+        patch.branding = next as Json;
+      }
+      if (Object.keys(patch).length > 0) {
+        const { error } = await supabase
+          .from("lead_channels")
+          .update(patch)
+          .eq("id", existing.id);
+        if (error) throw error;
+      }
+      return ok({
+        id: existing.id,
+        publicKey: existing.public_key,
+        publicSlug: slug,
+        welcome:
+          typeof body.welcome === "string"
+            ? body.welcome.trim()
+            : readLeadBranding(existing.branding).welcome ?? "",
+      });
+    }
+
+    const sharedBranding = brandingKeepingWelcome(branding, {});
     const publicKey = generateSecureToken(24);
     const { data, error } = await supabase
       .from("lead_channels")
@@ -192,7 +233,7 @@ export async function POST(request: Request) {
         lead_type_id: body.leadTypeId,
         public_key: publicKey,
         enabled: body.enabled ?? true,
-        branding: brandingJson,
+        branding: sharedBranding as Json,
       })
       .select("id, public_key")
       .single();

@@ -18,6 +18,7 @@ import {
 type HostedChannel = {
   publicKey: string;
   leadTypeName: string;
+  welcome: string;
   branding: LeadBranding;
 };
 
@@ -143,13 +144,11 @@ export function HostedLeadChooser({
         </Button>
       ) : null}
       <PublicLeadChat
+        key={selected.publicKey}
         publicKey={selected.publicKey}
         firmName={widget ? selected.branding.displayName || firmName : firmName}
         enquiryName={selected.leadTypeName}
-        welcome={
-          (widget ? selected.branding.welcome : undefined) ||
-          `Tell ${firmName} what happened. Casey will ask for the details they need.`
-        }
+        welcome={selected.welcome}
         branding={widget ? selected.branding : {}}
         turnstileSiteKey={turnstileSiteKey}
         resumeToken={linkedToken}

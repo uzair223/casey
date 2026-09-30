@@ -35,8 +35,10 @@ import {
   DEFAULT_LEAD_TEXT_COLOR,
   DEFAULT_LEAD_USER_BUBBLE_COLOR,
   DEFAULT_SELECTOR_CAPTION,
+  defaultLeadWelcome,
   defaultSelectorTitle,
   leadHexColor,
+  resolveLeadWelcome,
   selectorCopy,
   type LeadBranding,
 } from "@/lib/leads/schema";
@@ -61,6 +63,7 @@ type ChannelResponse = {
     publicKey: string;
     snippet: string;
     enabled: boolean;
+    welcome: string;
   }>;
 };
 
@@ -72,7 +75,6 @@ type IntakeSettingsValues = {
   userBubbleColor: string;
   logoUrl: string;
   displayName: string;
-  welcome: string;
   selectorTitle: string;
   selectorCaption: string;
   hideCaseyMark: boolean;
@@ -90,7 +92,6 @@ function valuesFromData(data: ChannelResponse | null): IntakeSettingsValues {
       branding.userBubbleColor || DEFAULT_LEAD_USER_BUBBLE_COLOR,
     logoUrl: branding.logoUrl || "",
     displayName: branding.displayName || "",
-    welcome: branding.welcome || "",
     selectorTitle: branding.selectorTitle || "",
     selectorCaption: branding.selectorCaption || "",
     hideCaseyMark: Boolean(branding.hideCaseyMark),
@@ -103,7 +104,6 @@ function brandingFromValues(values: IntakeSettingsValues): LeadBranding {
     primaryColor: values.primaryColor,
     logoUrl: values.logoUrl,
     displayName: values.displayName,
-    welcome: values.welcome,
     hideCaseyMark: values.hideCaseyMark,
     hideAvatars: values.hideAvatars,
     selectorTitle: values.selectorTitle,
@@ -139,6 +139,15 @@ function IntakeSettingsForm({
     defaultValues: valuesFromData(data),
   });
   const [logoPreview, setLogoPreview] = useState("");
+  const [welcomeDrafts, setWelcomeDrafts] = useState<Record<string, string>>(
+    () =>
+      Object.fromEntries(
+        (data?.channels ?? []).map((channel) => [
+          channel.leadTypeId,
+          channel.welcome ?? "",
+        ]),
+      ),
+  );
   const values = useWatch({ control: form.control });
 
   useEffect(() => {
@@ -152,7 +161,6 @@ function IntakeSettingsForm({
   const publicSlug = values.publicSlug ?? "";
   const address = slugifyPublicAddress(publicSlug);
   const displayName = values.displayName ?? "";
-  const welcome = values.welcome ?? "";
   const selectorTitle = values.selectorTitle ?? "";
   const selectorCaption = values.selectorCaption ?? "";
   const primaryColor = values.primaryColor ?? DEFAULT_LEAD_HEADER_COLOR;
@@ -167,9 +175,6 @@ function IntakeSettingsForm({
 
   const previewFirm =
     premium && displayName.trim() ? displayName.trim() : tenantName;
-  const previewWelcome =
-    (premium ? welcome.trim() : "") ||
-    `Tell ${previewFirm} what happened. Casey will ask for the details they need.`;
   const previewTitle = premium
     ? selectorCopy(selectorTitle, defaultSelectorTitle(previewFirm))
     : defaultSelectorTitle(previewFirm);
@@ -421,21 +426,6 @@ function IntakeSettingsForm({
                   <div className="md:col-span-2">
                     <RhfField
                       form={form}
-                      name="welcome"
-                      controlId="lead-welcome"
-                      label="Welcome line"
-                      renderControl={(registration) => (
-                        <Input
-                          id="lead-welcome"
-                          disabled={!premium}
-                          {...registration}
-                        />
-                      )}
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <RhfField
-                      form={form}
                       name="selectorTitle"
                       controlId="lead-selector-title"
                       label="Selector title"
@@ -547,6 +537,49 @@ function IntakeSettingsForm({
                         : "Not on the hosted page yet."}
                     </p>
                   )}
+                  {channel?.enabled ? (
+                    <div className="space-y-1">
+                      <Label htmlFor={`lead-welcome-${leadType.id}`}>
+                        Welcome line
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        The first message in this chat. Leave it blank to use the line for this lead type.
+                      </p>
+                      <Input
+                        id={`lead-welcome-${leadType.id}`}
+                        maxLength={280}
+                        value={
+                          welcomeDrafts[leadType.id] ?? channel.welcome ?? ""
+                        }
+                        placeholder={defaultLeadWelcome(leadType.name)}
+                        onChange={(event) =>
+                          setWelcomeDrafts((current) => ({
+                            ...current,
+                            [leadType.id]: event.target.value,
+                          }))
+                        }
+                      />
+                      <AsyncButton
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        pendingText="Saving..."
+                        onClick={async () => {
+                          await apiFetch("/api/tenant/lead-channels", {
+                            method: "POST",
+                            body: JSON.stringify({
+                              leadTypeId: leadType.id,
+                              welcome: welcomeDrafts[leadType.id] ?? "",
+                            }),
+                          });
+                          await reload();
+                          toast.success("Welcome line saved");
+                        }}
+                      >
+                        Save welcome line
+                      </AsyncButton>
+                    </div>
+                  ) : null}
                   <div className="flex gap-2">
                     <AsyncButton
                       type="button"
@@ -605,7 +638,15 @@ function IntakeSettingsForm({
           <IntakePreview
             key={enabledLeadTypes.map((leadType) => leadType.id).join(",")}
             firmName={previewFirm}
-            welcome={previewWelcome}
+            welcomes={Object.fromEntries(
+              enabledLeadTypes.map((leadType) => [
+                leadType.name,
+                resolveLeadWelcome({
+                  leadTypeName: leadType.name,
+                  leadTypeWelcome: welcomeDrafts[leadType.id],
+                }),
+              ]),
+            )}
             selectorTitle={previewTitle}
             selectorCaption={previewCaption}
             primaryColor={previewHeader}

@@ -73,6 +73,56 @@ export function defaultSelectorTitle(firmName: string) {
   return `Tell ${firmName} what happened`;
 }
 
+const LEAD_WELCOMES: Array<{ match: RegExp; line: string }> = [
+  {
+    match: /road|traffic|(^|[^a-z])rta([^a-z]|$)/i,
+    line: "Tell us about the collision. Where were you, what happened, and how were you hurt?",
+  },
+  {
+    match: /employ|work/i,
+    line: "Tell us about the accident at work. What were you doing, what happened, and how were you hurt?",
+  },
+  {
+    match: /public|premises/i,
+    line: "Tell us about the accident. Where were you, what was the place like, and how were you hurt?",
+  },
+  {
+    match: /clinical|negligen/i,
+    line: "Tell us about the treatment. Why were you there, what happened, and how did things change afterwards?",
+  },
+  {
+    match: /hous|disrepair/i,
+    line: "Tell us about the problem with the home. What is wrong, who lives there, and what have you reported?",
+  },
+];
+
+export function defaultLeadWelcome(leadTypeName: string) {
+  const name = leadTypeName.trim();
+  const match = LEAD_WELCOMES.find((item) => item.match.test(name));
+  if (match) return match.line;
+  return name
+    ? `Tell us about this ${name} enquiry.`
+    : "Tell us about this enquiry.";
+}
+
+export function resolveLeadWelcome(params: {
+  leadTypeName: string;
+  leadTypeWelcome?: string | null;
+}) {
+  const own = params.leadTypeWelcome?.trim();
+  if (own) return own;
+  return defaultLeadWelcome(params.leadTypeName);
+}
+
+export function brandingKeepingWelcome(
+  firm: LeadBranding,
+  existing: LeadBranding,
+): LeadBranding {
+  const shared = { ...firm };
+  delete shared.welcome;
+  return existing.welcome ? { ...shared, welcome: existing.welcome } : shared;
+}
+
 export function leadHexColor(value: string | undefined, fallback: string) {
   return value && HEX_COLOR.test(value) ? value : fallback;
 }

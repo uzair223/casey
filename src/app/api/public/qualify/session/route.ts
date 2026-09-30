@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       tenantId: channel.tenantId,
       leadTypeId: channel.leadTypeId,
       slots: channel.config.qualification_slots,
+      welcome: channel.welcome,
     });
     return ok(session);
   } catch (error) {

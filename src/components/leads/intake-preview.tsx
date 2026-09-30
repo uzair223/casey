@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 
 type IntakePreviewProps = {
   firmName: string;
-  welcome: string;
+  welcomes: Record<string, string>;
   selectorTitle: string;
   selectorCaption: string;
   primaryColor: string;
@@ -27,7 +27,7 @@ type IntakePreviewProps = {
 
 export function IntakePreview({
   firmName,
-  welcome,
+  welcomes,
   selectorTitle,
   selectorCaption,
   primaryColor,
@@ -128,7 +128,13 @@ export function IntakePreview({
         <div className="flex-1 overflow-y-auto px-4 py-4">
           <ChatAreaContent
             messages={[
-              { role: "assistant", content: welcome },
+              {
+                role: "assistant",
+                content:
+                  welcomes[selectedType ?? ""] ||
+                  welcomes[leadTypeNames[0] ?? ""] ||
+                  "",
+              },
               { role: "user", content: "I need some advice." },
             ]}
             userAvatar={{ name: "preview-enquirer", title: "You" }}
