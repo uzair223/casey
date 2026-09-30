@@ -10,6 +10,74 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
+function fontFaceRules() {
+  const rules: string[] = [];
+  for (const sheet of document.styleSheets) {
+    try {
+      for (const rule of sheet.cssRules) {
+        if (rule instanceof CSSFontFaceRule) rules.push(rule.cssText);
+      }
+    } catch {
+      // A cross-origin sheet cannot be read. The document pages still print.
+    }
+  }
+  return rules.join("\n");
+}
+
+function printStatementDocument(source: HTMLElement) {
+  const pages = source
+    .closest('[role="tabpanel"]')
+    ?.querySelector(".paged-editor__pages");
+  if (!(pages instanceof HTMLElement)) return;
+
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("data-statement-print", "true");
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.cssText =
+    "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+  document.body.appendChild(iframe);
+
+  const frameWindow = iframe.contentWindow;
+  const frameDocument = iframe.contentDocument;
+  if (!frameWindow || !frameDocument) {
+    iframe.remove();
+    return;
+  }
+
+  const clone = frameDocument.importNode(pages, true);
+  clone.style.cssText = "display:block;margin:0;padding:0;";
+  const printedPages = clone.querySelectorAll<HTMLElement>(".layout-page");
+  printedPages.forEach((page, index) => {
+    page.style.boxShadow = "none";
+    page.style.margin = "0";
+    page.style.breakAfter = index === printedPages.length - 1 ? "auto" : "page";
+  });
+
+  frameDocument.open();
+  frameDocument.write(`<!DOCTYPE html>
+<html>
+  <head>
+    <title>Statement</title>
+    <style>
+      ${fontFaceRules()}
+      * { margin: 0; padding: 0; }
+      body { background: white; }
+      .layout-page { break-after: page; }
+      .layout-page:last-child { break-after: auto; }
+      @page { margin: 0; size: auto; }
+    </style>
+  </head>
+  <body></body>
+</html>`);
+  frameDocument.close();
+  frameDocument.body.appendChild(clone);
+  frameWindow.addEventListener("afterprint", () => iframe.remove(), {
+    once: true,
+  });
+  frameWindow.focus();
+  frameWindow.print();
+}
+
 type SignatureCertificate = {
   appName: string;
   statementId: string;
@@ -48,15 +116,15 @@ export function SignatureCertificateCard({
     return null;
   }
 
-  const printCertificate = () => {
-    window.print();
+  const printDocument = (event: React.MouseEvent<HTMLButtonElement>) => {
+    printStatementDocument(event.currentTarget);
   };
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Signature certificate</CardTitle>
-        <Button variant="outline" size="sm" onClick={printCertificate}>
+        <Button variant="outline" size="sm" onClick={printDocument}>
           Print
         </Button>
       </CardHeader>
