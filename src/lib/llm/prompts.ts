@@ -1,5 +1,6 @@
 import { IntakeChatMessage, StatementConfig } from "@/types";
 import { defaultMeta as defaultMetadata } from "../statement-utils/message-metadata";
+import { overviewAsSpoken } from "./second-person";
 import {
   buildFormalizeContract,
   buildInterviewContract,
@@ -76,14 +77,7 @@ export function fallbackAccountGreeting(witnessName: string, caseTitle: string) 
 }
 
 export function witnessFacingEnquiry(summary: string | null | undefined) {
-  const spoken = summary
-    ?.replace(/\bthe lead was\b/gi, "you were")
-    .replace(/\bthe lead has\b/gi, "you have")
-    .replace(/\bthe lead\b/gi, "you")
-    .replace(/\btheir\b/gi, "your")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/[.]+$/, "");
+  const spoken = overviewAsSpoken(summary).replace(/[.]+$/, "");
   if (!spoken) return "";
   const body = spoken.charAt(0).toLowerCase() + spoken.slice(1);
   return `You told us ${body}.`;
@@ -188,6 +182,7 @@ export function generateIntakeStatePrompt(
   if (decisions?.usedJev) {
     return `STATE
 
+Speak to this person in the second person only. Say you and your. Never say the lead.
 Use the transcript messages as the factual conversation history.
 Interview control decisions below are already made by the decision engine.
 Copy progress and deviation into your metadata JSON exactly.
@@ -207,6 +202,7 @@ ${JSON.stringify(previousMetadata)}`;
 
   return `STATE
 
+Speak to this person in the second person only. Say you and your. Never say the lead.
 Use the transcript messages as the factual conversation history.
 Start from the previous metadata below and update only what this next turn changes.
 Use the previous deviation state for escalation decisions:

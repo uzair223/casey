@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  enquiryInstructions,
   parseEnquiryJson,
   sanitizeEnquirySummary,
   settleEnquiryTurn,
@@ -141,6 +142,38 @@ describe("enquiry conversation", () => {
     expect(turn.answers.name).toBeUndefined();
     expect(turn.answers.summary).toBe(summary);
     expect(turn.answers.summary).not.toContain("the lead the");
+  });
+
+  it("speaks to the person in the second person", () => {
+    const instructions = enquiryInstructions({
+      firmName: "Demo Firm",
+      leadTypeName: "Employer Liability",
+      hasOverview: false,
+      hasName: false,
+      hasEmail: false,
+      hasPhone: false,
+    });
+    expect(instructions).toContain("second person only");
+    expect(instructions).toContain("only in the summary");
+
+    const turn = settleEnquiryTurn({
+      slots,
+      answers: {},
+      message: "A parcel fell on my foot at work.",
+      extraction: {
+        reply: "The lead was hurt when the parcel fell. What happened next for the lead?",
+        overviewReady: false,
+        summary: null,
+        name: null,
+        email: null,
+        phone: null,
+      },
+    });
+
+    expect(turn.reply).toBe(
+      "You were hurt when the parcel fell. What happened next for you?",
+    );
+    expect(turn.reply.toLowerCase()).not.toContain("the lead");
   });
 
   it("strips contact details from a summary", () => {

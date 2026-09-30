@@ -18,6 +18,10 @@ import {
 } from "@/lib/leads/case-facts";
 import type { IntakeChatMessage } from "@/types";
 import { selectModel } from "@/lib/llm/model-config";
+import {
+  overviewAsSpoken,
+  secondPersonSpeech,
+} from "@/lib/llm/second-person";
 import { collectResponsesText } from "@/lib/llm/openai-responses";
 import {
   getCloudflareAiClientOptions,
@@ -39,7 +43,7 @@ greeting:
 - Three or four short sentences, the way a person would speak.
 - Greet them by their first name.
 - Say you are here to take their full account.
-- If enquirySummary is set, restate what they already said in everyday words: what happened and when. Say "you". Never say "the lead", "defendant", or the raw case title.
+- If enquirySummary is set, restate what they already said in everyday words: what happened and when. The whole greeting is second person. Say "you" and "your". Never say "the lead", "defendant", or the raw case title.
 - Say briefly what this conversation will cover, using phaseTitles in everyday words.
 - Describe the matter in everyday words. An internal title like "Uzair — Accident at work" should become "your accident at work".
 - Do not mention a written draft, the firm, review, or what happens after this conversation.
@@ -52,21 +56,25 @@ question:
 - Do not use the word defendant.
 - If firstPhase is empty and a missing field list is set, ask one short question for those details.
 - If firstPhase is empty and both missing field lists are empty, return an empty string.
-- Address them as "you". Do not repeat their name.`;
+- Address them as "you". Do not repeat their name. Never say "the lead".`;
 
 function witnessFacingGreeting(text: string) {
-  const value = text
-    .trim()
-    .replace(/[’‘]/g, "'")
-    .replace(/[“”]/g, '"');
+  const value = secondPersonSpeech(
+    text
+      .trim()
+      .replace(/[’‘]/g, "'")
+      .replace(/[“”]/g, '"'),
+  );
   if (!value) return null;
-  if (/written draft|during review|the firm|defendant/i.test(value)) return null;
+  if (/written draft|during review|the firm|defendant|\bthe lead\b/i.test(value)) {
+    return null;
+  }
   return value;
 }
 
 function acceptableOpeningQuestion(text: string) {
-  const value = text.trim();
-  if (!value || /defendant/i.test(value)) return null;
+  const value = secondPersonSpeech(text.trim());
+  if (!value || /defendant|\bthe lead\b/i.test(value)) return null;
   return value;
 }
 
@@ -138,7 +146,7 @@ export async function POST(
             content: JSON.stringify({
               witnessName: data.statement.witness_name,
               caseTitle: data.case.title,
-              enquirySummary,
+              enquirySummary: overviewAsSpoken(enquirySummary) || null,
               phaseTitles,
               firstPhase: phases[0]
                 ? {
@@ -148,7 +156,9 @@ export async function POST(
                 : null,
               requiredMissingFields: phases.length ? [] : missing.required,
               optionalMissingFields: phases.length ? [] : missing.optional,
-              priorEnquiry: priorEnquiry || null,
+              priorEnquiry: priorEnquiry
+                ? secondPersonSpeech(priorEnquiry)
+                : null,
             }),
           },
         ],

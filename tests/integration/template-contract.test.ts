@@ -71,6 +71,7 @@ describe("template contract", () => {
 
     expect(prompt.startsWith(statementConfig.modelIdentity ?? "")).toBe(true);
     expect(prompt).toContain("Ask one question at a time.");
+    expect(prompt).toContain("Never say the lead.");
     expect(prompt).toContain("metadata.evidence.requestedEvidence");
     expect(prompt).toContain("whether that person saw what happened");
     expect(prompt).toContain("A job such as courier is the occupation.");

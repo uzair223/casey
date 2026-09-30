@@ -17,6 +17,7 @@ import {
   generateChatSystemPrompt,
   generateIntakeStatePrompt,
 } from "@/lib/llm/prompts";
+import { secondPersonSpeech, spokenSoFar } from "@/lib/llm/second-person";
 import {
   buildKnownCaseFacts,
   loadCaseModelContext,
@@ -535,13 +536,14 @@ export async function POST(
             if (!chunk) continue;
             rawResponse += chunk;
             const nextContent = extractJsonStringField(rawResponse, "content");
+            const spoken = nextContent ? spokenSoFar(nextContent) : "";
             if (
-              nextContent &&
-              nextContent.length > streamedContent.length &&
-              nextContent.startsWith(streamedContent)
+              spoken &&
+              spoken.length > streamedContent.length &&
+              spoken.startsWith(streamedContent)
             ) {
-              const delta = nextContent.slice(streamedContent.length);
-              streamedContent = nextContent;
+              const delta = spoken.slice(streamedContent.length);
+              streamedContent = spoken;
               if (canStream) {
                 canStream = safeEnqueue(controller, encoder.encode(delta));
               }
@@ -560,16 +562,15 @@ export async function POST(
               statementConfig,
             );
 
-            // Ensure persisted content exactly matches parsed schema content.
-            if (parsed.content.startsWith(streamedContent)) {
-              const remainder = parsed.content.slice(streamedContent.length);
-              assistantContent = parsed.content;
+            const spoken = secondPersonSpeech(parsed.content);
+            if (spoken.startsWith(streamedContent)) {
+              const remainder = spoken.slice(streamedContent.length);
+              assistantContent = spoken;
               if (remainder && canStream) {
                 canStream = safeEnqueue(controller, encoder.encode(remainder));
               }
             } else {
-              // Parsed content diverged from partial stream; persist parsed text.
-              assistantContent = parsed.content;
+              assistantContent = spoken;
             }
           } catch (parseError) {
             await logServerEvent(

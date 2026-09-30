@@ -297,7 +297,7 @@ export function StatementDetailPanel({
       }
     | {
         blob: Blob | null;
-        templateBlob: Blob;
+        templateBlob: Blob | null;
         type: "generated";
       }
     | null
@@ -324,7 +324,14 @@ export function StatementDetailPanel({
         }
       }
 
-      if (!data.statement.template_document_snapshot || !sectionDrafts) return;
+      if (!data.statement.template_document_snapshot) {
+        setStatementDocument({
+          blob: null,
+          templateBlob: null,
+          type: "generated",
+        });
+        return;
+      }
       try {
         const templateBlob = await downloadUploadedDocument(
           data.statement.template_document_snapshot,
@@ -336,23 +343,39 @@ export function StatementDetailPanel({
         });
       } catch (error) {
         console.error("Error generating statement document:", error);
+        setStatementDocument({
+          blob: null,
+          templateBlob: null,
+          type: "generated",
+        });
       }
     })();
-  }, [data?.statement, sectionDrafts, statementDocument]);
+  }, [data?.statement, statementDocument]);
 
   useEffect(() => {
-    if (statementDocument?.type !== "generated" || !data?.statement) {
+    if (statementDocument?.type !== "generated" || !data?.statement || !data.case) {
       return;
     }
+    const statement = data.statement;
+    const caseMetadata = data.case.case_metadata;
     void (async () => {
       try {
         const generatedBlob = await generateDoc(
           {
-            witnessEmail: data.statement.witness_email,
-            witnessName: data.statement.witness_name,
-            witnessMetadata: data.statement.witness_metadata,
-            sections: data.statement.sections,
-            config: data.statement.statement_config,
+            caseMetadata:
+              caseMetadata &&
+              typeof caseMetadata === "object" &&
+              !Array.isArray(caseMetadata)
+                ? (caseMetadata as Record<
+                    string,
+                    string | number | null | undefined
+                  >)
+                : {},
+            witnessEmail: statement.witness_email,
+            witnessName: statement.witness_name,
+            witnessMetadata: statement.witness_metadata,
+            sections: statement.sections,
+            config: statement.statement_config,
           },
           statementDocument.templateBlob,
         );
@@ -366,6 +389,7 @@ export function StatementDetailPanel({
       }
     })();
   }, [
+    data?.case,
     data?.statement,
     statementDocument?.type,
     statementDocument?.templateBlob,
@@ -386,10 +410,6 @@ export function StatementDetailPanel({
     data.latest ?? null,
     statementConfig,
   );
-  const sectionsWithContent = statementConfig.sections.filter(
-    (section) => (sectionDrafts[section.id] ?? "").trim().length > 0,
-  );
-
   const hideContact = leadContactHidden(data.statement.lead_stage);
   const intakeStarted = showIntakeWorkspace(
     data.statement.status,
@@ -1103,33 +1123,22 @@ export function StatementDetailPanel({
                     </div>
                   ))}
                 </div>
+              ) : statementDocument?.blob ? (
+                <DocxEditor
+                  source={statementDocument.blob}
+                  documentName={data.statement.witness_name || "Statement"}
+                  canEdit={false}
+                >
+                  <DocxEditorPanel
+                    mode="bare"
+                    className="h-[70vh] max-h-[70vh] w-full"
+                    initialZoom={0.85}
+                  />
+                </DocxEditor>
               ) : (
-                <article className="mx-auto max-w-3xl space-y-8 rounded-md bg-white px-8 py-10 text-zinc-900 shadow-sm">
-                  <header className="space-y-1 border-b border-zinc-200 pb-4">
-                    <p className="text-xs uppercase tracking-wide text-zinc-500">
-                      Statement
-                    </p>
-                    <h2 className="font-display text-3xl text-zinc-950">
-                      {data.statement.witness_name || "Statement"}
-                    </h2>
-                  </header>
-                  {sectionsWithContent.length === 0 ? (
-                    <p className="text-sm text-zinc-500">
-                      This statement has no sections yet.
-                    </p>
-                  ) : (
-                    sectionsWithContent.map((section) => (
-                      <section key={section.id} className="space-y-2">
-                        <h3 className="font-display text-xl text-zinc-950">
-                          {section.title}
-                        </h3>
-                        <p className="whitespace-pre-wrap text-[15px] leading-7">
-                          {sectionDrafts[section.id]}
-                        </p>
-                      </section>
-                    ))
-                  )}
-                </article>
+                <p className="text-sm text-muted-foreground">
+                  Preparing the statement...
+                </p>
               )}
             </CardContent>
             {isEditingSections ? (

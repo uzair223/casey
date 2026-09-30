@@ -1,3 +1,5 @@
+import { secondPersonSpeech } from "@/lib/llm/second-person";
+
 import type { QualificationSlot } from "./schema";
 import {
   MAX_QUALIFICATION_REPLY_CHARS,
@@ -113,11 +115,11 @@ export function enquiryInstructions(params: {
       ? "You already have enough for the overview. Do not keep interviewing them about the incident."
       : "Stay with the incident until the overview can be written. Do not ask for their name or contact details yet.",
     contactAsk,
-    'summary is one or two sentences in the third person, or null when the overview is not ready. Call the person "the lead" once. Never write "the lead is the lead". Never include their name, email, phone, or street address. Use the words they used for what happened.',
+    'summary is one or two sentences for the firm, in the third person, or null when the overview is not ready. Call the person "the lead" once, and only in the summary. Never write "the lead is the lead". Never include their name, email, phone, or street address. Use the words they used for what happened.',
     `Write the summary the way a colleague would brief the firm. ${briefForLeadType(params.leadTypeName, params.briefGuidance)}`,
     "overviewReady is true only when what happened, when, and the result are clear enough for that overview.",
     "name is the full name the person has actually said. If they have only given a first name, set name to that first name and still ask for their full name. Do not invent a surname. email and phone are values they have actually said, otherwise null.",
-    "reply is the next thing you say, in one or two sentences.",
+    "reply is spoken to the person, in one or two sentences, and in the second person only. Say you and your. Never say the lead.",
   ]
     .filter(Boolean)
     .join(" ");
@@ -312,5 +314,5 @@ export function settleEnquiryTurn(params: {
       : "Thank you. I am sending a short code to confirm this contact. Enter that code to pass this to the firm.";
   }
 
-  return { answers, reply, readyToVerify: ready };
+  return { answers, reply: secondPersonSpeech(reply), readyToVerify: ready };
 }

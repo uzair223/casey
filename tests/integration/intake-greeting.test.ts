@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { EMPTY_STATEMENT_CONFIG } from "@/lib/statement-utils";
-import { generateGreeting } from "@/lib/llm/prompts";
+import { generateGreeting, witnessFacingEnquiry } from "@/lib/llm/prompts";
+import { spokenSoFar } from "@/lib/llm/second-person";
 
 describe("account greeting fallback", () => {
   it("speaks the matter naturally and leaves the firm's draft out", () => {
@@ -32,5 +33,17 @@ describe("account greeting fallback", () => {
     expect(question?.content).toBe(
       "To begin, could you please provide your address?",
     );
+  });
+
+  it("restates the firm overview as you", () => {
+    expect(
+      witnessFacingEnquiry(
+        "The lead is a courier who hurt their foot when a parcel fell.",
+      ),
+    ).toBe(
+      "You told us you are a courier who hurt your foot when a parcel fell.",
+    );
+    expect(spokenSoFar("The lea")).toBe("");
+    expect(spokenSoFar("The lead is a courier")).toBe("You are a courier");
   });
 });
