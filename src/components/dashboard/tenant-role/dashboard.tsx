@@ -8,6 +8,7 @@ import { TenantRoleCasesTab } from "./cases-tab";
 import { TenantRoleTeamTab } from "./team-tab";
 import { useUser } from "@/contexts/user-context";
 import { TenantRoleActivityTab } from "./activity-tab";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 export function TenantRoleDashboard() {
@@ -45,6 +46,12 @@ export function TenantRoleDashboard() {
           <TabsTrigger value="cases">Leads</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
+          <Link
+            href="/dashboard/marketing"
+            className="shrink-0 whitespace-nowrap border-b-2 border-transparent px-4 py-2 text-sm font-medium hover:text-accent-foreground"
+          >
+            Marketing
+          </Link>
         </TabsList>
 
         <TabsContent value="overview">

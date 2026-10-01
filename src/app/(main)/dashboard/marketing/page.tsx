@@ -4,8 +4,10 @@ import { MarketingHome } from "@/components/marketing/marketing-home";
 import Loading from "@/components/loading";
 import { useUserProtected } from "@/contexts/user-context";
 
-export default function MarketerDashboardPage() {
-  const { user } = useUserProtected("marketer");
+const ROLES = ["tenant_admin", "solicitor", "marketer"] as const;
+
+export default function MarketingPage() {
+  const { user } = useUserProtected([...ROLES]);
   if (!user) return <Loading />;
   return <MarketingHome />;
 }

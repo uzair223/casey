@@ -3,6 +3,7 @@ import "server-only";
 import { widgetEnabled } from "@/lib/billing/plans";
 import { firmPageUrl } from "@/lib/firm-page-host";
 import { readAdTargeting } from "./creative";
+import { billingPeriodStart, nextPhotoUsage, MONTHLY_PHOTO_ALLOWANCE } from "./studio";
 import {
   attributionFromAnswers,
   formatMinor,
@@ -70,7 +71,7 @@ export async function loadAcquisitionBoard(tenantId: string): Promise<Acquisitio
   ] = await Promise.all([
     supabase
       .from("tenants")
-      .select("plan, public_slug, ad_targeting")
+      .select("plan, public_slug, ad_targeting, billing_period_start")
       .eq("id", tenantId)
       .maybeSingle(),
     listAdAccounts(tenantId),
@@ -127,6 +128,10 @@ export async function loadAcquisitionBoard(tenantId: string): Promise<Acquisitio
   const clio = connections.find((connection) => connection.provider === "clio");
   const webhook = connections.find((connection) => connection.provider === "webhook");
   const targeting = readAdTargeting(tenant?.ad_targeting);
+  const allowance = nextPhotoUsage(
+    targeting.photoUsage,
+    billingPeriodStart(tenant?.billing_period_start),
+  );
   const listed: AcquisitionCampaign[] = campaigns.map((campaign) => {
     const details = asRecord(campaign.details);
     const spendMinor = Number(details.spendMinor);
@@ -157,6 +162,22 @@ export async function loadAcquisitionBoard(tenantId: string): Promise<Acquisitio
           claims: targeting.siteClaims,
         }
       : null,
+    proposal: targeting.proposal
+      ? {
+          title: targeting.proposal.title,
+          summary: targeting.proposal.summary,
+          welcome: targeting.proposal.welcome,
+          colours: targeting.proposal.colours,
+          images: targeting.proposal.images.map((image) => ({ id: image.id, name: image.name })),
+          places: targeting.proposal.places,
+          claims: targeting.proposal.claims,
+        }
+      : null,
+    photoAllowance: {
+      used: allowance.used,
+      limit: MONTHLY_PHOTO_ALLOWANCE,
+      remaining: allowance.remaining,
+    },
     googleConfigured: googleConfigured(),
     metaConfigured: metaConfigured(),
     clioConfigured: clioConfigured(),

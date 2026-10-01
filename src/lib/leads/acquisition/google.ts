@@ -224,10 +224,18 @@ export async function createGoogleSearchCampaign(params: {
   )?.campaignBudgetResult?.resourceName;
   const campaignId = campaignName?.split("/").pop() ?? null;
   if (!campaignId) throw new ProviderError("Google Ads did not return the campaign.");
+  const adGroups = (created.mutateOperationResponses ?? [])
+    .map((row) => {
+      const name = (row as { adGroupResult?: { resourceName?: string } }).adGroupResult?.resourceName;
+      return name?.split("/").pop() ?? null;
+    })
+    .filter((id): id is string => Boolean(id))
+    .map((id, index) => ({ claim: params.ads[index]?.claim ?? "", adGroupId: id }))
+    .filter((row) => row.claim);
   if (params.imagePng) {
     await attachGoogleImage(params.account, campaignId, params.imagePng).catch(() => undefined);
   }
-  return { campaignId, budgetResourceName: budgetName ?? null };
+  return { campaignId, budgetResourceName: budgetName ?? null, adGroups };
 }
 
 async function attachGoogleImage(account: AdAccountRow, campaignId: string, png: Buffer) {
@@ -346,4 +354,98 @@ export async function refreshGoogleSpend(account: AdAccountRow) {
     }
   }
   return spend;
+}
+
+export async function setGoogleAdGroupStatus(
+  account: AdAccountRow,
+  adGroupId: string,
+  status: "ENABLED" | "PAUSED",
+) {
+  const id = customerId(account.external_account_id ?? "");
+  const login = textField(asRecord(account.details).loginCustomerId);
+  const accessToken = await refreshGoogle(account);
+  const response = await fetch(`${ADS}/customers/${id}/adGroups:mutate`, {
+    method: "POST",
+    headers: adsHeaders(accessToken, login),
+    body: JSON.stringify({
+      operations: [
+        {
+          update: { resourceName: `customers/${id}/adGroups/${adGroupId}`, status },
+          updateMask: "status",
+        },
+      ],
+    }),
+  });
+  await providerJson(response);
+}
+
+export async function listGoogleSearchTerms(account: AdAccountRow, campaignId: string) {
+  const id = customerId(account.external_account_id ?? "");
+  const login = textField(asRecord(account.details).loginCustomerId);
+  return search(
+    account,
+    id,
+    `SELECT search_term_view.search_term, metrics.clicks, metrics.cost_micros FROM search_term_view WHERE campaign.id = ${campaignId.replace(/\D/g, "")} AND segments.date DURING LAST_30_DAYS ORDER BY metrics.cost_micros DESC LIMIT 25`,
+    login,
+  );
+}
+
+export async function blockGoogleSearchTerm(account: AdAccountRow, campaignId: string, term: string) {
+  const id = customerId(account.external_account_id ?? "");
+  const login = textField(asRecord(account.details).loginCustomerId);
+  const accessToken = await refreshGoogle(account);
+  const text = term.replace(/[^A-Za-z0-9 ]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+  if (text.length < 3) throw new ProviderError("That search is too short to block.");
+  const response = await fetch(`${ADS}/customers/${id}/campaignCriteria:mutate`, {
+    method: "POST",
+    headers: adsHeaders(accessToken, login),
+    body: JSON.stringify({
+      operations: [
+        {
+          create: {
+            campaign: `customers/${id}/campaigns/${campaignId.replace(/\D/g, "")}`,
+            negative: true,
+            keyword: { text, matchType: "PHRASE" },
+          },
+        },
+      ],
+    }),
+  });
+  await providerJson(response);
+}
+
+export async function forecastGoogleCampaign(params: {
+  account: AdAccountRow;
+  keywords: string[];
+  geoIds: string[];
+}) {
+  const id = customerId(params.account.external_account_id ?? "");
+  const login = textField(asRecord(params.account.details).loginCustomerId);
+  const accessToken = await refreshGoogle(params.account);
+  const start = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  const end = new Date(Date.now() + 31 * 86_400_000).toISOString().slice(0, 10);
+  const geos = params.geoIds.length ? params.geoIds : ["2826"];
+  const response = await fetch(`${ADS}/customers/${id}:generateKeywordForecastMetrics`, {
+    method: "POST",
+    headers: adsHeaders(accessToken, login),
+    body: JSON.stringify({
+      campaign: {
+        keywordPlanNetwork: "GOOGLE_SEARCH",
+        languageConstants: ["languageConstants/1000"],
+        geoModifiers: geos.map((geoId) => ({
+          geoTargetConstant: `geoTargetConstants/${geoId.replace(/\D/g, "")}`,
+        })),
+        adGroups: [
+          {
+            biddableKeywords: params.keywords.slice(0, 20).map((keyword) => ({
+              keyword: { text: keyword, matchType: "PHRASE" },
+              maxCpcBidMicros: "1000000",
+            })),
+          },
+        ],
+      },
+      forecastPeriod: { startDate: start, endDate: end },
+    }),
+  });
+  return providerJson(response);
 }

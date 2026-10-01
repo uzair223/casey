@@ -2,7 +2,7 @@ import {
   badRequest,
   conflict,
   ok,
-  requireTenantManager,
+  requireAdsManager,
   serverError,
 } from "@/lib/api-utils";
 import { widgetEnabled } from "@/lib/billing/plans";
@@ -23,7 +23,7 @@ import type { Json } from "@/types";
 
 export async function GET(request: Request) {
   try {
-    const auth = await requireTenantManager(request);
+    const auth = await requireAdsManager(request);
     const supabase = getServiceClient("lead-channels-list");
     const [
       { data: tenant, error: tenantError },
@@ -92,7 +92,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const auth = await requireTenantManager(request);
+    const auth = await requireAdsManager(request);
     const body = (await request.json().catch(() => null)) as {
       leadTypeId?: string;
       publicSlug?: string;

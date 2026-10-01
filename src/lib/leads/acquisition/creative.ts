@@ -6,7 +6,16 @@ export type FirmAd = {
   descriptions: string[];
   keywords: string[];
   imageLine: string;
+  paused?: boolean;
 };
+
+export function claimContentSlug(claim: string) {
+  return claim
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+}
 
 export function campaignDestination(
   base: string,
@@ -23,14 +32,8 @@ export function campaignDestination(
     url.searchParams.set("utm_medium", "paid");
     url.searchParams.set("utm_campaign", "casey-meta");
   }
-  if (claim) {
-    const content = claim
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 40);
-    if (content) url.searchParams.set("utm_content", content);
-  }
+  const content = claim ? claimContentSlug(claim) : "";
+  if (content) url.searchParams.set("utm_content", content);
   return url.toString();
 }
 
@@ -171,6 +174,34 @@ export function readAdAssets(value: unknown): AdAssetRecord[] {
 export type GeneratedPhoto = {
   claim: string;
   id: string;
+  fingerprint: string;
+};
+
+export type ApprovedAd = {
+  claim: string;
+  headlines: string[];
+  descriptions: string[];
+  prompt: string;
+  referenceAssetIds: string[];
+  imageMode: "generate" | "library";
+  libraryAssetId: string | null;
+  paused: boolean;
+};
+
+export type SiteProposal = {
+  url: string;
+  title: string | null;
+  summary: string | null;
+  welcome: string | null;
+  colours: string[];
+  images: AdAssetRecord[];
+  places: string[];
+  claims: string[];
+};
+
+export type PhotoUsageRecord = {
+  periodStart: string;
+  used: number;
 };
 
 export type GeneratedPhotoSet = {
@@ -186,6 +217,9 @@ export type AdTargeting = {
   sitePlaces: string[];
   siteClaims: string[];
   generated: GeneratedPhotoSet | null;
+  proposal: SiteProposal | null;
+  ads: ApprovedAd[];
+  photoUsage: PhotoUsageRecord | null;
 };
 
 function readGeneratedPhotos(value: unknown): GeneratedPhotoSet | null {
@@ -196,10 +230,14 @@ function readGeneratedPhotos(value: unknown): GeneratedPhotoSet | null {
   const items: GeneratedPhoto[] = [];
   for (const item of record.items) {
     if (!item || typeof item !== "object") continue;
-    const row = item as { claim?: unknown; id?: unknown };
+    const row = item as { claim?: unknown; id?: unknown; fingerprint?: unknown };
     if (typeof row.claim !== "string" || !row.claim.trim()) continue;
     if (typeof row.id !== "string" || !ASSET_ID.test(row.id)) continue;
-    items.push({ claim: row.claim.trim().slice(0, 80), id: row.id });
+    items.push({
+      claim: row.claim.trim().slice(0, 80),
+      id: row.id,
+      fingerprint: typeof row.fingerprint === "string" ? row.fingerprint.slice(0, 4000) : "",
+    });
     if (items.length === 6) break;
   }
   if (!items.length) return null;
@@ -227,7 +265,124 @@ export function readAdTargeting(value: unknown): AdTargeting {
           .slice(0, 5)
       : [],
     generated: readGeneratedPhotos(record.generated),
+    proposal: readSiteProposal(record.proposal),
+    ads: readApprovedAds(record.ads),
+    photoUsage: readPhotoUsage(record.photoUsage),
   };
+}
+
+const HEX_COLOUR = /^#[0-9a-fA-F]{6}$/;
+
+function readSiteProposal(value: unknown): SiteProposal | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const url = typeof record.url === "string" ? record.url.trim() : "";
+  if (!url.startsWith("https://")) return null;
+  const text = (field: unknown, max: number) =>
+    typeof field === "string" && field.trim() ? field.trim().slice(0, max) : null;
+  return {
+    url: url.slice(0, 500),
+    title: text(record.title, 120),
+    summary: text(record.summary, 180),
+    welcome: text(record.welcome, 180),
+    colours: Array.isArray(record.colours)
+      ? record.colours
+          .filter((colour): colour is string => typeof colour === "string" && HEX_COLOUR.test(colour))
+          .slice(0, 6)
+      : [],
+    images: readAdAssets(record.images),
+    places: readAdPlaces(record.places),
+    claims: Array.isArray(record.claims)
+      ? record.claims
+          .filter((claim): claim is string => typeof claim === "string")
+          .map((claim) => claim.trim())
+          .filter(Boolean)
+          .slice(0, 5)
+      : [],
+  };
+}
+
+function readApprovedAds(value: unknown): ApprovedAd[] {
+  if (!Array.isArray(value)) return [];
+  const ads: ApprovedAd[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    if (typeof row.claim !== "string" || !row.claim.trim()) continue;
+    const headlines = Array.isArray(row.headlines)
+      ? row.headlines
+          .filter((line): line is string => typeof line === "string")
+          .map((line) => fit(line, 30))
+          .filter(Boolean)
+          .slice(0, 4)
+      : [];
+    const descriptions = Array.isArray(row.descriptions)
+      ? row.descriptions
+          .filter((line): line is string => typeof line === "string")
+          .map((line) => fit(line, 90))
+          .filter(Boolean)
+          .slice(0, 3)
+      : [];
+    if (headlines.length < 3 || !descriptions.length) continue;
+    ads.push({
+      claim: row.claim.trim().slice(0, 80),
+      headlines,
+      descriptions,
+      prompt: typeof row.prompt === "string" ? row.prompt.trim().slice(0, 240) : "",
+      referenceAssetIds: Array.isArray(row.referenceAssetIds)
+        ? row.referenceAssetIds
+            .filter((id): id is string => typeof id === "string" && ASSET_ID.test(id))
+            .slice(0, 4)
+        : [],
+      imageMode: row.imageMode === "library" ? "library" : "generate",
+      libraryAssetId:
+        typeof row.libraryAssetId === "string" && ASSET_ID.test(row.libraryAssetId)
+          ? row.libraryAssetId
+          : null,
+      paused: row.paused === true,
+    });
+    if (ads.length === 6) break;
+  }
+  return ads;
+}
+
+function readPhotoUsage(value: unknown): PhotoUsageRecord | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as { periodStart?: unknown; used?: unknown };
+  if (typeof record.periodStart !== "string" || !record.periodStart.trim()) return null;
+  const used = Number(record.used);
+  if (!Number.isInteger(used) || used < 0) return null;
+  return { periodStart: record.periodStart.slice(0, 40), used };
+}
+
+export function applyApprovedCopy(ads: FirmAd[], approved: ApprovedAd[]) {
+  return ads.map((ad) => {
+    const edit = approved.find((item) => item.claim === ad.claim);
+    if (!edit) return ad;
+    return {
+      ...ad,
+      headlines: edit.headlines,
+      descriptions: unique([edit.descriptions[0], ...ad.descriptions.slice(1)], 3),
+      paused: edit.paused,
+    };
+  });
+}
+
+export function applyWebsiteApproval(
+  current: AdTargeting,
+  proposal: SiteProposal,
+  selection: { language?: boolean; places?: boolean; claims?: boolean; imageIds?: string[] },
+) {
+  const next: AdTargeting = { ...current, assets: [...current.assets] };
+  if (selection.language) next.siteSummary = proposal.summary;
+  if (selection.places) next.places = proposal.places;
+  if (selection.claims) next.siteClaims = proposal.claims;
+  for (const image of proposal.images) {
+    if (!selection.imageIds?.includes(image.id) || next.assets.length >= 6) continue;
+    if (next.assets.some((asset) => asset.id === image.id)) continue;
+    next.assets.push(image);
+  }
+  return next;
 }
 
 export function claimsMentioned(text: string) {
@@ -301,6 +456,7 @@ export function adFingerprint(params: {
   destination: string;
   voice?: string | null;
   assetIds?: string[];
+  copy?: string;
 }) {
   return JSON.stringify({
     firmName: params.firmName.trim(),
@@ -311,6 +467,35 @@ export function adFingerprint(params: {
     destination: params.destination,
     voice: params.voice?.trim() ?? "",
     assetIds: (params.assetIds ?? []).slice().sort(),
+    copy: params.copy ?? "",
+  });
+}
+
+export function claimFingerprint(params: {
+  firmName: string;
+  claim: string;
+  places: string[];
+  background: string;
+  text: string;
+  destination: string;
+  voice?: string | null;
+  prompt?: string | null;
+  headlines: string[];
+  descriptions: string[];
+  referenceAssetIds?: string[];
+}) {
+  return JSON.stringify({
+    firmName: params.firmName.trim(),
+    claim: params.claim.trim(),
+    places: params.places.map((place) => place.toLowerCase()).sort(),
+    background: params.background,
+    text: params.text,
+    destination: params.destination,
+    voice: params.voice?.trim() ?? "",
+    prompt: params.prompt?.trim() ?? "",
+    headlines: params.headlines,
+    descriptions: params.descriptions,
+    referenceAssetIds: (params.referenceAssetIds ?? []).slice().sort(),
   });
 }
 
@@ -373,7 +558,7 @@ export function googleSearchMutations(params: {
           resourceName: `customers/${customer}/adGroups/${adGroup}`,
           name: ad.claim.slice(0, 80),
           campaign: `customers/${customer}/campaigns/-2`,
-          status: "ENABLED",
+          status: ad.paused ? "PAUSED" : "ENABLED",
           type: "SEARCH_STANDARD",
           cpcBidMicros: "1000000",
         },

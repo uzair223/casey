@@ -3,7 +3,7 @@ import "server-only";
 import { ProviderError } from "./http";
 import { readWebsiteBrief, websiteUrlError, type WebsiteBrief } from "./site";
 
-export async function readPublicWebsite(value: string): Promise<WebsiteBrief> {
+export async function readPublicWebsitePage(value: string) {
   const invalid = websiteUrlError(value);
   if (invalid) throw new ProviderError(invalid);
   let current = value.trim();
@@ -27,7 +27,12 @@ export async function readPublicWebsite(value: string): Promise<WebsiteBrief> {
     if (!type.includes("text/html") && !type.includes("text/plain")) {
       throw new ProviderError("Casey needs the website's public page, not a file download.");
     }
-    return readWebsiteBrief((await response.text()).slice(0, 500_000));
+    return { url: current, html: (await response.text()).slice(0, 500_000) };
   }
   throw new ProviderError("Casey could not read that website.");
+}
+
+export async function readPublicWebsite(value: string): Promise<WebsiteBrief> {
+  const page = await readPublicWebsitePage(value);
+  return readWebsiteBrief(page.html);
 }

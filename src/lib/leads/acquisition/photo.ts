@@ -1,6 +1,6 @@
 import { detectImageType } from "@/lib/leads/logo";
 
-const MONEY_PROMISE = /\b(compensation|settlement|payout|pay\s*out)\b/i;
+const MONEY_PROMISE = /\b(compensation|settlement|payout|pay\s*out|guaranteed)\b/i;
 
 export function withoutMoneyPromise(value: string) {
   const kept = value
@@ -10,8 +10,15 @@ export function withoutMoneyPromise(value: string) {
   return kept.join(" ").replace(/\s+/g, " ").trim();
 }
 
-export function chooseAdImageSource(hasUpload: boolean, hasPhoto: boolean) {
-  if (hasUpload) return "upload" as const;
+export function adCopyRefusal(text: string): string | null {
+  if (MONEY_PROMISE.test(text)) {
+    return "Remove any promise of compensation, a settlement, a payout, or a guaranteed outcome.";
+  }
+  return null;
+}
+
+export function chooseAdImageSource(mode: "library" | "generate", hasPhoto: boolean) {
+  if (mode === "library") return "upload" as const;
   if (hasPhoto) return "photo" as const;
   return "card" as const;
 }
@@ -32,14 +39,21 @@ export function adPhotoPrompt(params: {
   places: string[];
   summary?: string | null;
   background: string;
+  references?: number;
+  direction?: string | null;
 }) {
   const place = params.places[0]?.trim();
   const summary = withoutMoneyPromise(params.summary ?? "").slice(0, 180);
+  const direction = withoutMoneyPromise(params.direction ?? "").slice(0, 240);
   const lines = [
     `A calm photograph in the UK for ${params.firmName.trim() || "a law firm"}.`,
     `Scene: ${sceneFor(params.claim)}.`,
     place ? `Setting: ${place}.` : "Setting: a UK town.",
     summary ? `Mood: ${summary}` : "",
+    direction ? `Direction: ${direction}` : "",
+    params.references
+      ? "Use the firm's photographs, supplied with this request, as the look of the scene."
+      : "",
     `Colour mood ${params.background}, with no letters and no numbers painted in the picture.`,
     "No readable text, no logos, no watermarks, no injured people, and no graphic injury.",
   ];

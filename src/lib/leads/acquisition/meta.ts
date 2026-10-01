@@ -190,7 +190,7 @@ export async function createMetaTrafficCampaign(params: {
       name: ad.claim,
       adset_id: adSet.id,
       creative: { creative_id: creative.id },
-      status: "PAUSED",
+      status: ad.paused ? "PAUSED" : "PAUSED",
     });
     if (created.id) adIds.push(created.id);
   }
@@ -237,4 +237,18 @@ export async function refreshMetaSpend(account: AdAccountRow, campaignId: string
     clicks,
     spendMinor: Number.isFinite(spend) ? Math.round(spend * 100) : 0,
   };
+}
+
+export async function estimateMetaDelivery(params: {
+  account: AdAccountRow;
+  dailyPence: number;
+  places: Array<{ key: string; city: boolean }>;
+}) {
+  const token = await accessTokenFor(params.account);
+  const accountId = params.account.external_account_id ?? "";
+  const targeting = encodeURIComponent(JSON.stringify(metaGeo(params.places)));
+  return metaGet(
+    `${accountId}/delivery_estimate?optimization_goal=LINK_CLICKS&daily_budget=${params.dailyPence}&targeting_spec=${targeting}`,
+    token,
+  );
 }

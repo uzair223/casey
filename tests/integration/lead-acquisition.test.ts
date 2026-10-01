@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { campaignDestination, searchAdCopy } from "@/lib/leads/acquisition/copy";
 import {
+  applyApprovedCopy,
+  applyWebsiteApproval,
   buildFirmAds,
   googleSearchMutations,
   metaGeo,
@@ -9,14 +11,24 @@ import {
   readAdPlaces,
   readAdTargeting,
 } from "@/lib/leads/acquisition/creative";
-import { renderBrandAdPng } from "@/lib/leads/acquisition/media";
+import { fitReferenceImage } from "@/lib/leads/acquisition/image-fit";
+import { encodePng, renderBrandAdPng } from "@/lib/leads/acquisition/media";
 import {
+  adCopyRefusal,
   adPhotoPrompt,
   chooseAdImageSource,
   readGeneratedImage,
   withoutMoneyPromise,
 } from "@/lib/leads/acquisition/photo";
-import { readWebsiteBrief, websiteUrlError } from "@/lib/leads/acquisition/site";
+import { readWebsiteBrief, readWebsiteProposal, websiteUrlError } from "@/lib/leads/acquisition/site";
+import {
+  campaignRecommendation,
+  groupClaimResults,
+  imageWhenAllowanceSpent,
+  readGoogleForecast,
+  readMetaDeliveryEstimate,
+  takePhoto,
+} from "@/lib/leads/acquisition/studio";
 import {
   buildLeadHandoff,
   runLeadPushes,
@@ -258,9 +270,17 @@ describe("Equitas Solicitors ads", () => {
     expect(prompt).toContain("Preston");
     expect(prompt).toContain("No readable text");
     expect(prompt).not.toMatch(/compensation|settlement|payout/i);
-    expect(chooseAdImageSource(false, true)).toBe("photo");
-    expect(chooseAdImageSource(true, true)).toBe("upload");
-    expect(chooseAdImageSource(false, false)).toBe("card");
+    expect(adPhotoPrompt({
+      firmName: "Equitas Solicitors",
+      claim: "Road accident",
+      places: brief.places,
+      summary: brief.summary,
+      background: "#1f3a2e",
+      references: 2,
+    })).toContain("firm's photographs");
+    expect(chooseAdImageSource("generate", true)).toBe("photo");
+    expect(chooseAdImageSource("library", true)).toBe("upload");
+    expect(chooseAdImageSource("generate", false)).toBe("card");
   });
 
   it("reads a generated photograph from a JSON image response", () => {
@@ -271,6 +291,84 @@ describe("Equitas Solicitors ads", () => {
     const body = Buffer.from(JSON.stringify({ result: { image: png.toString("base64") } }));
     const image = readGeneratedImage(body, "application/json");
     expect(image?.subarray(0, 4)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+  });
+});
+
+describe("creative studio", () => {
+  it("suggests colours and images and does not apply them until approved", () => {
+    const proposal = readWebsiteProposal(
+      `<meta name="theme-color" content="#1f3a2e"><meta property="og:image" content="https://equitassolicitors.co.uk/logo.png"><style>.a{color:#1f3a2e}.b{color:#1f3a2e}</style>${EQUITAS_HOME}`,
+      "https://equitassolicitors.co.uk/",
+    );
+    expect(proposal.colours[0]).toBe("#1f3a2e");
+    expect(proposal.imageUrls).toContain("https://equitassolicitors.co.uk/logo.png");
+    expect(proposal.summary ?? "").not.toMatch(/compensation|settlement|payout/i);
+    const current = readAdTargeting({});
+    const stored = {
+      url: "https://equitassolicitors.co.uk/",
+      title: proposal.displayName,
+      summary: proposal.summary,
+      welcome: proposal.welcome,
+      colours: proposal.colours,
+      images: [],
+      places: proposal.places,
+      claims: proposal.claims,
+    };
+    expect(applyWebsiteApproval(current, stored, {}).siteSummary).toBeNull();
+    expect(applyWebsiteApproval(current, stored, {}).places).toEqual([]);
+    expect(applyWebsiteApproval(current, stored, { language: true, places: true }).places).toEqual(["Preston"]);
+  });
+
+  it("publishes the approved headlines and refuses a compensation promise", () => {
+    const [ad] = buildFirmAds({ firmName: "Equitas Solicitors", claims: ["Road accident"], places: ["Preston"] });
+    const approved = applyApprovedCopy([ad], [{
+      claim: ad.claim,
+      headlines: ["Talk to Equitas", ad.headlines[1], ad.headlines[2]],
+      descriptions: ["Tell us what happened in Preston."],
+      prompt: "A quiet street",
+      referenceAssetIds: [],
+      imageMode: "generate",
+      libraryAssetId: null,
+      paused: false,
+    }]);
+    expect(approved[0].headlines[0]).toBe("Talk to Equitas");
+    expect(adCopyRefusal("You will receive compensation")).toMatch(/compensation/);
+    expect(adCopyRefusal(approved[0].descriptions.join(" "))).toBeNull();
+  });
+
+  it("groups spend, started enquiries, accepts, and declines by lead type", () => {
+    const rows = groupClaimResults(["Road accident", "Housing disrepair"], [
+      { slug: "road-accident", stage: "started", spendMinor: 0 },
+      { slug: "road-accident", stage: "accepted", spendMinor: 400 },
+      { slug: "housing-disrepair", stage: "declined", spendMinor: 200 },
+    ]);
+    expect(rows[0]).toMatchObject({ started: 1, accepted: 1, declined: 0, spendMinor: 400 });
+    expect(rows[1]).toMatchObject({ accepted: 0, declined: 1, spendMinor: 200 });
+    expect(campaignRecommendation(rows)).toBe(
+      "Road accident is producing accepted enquiries. Housing disrepair is spending without accepted enquiries.",
+    );
+  });
+
+  it("maps a Google and Meta forecast into impressions, clicks, reach, and cost", () => {
+    expect(readGoogleForecast({
+      campaignForecastMetrics: { impressions: 1200, clicks: 48, costMicros: "25000000" },
+    })).toEqual({ impressions: 1200, clicks: 48, costMinor: 2500 });
+    expect(readMetaDeliveryEstimate({
+      data: [{ daily_outcomes_curve: [{ spend: 10, reach: 900, impressions: 1400 }] }],
+    }, 1000)).toEqual({ reach: 900, impressions: 1400 });
+  });
+
+  it("stops the 61st photograph and keeps a stored one", () => {
+    const period = "2026-10-01T00:00:00.000Z";
+    expect(takePhoto({ periodStart: period, used: 60 }, period).allowed).toBe(false);
+    expect(imageWhenAllowanceSpent(true)).toBe("photo");
+    expect(imageWhenAllowanceSpent(false)).toBe("card");
+  });
+
+  it("shrinks a reference photograph under 512 pixels", () => {
+    const wide = encodePng(600, 2, new Uint8Array(600 * 2 * 4).fill(255));
+    const fitted = fitReferenceImage(wide);
+    expect(fitted?.readUInt32BE(16)).toBeLessThanOrEqual(512);
   });
 });
 

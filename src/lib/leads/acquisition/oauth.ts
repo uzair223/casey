@@ -53,8 +53,8 @@ export function oauthRedirect(provider: OAuthProvider) {
   return `${env.NEXT_PUBLIC_BASE_URL}/api/tenant/acquisition/${provider}/callback`;
 }
 
-export function intakeRedirect(query: Record<string, string>) {
-  const url = new URL("/settings/intake", env.NEXT_PUBLIC_BASE_URL);
+export function intakeRedirect(query: Record<string, string>, path = "/settings/intake") {
+  const url = new URL(path, env.NEXT_PUBLIC_BASE_URL);
   for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
   return url;
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { IntakeSettings } from "@/components/leads/intake-settings";
+import Link from "next/link";
+
 import { AcquisitionSettings } from "@/components/leads/acquisition-settings";
 import Loading from "@/components/loading";
 import { PageTitle } from "@/components/page-title";
@@ -17,16 +18,19 @@ export default function PublicIntakeSettingsPage() {
     <section className="space-y-4">
       <PageTitle
         title="Public intake"
-        description="The enquiry chat, ad accounts, and where an accepted lead is sent."
+        description="Where an accepted lead is sent. The widget and the ads live in Marketing."
         actions={[
-          {
-            label: "Back to settings",
-            href: "/settings",
-            variant: "outline",
-          },
+          { label: "Back to settings", href: "/settings", variant: "outline" },
+          { label: "Widget studio", href: "/dashboard/marketing/widget", variant: "outline" },
         ]}
       />
-      <IntakeSettings />
+      <p className="text-sm text-muted-foreground">
+        The enquiry widget, the firm brand, and the ads are in{" "}
+        <Link href="/dashboard/marketing" className="underline">
+          Marketing
+        </Link>
+        .
+      </p>
       <AcquisitionSettings />
     </section>
   );

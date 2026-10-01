@@ -9,7 +9,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const failed = (message: string) => NextResponse.redirect(intakeRedirect({ error: message }));
+  const failed = (message: string) => NextResponse.redirect(intakeRedirect({ error: message }, "/dashboard/marketing/creative"));
   try {
     const state = readOAuthState(url.searchParams.get("state"), "meta");
     if (!state) return failed("The connection expired. Try again.");
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
         currency: account.currency,
       },
     });
-    return NextResponse.redirect(intakeRedirect({ connected: "meta" }));
+    return NextResponse.redirect(intakeRedirect({ connected: "meta" }, "/dashboard/marketing/creative"));
   } catch (error) {
     if (error instanceof ProviderError) return failed(error.message);
     return failed("Meta was not connected.");

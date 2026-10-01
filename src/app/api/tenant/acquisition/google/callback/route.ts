@@ -9,7 +9,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const failed = (message: string) => NextResponse.redirect(intakeRedirect({ error: message }));
+  const failed = (message: string) => NextResponse.redirect(intakeRedirect({ error: message }, "/dashboard/marketing/creative"));
   try {
     const state = readOAuthState(url.searchParams.get("state"), "google");
     if (!state) return failed("The connection expired. Try again.");
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
         currency: customer.currency,
       },
     });
-    return NextResponse.redirect(intakeRedirect({ connected: "google" }));
+    return NextResponse.redirect(intakeRedirect({ connected: "google" }, "/dashboard/marketing/creative"));
   } catch (error) {
     if (error instanceof ProviderError) return failed(error.message);
     return failed("Google Ads was not connected.");

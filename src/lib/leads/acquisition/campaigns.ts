@@ -1,6 +1,7 @@
 import "server-only";
 
 import { firmPageUrl } from "@/lib/firm-page-host";
+import { attributionFromAnswers, readAttribution } from "@/lib/leads/attribution";
 import { detectImageType, readLeadBranding } from "@/lib/leads/logo";
 import {
   DEFAULT_LEAD_HEADER_COLOR,
@@ -12,23 +13,40 @@ import type { Json } from "@/types";
 import { dailyBudgetPence, MONTHLY_BUDGET_MAX_GBP, MONTHLY_BUDGET_MIN_GBP } from "./copy";
 import { loadAdAssetBytes } from "./assets";
 import {
+  adCopyRefusal,
+  adPhotoPrompt,
+  chooseAdImageSource,
+} from "./photo";
+import {
   adFingerprint,
+  applyApprovedCopy,
   buildFirmAds,
+  claimContentSlug,
+  claimFingerprint,
   readAdPlaces,
   readAdTargeting,
+  type ApprovedAd,
   type FirmAd,
 } from "./creative";
 import {
   createGoogleSearchCampaign,
   refreshGoogleSpend,
   resolveGooglePlaces,
+  setGoogleAdGroupStatus,
   setGoogleBudget,
   setGoogleCampaignStatus,
 } from "./google";
 import { ProviderError } from "./http";
 import { renderBrandAdPng } from "./media";
-import { adPhotoPrompt, chooseAdImageSource } from "./photo";
 import { generateAdPhoto, loadGeneratedPhoto, storeGeneratedPhoto } from "./photo-generate";
+import {
+  billingPeriodStart,
+  campaignRecommendation,
+  groupClaimResults,
+  imageWhenAllowanceSpent,
+  nextPhotoUsage,
+  takePhoto,
+} from "./studio";
 import { loadAdTargeting, saveAdTargeting } from "./targeting";
 import {
   createMetaTrafficCampaign,
@@ -60,7 +78,7 @@ async function loadFirm(tenantId: string) {
   const [{ data: tenant, error }, { data: channels, error: channelError }] = await Promise.all([
     supabase
       .from("tenants")
-      .select("name, public_slug, intake_branding, ad_targeting")
+      .select("name, public_slug, intake_branding, ad_targeting, billing_period_start")
       .eq("id", tenantId)
       .maybeSingle(),
     supabase
@@ -90,6 +108,8 @@ async function loadFirm(tenantId: string) {
     voice: targeting.siteSummary,
     background: leadHexColor(branding.primaryColor, DEFAULT_LEAD_HEADER_COLOR),
     text: leadHexColor(branding.textColor, DEFAULT_LEAD_TEXT_COLOR),
+    approved: targeting.ads,
+    periodStart: billingPeriodStart(tenant.billing_period_start),
   };
 }
 
@@ -112,6 +132,22 @@ function imageDataUrl(bytes: Buffer) {
   return `data:${type};base64,${bytes.toString("base64")}`;
 }
 
+async function assetBytes(
+  tenantId: string,
+  assets: Awaited<ReturnType<typeof loadFirm>>["assets"],
+  id: string,
+) {
+  const asset = assets.find((item) => item.id === id);
+  if (!asset) return null;
+  const [bytes] = await loadAdAssetBytes(tenantId, [asset]);
+  return bytes ?? null;
+}
+
+function referenceIds(firm: Awaited<ReturnType<typeof loadFirm>>, edit: ApprovedAd | undefined) {
+  const chosen = edit?.referenceAssetIds.length ? edit.referenceAssetIds : firm.assets.map((asset) => asset.id);
+  return chosen.slice(0, 4);
+}
+
 async function resolveAdImages(
   tenantId: string,
   firm: Awaited<ReturnType<typeof loadFirm>>,
@@ -119,23 +155,48 @@ async function resolveAdImages(
   fingerprint: string,
   places: string[],
 ) {
-  const uploaded = await loadAdAssetBytes(tenantId, firm.assets);
-  if (chooseAdImageSource(uploaded.length > 0, true) === "upload") {
-    return ads.map((_, index) => uploaded[index % uploaded.length]);
-  }
   const targeting = await loadAdTargeting(tenantId);
-  const cached =
-    targeting.generated?.fingerprint === fingerprint ? targeting.generated.items : [];
+  let photoUsage = targeting.photoUsage;
+  const items = [...(targeting.generated?.items ?? [])];
   const images: Buffer[] = [];
-  const stored: Array<{ claim: string; id: string }> = [];
-  let changed = Boolean(targeting.generated) && targeting.generated?.fingerprint !== fingerprint;
+  let changed = false;
   for (const ad of ads.slice(0, 6)) {
-    const hit = cached.find((item) => item.claim === ad.claim);
-    const saved = hit ? await loadGeneratedPhoto(tenantId, hit.id) : null;
-    if (hit && saved && chooseAdImageSource(false, true) === "photo") {
-      images.push(saved);
-      stored.push({ claim: ad.claim, id: hit.id });
+    const edit = firm.approved.find((item) => item.claim === ad.claim);
+    const references = referenceIds(firm, edit);
+    const key = claimFingerprint({
+      firmName: firm.firmName,
+      claim: ad.claim,
+      places,
+      background: firm.background,
+      text: firm.text,
+      destination: firm.baseUrl,
+      voice: firm.voice,
+      prompt: edit?.prompt ?? "",
+      headlines: ad.headlines,
+      descriptions: ad.descriptions,
+      referenceAssetIds: references,
+    });
+    if (edit?.imageMode === "library" && edit.libraryAssetId && chooseAdImageSource("library", true) === "upload") {
+      const library = await assetBytes(tenantId, firm.assets, edit.libraryAssetId);
+      images.push(library ?? brandCard(firm, ad));
       continue;
+    }
+    const hit = items.find((item) => item.claim === ad.claim && (item.fingerprint || fingerprint) === key);
+    const saved = hit ? await loadGeneratedPhoto(tenantId, hit.id) : null;
+    if (hit && saved && chooseAdImageSource("generate", true) === "photo") {
+      images.push(saved);
+      continue;
+    }
+    const allowance = takePhoto(photoUsage, firm.periodStart);
+    if (!allowance.allowed) {
+      const cached = Boolean(hit && saved);
+      images.push(imageWhenAllowanceSpent(cached) === "photo" && saved ? saved : brandCard(firm, ad));
+      continue;
+    }
+    const files: Buffer[] = [];
+    for (const id of references) {
+      const bytes = await assetBytes(tenantId, firm.assets, id);
+      if (bytes) files.push(bytes);
     }
     const photo = await generateAdPhoto(
       adPhotoPrompt({
@@ -144,25 +205,32 @@ async function resolveAdImages(
         places,
         summary: firm.voice,
         background: firm.background,
+        references: files.length,
+        direction: edit?.prompt,
       }),
+      files,
     );
-    if (photo && chooseAdImageSource(false, true) === "photo") {
-      const id = crypto.randomUUID();
-      if (await storeGeneratedPhoto(tenantId, id, photo)) {
-        stored.push({ claim: ad.claim, id });
-      }
-      images.push(photo);
-      changed = true;
+    if (!photo || chooseAdImageSource("generate", true) !== "photo") {
+      images.push(brandCard(firm, ad));
       continue;
     }
-    images.push(brandCard(firm, ad));
-    changed = true;
+    const id = crypto.randomUUID();
+    if (await storeGeneratedPhoto(tenantId, id, photo)) {
+      photoUsage = allowance.usage;
+      const next = { claim: ad.claim, id, fingerprint: key };
+      const index = items.findIndex((item) => item.claim === ad.claim);
+      if (index >= 0) items[index] = next;
+      else items.push(next);
+      changed = true;
+    }
+    images.push(photo);
   }
   for (const ad of ads.slice(6)) images.push(brandCard(firm, ad));
   if (changed) {
     await saveAdTargeting(tenantId, {
       ...targeting,
-      generated: stored.length ? { fingerprint, items: stored } : null,
+      photoUsage,
+      generated: items.length ? { fingerprint, items } : targeting.generated,
     });
   }
   return images;
@@ -179,12 +247,15 @@ function placeWarning(missed: string[], usedCountryFallback: boolean) {
 export async function previewFirmAds(tenantId: string, placesText?: string) {
   const firm = await loadFirm(tenantId);
   const places = typeof placesText === "string" ? readAdPlaces(placesText) : firm.places;
-  const ads = buildFirmAds({
-    firmName: firm.firmName,
-    claims: firm.claims,
-    places,
-    voice: firm.voice,
-  });
+  const ads = applyApprovedCopy(
+    buildFirmAds({
+      firmName: firm.firmName,
+      claims: firm.claims,
+      places,
+      voice: firm.voice,
+    }),
+    firm.approved,
+  );
   const fingerprint = adFingerprint({
     firmName: firm.firmName,
     claims: firm.claims,
@@ -194,6 +265,7 @@ export async function previewFirmAds(tenantId: string, placesText?: string) {
     destination: firm.baseUrl,
     voice: firm.voice,
     assetIds: firm.assets.map((asset) => asset.id),
+    copy: ads.map((ad) => `${ad.headlines.join("|")} ${ad.descriptions.join("|")}`).join(";"),
   });
   const images = await resolveAdImages(tenantId, firm, ads, fingerprint, places);
   return {
@@ -230,12 +302,19 @@ export async function runCampaigns(params: {
   if (!firm.claims.length && (params.action !== "pause" || !hasCampaign)) {
     throw new ProviderError("Turn on at least one lead type before Casey can write the ads.");
   }
-  const ads = buildFirmAds({
-    firmName: firm.firmName,
-    claims: firm.claims,
-    places: firm.places,
-    voice: firm.voice,
-  });
+  const ads = applyApprovedCopy(
+    buildFirmAds({
+      firmName: firm.firmName,
+      claims: firm.claims,
+      places: firm.places,
+      voice: firm.voice,
+    }),
+    firm.approved,
+  );
+  const refusal = ads
+    .map((ad) => adCopyRefusal([...ad.headlines, ...ad.descriptions].join(" ")))
+    .find((message): message is string => Boolean(message));
+  if (refusal && params.action !== "pause") throw new ProviderError(refusal);
   const fingerprint = adFingerprint({
     firmName: firm.firmName,
     claims: firm.claims,
@@ -245,6 +324,7 @@ export async function runCampaigns(params: {
     destination: firm.baseUrl,
     voice: firm.voice,
     assetIds: firm.assets.map((asset) => asset.id),
+    copy: ads.map((ad) => `${ad.headlines.join("|")} ${ad.descriptions.join("|")}`).join(";"),
   });
   const images = await resolveAdImages(
     params.tenantId,
@@ -371,6 +451,7 @@ async function applyGoogle(params: {
       budgetResourceName: created.budgetResourceName,
       fingerprint: params.fingerprint,
       missedPlaces: places.missed,
+      claimAds: created.adGroups,
     };
     if (params.enabled) {
       try {
@@ -446,14 +527,16 @@ async function applyMeta(params: {
       ...details,
       adSetId: created.adSetId,
       adIds: created.adIds,
+      claimAds: params.ads.map((ad, index) => ({ claim: ad.claim, adId: created.adIds[index] ?? null })),
       fingerprint: params.fingerprint,
       missedPlaces: places.missed,
     };
     if (params.enabled) {
       try {
+        const liveAds = created.adIds.filter((_, index) => !params.ads[index]?.paused);
         await setMetaCampaignStatus(
           params.account,
-          [created.campaignId, created.adSetId, ...created.adIds],
+          [created.campaignId, created.adSetId, ...liveAds],
           "ACTIVE",
         );
       } catch (error) {
@@ -534,4 +617,159 @@ export async function refreshSpend(tenantId: string) {
     }
   }
   return errors;
+}
+
+function draftedAds(firm: Awaited<ReturnType<typeof loadFirm>>, places = firm.places) {
+  return applyApprovedCopy(
+    buildFirmAds({
+      firmName: firm.firmName,
+      claims: firm.claims,
+      places,
+      voice: firm.voice,
+    }),
+    firm.approved,
+  );
+}
+
+export async function loadCreativeDraft(tenantId: string) {
+  const firm = await loadFirm(tenantId);
+  const targeting = await loadAdTargeting(tenantId);
+  const allowance = nextPhotoUsage(targeting.photoUsage, firm.periodStart);
+  const ads = draftedAds(firm);
+  const results = await loadClaimResults(tenantId, ads.map((ad) => ad.claim));
+  return {
+    places: firm.places,
+    assets: firm.assets.map((asset) => ({ id: asset.id, name: asset.name })),
+    allowance: {
+      used: allowance.used,
+      limit: allowance.used + allowance.remaining,
+      remaining: allowance.remaining,
+    },
+    recommendation: campaignRecommendation(results),
+    results,
+    ads: ads.map((ad) => {
+      const edit = firm.approved.find((item) => item.claim === ad.claim);
+      return {
+        claim: ad.claim,
+        headlines: ad.headlines,
+        descriptions: ad.descriptions,
+        prompt: edit?.prompt ?? "",
+        imageMode: edit?.imageMode ?? "generate",
+        referenceAssetIds: edit?.referenceAssetIds ?? [],
+        libraryAssetId: edit?.libraryAssetId ?? null,
+        paused: Boolean(ad.paused),
+      };
+    }),
+  };
+}
+
+export async function saveCreativeDraft(tenantId: string, incoming: ApprovedAd[]) {
+  const firm = await loadFirm(tenantId);
+  const current = draftedAds(firm);
+  const next = incoming.filter((ad) => current.some((item) => item.claim === ad.claim));
+  const refusal = next
+    .map((ad) => adCopyRefusal([...ad.headlines, ...ad.descriptions, ad.prompt].join(" ")))
+    .find((message): message is string => Boolean(message));
+  if (refusal) throw new ProviderError(refusal);
+  const targeting = await loadAdTargeting(tenantId);
+  const parsed = readAdTargeting({ ...targeting, ads: next }).ads;
+  await saveAdTargeting(tenantId, { ...targeting, ads: parsed });
+}
+
+export async function setCreativeClaimPaused(tenantId: string, claim: string, paused: boolean) {
+  const targeting = await loadAdTargeting(tenantId);
+  const firm = await loadFirm(tenantId);
+  const existing = targeting.ads.find((ad) => ad.claim === claim);
+  const drafted = draftedAds(firm).find((ad) => ad.claim === claim);
+  if (!drafted) throw new ProviderError("That lead type is not on.");
+  const ads = targeting.ads.filter((ad) => ad.claim !== claim);
+  ads.push({
+    claim,
+    headlines: existing?.headlines ?? drafted.headlines,
+    descriptions: existing?.descriptions ?? drafted.descriptions,
+    prompt: existing?.prompt ?? "",
+    referenceAssetIds: existing?.referenceAssetIds ?? [],
+    imageMode: existing?.imageMode ?? "generate",
+    libraryAssetId: existing?.libraryAssetId ?? null,
+    paused,
+  });
+  await saveAdTargeting(tenantId, { ...targeting, ads });
+  const accounts = await listAdAccounts(tenantId);
+  const campaigns = await listCampaigns(tenantId);
+  const google = accountFor(accounts, "google");
+  const meta = accountFor(accounts, "meta");
+  const googleAds = Array.isArray(asRecord(campaignFor(campaigns, "google")?.details).claimAds)
+    ? (asRecord(campaignFor(campaigns, "google")?.details).claimAds as Array<{ claim?: string; adGroupId?: string }>)
+    : [];
+  const metaAds = Array.isArray(asRecord(campaignFor(campaigns, "meta")?.details).claimAds)
+    ? (asRecord(campaignFor(campaigns, "meta")?.details).claimAds as Array<{ claim?: string; adId?: string }>)
+    : [];
+  const adGroupId = googleAds.find((ad) => ad.claim === claim)?.adGroupId;
+  const adId = metaAds.find((ad) => ad.claim === claim)?.adId;
+  if (google && adGroupId) await setGoogleAdGroupStatus(google, adGroupId, paused ? "PAUSED" : "ENABLED");
+  if (meta && adId) await setMetaCampaignStatus(meta, [adId], paused ? "PAUSED" : "ACTIVE");
+}
+
+function spendMinorFor(
+  attribution: ReturnType<typeof readAttribution>,
+  map: Map<string, number>,
+) {
+  if (attribution.gclid) return map.get(`gclid:${attribution.gclid}`) ?? 0;
+  if (attribution.fbclid) return map.get(`fbclid:${attribution.fbclid}`) ?? 0;
+  const source = (attribution.utmSource ?? "").toLowerCase();
+  const metaLead = Boolean(attribution.fbclid) || source === "meta" || source === "facebook" || source === "instagram";
+  if (metaLead && attribution.utmCampaign) return map.get(`campaign:${attribution.utmCampaign}`) ?? 0;
+  return 0;
+}
+
+async function loadClaimResults(tenantId: string, claims: string[]) {
+  const supabase = getServiceClient("creative-results");
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const [accounts, { data: sessions, error: sessionError }, { data: leads, error: leadError }] = await Promise.all([
+    listAdAccounts(tenantId),
+    supabase
+      .from("lead_sessions")
+      .select("attribution, promoted_statement_id")
+      .eq("tenant_id", tenantId)
+      .gte("created_at", since)
+      .limit(500),
+    supabase
+      .from("statements")
+      .select("lead_stage, qualification_answers")
+      .eq("tenant_id", tenantId)
+      .eq("participant_kind", "primary")
+      .limit(500),
+  ]);
+  if (sessionError || leadError) throw sessionError ?? leadError;
+  const spend = new Map<string, number>();
+  for (const account of accounts) {
+    const record = asRecord(account.spend_by_click);
+    for (const [key, entry] of Object.entries(record)) {
+      const minor = Number((entry as { minor?: unknown }).minor);
+      if (Number.isFinite(minor) && minor > 0) spend.set(key, (spend.get(key) ?? 0) + minor);
+    }
+  }
+  const events = [
+    ...(sessions ?? []).map((session) => {
+      const attribution = readAttribution(session.attribution);
+      return {
+        slug: attribution.utmContent,
+        stage: "started" as const,
+        spendMinor: session.promoted_statement_id ? 0 : spendMinorFor(attribution, spend),
+      };
+    }),
+    ...(leads ?? []).flatMap((lead) => {
+      if (lead.lead_stage === "new") return [];
+      const attribution = attributionFromAnswers(lead.qualification_answers);
+      return [{
+        slug: attribution.utmContent,
+        stage: lead.lead_stage === "declined" ? ("declined" as const) : ("accepted" as const),
+        spendMinor: spendMinorFor(attribution, spend),
+      }];
+    }),
+  ];
+  return groupClaimResults(claims, events).map((row) => ({
+    ...row,
+    slug: claimContentSlug(row.claim),
+  }));
 }
