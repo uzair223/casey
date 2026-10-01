@@ -1,7 +1,7 @@
 import "server-only";
 
 import { firmPageUrl } from "@/lib/firm-page-host";
-import { readLeadBranding } from "@/lib/leads/logo";
+import { detectImageType, readLeadBranding } from "@/lib/leads/logo";
 import {
   DEFAULT_LEAD_HEADER_COLOR,
   DEFAULT_LEAD_TEXT_COLOR,
@@ -27,6 +27,8 @@ import {
 } from "./google";
 import { ProviderError } from "./http";
 import { renderBrandAdPng } from "./media";
+import { adPhotoPrompt, chooseAdImageSource } from "./photo";
+import { generateAdPhoto, loadGeneratedPhoto, storeGeneratedPhoto } from "./photo-generate";
 import { loadAdTargeting, saveAdTargeting } from "./targeting";
 import {
   createMetaTrafficCampaign,
@@ -96,23 +98,74 @@ async function savePlaces(tenantId: string, places: string[]) {
   await saveAdTargeting(tenantId, { ...current, places });
 }
 
-async function campaignImages(
+function brandCard(firm: Awaited<ReturnType<typeof loadFirm>>, ad: FirmAd) {
+  return renderBrandAdPng({
+    firmName: firm.firmName,
+    line: ad.imageLine,
+    background: firm.background,
+    text: firm.text,
+  });
+}
+
+function imageDataUrl(bytes: Buffer) {
+  const type = detectImageType(bytes) === "image/jpeg" ? "image/jpeg" : "image/png";
+  return `data:${type};base64,${bytes.toString("base64")}`;
+}
+
+async function resolveAdImages(
   tenantId: string,
   firm: Awaited<ReturnType<typeof loadFirm>>,
   ads: FirmAd[],
+  fingerprint: string,
+  places: string[],
 ) {
   const uploaded = await loadAdAssetBytes(tenantId, firm.assets);
-  if (uploaded.length) {
+  if (chooseAdImageSource(uploaded.length > 0, true) === "upload") {
     return ads.map((_, index) => uploaded[index % uploaded.length]);
   }
-  return ads.map((ad) =>
-    renderBrandAdPng({
-      firmName: firm.firmName,
-      line: ad.imageLine,
-      background: firm.background,
-      text: firm.text,
-    }),
-  );
+  const targeting = await loadAdTargeting(tenantId);
+  const cached =
+    targeting.generated?.fingerprint === fingerprint ? targeting.generated.items : [];
+  const images: Buffer[] = [];
+  const stored: Array<{ claim: string; id: string }> = [];
+  let changed = Boolean(targeting.generated) && targeting.generated?.fingerprint !== fingerprint;
+  for (const ad of ads.slice(0, 6)) {
+    const hit = cached.find((item) => item.claim === ad.claim);
+    const saved = hit ? await loadGeneratedPhoto(tenantId, hit.id) : null;
+    if (hit && saved && chooseAdImageSource(false, true) === "photo") {
+      images.push(saved);
+      stored.push({ claim: ad.claim, id: hit.id });
+      continue;
+    }
+    const photo = await generateAdPhoto(
+      adPhotoPrompt({
+        firmName: firm.firmName,
+        claim: ad.claim,
+        places,
+        summary: firm.voice,
+        background: firm.background,
+      }),
+    );
+    if (photo && chooseAdImageSource(false, true) === "photo") {
+      const id = crypto.randomUUID();
+      if (await storeGeneratedPhoto(tenantId, id, photo)) {
+        stored.push({ claim: ad.claim, id });
+      }
+      images.push(photo);
+      changed = true;
+      continue;
+    }
+    images.push(brandCard(firm, ad));
+    changed = true;
+  }
+  for (const ad of ads.slice(6)) images.push(brandCard(firm, ad));
+  if (changed) {
+    await saveAdTargeting(tenantId, {
+      ...targeting,
+      generated: stored.length ? { fingerprint, items: stored } : null,
+    });
+  }
+  return images;
 }
 
 function placeWarning(missed: string[], usedCountryFallback: boolean) {
@@ -132,19 +185,24 @@ export async function previewFirmAds(tenantId: string, placesText?: string) {
     places,
     voice: firm.voice,
   });
+  const fingerprint = adFingerprint({
+    firmName: firm.firmName,
+    claims: firm.claims,
+    places,
+    background: firm.background,
+    text: firm.text,
+    destination: firm.baseUrl,
+    voice: firm.voice,
+    assetIds: firm.assets.map((asset) => asset.id),
+  });
+  const images = await resolveAdImages(tenantId, firm, ads, fingerprint, places);
   return {
     places,
-    ads: ads.map((ad) => ({
+    ads: ads.map((ad, index) => ({
       claim: ad.claim,
       headlines: ad.headlines,
       descriptions: ad.descriptions,
-      image: `data:image/png;base64,${renderBrandAdPng({
-        firmName: firm.firmName,
-        line: ad.imageLine,
-        background: firm.background,
-        text: firm.text,
-        size: 640,
-      }).toString("base64")}`,
+      image: imageDataUrl(images[index] ?? brandCard(firm, ad)),
     })),
   };
 }
@@ -178,7 +236,6 @@ export async function runCampaigns(params: {
     places: firm.places,
     voice: firm.voice,
   });
-  const images = await campaignImages(params.tenantId, firm, ads);
   const fingerprint = adFingerprint({
     firmName: firm.firmName,
     claims: firm.claims,
@@ -189,6 +246,13 @@ export async function runCampaigns(params: {
     voice: firm.voice,
     assetIds: firm.assets.map((asset) => asset.id),
   });
+  const images = await resolveAdImages(
+    params.tenantId,
+    firm,
+    ads,
+    fingerprint,
+    firm.places,
+  );
   const enabled = params.action !== "pause";
   const status = enabled ? "live" : "paused";
   const errors: string[] = [];

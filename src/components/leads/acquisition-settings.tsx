@@ -253,7 +253,7 @@ export function AcquisitionSettings({ handoff = true }: { handoff?: boolean }) {
                   }}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Upload up to 6 PNG or JPEG images. Casey uses them on the ads, and draws a brand card when none are uploaded.
+                  Upload up to 6 PNG or JPEG images. Casey uses them on the ads. With none uploaded, Casey makes a photograph for each lead type.
                 </p>
                 {data.assets.length ? (
                   <div className="grid gap-3 sm:grid-cols-3">
@@ -347,11 +347,11 @@ export function AcquisitionSettings({ handoff = true }: { handoff?: boolean }) {
               ) : null}
               {preview?.ads.length ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {data.assets.length ? (
-                    <p className="text-sm text-muted-foreground sm:col-span-2">
-                      These cards are the words. Google and Meta use the images uploaded above.
-                    </p>
-                  ) : null}
+                  <p className="text-sm text-muted-foreground sm:col-span-2">
+                    {data.assets.length
+                      ? "These cards show the words. Google and Meta use the images uploaded above."
+                      : "Casey made a photograph for each lead type."}
+                  </p>
                   {preview.ads.map((ad) => (
                     <figure key={ad.claim} className="space-y-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}

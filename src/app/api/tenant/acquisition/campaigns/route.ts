@@ -5,6 +5,8 @@ import { ProviderError } from "@/lib/leads/acquisition/http";
 import { widgetEnabled } from "@/lib/billing/plans";
 import { getServiceClient } from "@/lib/supabase/server";
 
+export const maxDuration = 120;
+
 export async function POST(request: Request) {
   try {
     const auth = await requireAdsManager(request);

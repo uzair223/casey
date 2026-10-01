@@ -1,3 +1,5 @@
+import { withoutMoneyPromise } from "./photo";
+
 export type FirmAd = {
   claim: string;
   headlines: string[];
@@ -166,6 +168,16 @@ export function readAdAssets(value: unknown): AdAssetRecord[] {
   return assets;
 }
 
+export type GeneratedPhoto = {
+  claim: string;
+  id: string;
+};
+
+export type GeneratedPhotoSet = {
+  fingerprint: string;
+  items: GeneratedPhoto[];
+};
+
 export type AdTargeting = {
   places: string[];
   assets: AdAssetRecord[];
@@ -173,7 +185,26 @@ export type AdTargeting = {
   siteSummary: string | null;
   sitePlaces: string[];
   siteClaims: string[];
+  generated: GeneratedPhotoSet | null;
 };
+
+function readGeneratedPhotos(value: unknown): GeneratedPhotoSet | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as { fingerprint?: unknown; items?: unknown };
+  if (typeof record.fingerprint !== "string" || !record.fingerprint.trim()) return null;
+  if (!Array.isArray(record.items)) return null;
+  const items: GeneratedPhoto[] = [];
+  for (const item of record.items) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as { claim?: unknown; id?: unknown };
+    if (typeof row.claim !== "string" || !row.claim.trim()) continue;
+    if (typeof row.id !== "string" || !ASSET_ID.test(row.id)) continue;
+    items.push({ claim: row.claim.trim().slice(0, 80), id: row.id });
+    if (items.length === 6) break;
+  }
+  if (!items.length) return null;
+  return { fingerprint: record.fingerprint.slice(0, 4000), items };
+}
 
 export function readAdTargeting(value: unknown): AdTargeting {
   const record =
@@ -195,6 +226,7 @@ export function readAdTargeting(value: unknown): AdTargeting {
           .filter(Boolean)
           .slice(0, 5)
       : [],
+    generated: readGeneratedPhotos(record.generated),
   };
 }
 
@@ -242,7 +274,7 @@ export function buildFirmAds(params: {
       ].filter((keyword) => keyword.length >= 3),
       8,
     );
-    const voice = fit(params.voice?.trim() || "", 90);
+    const voice = fit(withoutMoneyPromise(params.voice ?? ""), 90);
     return {
       claim: claim.claim,
       headlines: headlines.map((line) => fit(line, 30)),

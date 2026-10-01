@@ -10,6 +10,12 @@ import {
   readAdTargeting,
 } from "@/lib/leads/acquisition/creative";
 import { renderBrandAdPng } from "@/lib/leads/acquisition/media";
+import {
+  adPhotoPrompt,
+  chooseAdImageSource,
+  readGeneratedImage,
+  withoutMoneyPromise,
+} from "@/lib/leads/acquisition/photo";
 import { readWebsiteBrief, websiteUrlError } from "@/lib/leads/acquisition/site";
 import {
   buildLeadHandoff,
@@ -199,6 +205,72 @@ describe("firm website and images", () => {
       name: "image",
       contentType: "image/png",
     })))).toHaveLength(6);
+  });
+});
+
+const EQUITAS_HOME = `
+  <html><head>
+    <title>Equitas Solicitors</title>
+    <meta name="description" content="Successfully securing compensation for clients in Preston.">
+  </head><body>
+    <h1>One of the UK’s Most Trusted Personal Injury Claims Specialists</h1>
+    <p>The office is in Fulwood, Preston.</p>
+    <h2>Medical Negligence Claims</h2>
+    <h2>Accident at Work Claims</h2>
+    <p>Protecting cyclists injured by dangerous roads.</p>
+    <h2>PCP / Car Finance Claims</h2>
+    <h2>Slip and Trip Claims</h2>
+    <h2>Road Traffic Accident Claims</h2>
+    <h2>Housing Disrepair Claims</h2>
+  </body></html>
+`;
+
+describe("Equitas Solicitors ads", () => {
+  it("reads Preston and the claim types, and does not promise compensation", () => {
+    const brief = readWebsiteBrief(EQUITAS_HOME);
+    expect(brief.places).toEqual(["Preston"]);
+    expect(brief.places).not.toContain("Fulwood");
+    expect(brief.claims).toEqual([
+      "Road accident",
+      "Accident at work",
+      "Public place accident",
+      "Medical treatment",
+      "Housing disrepair",
+    ]);
+    const voice = withoutMoneyPromise(brief.summary ?? "");
+    expect(voice).not.toMatch(/compensation|settlement|payout/i);
+    const ads = buildFirmAds({
+      firmName: "Equitas Solicitors",
+      claims: brief.claims,
+      places: brief.places,
+      voice: brief.summary,
+    });
+    for (const ad of ads) {
+      expect(ad.descriptions.join(" ")).not.toMatch(/compensation|settlement|payout/i);
+    }
+    const prompt = adPhotoPrompt({
+      firmName: "Equitas Solicitors",
+      claim: "Road accident",
+      places: brief.places,
+      summary: brief.summary,
+      background: "#1f3a2e",
+    });
+    expect(prompt).toContain("Preston");
+    expect(prompt).toContain("No readable text");
+    expect(prompt).not.toMatch(/compensation|settlement|payout/i);
+    expect(chooseAdImageSource(false, true)).toBe("photo");
+    expect(chooseAdImageSource(true, true)).toBe("upload");
+    expect(chooseAdImageSource(false, false)).toBe("card");
+  });
+
+  it("reads a generated photograph from a JSON image response", () => {
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    const body = Buffer.from(JSON.stringify({ result: { image: png.toString("base64") } }));
+    const image = readGeneratedImage(body, "application/json");
+    expect(image?.subarray(0, 4)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
   });
 });
 

@@ -27,6 +27,7 @@ export async function saveAdTargeting(tenantId: string, targeting: AdTargeting) 
         siteSummary: targeting.siteSummary,
         sitePlaces: targeting.sitePlaces,
         siteClaims: targeting.siteClaims,
+        generated: targeting.generated,
       } as Json,
     })
     .eq("id", tenantId);
