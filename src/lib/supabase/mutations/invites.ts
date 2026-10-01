@@ -7,6 +7,7 @@ const ALLOWED_INVITE_ROLES = [
   "tenant_admin",
   "solicitor",
   "paralegal",
+  "marketer",
   "app_admin",
 ];
 

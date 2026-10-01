@@ -8,6 +8,7 @@ import {
 } from "@/lib/leads/abuse";
 import { getChannelByKey } from "@/lib/leads/channels";
 import { createQualificationSession } from "@/lib/leads/sessions";
+import { readAttribution } from "@/lib/leads/attribution";
 
 export async function POST(request: Request) {
   try {
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as {
       publicKey?: string;
       turnstileToken?: string;
+      attribution?: unknown;
     } | null;
     if (!body?.publicKey) return badRequest("Missing lead channel");
 
@@ -39,6 +41,7 @@ export async function POST(request: Request) {
       leadTypeId: channel.leadTypeId,
       slots: channel.config.qualification_slots,
       welcome: channel.welcome,
+      attribution: readAttribution(body.attribution),
     });
     return ok(session);
   } catch (error) {

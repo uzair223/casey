@@ -34,12 +34,9 @@ import {
   DEFAULT_LEAD_HEADER_COLOR,
   DEFAULT_LEAD_TEXT_COLOR,
   DEFAULT_LEAD_USER_BUBBLE_COLOR,
-  DEFAULT_SELECTOR_CAPTION,
-  defaultLeadWelcome,
-  defaultSelectorTitle,
+  PLAIN_ENQUIRY_WELCOME,
   leadHexColor,
-  resolveLeadWelcome,
-  selectorCopy,
+  publicEnquiryWelcome,
   type LeadBranding,
 } from "@/lib/leads/schema";
 import { toast } from "@/lib/toast";
@@ -51,6 +48,7 @@ type ChannelResponse = {
   branding: LeadBranding;
   hostedUrl: string | null;
   localPath: string | null;
+  widgetSnippet: string | null;
   leadTypes: Array<{
     id: string;
     name: string;
@@ -61,9 +59,7 @@ type ChannelResponse = {
     leadTypeId: string;
     leadTypeName: string;
     publicKey: string;
-    snippet: string;
     enabled: boolean;
-    welcome: string;
   }>;
 };
 
@@ -75,8 +71,7 @@ type IntakeSettingsValues = {
   userBubbleColor: string;
   logoUrl: string;
   displayName: string;
-  selectorTitle: string;
-  selectorCaption: string;
+  welcome: string;
   hideCaseyMark: boolean;
   hideAvatars: boolean;
 };
@@ -92,8 +87,7 @@ function valuesFromData(data: ChannelResponse | null): IntakeSettingsValues {
       branding.userBubbleColor || DEFAULT_LEAD_USER_BUBBLE_COLOR,
     logoUrl: branding.logoUrl || "",
     displayName: branding.displayName || "",
-    selectorTitle: branding.selectorTitle || "",
-    selectorCaption: branding.selectorCaption || "",
+    welcome: branding.welcome || "",
     hideCaseyMark: Boolean(branding.hideCaseyMark),
     hideAvatars: Boolean(branding.hideAvatars),
   };
@@ -104,10 +98,9 @@ function brandingFromValues(values: IntakeSettingsValues): LeadBranding {
     primaryColor: values.primaryColor,
     logoUrl: values.logoUrl,
     displayName: values.displayName,
+    welcome: values.welcome,
     hideCaseyMark: values.hideCaseyMark,
     hideAvatars: values.hideAvatars,
-    selectorTitle: values.selectorTitle,
-    selectorCaption: values.selectorCaption,
     textColor: values.textColor,
     backgroundColor: values.backgroundColor,
     userBubbleColor: values.userBubbleColor,
@@ -139,15 +132,6 @@ function IntakeSettingsForm({
     defaultValues: valuesFromData(data),
   });
   const [logoPreview, setLogoPreview] = useState("");
-  const [welcomeDrafts, setWelcomeDrafts] = useState<Record<string, string>>(
-    () =>
-      Object.fromEntries(
-        (data?.channels ?? []).map((channel) => [
-          channel.leadTypeId,
-          channel.welcome ?? "",
-        ]),
-      ),
-  );
   const values = useWatch({ control: form.control });
 
   useEffect(() => {
@@ -161,8 +145,6 @@ function IntakeSettingsForm({
   const publicSlug = values.publicSlug ?? "";
   const address = slugifyPublicAddress(publicSlug);
   const displayName = values.displayName ?? "";
-  const selectorTitle = values.selectorTitle ?? "";
-  const selectorCaption = values.selectorCaption ?? "";
   const primaryColor = values.primaryColor ?? DEFAULT_LEAD_HEADER_COLOR;
   const textColor = values.textColor ?? DEFAULT_LEAD_TEXT_COLOR;
   const backgroundColor =
@@ -170,17 +152,12 @@ function IntakeSettingsForm({
   const userBubbleColor =
     values.userBubbleColor ?? DEFAULT_LEAD_USER_BUBBLE_COLOR;
   const logoUrl = values.logoUrl ?? "";
+  const welcome = publicEnquiryWelcome(values.welcome);
   const hideCaseyMark = Boolean(values.hideCaseyMark);
   const hideAvatars = Boolean(values.hideAvatars);
 
   const previewFirm =
     premium && displayName.trim() ? displayName.trim() : tenantName;
-  const previewTitle = premium
-    ? selectorCopy(selectorTitle, defaultSelectorTitle(previewFirm))
-    : defaultSelectorTitle(previewFirm);
-  const previewCaption = premium
-    ? selectorCopy(selectorCaption, DEFAULT_SELECTOR_CAPTION)
-    : DEFAULT_SELECTOR_CAPTION;
   const previewHeader = leadHexColor(
     premium ? primaryColor : DEFAULT_LEAD_HEADER_COLOR,
     DEFAULT_LEAD_HEADER_COLOR,
@@ -426,29 +403,14 @@ function IntakeSettingsForm({
                   <div className="md:col-span-2">
                     <RhfField
                       form={form}
-                      name="selectorTitle"
-                      controlId="lead-selector-title"
-                      label="Selector title"
+                      name="welcome"
+                      controlId="lead-welcome"
+                      label="Welcome line"
                       renderControl={(registration) => (
                         <Input
-                          id="lead-selector-title"
-                          placeholder={defaultSelectorTitle(previewFirm)}
-                          disabled={!premium}
-                          {...registration}
-                        />
-                      )}
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <RhfField
-                      form={form}
-                      name="selectorCaption"
-                      controlId="lead-selector-caption"
-                      label="Selector caption"
-                      renderControl={(registration) => (
-                        <Input
-                          id="lead-selector-caption"
-                          placeholder={DEFAULT_SELECTOR_CAPTION}
+                          id="lead-welcome"
+                          maxLength={280}
+                          placeholder={PLAIN_ENQUIRY_WELCOME}
                           disabled={!premium}
                           {...registration}
                         />
@@ -497,9 +459,49 @@ function IntakeSettingsForm({
 
         <Card>
           <CardHeader>
-            <CardTitle>Lead types on the page</CardTitle>
+            <CardTitle>Website chat</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Place this on the firm website. The chat handles every enquiry.
+              Its container sets the position and size, and the chat fills that box.
+            </p>
+            {data?.widgetSnippet ? (
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 break-all rounded-md bg-muted px-2 py-1.5 font-mono text-xs">
+                  {data.widgetSnippet}
+                </code>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Copy snippet"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(data.widgetSnippet ?? "");
+                    toast.success("Snippet copied");
+                  }}
+                >
+                  <CopyIcon />
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {premium
+                  ? "Enable a lead type to get the snippet."
+                  : "Upgrade to Growth to embed this on the firm website."}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Lead types</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Casey uses these to route the chat. People on the website do not choose one.
+            </p>
             {(data?.leadTypes ?? []).map((leadType) => {
               const channel = (data?.channels ?? []).find(
                 (item) => item.leadTypeId === leadType.id,
@@ -507,79 +509,6 @@ function IntakeSettingsForm({
               return (
                 <div key={leadType.id} className="space-y-1">
                   <p className="text-sm font-medium">{leadType.name}</p>
-                  {channel && premium ? (
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">
-                        Place this where the chat should sit. Its container sets the position and size, and the chat fills that box.
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <code className="min-w-0 flex-1 break-all rounded-md bg-muted px-2 py-1.5 font-mono text-xs">
-                          {channel.snippet}
-                        </code>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon-sm"
-                          aria-label="Copy snippet"
-                          onClick={() => {
-                            void navigator.clipboard.writeText(channel.snippet);
-                            toast.success("Snippet copied");
-                          }}
-                        >
-                          <CopyIcon />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      {channel
-                        ? "Upgrade to Growth to embed this on the firm website."
-                        : "Not on the hosted page yet."}
-                    </p>
-                  )}
-                  {channel?.enabled ? (
-                    <div className="space-y-1">
-                      <Label htmlFor={`lead-welcome-${leadType.id}`}>
-                        Welcome line
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        The first message in this chat. Leave it blank to use the line for this lead type.
-                      </p>
-                      <Input
-                        id={`lead-welcome-${leadType.id}`}
-                        maxLength={280}
-                        value={
-                          welcomeDrafts[leadType.id] ?? channel.welcome ?? ""
-                        }
-                        placeholder={defaultLeadWelcome(leadType.name)}
-                        onChange={(event) =>
-                          setWelcomeDrafts((current) => ({
-                            ...current,
-                            [leadType.id]: event.target.value,
-                          }))
-                        }
-                      />
-                      <AsyncButton
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        pendingText="Saving..."
-                        onClick={async () => {
-                          await apiFetch("/api/tenant/lead-channels", {
-                            method: "POST",
-                            body: JSON.stringify({
-                              leadTypeId: leadType.id,
-                              welcome: welcomeDrafts[leadType.id] ?? "",
-                            }),
-                          });
-                          await reload();
-                          toast.success("Welcome line saved");
-                        }}
-                      >
-                        Save welcome line
-                      </AsyncButton>
-                    </div>
-                  ) : null}
                   <div className="flex gap-2">
                     <AsyncButton
                       type="button"
@@ -632,23 +561,12 @@ function IntakeSettingsForm({
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
             {enabledLeadTypes.length > 0
-              ? "What an enquirer sees on the hosted page."
+              ? "What someone sees in the chat."
               : "Enable a lead type to publish the page. This is how it will look."}
           </p>
           <IntakePreview
-            key={enabledLeadTypes.map((leadType) => leadType.id).join(",")}
             firmName={previewFirm}
-            welcomes={Object.fromEntries(
-              enabledLeadTypes.map((leadType) => [
-                leadType.name,
-                resolveLeadWelcome({
-                  leadTypeName: leadType.name,
-                  leadTypeWelcome: welcomeDrafts[leadType.id],
-                }),
-              ]),
-            )}
-            selectorTitle={previewTitle}
-            selectorCaption={previewCaption}
+            welcome={welcome}
             primaryColor={previewHeader}
             textColor={previewText}
             backgroundColor={previewBackground}
@@ -656,7 +574,6 @@ function IntakeSettingsForm({
             logoUrl={premium ? logoPreview || logoUrl : ""}
             hideCaseyMark={premium && hideCaseyMark}
             hideAvatars={premium && hideAvatars}
-            leadTypeNames={enabledLeadTypes.map((leadType) => leadType.name)}
           />
         </CardContent>
       </Card>

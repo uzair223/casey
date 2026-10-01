@@ -96,6 +96,8 @@ const LEAD_WELCOMES: Array<{ match: RegExp; line: string }> = [
   },
 ];
 
+export const PLAIN_ENQUIRY_WELCOME = "Tell us what happened.";
+
 export function defaultLeadWelcome(leadTypeName: string) {
   const name = leadTypeName.trim();
   const match = LEAD_WELCOMES.find((item) => item.match.test(name));
@@ -103,6 +105,11 @@ export function defaultLeadWelcome(leadTypeName: string) {
   return name
     ? `Tell us about this ${name} enquiry.`
     : "Tell us about this enquiry.";
+}
+
+export function publicEnquiryWelcome(custom?: string | null) {
+  const own = custom?.trim();
+  return own || PLAIN_ENQUIRY_WELCOME;
 }
 
 export function resolveLeadWelcome(params: {

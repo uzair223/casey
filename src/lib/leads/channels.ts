@@ -5,7 +5,7 @@ import { widgetEnabled } from "@/lib/billing/plans";
 import { readLeadBranding } from "./logo";
 import {
   parseLeadTypeConfig,
-  resolveLeadWelcome,
+  publicEnquiryWelcome,
   type LeadBranding,
 } from "./schema";
 
@@ -75,10 +75,7 @@ export async function getChannelByKey(publicKey: string) {
     widget: widgetEnabled(tenant.plan),
     plan: tenant.plan,
     branding,
-    welcome: resolveLeadWelcome({
-      leadTypeName: leadType.name,
-      leadTypeWelcome: readLeadBranding(data.branding).welcome,
-    }),
+    welcome: publicEnquiryWelcome(readLeadBranding(tenant.intake_branding).welcome),
     config,
   };
 }
@@ -114,10 +111,9 @@ export async function listChannelsForSlug(slug: string) {
         leadTypeId: channel.lead_type_id,
         leadTypeName: leadType.name,
         config: parseLeadTypeConfig(leadType),
-        welcome: resolveLeadWelcome({
-          leadTypeName: leadType.name,
-          leadTypeWelcome: readLeadBranding(channel.branding).welcome,
-        }),
+        welcome: publicEnquiryWelcome(
+          readLeadBranding(tenant.intake_branding).welcome,
+        ),
         branding: publicBranding(
           tenant.plan,
           tenant.intake_branding,
@@ -132,6 +128,7 @@ export async function listChannelsForSlug(slug: string) {
     tenantName: tenant.name,
     plan: tenant.plan,
     widget: widgetEnabled(tenant.plan),
+    welcome: publicEnquiryWelcome(readLeadBranding(tenant.intake_branding).welcome),
     channels: published,
   };
 }
@@ -140,6 +137,7 @@ export type PublishedLeadChannel = {
   channelId: string;
   leadTypeId: string;
   leadTypeName: string;
+  briefGuidance: string | null;
   config: ReturnType<typeof parseLeadTypeConfig>;
 };
 
@@ -150,7 +148,7 @@ export async function listPublishedLeadChannels(
   const { data, error } = await supabase
     .from("lead_channels")
     .select(
-      "id, lead_type_id, enabled, statement_config_templates!lead_channels_lead_type_id_fkey(name, status, qualification_slots, participant_roles, outreach_template, decline_reasons, branding)",
+      "id, lead_type_id, enabled, statement_config_templates!lead_channels_lead_type_id_fkey(name, status, brief_guidance, qualification_slots, participant_roles, outreach_template, decline_reasons, branding)",
     )
     .eq("tenant_id", tenantId)
     .eq("enabled", true);
@@ -169,6 +167,7 @@ export async function listPublishedLeadChannels(
         channelId: channel.id,
         leadTypeId: channel.lead_type_id,
         leadTypeName: leadType.name,
+        briefGuidance: leadType.brief_guidance ?? null,
         config: parseLeadTypeConfig(leadType),
       },
     ];

@@ -53,6 +53,19 @@ export async function GET(request: Request) {
     }
 
     const premium = widgetEnabled(tenant?.plan);
+    const listed = (channels ?? []).map((channel) => {
+      const leadType = Array.isArray(channel.statement_config_templates)
+        ? channel.statement_config_templates[0]
+        : channel.statement_config_templates;
+      return {
+        id: channel.id,
+        leadTypeId: channel.lead_type_id,
+        leadTypeName: leadType?.name ?? "Lead type",
+        enabled: channel.enabled,
+        publicKey: channel.public_key,
+      };
+    });
+    const embed = listed.find((channel) => channel.enabled);
     return ok({
       tenantName: tenant?.name ?? "",
       publicSlug: tenant?.public_slug ?? null,
@@ -60,26 +73,16 @@ export async function GET(request: Request) {
       branding: premium ? readLeadBranding(tenant?.intake_branding) : {},
       hostedUrl: tenant?.public_slug ? firmPageUrl(tenant.public_slug) : null,
       localPath: tenant?.public_slug ? `/q/${tenant.public_slug}` : null,
+      widgetSnippet:
+        premium && embed
+          ? `<div style="width:100%;height:640px"><script src="${env.NEXT_PUBLIC_BASE_URL}/widget.js" data-key="${embed.publicKey}"></script></div>`
+          : null,
       leadTypes: (leadTypes ?? []).map((leadType) => ({
         id: leadType.id,
         name: leadType.name,
         publicSlug: leadType.public_slug,
       })),
-      channels: (channels ?? []).map((channel) => {
-        const leadType = Array.isArray(channel.statement_config_templates)
-          ? channel.statement_config_templates[0]
-          : channel.statement_config_templates;
-        return {
-          id: channel.id,
-          leadTypeId: channel.lead_type_id,
-          leadTypeName: leadType?.name ?? "Lead type",
-          enabled: channel.enabled,
-          publicKey: channel.public_key,
-          welcome: readLeadBranding(channel.branding).welcome ?? "",
-          branding: premium ? channel.branding : {},
-          snippet: `<div style="width:100%;height:640px"><script src="${env.NEXT_PUBLIC_BASE_URL}/widget.js" data-key="${channel.public_key}"></script></div>`,
-        };
-      }),
+      channels: listed,
     });
   } catch (error) {
     if (error instanceof Response) return error;

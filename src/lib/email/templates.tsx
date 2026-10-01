@@ -7,6 +7,9 @@ import type {
   StatementFollowUpRequestPayload,
   StatementEmailPayload,
   StatementSubmittedNotificationPayload,
+  WitnessChatFirmNoticePayload,
+  WitnessChatNoticePayload,
+  WitnessFileDeadlinePayload,
 } from "@/types";
 
 type EmailTemplateContent = {
@@ -451,6 +454,106 @@ Open it in ${appName}: ${payload.url}`;
         >
           Open Mention
         </a>
+      </EmailLayout>
+    ),
+  };
+};
+
+export const buildWitnessChatNoticeTemplate = (
+  payload: WitnessChatNoticePayload,
+): EmailTemplateContent => {
+  const witnessName = payload.witnessName?.trim() || "there";
+  const subject =
+    payload.kind === "reminder"
+      ? `Reminder: ${payload.tenantName} is waiting for your reply`
+      : `${payload.tenantName} sent you a message: ${payload.caseTitle}`;
+  const intro =
+    payload.kind === "reminder"
+      ? `${payload.tenantName} is still waiting for your reply about ${payload.caseTitle}.`
+      : `${payload.tenantName} sent you a message about ${payload.caseTitle}.`;
+  const text = `Hello ${witnessName},\n\n${intro}\n\n${payload.excerpt}\n\nOpen the secure chat: ${payload.url}`;
+
+  return {
+    subject,
+    text,
+    react: (
+      <EmailLayout heading={payload.kind === "reminder" ? "Reply reminder" : "New message"}>
+        <p style={paragraphStyle}>Hello {witnessName},</p>
+        <p style={paragraphStyle}>{intro}</p>
+        {payload.excerpt ? (
+          <p style={paragraphStyle}>{payload.excerpt}</p>
+        ) : null}
+        <a href={payload.url} target="_blank" rel="noopener noreferrer" style={buttonStyle}>
+          Open secure chat
+        </a>
+        <p style={paragraphStyle}>{payload.url}</p>
+      </EmailLayout>
+    ),
+  };
+};
+
+export const buildWitnessFileDeadlineTemplate = (
+  payload: WitnessFileDeadlinePayload,
+): EmailTemplateContent => {
+  const witnessName = payload.witnessName?.trim() || "there";
+  const due = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(payload.dueAt));
+  const subject =
+    payload.kind === "overdue"
+      ? `File overdue: ${payload.label}`
+      : payload.kind === "due"
+        ? `File due now: ${payload.label}`
+        : `File due soon: ${payload.label}`;
+  const intro =
+    payload.kind === "overdue"
+      ? `${payload.label} was due ${due} for ${payload.caseTitle}.`
+      : payload.kind === "due"
+        ? `${payload.label} is due now (${due}) for ${payload.caseTitle}.`
+        : `${payload.tenantName} needs ${payload.label} by ${due} for ${payload.caseTitle}.`;
+  const text = `Hello ${witnessName},\n\n${intro}\n\nUpload it in the secure chat: ${payload.url}`;
+
+  return {
+    subject,
+    text,
+    react: (
+      <EmailLayout heading="File requested">
+        <p style={paragraphStyle}>Hello {witnessName},</p>
+        <p style={paragraphStyle}>{intro}</p>
+        <a href={payload.url} target="_blank" rel="noopener noreferrer" style={buttonStyle}>
+          Open secure chat
+        </a>
+        <p style={paragraphStyle}>{payload.url}</p>
+      </EmailLayout>
+    ),
+  };
+};
+
+export const buildWitnessChatFirmNoticeTemplate = (
+  payload: WitnessChatFirmNoticePayload,
+): EmailTemplateContent => {
+  const witnessName = payload.witnessName?.trim() || "The witness";
+  const subject = `New message from ${witnessName}: ${payload.caseTitle}`;
+  const text = `${witnessName} sent a message about ${payload.caseTitle}.\n\n${payload.excerpt}\n\nOpen the lead: ${payload.url}`;
+
+  return {
+    subject,
+    text,
+    react: (
+      <EmailLayout heading="Witness reply">
+        <p style={paragraphStyle}>
+          <strong>{witnessName}</strong> sent a message about{" "}
+          <strong>{payload.caseTitle}</strong>.
+        </p>
+        {payload.excerpt ? (
+          <p style={paragraphStyle}>{payload.excerpt}</p>
+        ) : null}
+        <a href={payload.url} target="_blank" rel="noopener noreferrer" style={buttonStyle}>
+          Open lead
+        </a>
+        <p style={paragraphStyle}>{payload.url}</p>
       </EmailLayout>
     ),
   };

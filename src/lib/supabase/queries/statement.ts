@@ -8,6 +8,7 @@ import type {
   UploadedDocument,
 } from "@/types";
 import { EMPTY_STATEMENT_CONFIG, normalizeConfig } from "@/lib/statement-utils";
+import { readAccountSummary } from "@/lib/statements/document-flow";
 import { redactFirmStatementView } from "@/lib/leads/privacy";
 import { getSupabaseClient } from "../client";
 import { getServiceClient } from "../server";
@@ -37,6 +38,7 @@ type SnapshotRelation = {
 
 type FormalizationSnapshotRelation = {
   sections: unknown;
+  summary?: unknown;
 };
 
 type StatementWithRelations = Statement & {
@@ -115,6 +117,14 @@ function getRelatedFormalizedSections(
   );
 }
 
+function getRelatedAccountSummary(
+  relation: StatementWithRelations["statement_formalization_snapshots"],
+) {
+  const snapshot = getFormalizationSnapshotRelation(relation);
+  const summary = readAccountSummary(snapshot);
+  return summary || null;
+}
+
 function getStatementLink(
   statement: StatementWithRelations,
 ): Pick<MagicLink, "token" | "expires_at"> | null {
@@ -143,6 +153,9 @@ function toStatementFlat(statement: StatementWithRelations): StatementFlat {
   return {
     ...statementRow,
     sections: getRelatedFormalizedSections(
+      statement.statement_formalization_snapshots,
+    ),
+    account_summary: getRelatedAccountSummary(
       statement.statement_formalization_snapshots,
     ),
     statement_config:
@@ -198,7 +211,7 @@ async function loadStatementWithRelations(
   const { data, error } = await supabase
     .from("statements")
     .select(
-      "*, tenants(name), magic_links(token, expires_at), statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, template_document), statement_formalization_snapshots!statements_formalization_snapshot_id_fkey(sections)",
+      "*, tenants(name), magic_links(token, expires_at), statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, template_document), statement_formalization_snapshots!statements_formalization_snapshot_id_fkey(sections, summary)",
     )
     .eq("id", statementId)
     .single();
@@ -228,7 +241,7 @@ async function loadStatementWithSnapshot(
   const { data, error } = await supabase
     .from("statements")
     .select(
-      "*, statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, template_document), statement_formalization_snapshots!statements_formalization_snapshot_id_fkey(sections)",
+      "*, statement_config_snapshots!statements_config_snapshot_id_fkey(config_json, template_document), statement_formalization_snapshots!statements_formalization_snapshot_id_fkey(sections, summary)",
     )
     .eq("id", statementId)
     .single();

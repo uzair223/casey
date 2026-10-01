@@ -1,43 +1,39 @@
 import { NextResponse } from "next/server";
+
 import {
   enforcePersistentRateLimit,
   handleApiError,
-  userError,
 } from "@/lib/api-utils";
 import { getIntakeAccessError } from "@/lib/api-utils/intake-access";
+import { SERVERONLY_getStatementWithConfigFromToken } from "@/lib/supabase/queries";
 import {
-  SERVERONLY_getConversationHistory,
-  SERVERONLY_getStatementWithConfigFromToken,
-} from "@/lib/supabase/queries";
+  readChatForm,
+  uploadWitnessChatFiles,
+} from "@/lib/witness-chat/files";
 import {
-  SERVERONLY_saveConversationMessage,
-} from "@/lib/supabase/mutations";
-import { getServiceClient } from "@/lib/supabase/server";
-import { isAllowedEvidenceType } from "@/lib/evidence";
+  loadWitnessChat,
+  postWitnessChatMessage,
+  type ChatStatement,
+} from "@/lib/witness-chat/service";
 
-const MAX_FOLLOW_UP_FILES = 5;
-const MAX_FOLLOW_UP_FILE_SIZE_BYTES = 25 * 1024 * 1024;
-
-function sanitizeFilename(name: string) {
-  return name.replace(/[^\w.\- ]+/g, "_").trim() || "file";
-}
-
-function getLatestFollowUpRequest(
-  messages: Array<{
-    id: string;
-    role: string;
-    content: string;
-    created_at: string;
-    meta: unknown;
-  }>,
-) {
-  return [...messages].reverse().find((message) => {
-    const meta =
-      message.meta && typeof message.meta === "object"
-        ? (message.meta as Record<string, unknown>)
-        : null;
-    return message.role === "assistant" && meta?.followUpRequest === true;
-  });
+function toChatStatement(statement: {
+  id: string;
+  tenant_id: string;
+  case_id: string;
+  title: string;
+  witness_name: string;
+  witness_email: string;
+  contact_phone?: string | null;
+}): ChatStatement {
+  return {
+    id: statement.id,
+    tenantId: statement.tenant_id,
+    caseId: statement.case_id,
+    title: statement.title,
+    witnessName: statement.witness_name,
+    witnessEmail: statement.witness_email,
+    contactPhone: statement.contact_phone ?? null,
+  };
 }
 
 export async function GET(
@@ -48,22 +44,16 @@ export async function GET(
     const { token } = await params;
     const rateLimitResponse = await enforcePersistentRateLimit({
       request,
-      scope: "intake:follow-up:submit",
+      scope: "intake:witness-chat:get",
       identifier: token,
-      limit: 20,
+      limit: 240,
       windowSeconds: 60 * 60,
     });
-    if (rateLimitResponse) {
-      return rateLimitResponse;
-    }
+    if (rateLimitResponse) return rateLimitResponse;
 
     const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
-
     if (!statement) {
-      return NextResponse.json(
-        { error: "Link not available" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Link not available" }, { status: 404 });
     }
 
     const accessError = await getIntakeAccessError(
@@ -71,50 +61,14 @@ export async function GET(
       statement.status,
       "view",
     );
-    if (accessError) {
-      return accessError;
-    }
+    if (accessError) return accessError;
 
-    const history = await SERVERONLY_getConversationHistory(statement.id);
-    const followUp = getLatestFollowUpRequest(history);
-
-    if (!followUp) {
-      return NextResponse.json({
-        caseTitle: statement.title,
-        witnessName: statement.witness_name,
-        followUpRequest: null,
-        responses: [],
-      });
-    }
-
-    const followUpTimestamp = new Date(followUp.created_at).getTime();
-    const responses = history.filter((message) => {
-      if (message.role !== "user") {
-        return false;
-      }
-
-      if (!message.content?.trim()) {
-        return false;
-      }
-
-      const ts = new Date(message.created_at).getTime();
-      return ts > followUpTimestamp;
-    });
-
-    return NextResponse.json({
-      caseTitle: statement.title,
-      witnessName: statement.witness_name,
-      followUpRequest: {
-        id: followUp.id,
-        message: followUp.content,
-        createdAt: followUp.created_at,
-      },
-      responses: responses.map((response) => ({
-        id: response.id,
-        message: response.content,
-        createdAt: response.created_at,
-      })),
-    });
+    const snapshot = await loadWitnessChat(
+      toChatStatement(statement),
+      "witness",
+      null,
+    );
+    return NextResponse.json(snapshot);
   } catch (error) {
     return handleApiError(error);
   }
@@ -128,22 +82,16 @@ export async function POST(
     const { token } = await params;
     const rateLimitResponse = await enforcePersistentRateLimit({
       request,
-      scope: "intake:follow-up:post",
+      scope: "intake:witness-chat:post",
       identifier: token,
-      limit: 20,
+      limit: 180,
       windowSeconds: 60 * 60,
     });
-    if (rateLimitResponse) {
-      return rateLimitResponse;
-    }
+    if (rateLimitResponse) return rateLimitResponse;
 
     const statement = await SERVERONLY_getStatementWithConfigFromToken(token);
-
     if (!statement) {
-      return NextResponse.json(
-        { error: "Link not available" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Link not available" }, { status: 404 });
     }
 
     const accessError = await getIntakeAccessError(
@@ -151,121 +99,23 @@ export async function POST(
       statement.status,
       "interact",
     );
-    if (accessError) {
-      return accessError;
-    }
+    if (accessError) return accessError;
 
-    let response = "";
-    const uploadedDocuments: Array<{
-      name: string;
-      path: string;
-      bucketId: string;
-      type: string;
-    }> = [];
-
-    // Parse either FormData or JSON
-    const contentType = request.headers.get("content-type");
-    if (
-      contentType?.includes("application/x-www-form-urlencoded") ||
-      contentType?.includes("multipart/form-data")
-    ) {
-      const formData = await request.formData();
-      response = (formData.get("response") as string)?.trim() || "";
-
-      // Process uploaded files
-      const fileEntries = Array.from(formData.entries()).filter(([key]) =>
-        key.startsWith("file_"),
-      );
-
-      if (fileEntries.length > 0) {
-        if (fileEntries.length > MAX_FOLLOW_UP_FILES) {
-          return NextResponse.json(
-            { error: `Upload up to ${MAX_FOLLOW_UP_FILES} files at a time.` },
-            { status: 400 },
-          );
-        }
-
-        const basePath = `cases/${statement.case_id}/${statement.id}/submitted/follow-up`;
-        const supabase = getServiceClient("api.intake.follow_up.upload");
-        const storage = supabase.storage.from(statement.tenant_id);
-
-        for (const [, fileData] of fileEntries) {
-          if (fileData instanceof File) {
-            if (fileData.size > MAX_FOLLOW_UP_FILE_SIZE_BYTES) {
-              return NextResponse.json(
-                { error: `${fileData.name} exceeds the 25MB file size limit.` },
-                { status: 400 },
-              );
-            }
-
-            if (!isAllowedEvidenceType(fileData)) {
-              return NextResponse.json(
-                {
-                  error: `${fileData.name} is not an allowed evidence file type.`,
-                },
-                { status: 400 },
-              );
-            }
-
-            const safeName = sanitizeFilename(fileData.name);
-            const path = `${basePath}/${new Date().toISOString()} ${safeName}`;
-            const contentType = fileData.type || "application/octet-stream";
-            const { data: uploadedDoc, error: uploadError } =
-              await storage.upload(path, fileData, {
-                contentType,
-                upsert: false,
-              });
-
-            if (uploadError || !uploadedDoc) {
-              throw userError("Failed to upload follow-up file", 400, {
-                cause: uploadError,
-              });
-            }
-
-            uploadedDocuments.push({
-              name: fileData.name,
-              path: uploadedDoc.path,
-              bucketId: statement.tenant_id,
-              type: contentType,
-            });
-          }
-        }
-      }
-    } else {
-      const body = await request.json().catch(() => ({}));
-      response = typeof body?.response === "string" ? body.response.trim() : "";
-    }
-
-    if (!response && uploadedDocuments.length === 0) {
-      return NextResponse.json(
-        { error: "Response or file upload is required" },
-        { status: 400 },
-      );
-    }
-
-    if (response.length > 5000) {
-      return NextResponse.json(
-        { error: "Response must be 5000 characters or less" },
-        { status: 400 },
-      );
-    }
-
-    const messageContent =
-      response || "[Files submitted without text response]";
-
-    await SERVERONLY_saveConversationMessage(
-      statement.id,
-      "user",
-      messageContent,
-      {
-        followUpResponse: true,
-        submittedAt: new Date().toISOString(),
-        uploadedDocuments:
-          uploadedDocuments.length > 0 ? uploadedDocuments : undefined,
-      },
-    );
-
-    return NextResponse.json({ ok: true });
+    const form = await readChatForm(request);
+    const attachments = await uploadWitnessChatFiles({
+      tenantId: statement.tenant_id,
+      caseId: statement.case_id,
+      statementId: statement.id,
+      files: form.files,
+    });
+    const snapshot = await postWitnessChatMessage({
+      statement: toChatStatement(statement),
+      body: form.body,
+      clientId: form.clientId,
+      attachments,
+      fileRequestId: form.fileRequestId,
+    });
+    return NextResponse.json(snapshot);
   } catch (error) {
     return handleApiError(error);
   }

@@ -63,6 +63,7 @@ export default function TenantSettingsPage() {
     "tenant_admin",
     "solicitor",
     "paralegal",
+    "marketer",
   ]);
   const [isLoading, setIsLoading] = useState(true);
   const [displayName, setDisplayName] = useState("");

@@ -94,6 +94,10 @@ export function MessageCard({
   avatar,
   avatarAnchor,
   bubbleStyle,
+  senderName,
+  delivery,
+  plain = false,
+  pendingLabel = "Casey is typing",
 }: {
   message: {
     role: string;
@@ -105,6 +109,10 @@ export function MessageCard({
   avatarAnchor?: "user" | "assistant";
   /** Firm branding colours; background is mixed to 90% to match --card-opacity. */
   bubbleStyle?: CSSProperties;
+  senderName?: string | null;
+  delivery?: "sent" | "read" | null;
+  plain?: boolean;
+  pendingLabel?: string;
 }) {
   const isUser = message.role === "user";
   const showPendingIndicator = message.status === "pending" && !isUser;
@@ -127,8 +135,8 @@ export function MessageCard({
             <span className="absolute text-transparent select-text whitespace-nowrap text-[0px]">
               {message.role.toUpperCase()}:
             </span>
-            {isUser ? (
-              <p>{message.content}</p>
+            {isUser || plain ? (
+              <p className="whitespace-pre-wrap">{message.content}</p>
             ) : (
               <div
                 className="prose prose-invert"
@@ -157,7 +165,7 @@ export function MessageCard({
               aria-live="polite"
               className="flex items-center gap-1"
             >
-              <span className="sr-only">Casey is typing</span>
+              <span className="sr-only">{pendingLabel}</span>
               <div
                 className="m-0 w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
                 style={{
@@ -194,6 +202,32 @@ export function MessageCard({
     </>
   );
 
+  const stack = (
+    <>
+      {senderName ? (
+        <p
+          className={cn(
+            "px-1 text-xs font-medium text-muted-foreground",
+            isUser ? "text-right" : "text-left",
+          )}
+        >
+          {senderName}
+        </p>
+      ) : null}
+      {bubble}
+      {delivery ? (
+        <p
+          className={cn(
+            "px-1 text-xs text-muted-foreground",
+            isUser ? "text-right" : "text-left",
+          )}
+        >
+          {delivery === "read" ? "Read" : "Sent"}
+        </p>
+      ) : null}
+    </>
+  );
+
   if (!avatar) {
     return (
       <div
@@ -202,7 +236,7 @@ export function MessageCard({
           isUser ? "items-end" : "items-start",
         )}
       >
-        {bubble}
+        {stack}
       </div>
     );
   }
@@ -230,7 +264,7 @@ export function MessageCard({
             : "items-start animate-slide-in-assistant",
         )}
       >
-        {bubble}
+        {stack}
       </div>
     </div>
   );

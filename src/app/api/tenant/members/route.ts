@@ -15,7 +15,7 @@ import {
 
 const UpdateRoleSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(["tenant_admin", "solicitor", "paralegal"]),
+  role: z.enum(["tenant_admin", "solicitor", "paralegal", "marketer"]),
 });
 
 const DeleteMemberSchema = z.object({

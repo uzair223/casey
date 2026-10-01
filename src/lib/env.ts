@@ -49,6 +49,14 @@ export const EnvSchema = z.looseObject({
   AXIOM_TOKEN: stringOrEmpty,
   AXIOM_DATASET: stringOrEmpty,
   AXIOM_BASE_URL: z.string().trim().optional().default("https://api.axiom.co"),
+
+  GOOGLE_ADS_CLIENT_ID: stringOrEmpty,
+  GOOGLE_ADS_CLIENT_SECRET: stringOrEmpty,
+  GOOGLE_ADS_DEVELOPER_TOKEN: stringOrEmpty,
+  META_APP_ID: stringOrEmpty,
+  META_APP_SECRET: stringOrEmpty,
+  CLIO_CLIENT_ID: stringOrEmpty,
+  CLIO_CLIENT_SECRET: stringOrEmpty,
 });
 
 export const BuildEnvSchema = z.object({
@@ -79,6 +87,13 @@ export const BuildEnvSchema = z.object({
   AXIOM_TOKEN: z.string().trim().optional(),
   AXIOM_DATASET: z.string().trim().optional(),
   AXIOM_BASE_URL: z.string().trim().optional(),
+  GOOGLE_ADS_CLIENT_ID: z.string().trim().optional(),
+  GOOGLE_ADS_CLIENT_SECRET: z.string().trim().optional(),
+  GOOGLE_ADS_DEVELOPER_TOKEN: z.string().trim().optional(),
+  META_APP_ID: z.string().trim().optional(),
+  META_APP_SECRET: z.string().trim().optional(),
+  CLIO_CLIENT_ID: z.string().trim().optional(),
+  CLIO_CLIENT_SECRET: z.string().trim().optional(),
 });
 
 const envInput = {
@@ -109,6 +124,13 @@ const envInput = {
   AXIOM_TOKEN: process.env.AXIOM_TOKEN,
   AXIOM_DATASET: process.env.AXIOM_DATASET,
   AXIOM_BASE_URL: process.env.AXIOM_BASE_URL,
+  GOOGLE_ADS_CLIENT_ID: process.env.GOOGLE_ADS_CLIENT_ID,
+  GOOGLE_ADS_CLIENT_SECRET: process.env.GOOGLE_ADS_CLIENT_SECRET,
+  GOOGLE_ADS_DEVELOPER_TOKEN: process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+  META_APP_ID: process.env.META_APP_ID,
+  META_APP_SECRET: process.env.META_APP_SECRET,
+  CLIO_CLIENT_ID: process.env.CLIO_CLIENT_ID,
+  CLIO_CLIENT_SECRET: process.env.CLIO_CLIENT_SECRET,
 };
 
 export const env = EnvSchema.parse(envInput);

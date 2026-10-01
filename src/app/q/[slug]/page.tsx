@@ -7,17 +7,22 @@ import {
   DEFAULT_LEAD_BACKGROUND_COLOR,
   leadHexColor,
 } from "@/lib/leads/schema";
+import { attributionFromQuery } from "@/lib/leads/attribution";
+import { firmPageUrl } from "@/lib/firm-page-host";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ session?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function HostedLeadPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
-  const { session } = await searchParams;
+  const query = await searchParams;
+  const session = typeof query.session === "string" ? query.session : undefined;
   const firm = await listChannelsForSlug(slug);
   if (!firm || firm.channels.length === 0) notFound();
+  const incoming = attributionFromQuery(query);
+  const attribution = incoming.page ? incoming : { ...incoming, page: firmPageUrl(slug) };
 
   const backgroundColor = leadHexColor(
     firm.widget ? firm.channels[0]?.branding.backgroundColor : undefined,
@@ -32,15 +37,12 @@ export default async function HostedLeadPage({ params, searchParams }: PageProps
       <div className="mx-auto flex w-full max-w-lg flex-col px-4 py-10">
         <HostedLeadChooser
           firmName={firm.tenantName}
-          widget={firm.widget}
-          channels={firm.channels.map((channel) => ({
-            publicKey: channel.publicKey,
-            leadTypeName: channel.leadTypeName,
-            welcome: channel.welcome,
-            branding: channel.branding,
-          }))}
+          publicKey={firm.channels[0].publicKey}
+          welcome={firm.welcome}
+          branding={firm.widget ? (firm.channels[0]?.branding ?? {}) : {}}
           turnstileSiteKey={configuredTurnstileSiteKey()}
           resumeToken={session}
+          attribution={attribution}
         />
       </div>
     </main>

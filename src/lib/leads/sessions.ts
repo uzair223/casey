@@ -8,17 +8,9 @@ import { generateSecureToken } from "@/lib/security";
 import { smsConfigured, sendSms } from "@/lib/sms/send";
 import {
   ENQUIRY_DISCARD_REPLY,
-  clearRedirectOffer,
-  continuingEnquiryDecision,
-  declinedLeadTypeIds,
   enquiryClosesWithoutLead,
-  evaluateEnquiryRedirectAnswer,
   evaluateEnquiryTurn,
-  interpretRedirectAnswer,
-  redirectOfferFrom,
-  redirectQuestion,
-  rememberDeclinedLeadType,
-  withRedirectOffer,
+  silentLeadTypeRoute,
 } from "@/lib/llm/jev/enquiry-turn";
 import { env } from "@/lib/env";
 import { listPublishedLeadChannels } from "./channels";
@@ -35,6 +27,7 @@ import {
 import { parseLeadTypeConfig, type QualificationSlot } from "./schema";
 import { promoteQualifiedLead } from "./promote";
 import { enquiryResumeUrl, enquiryVerificationCode, messageLooksLikeEnquiryCode } from "./resume";
+import { readAttribution, type LeadAttribution } from "./attribution";
 
 type SessionMessage = { role: "user" | "assistant"; content: string };
 
@@ -71,7 +64,7 @@ async function loadSession(token: string) {
   const { data, error } = await supabase
     .from("lead_sessions")
     .select(
-      "id, tenant_id, lead_type_id, channel_id, token, messages, slots, pending_slot_id, turn_count, refusal_count, status, contact_code_hash, contact_code_expires_at, promoted_statement_id, expires_at, statement_config_templates!lead_sessions_lead_type_id_fkey(qualification_slots, participant_roles, outreach_template, decline_reasons, branding, name, brief_guidance), tenants(name, plan, public_slug), lead_channels(public_key)",
+      "id, tenant_id, lead_type_id, channel_id, token, messages, slots, pending_slot_id, turn_count, refusal_count, status, contact_code_hash, contact_code_expires_at, promoted_statement_id, expires_at, attribution, statement_config_templates!lead_sessions_lead_type_id_fkey(qualification_slots, participant_roles, outreach_template, decline_reasons, branding, name, brief_guidance), tenants(name, plan, public_slug), lead_channels(public_key)",
     )
     .eq("token", token)
     .maybeSingle();
@@ -125,6 +118,7 @@ export async function createQualificationSession(params: {
   leadTypeId: string;
   slots: QualificationSlot[];
   welcome: string;
+  attribution?: LeadAttribution;
 }) {
   const supabase = getServiceClient("lead-session-create");
   const token = generateSecureToken();
@@ -144,6 +138,7 @@ export async function createQualificationSession(params: {
       ],
       slots: {},
       pending_slot_id: null,
+      attribution: params.attribution ?? {},
       expires_at: expiresAt,
       status: "open",
     })
@@ -335,60 +330,39 @@ export async function takeQualificationTurn(params: {
     leadTypeId: session.lead_type_id,
     channelId: session.channel_id,
     leadTypeName: leadType.name,
+    briefGuidance: leadType.brief_guidance ?? null,
     slots: config.qualification_slots,
   };
-  let switched = false;
   let note: string | undefined;
-  const offer = redirectOfferFrom(answers);
-  if (offer) {
-    const offered = channels.find(
-      (channel) =>
-        channel.leadTypeId === offer.leadTypeId &&
-        channel.channelId === offer.channelId,
-    );
-    let verdict = offered ? interpretRedirectAnswer(trimmed) : "no";
-    if (offered && verdict === "unclear") {
-      const accepted = await evaluateEnquiryRedirectAnswer({
-        message: trimmed,
-        currentLeadTypeName: leadType.name,
-        offeredLeadTypeName: offered.leadTypeName,
-      });
-      verdict = accepted === true ? "yes" : accepted === false ? "no" : "unclear";
-    }
-    if (verdict === "yes" && offered) {
+  const leadTypeOptions = channels.map((channel) => ({
+    id: channel.leadTypeId,
+    name: channel.leadTypeName,
+    channelId: channel.channelId,
+  }));
+
+  const decision = await evaluateEnquiryTurn({
+    currentLeadTypeId: active.leadTypeId,
+    currentLeadTypeName: active.leadTypeName,
+    leadTypes: leadTypeOptions,
+    declinedLeadTypeIds: [],
+    messages: transcript,
+    latestUserMessage: trimmed,
+  });
+  const routed = silentLeadTypeRoute(decision, leadTypeOptions);
+  if (routed) {
+    const matched = channels.find((channel) => channel.leadTypeId === routed.id);
+    if (matched) {
       active = {
-        leadTypeId: offered.leadTypeId,
-        channelId: offered.channelId,
-        leadTypeName: offered.leadTypeName,
-        slots: offered.config.qualification_slots,
+        leadTypeId: matched.leadTypeId,
+        channelId: matched.channelId,
+        leadTypeName: matched.leadTypeName,
+        briefGuidance: matched.briefGuidance,
+        slots: matched.config.qualification_slots,
       };
-      switched = true;
-      answers = clearRedirectOffer(answers);
-      note = `The visitor confirmed this enquiry should continue as ${offered.leadTypeName}. Continue the account under that type. Do not ask them to confirm the type again.`;
-    } else {
-      answers = rememberDeclinedLeadType(answers, offer.leadTypeId);
-      if (verdict === "no") {
-        note = `The visitor wants to keep this as ${leadType.name}. Continue that account. Do not ask them to switch enquiry type again.`;
-      }
+      note = `The firm's record for this conversation is ${matched.leadTypeName}. Never say that name, or any other claim type, to the visitor. Continue in everyday language.`;
     }
   }
-
-  const decision = switched
-    ? continuingEnquiryDecision()
-    : await evaluateEnquiryTurn({
-        currentLeadTypeId: active.leadTypeId,
-        currentLeadTypeName: active.leadTypeName,
-        leadTypes: channels.map((channel) => ({
-          id: channel.leadTypeId,
-          name: channel.leadTypeName,
-          channelId: channel.channelId,
-        })),
-        declinedLeadTypeIds: declinedLeadTypeIds(answers),
-        messages: transcript,
-        latestUserMessage: trimmed,
-      });
   const nextCount = session.turn_count + 1;
-  const leadTypeChanged = active.leadTypeName !== leadType.name;
 
   if (enquiryClosesWithoutLead(decision)) {
     const reply = ENQUIRY_DISCARD_REPLY;
@@ -413,7 +387,7 @@ export async function takeQualificationTurn(params: {
   }
 
   const refusal = refusalReason(trimmed);
-  if (refusal && !switched) {
+  if (refusal) {
     const refusalCount = session.refusal_count + 1;
     const closed = refusalCount >= MAX_REFUSALS;
     const reply = "I can only take the details this enquiry needs.";
@@ -436,31 +410,6 @@ export async function takeQualificationTurn(params: {
     };
   }
 
-  if (decision.redirect) {
-    const reply = redirectQuestion(active.leadTypeName, decision.redirect.name);
-    answers = withRedirectOffer(answers, {
-      leadTypeId: decision.redirect.id,
-      channelId: decision.redirect.channelId,
-    });
-    await saveQualificationTurn({
-      sessionId: session.id,
-      messages: [...transcript, { role: "assistant", content: reply }],
-      slots: answers,
-      turnCount: nextCount,
-      refusalCount: session.refusal_count,
-      status: "open",
-      leadTypeId: active.leadTypeId,
-      channelId: active.channelId,
-    });
-    return {
-      reply,
-      status: "open" as const,
-      needsVerification: false,
-      closed: false,
-      fallback: false,
-    };
-  }
-
   const wrapUp =
     decision.usedJev &&
     decision.action === "end" &&
@@ -477,6 +426,7 @@ export async function takeQualificationTurn(params: {
   const extraction = await generateEnquiryTurn({
     firmName: tenant.name,
     leadTypeName: active.leadTypeName,
+    briefGuidance: active.briefGuidance,
     slots: active.slots,
     answers,
     messages: transcript,
@@ -546,7 +496,6 @@ export async function takeQualificationTurn(params: {
     closed: false,
     fallback: false,
     devCode,
-    ...(leadTypeChanged ? { leadTypeName: active.leadTypeName } : {}),
   };
 }
 
@@ -590,6 +539,7 @@ export async function confirmQualificationCode(params: {
     answers: asAnswers(session.slots),
     plan: tenant.plan,
     messages: asMessages(session.messages),
+    attribution: readAttribution(session.attribution),
   });
 
   const supabase = getServiceClient("lead-session-promote");

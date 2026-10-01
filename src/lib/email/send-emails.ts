@@ -12,6 +12,9 @@ import type {
   StatementFollowUpRequestPayload,
   StatementEmailPayload,
   StatementSubmittedNotificationPayload,
+  WitnessChatFirmNoticePayload,
+  WitnessChatNoticePayload,
+  WitnessFileDeadlinePayload,
 } from "@/types";
 import {
   buildStatementReminderEmailTemplate,
@@ -23,6 +26,9 @@ import {
   buildMentionNotificationEmailTemplate,
   buildStatementLinkEmailTemplate,
   buildStatementSubmittedNotificationTemplate,
+  buildWitnessChatFirmNoticeTemplate,
+  buildWitnessChatNoticeTemplate,
+  buildWitnessFileDeadlineTemplate,
 } from "./templates";
 
 // Resend integration: Requires RESEND_API_KEY and RESEND_FROM in environment variables
@@ -295,6 +301,45 @@ export const sendStatementReminderEmail = async (
 
   await sendEmailWithLogging("statement.reminder", {
     from,
+    to: payload.to,
+    subject: template.subject,
+    text: template.text,
+    react: template.react,
+  });
+};
+
+export const sendWitnessChatNoticeEmail = async (
+  payload: WitnessChatNoticePayload,
+) => {
+  const template = buildWitnessChatNoticeTemplate(payload);
+  await sendEmailWithLogging("statement.witness_chat", {
+    from: `${payload.tenantName} | ${getResendFrom()}`,
+    to: payload.to,
+    subject: template.subject,
+    text: template.text,
+    react: template.react,
+  });
+};
+
+export const sendWitnessFileDeadlineEmail = async (
+  payload: WitnessFileDeadlinePayload,
+) => {
+  const template = buildWitnessFileDeadlineTemplate(payload);
+  await sendEmailWithLogging("statement.witness_file_deadline", {
+    from: `${payload.tenantName} | ${getResendFrom()}`,
+    to: payload.to,
+    subject: template.subject,
+    text: template.text,
+    react: template.react,
+  });
+};
+
+export const sendWitnessChatFirmNoticeEmail = async (
+  payload: WitnessChatFirmNoticePayload,
+) => {
+  const template = buildWitnessChatFirmNoticeTemplate(payload);
+  await sendEmailWithLogging("statement.witness_chat_firm", {
+    from: `${payload.tenantName} | ${getResendFrom()}`,
     to: payload.to,
     subject: template.subject,
     text: template.text,

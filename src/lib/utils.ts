@@ -53,6 +53,7 @@ export function getRoleLabel(role?: string) {
     tenant_admin: "Firm Admin",
     solicitor: "Solicitor",
     paralegal: "Paralegal",
+    marketer: "Marketer",
     user: "User",
   };
   return map[role ?? "user"] ?? "Unknown";

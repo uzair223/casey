@@ -98,7 +98,7 @@ async function refreshProgrammaticEvidenceSection(
 
   const { data: snapshot, error: snapshotError } = await supabase
     .from("statement_formalization_snapshots")
-    .select("sections")
+    .select("sections, summary")
     .eq("id", statement.formalization_snapshot_id)
     .maybeSingle();
 
@@ -126,6 +126,7 @@ async function refreshProgrammaticEvidenceSection(
       created_by_user_id: null,
       model: "programmatic_evidence",
       sections: nextSections as Json,
+      summary: snapshot?.summary ?? null,
       source_message_ids: [],
       source_message_versions: [],
       evidence_documents: rows.map((row) => row.document) as Json,

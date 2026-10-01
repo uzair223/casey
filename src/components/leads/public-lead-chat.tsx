@@ -20,15 +20,16 @@ import {
   leadHexColor,
   type LeadBranding,
 } from "@/lib/leads/schema";
+import { hasAttribution, type LeadAttribution } from "@/lib/leads/attribution";
 
 type PublicLeadChatProps = {
   publicKey: string;
   firmName: string;
-  enquiryName?: string;
   welcome: string;
   branding?: LeadBranding;
   turnstileSiteKey?: string;
   resumeToken?: string;
+  attribution?: LeadAttribution;
   fill?: boolean;
   hideFullscreen?: boolean;
 };
@@ -36,8 +37,6 @@ type PublicLeadChatProps = {
 type ResumedEnquiry = {
   token?: string;
   status?: string;
-  publicKey?: string;
-  leadTypeName?: string;
   messages?: ChatAreaMessage[];
   error?: string;
 };
@@ -194,15 +193,14 @@ function PersonCheck({
 export function PublicLeadChat({
   publicKey,
   firmName,
-  enquiryName,
   welcome,
   branding,
   turnstileSiteKey,
   resumeToken,
+  attribution,
   fill = false,
   hideFullscreen = false,
 }: PublicLeadChatProps) {
-  const [enquiryLabel, setEnquiryLabel] = useState(enquiryName);
   const [messages, setMessages] = useState<ChatAreaMessage[]>([
     { role: "assistant", content: welcome },
   ]);
@@ -236,7 +234,8 @@ export function PublicLeadChat({
 
   useEffect(() => {
     let cancelled = false;
-    const stored = window.localStorage.getItem(enquiryStorageKey(publicKey));
+    const clickId = attribution?.gclid || attribution?.fbclid;
+    const stored = clickId ? null : window.localStorage.getItem(enquiryStorageKey(publicKey));
     const candidates = [resumeToken, stored].filter(
       (value, index, all): value is string => Boolean(value) && all.indexOf(value) === index,
     );
@@ -253,14 +252,13 @@ export function PublicLeadChat({
           continue;
         }
         const payload = (await response.json()) as ResumedEnquiry;
-        if (payload.token && payload.publicKey === publicKey) {
+        if (payload.token) {
           restored = payload;
           break;
         }
         if (candidate === stored) forgetToken();
       }
       if (cancelled || !restored?.token) return;
-      if (restored.leadTypeName) setEnquiryLabel(restored.leadTypeName);
       if (restored.messages?.length) setMessages(restored.messages);
       if (restored.status === "verify") setAwaitingCode(true);
       if (restored.status === "promoted" || restored.status === "closed") {
@@ -278,7 +276,7 @@ export function PublicLeadChat({
     return () => {
       cancelled = true;
     };
-  }, [publicKey, resumeToken]);
+  }, [attribution, publicKey, resumeToken]);
 
   useEffect(() => {
     if (hideFullscreen) return;
@@ -377,13 +375,18 @@ export function PublicLeadChat({
 
   async function ensureSession() {
     if (token) return token;
-    const stored = window.localStorage.getItem(enquiryStorageKey(publicKey));
+    const clickId = attribution?.gclid || attribution?.fbclid;
+    const stored = clickId ? null : window.localStorage.getItem(enquiryStorageKey(publicKey));
     if (stored) return stored;
     const human = await takeHumanToken();
     const response = await fetch("/api/public/qualify/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ publicKey, turnstileToken: human }),
+      body: JSON.stringify({
+        publicKey,
+        turnstileToken: human,
+        ...(hasAttribution(attribution) ? { attribution } : {}),
+      }),
     });
     const payload = (await response.json()) as {
       token?: string;
@@ -427,7 +430,6 @@ export function PublicLeadChat({
         fallback?: boolean;
         promoted?: boolean;
         discarded?: boolean;
-        leadTypeName?: string;
         status?: string;
         needsVerification?: boolean;
       };
@@ -448,7 +450,6 @@ export function PublicLeadChat({
       } else if (!payload.error) {
         setAwaitingCode(false);
       }
-      if (payload.leadTypeName) setEnquiryLabel(payload.leadTypeName);
       setMessages((current) => [
         ...current,
         {
@@ -534,13 +535,9 @@ export function PublicLeadChat({
           <p className="truncate text-sm font-medium">
             {branding?.displayName || firmName}
           </p>
-          {enquiryLabel || !branding?.hideCaseyMark ? (
-            <p className="truncate text-xs text-white/80">
-              {[enquiryLabel, branding?.hideCaseyMark ? null : "Casey"]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-          ) : null}
+          {branding?.hideCaseyMark ? null : (
+            <p className="truncate text-xs text-white/80">Casey</p>
+          )}
         </div>
         {hideFullscreen ? null : (
           <button

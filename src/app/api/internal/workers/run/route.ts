@@ -4,6 +4,7 @@ import { isAiJobKind, processAiJob } from "@/lib/ai-workers/jobs";
 import { listJobsForSweeper } from "@/lib/ai-workers/claim";
 import { requireCronSecret } from "@/lib/api-utils/cron-auth";
 import { logServerEvent } from "@/lib/observability/logger";
+import { runWitnessChatOutreach } from "@/lib/witness-chat/dispatch";
 
 export async function POST(request: Request) {
   try {
@@ -42,11 +43,23 @@ export async function POST(request: Request) {
       }
     }
 
+    let witnessChat: { ok: boolean; error?: string } = { ok: true };
+    try {
+      await runWitnessChatOutreach();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      witnessChat = { ok: false, error: message };
+      void logServerEvent("error", "api.internal.workers.run.witness_chat_failed", {
+        error: message,
+      });
+    }
+
     return NextResponse.json({
       processed: results.length,
       succeeded: results.filter((result) => result.ok).length,
       failed: results.filter((result) => !result.ok).length,
       results,
+      witnessChat,
     });
   } catch (error) {
     if (error instanceof Response) return error;

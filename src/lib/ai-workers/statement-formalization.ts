@@ -48,6 +48,7 @@ import {
   claimGenerationJob,
   completeGenerationJobFailure,
 } from "@/lib/ai-workers/claim";
+import { readAccountSummary } from "@/lib/statements/document-flow";
 
 const FORMALIZE_TIMEOUT_MS = Number(process.env.FORMALIZE_TIMEOUT_MS ?? 60_000);
 
@@ -74,6 +75,7 @@ function buildFormalizeResponseSchema(
 ) {
   const evidenceSection = getProgrammaticEvidenceSection(config);
   return z.object({
+    accountSummary: z.string(),
     ...Object.fromEntries(
       config.sections
         .filter((section) => section.id !== evidenceSection?.id)
@@ -420,6 +422,7 @@ export async function processFormalizationJob(jobId: string) {
           created_by_user_id: job.requested_by_user_id,
           model,
           sections: parsed as Json,
+          summary: readAccountSummary(formalized) || null,
           source_message_ids: sourceMessages.map(
             (message: { id: string }) => message.id,
           ),

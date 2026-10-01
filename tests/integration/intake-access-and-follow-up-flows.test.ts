@@ -10,6 +10,8 @@ const SERVERONLY_getConversationHistory = vi.fn();
 const getIntakeAccessError = vi.fn();
 const enforcePersistentRateLimit = vi.fn();
 const getServiceClient = vi.fn();
+const loadWitnessChat = vi.fn();
+const postWitnessChatMessage = vi.fn();
 
 vi.mock("@/lib/supabase/queries", () => ({
   SERVERONLY_getFullStatementFromToken,
@@ -38,6 +40,11 @@ vi.mock("@/lib/api-utils", async () => {
 
 vi.mock("@/lib/api-utils/intake-access", () => ({
   getIntakeAccessError,
+}));
+
+vi.mock("@/lib/witness-chat/service", () => ({
+  loadWitnessChat,
+  postWitnessChatMessage,
 }));
 
 describe("intake access and follow-up flows", () => {
@@ -115,36 +122,30 @@ describe("intake access and follow-up flows", () => {
     );
   });
 
-  it("returns the latest follow-up request and only responses after it", async () => {
+  it("returns the witness chat for a valid intake link", async () => {
     SERVERONLY_getStatementWithConfigFromToken.mockResolvedValue({
       id: "statement-1",
+      tenant_id: "tenant-1",
+      case_id: "case-1",
       title: "Accident claim",
       witness_name: "Casey Witness",
+      witness_email: "witness@client.test",
       status: "in_progress",
     });
-    SERVERONLY_getConversationHistory.mockResolvedValue([
-      {
-        id: "older-user",
-        role: "user",
-        content: "Old answer",
-        created_at: "2026-04-20T09:00:00.000Z",
-        meta: null,
-      },
-      {
-        id: "follow-up",
-        role: "assistant",
-        content: "Please clarify the accident time.",
-        created_at: "2026-04-20T10:00:00.000Z",
-        meta: { followUpRequest: true },
-      },
-      {
-        id: "new-user",
-        role: "user",
-        content: "It happened at 08:10.",
-        created_at: "2026-04-20T11:00:00.000Z",
-        meta: null,
-      },
-    ]);
+    loadWitnessChat.mockResolvedValue({
+      threadId: "thread-1",
+      caseTitle: "Accident claim",
+      witnessName: "Casey Witness",
+      messages: [
+        {
+          id: "follow-up",
+          senderType: "firm",
+          senderName: "Casey Solicitor",
+          body: "Please clarify the accident time.",
+          createdAt: "2026-04-20T10:00:00.000Z",
+        },
+      ],
+    });
 
     const route = await importFresh<
       typeof import("@/app/api/intake/[token]/follow-up/route")
@@ -156,27 +157,18 @@ describe("intake access and follow-up flows", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(
-      readJson<{
-        followUpRequest: { id: string } | null;
-        responses: Array<{ id: string }>;
-      }>(response),
-    ).resolves.toEqual({
+    await expect(readJson<{ threadId: string }>(response)).resolves.toMatchObject({
+      threadId: "thread-1",
       caseTitle: "Accident claim",
-      witnessName: "Casey Witness",
-      followUpRequest: {
-        id: "follow-up",
-        message: "Please clarify the accident time.",
-        createdAt: "2026-04-20T10:00:00.000Z",
-      },
-      responses: [
-        {
-          id: "new-user",
-          message: "It happened at 08:10.",
-          createdAt: "2026-04-20T11:00:00.000Z",
-        },
-      ],
     });
+    expect(loadWitnessChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "statement-1",
+        witnessName: "Casey Witness",
+      }),
+      "witness",
+      null,
+    );
   });
 
   it("accepts a follow-up response with uploaded files", async () => {
@@ -184,14 +176,18 @@ describe("intake access and follow-up flows", () => {
       id: "statement-1",
       case_id: "case-1",
       tenant_id: "tenant-1",
+      title: "Accident claim",
+      witness_name: "Casey Witness",
+      witness_email: "witness@client.test",
       status: "in_progress",
     });
+    postWitnessChatMessage.mockResolvedValue({ threadId: "thread-1" });
     const route = await importFresh<
       typeof import("@/app/api/intake/[token]/follow-up/route")
     >("@/app/api/intake/[token]/follow-up/route");
 
     const formData = new FormData();
-    formData.append("response", "Here is the missing photograph.");
+    formData.append("body", "Here is the missing photograph.");
     formData.append(
       "file_0",
       new File(["image-bytes"], "photo.jpg", { type: "image/jpeg" }),
@@ -206,13 +202,10 @@ describe("intake access and follow-up flows", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(SERVERONLY_saveConversationMessage).toHaveBeenCalledWith(
-      "statement-1",
-      "user",
-      "Here is the missing photograph.",
+    expect(postWitnessChatMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        followUpResponse: true,
-        uploadedDocuments: [
+        body: "Here is the missing photograph.",
+        attachments: [
           expect.objectContaining({
             name: "photo.jpg",
             path: "cases/case-1/statement-1/submitted/follow-up/file-photo.jpg",

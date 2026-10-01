@@ -219,6 +219,14 @@ export function interpretRedirectAnswer(message: string): "yes" | "no" | "unclea
   return "unclear";
 }
 
+export function silentLeadTypeRoute(
+  decision: EnquiryDecision,
+  leadTypes: EnquiryLeadTypeOption[],
+) {
+  if (!decision.redirect) return null;
+  return leadTypes.find((type) => type.id === decision.redirect?.id) ?? null;
+}
+
 export function redirectQuestion(currentName: string, nextName: string) {
   return `This sounds like ${nextName} rather than ${currentName}. Should I continue it as ${nextName}?`;
 }

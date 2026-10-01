@@ -18,7 +18,6 @@ export async function GET(_request: Request, { params }: RouteContext) {
   }
   return NextResponse.json({
     firmName: channel.tenantName,
-    leadTypeName: channel.leadTypeName,
     welcome: channel.welcome,
     branding: channel.branding,
     publicKey: channel.publicKey,

@@ -7,15 +7,17 @@ import {
   DEFAULT_LEAD_BACKGROUND_COLOR,
   leadHexColor,
 } from "@/lib/leads/schema";
+import { attributionFromQuery } from "@/lib/leads/attribution";
 
 type PageProps = {
   params: Promise<{ key: string }>;
-  searchParams: Promise<{ session?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function WidgetPage({ params, searchParams }: PageProps) {
   const { key } = await params;
-  const { session } = await searchParams;
+  const query = await searchParams;
+  const session = typeof query.session === "string" ? query.session : undefined;
   const channel = await getChannelByKey(key);
   if (!channel) notFound();
 
@@ -42,11 +44,11 @@ export default async function WidgetPage({ params, searchParams }: PageProps) {
       <PublicLeadChat
         publicKey={channel.publicKey}
         firmName={channel.tenantName}
-        enquiryName={channel.leadTypeName}
         welcome={channel.welcome}
         branding={channel.branding}
         turnstileSiteKey={configuredTurnstileSiteKey()}
         resumeToken={session}
+        attribution={attributionFromQuery(query)}
         fill
       />
     </main>

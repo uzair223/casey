@@ -95,6 +95,7 @@ export type UserRole =
   | "tenant_admin"
   | "solicitor"
   | "paralegal"
+  | "marketer"
   | "user";
 export type Profile = Omit<Tables<"profiles">, "role"> & { role: UserRole };
 export type UserProfile = Pick<
@@ -161,6 +162,7 @@ export type Statement = Omit<
 > & {
   status: StatementStatus;
   sections: Record<string, string>;
+  account_summary?: string | null;
   signed_document: UploadedDocument | null;
   supporting_documents: StatementSupportingDocument[];
   witness_metadata: Record<string, string | number | null | undefined>;

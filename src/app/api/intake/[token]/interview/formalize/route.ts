@@ -38,38 +38,34 @@ async function getLatestFormalizationJob(statementId: string) {
   return data;
 }
 
-async function getFormalizedSections(snapshotId: string | null | undefined) {
-  if (!snapshotId) {
-    return {};
-  }
-
+async function getFormalizedSnapshot(snapshotId: string | null | undefined) {
+  if (!snapshotId) return { sections: {}, summary: null as string | null };
   const service = getServiceClient("api.intake.formalize.snapshot");
   const { data, error } = await service
     .from("statement_formalization_snapshots")
-    .select("sections")
+    .select("sections, summary")
     .eq("id", snapshotId)
     .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  if (
-    !data?.sections ||
-    typeof data.sections !== "object" ||
-    Array.isArray(data.sections)
-  ) {
-    return {};
-  }
-
-  return Object.fromEntries(
-    Object.entries(data.sections as Record<string, unknown>).map(
-      ([key, value]) => [
-        key,
-        typeof value === "string" ? value : value == null ? "" : String(value),
-      ],
-    ),
-  );
+  if (error) throw error;
+  const sections =
+    data?.sections &&
+    typeof data.sections === "object" &&
+    !Array.isArray(data.sections)
+      ? Object.fromEntries(
+          Object.entries(data.sections as Record<string, unknown>).map(
+            ([key, value]) => [
+              key,
+              typeof value === "string"
+                ? value
+                : value == null
+                  ? ""
+                  : String(value),
+            ],
+          ),
+        )
+      : {};
+  const summary = data?.summary?.trim() || null;
+  return { sections, summary };
 }
 
 export async function GET(request: Request, { params }: RouteContext) {
@@ -99,14 +95,18 @@ export async function GET(request: Request, { params }: RouteContext) {
     const snapshotId =
       latestJob?.formalization_snapshot_id ??
       statement.formalization_snapshot_id;
-    const sections =
+    const snapshot =
       latestJob?.status === "succeeded"
-        ? await getFormalizedSections(snapshotId)
-        : statement.sections;
+        ? await getFormalizedSnapshot(snapshotId)
+        : {
+            sections: statement.sections,
+            summary: statement.account_summary ?? null,
+          };
 
     return NextResponse.json({
       job: latestJob,
-      sections: sections ?? {},
+      sections: snapshot.sections ?? {},
+      summary: snapshot.summary,
     });
   } catch (error) {
     await logServerEvent("error", "api.intake.formalize.poll_failed", {

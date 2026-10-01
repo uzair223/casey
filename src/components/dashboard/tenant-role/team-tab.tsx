@@ -184,7 +184,7 @@ export function TenantRoleTeamTab() {
           defaultRole="paralegal"
           allowedRoles={
             user.role === "tenant_admin"
-              ? ["tenant_admin", "solicitor", "paralegal"]
+              ? ["tenant_admin", "solicitor", "paralegal", "marketer"]
               : ["solicitor", "paralegal"]
           }
           onInviteCreated={async () => {

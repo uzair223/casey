@@ -131,6 +131,20 @@ export const requireTenantManager = async (request: Request) => {
   return auth;
 };
 
+export const requireAdsManager = async (request: Request) => {
+  const auth = await requireTenantUser(request);
+  if (
+    auth.role !== "tenant_admin" &&
+    auth.role !== "solicitor" &&
+    auth.role !== "marketer"
+  ) {
+    throw forbidden(
+      "Only firm admins, solicitors, and marketers can manage ads",
+    );
+  }
+  return auth;
+};
+
 export const getAuthenticatedUserProfile = async (request: Request) => {
   const auth = await getAuthenticatedUser(
     request,

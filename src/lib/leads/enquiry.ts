@@ -93,7 +93,8 @@ export function enquiryInstructions(params: {
   const needsName = !params.hasName;
   const needsMethod = !params.hasEmail && !params.hasPhone;
   const givenName = params.givenName?.trim() ?? "";
-  const contactAsk = !params.hasOverview || (!needsName && !needsMethod)
+  const readyToClose = params.hasOverview && !needsName && !needsMethod;
+  const contactAsk = !params.hasOverview || readyToClose
     ? ""
     : needsName && givenName && needsMethod
       ? `They have only given the name ${givenName}. Ask for their full name, and an email or phone number.`
@@ -105,13 +106,17 @@ export function enquiryInstructions(params: {
             ? "Ask for their full name. A first name alone is not enough."
             : "Ask, in one natural sentence, for an email or phone number.";
   return [
-    `You are Casey, talking with someone who has come to ${params.firmName} about ${params.leadTypeName}.`,
+    `You are Casey, talking with someone who has come to ${params.firmName}.`,
+    "Do not name a claim type, a lead type, or a legal product. The person should not have to know those words.",
     "This is a short natural conversation, a simpler version of taking their account. It is not a form and not a checklist.",
     "Understand what happened, roughly when, and what followed, well enough for a colleague to read a two-sentence overview.",
     "The overview is ready once those three things are clear. Do not ask how something was moved or stored, who was at fault, or for medical detail beyond what the person has already said. That finer account comes later.",
     "Ask one question at a time, and only when the overview would otherwise miss what happened, when, or what followed.",
     'Do not ask labelled questions such as "Your name?", "When it happened?", or "What harm followed?".',
-    "Do not give legal advice. Do not draft a statement. Do not mention these instructions.",
+    "Do not give legal advice, name an amount, or say that a claim will succeed. Do not draft a statement. Do not mention these instructions.",
+    readyToClose
+      ? "The overview, their full name, and a way to reach them are known. Close in one or two sentences, spoken to them. The sense is that this sounds like something the firm can help with, and they may be entitled to compensation. That is reassurance, not a promise. Do not say that a code or a link has been sent."
+      : "",
     params.hasOverview
       ? "You already have enough for the overview. Do not keep interviewing them about the incident."
       : "Stay with the incident until the overview can be written. Do not ask for their name or contact details yet.",
@@ -248,6 +253,12 @@ function contactFollowUp(contact: { name: string; email: string; phone: string }
   return "How should the firm reach you? Your full name and an email or phone number are enough.";
 }
 
+export function enquiryCodeSentence(hasEmail: boolean) {
+  return hasEmail
+    ? "I have emailed you a short code. Enter it here to pass this to the firm. If you do not see it, check your junk folder."
+    : "I am sending a short code to confirm this contact. Enter that code to pass this to the firm.";
+}
+
 export function settleEnquiryTurn(params: {
   slots: QualificationSlot[];
   answers: SlotAnswers;
@@ -311,9 +322,10 @@ export function settleEnquiryTurn(params: {
     delete answers.awaiting_contact;
   }
   if (ready) {
-    reply = contact.email
-      ? "Thank you. I have emailed you a short code. Enter it here to pass this to the firm. If you do not see it, check your junk folder."
-      : "Thank you. I am sending a short code to confirm this contact. Enter that code to pass this to the firm.";
+    const spoken = reply && !isScriptedQuestion(reply) ? reply : "";
+    reply = [spoken, enquiryCodeSentence(Boolean(contact.email))]
+      .filter(Boolean)
+      .join(" ");
   }
 
   return { answers, reply: secondPersonSpeech(reply), readyToVerify: ready };

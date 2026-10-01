@@ -1,58 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { redirect } from "next/navigation";
+import { useEffect } from "react";
 import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 import { useWitnessStatement } from "@/components/intake/intake-context";
 import { Loader2 } from "@/components/icons";
 import { PageTitle } from "../page-title";
 import { WitnessSurveyCard } from "./witness-survey-card";
-import { generateDoc } from "@/lib/doc-gen";
-import { useAsync } from "@/hooks/useAsync";
-import { DocxEditor, DocxEditorPanel } from "../ui/docx-editor";
-import { toast } from "@/lib/toast";
 
 export function StatementView() {
   const {
     token,
     isDemo,
     data,
-    statementSections,
-    hasFormalizedStatement,
-    templateDocument,
     isReadyToPrepare,
     statementSubmission,
     statementFormalization,
     setTab,
   } = useWitnessStatement();
-
-  const docPayload = useMemo(
-    () => ({
-      caseMetadata:
-        (data.case.case_metadata as Record<
-          string,
-          string | number | null | undefined
-        >) ?? {},
-      witnessName: data.statement.witness_name,
-      witnessEmail: data.statement.witness_email,
-      witnessMetadata:
-        (data.statement.witness_metadata as Record<
-          string,
-          string | number | null | undefined
-        >) ?? {},
-      sections: statementSections,
-      config: data.statement.statement_config,
-    }),
-    [data, statementSections],
-  );
-
-  const { data: doc } = useAsync(
-    async () =>
-      templateDocument ? await generateDoc(docPayload, templateDocument) : null,
-    [data, statementSections, templateDocument],
-  );
-  const isDemoFinalStatementLocked = isDemo && !!statementFormalization.data;
+  const summary = data.statement.account_summary?.trim() ?? "";
 
   useEffect(() => {
     if (!statementSubmission.data) return;
@@ -89,39 +55,13 @@ export function StatementView() {
     return () => clearTimeout(followUp);
   }, [statementSubmission.data]);
 
-  const [showDemoReviewedNotice, setShowDemoReviewedNotice] = useState(false);
-
-  useEffect(() => {
-    if (!isDemoFinalStatementLocked || showDemoReviewedNotice) {
-      return;
-    }
-
-    const notifyTimeout = setTimeout(() => {
-      setShowDemoReviewedNotice(true);
-      const id = toast.info("The legal team has reviewed your statement.", {
-        action: {
-          label: "Sign-off on your statement",
-          onClick: () => {
-            toast.dismiss(id);
-            redirect(`/intake/${token}/final-review`);
-          },
-        },
-        duration: Infinity,
-      });
-    }, 2000);
-
-    return () => {
-      clearTimeout(notifyTimeout);
-    };
-  }, [isDemoFinalStatementLocked, showDemoReviewedNotice, token]);
-
   if (statementFormalization.isLoading) {
     return (
       <div className="px-4 py-12 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-center gap-3 text-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Preparing your statement. This may take a moment...
+            Preparing a summary of your account. This may take a moment...
           </p>
         </div>
       </div>
@@ -133,11 +73,11 @@ export function StatementView() {
       <div className="space-y-8 px-4 sm:px-6 lg:px-8">
         <PageTitle
           subtitle="Error"
-          title="There was an issue preparing your statement"
+          title="There was an issue preparing your account"
           description={
             <>
-              Unfortunately, there was an unexpected error while preparing your
-              statement. Please try again. If the issue persists, contact
+              Unfortunately, there was an unexpected error while preparing the
+              summary. Please try again. If the issue persists, contact
               support for assistance.
             </>
           }
@@ -149,11 +89,7 @@ export function StatementView() {
     );
   }
 
-  if (
-    isReadyToPrepare &&
-    !hasFormalizedStatement &&
-    !statementSubmission.data
-  ) {
+  if (isReadyToPrepare && !summary && !statementSubmission.data) {
     return (
       <div className="space-y-8 px-4 sm:px-6 lg:px-8">
         <PageTitle
@@ -169,7 +105,7 @@ export function StatementView() {
     );
   }
 
-  if (statementSubmission.data && !hasFormalizedStatement) {
+  if (statementSubmission.data && !summary) {
     return (
       <div className="space-y-8 px-4 sm:px-6 lg:px-8">
         <PageTitle
@@ -182,56 +118,31 @@ export function StatementView() {
     );
   }
 
-  return (
-    <DocxEditor documentName="Account" source={doc} canEdit={false}>
-      <div className="flex h-full max-h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden px-4 sm:px-6 lg:px-8">
-        {statementSubmission.data ? (
-          <PageTitle
-            subtitle="Account sent"
-            title="Thank you"
-            description="Your account has been saved. The firm prepares the written draft during review."
-          />
-        ) : isDemoFinalStatementLocked ? (
-          <PageTitle
-            subtitle="Final statement"
-            title="Your statement is ready"
-            description="The legal team has prepared this statement for final review."
-          />
-        ) : (
-          <PageTitle
-            subtitle="Your account"
-            title="Review your account"
-            description="Please review your account below and send it when ready. The firm prepares the written draft during review."
-            actions={
-              !statementSubmission.data && !isDemo
-                ? [
-                    {
-                      label: statementSubmission.isLoading
-                        ? "Submitting..."
-                        : "Send your account",
-                      action: () => void statementSubmission.handler(),
-
-                      disabled:
-                        statementSubmission.data ||
-                        statementSubmission.isLoading,
-                    },
-                  ]
-                : undefined
-            }
-          />
-        )}
-
-        {statementSubmission.data && !isDemo ? (
-          <WitnessSurveyCard token={token} />
-        ) : null}
-
-        {doc ? (
-          <DocxEditorPanel
-            className="min-h-0 flex-1 basis-0 overflow-hidden"
-            mode="bare"
-          />
-        ) : null}
+  if (!summary) {
+    return (
+      <div className="space-y-8 px-4 sm:px-6 lg:px-8">
+        <PageTitle
+          subtitle="Your account"
+          title="Thank you for providing the details of the incident"
+          description="Review any evidence, then send the account to the firm."
+          titleTag="h2"
+        />
       </div>
-    </DocxEditor>
+    );
+  }
+
+  return (
+    <div className="space-y-8 px-4 sm:px-6 lg:px-8">
+      <PageTitle
+        subtitle="Your account"
+        title="Thank you"
+        description="This is a summary of the account you gave."
+        titleTag="h2"
+      />
+      <p className="whitespace-pre-wrap text-sm leading-6">{summary}</p>
+      {statementSubmission.data && !isDemo ? (
+        <WitnessSurveyCard token={token} />
+      ) : null}
+    </div>
   );
 }

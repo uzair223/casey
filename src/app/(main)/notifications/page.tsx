@@ -10,6 +10,7 @@ export default function NotificationsPage() {
     "tenant_admin",
     "solicitor",
     "paralegal",
+    "marketer",
     "user",
   ]);
 

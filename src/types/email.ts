@@ -59,3 +59,33 @@ export type MentionNotificationPayload = {
 export type InvitationEmailPayload = {
   url: string;
 };
+
+export type WitnessChatNoticePayload = {
+  to: string;
+  tenantName: string;
+  caseTitle: string;
+  witnessName: string | null;
+  url: string;
+  excerpt: string;
+  kind: "message" | "reminder";
+};
+
+export type WitnessFileDeadlinePayload = {
+  to: string;
+  tenantName: string;
+  caseTitle: string;
+  witnessName: string | null;
+  url: string;
+  label: string;
+  dueAt: string;
+  kind: "upcoming" | "due" | "overdue";
+};
+
+export type WitnessChatFirmNoticePayload = {
+  to: string;
+  tenantName: string;
+  caseTitle: string;
+  witnessName: string | null;
+  url: string;
+  excerpt: string;
+};

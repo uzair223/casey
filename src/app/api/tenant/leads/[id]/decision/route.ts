@@ -13,6 +13,7 @@ import { enqueueCaseAnalysis } from "@/lib/leads/analyse";
 import { enqueueStatementFormalization } from "@/lib/leads/formalize";
 import type { StatementSupportingDocument } from "@/types";
 import { generateMissingStatementDocumentDescriptors } from "@/lib/ai-workers/document-descriptors";
+import { pushAcceptedLead, summarisePushes } from "@/lib/leads/acquisition/push";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -166,7 +167,10 @@ export async function POST(request: Request, { params }: RouteContext) {
         }
       }
 
-      return ok({ id: lead.id, lead_stage: "intake", delivered: false });
+      const crm = summarisePushes(
+        await pushAcceptedLead({ tenantId: auth.tenantId, statementId: lead.id }),
+      );
+      return ok({ id: lead.id, lead_stage: "intake", delivered: false, crm });
     } catch (acceptError) {
       if (reserved.consumedCredits != null) {
         await supabase

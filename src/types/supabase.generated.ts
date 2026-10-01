@@ -762,6 +762,98 @@ export type Database = {
           },
         ]
       }
+      crm_connections: {
+        Row: {
+          access_token: string | null
+          expires_at: string | null
+          external_account_id: string | null
+          id: string
+          provider: string
+          refresh_token: string | null
+          region: string | null
+          tenant_id: string
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          expires_at?: string | null
+          external_account_id?: string | null
+          id?: string
+          provider: string
+          refresh_token?: string | null
+          region?: string | null
+          tenant_id: string
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          expires_at?: string | null
+          external_account_id?: string | null
+          id?: string
+          provider?: string
+          refresh_token?: string | null
+          region?: string | null
+          tenant_id?: string
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_connections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_pushes: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          provider: string
+          statement_id: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          provider: string
+          statement_id: string
+          status: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          provider?: string
+          statement_id?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_pushes_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_pushes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invites: {
         Row: {
           accepted_at: string | null
@@ -799,6 +891,103 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "invites_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_ad_accounts: {
+        Row: {
+          access_token: string | null
+          connected_at: string
+          details: Json
+          expires_at: string | null
+          external_account_id: string | null
+          id: string
+          provider: string
+          refresh_token: string | null
+          spend_by_click: Json
+          spend_refreshed_at: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          connected_at?: string
+          details?: Json
+          expires_at?: string | null
+          external_account_id?: string | null
+          id?: string
+          provider: string
+          refresh_token?: string | null
+          spend_by_click?: Json
+          spend_refreshed_at?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          connected_at?: string
+          details?: Json
+          expires_at?: string | null
+          external_account_id?: string | null
+          id?: string
+          provider?: string
+          refresh_token?: string | null
+          spend_by_click?: Json
+          spend_refreshed_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_ad_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_campaigns: {
+        Row: {
+          details: Json
+          external_campaign_id: string | null
+          id: string
+          last_error: string | null
+          monthly_budget_gbp: number | null
+          provider: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          details?: Json
+          external_campaign_id?: string | null
+          id?: string
+          last_error?: string | null
+          monthly_budget_gbp?: number | null
+          provider: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          details?: Json
+          external_campaign_id?: string | null
+          id?: string
+          last_error?: string | null
+          monthly_budget_gbp?: number | null
+          provider?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_campaigns_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -856,6 +1045,7 @@ export type Database = {
       }
       lead_sessions: {
         Row: {
+          attribution: Json
           channel_id: string | null
           contact_code_expires_at: string | null
           contact_code_hash: string | null
@@ -875,6 +1065,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attribution?: Json
           channel_id?: string | null
           contact_code_expires_at?: string | null
           contact_code_hash?: string | null
@@ -894,6 +1085,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attribution?: Json
           channel_id?: string | null
           contact_code_expires_at?: string | null
           contact_code_hash?: string | null
@@ -1239,6 +1431,7 @@ export type Database = {
           id: string
           model: string
           sections: Json
+          summary: string | null
           source_message_ids: string[]
           source_message_versions: Json
           statement_id: string
@@ -1251,6 +1444,7 @@ export type Database = {
           id?: string
           model: string
           sections: Json
+          summary?: string | null
           source_message_ids?: string[]
           source_message_versions?: Json
           statement_id: string
@@ -1263,6 +1457,7 @@ export type Database = {
           id?: string
           model?: string
           sections?: Json
+          summary?: string | null
           source_message_ids?: string[]
           source_message_versions?: Json
           statement_id?: string
@@ -1761,6 +1956,7 @@ export type Database = {
       }
       tenants: {
         Row: {
+          ad_targeting: Json
           billing_period_start: string | null
           billing_status: string
           created_at: string
@@ -1783,6 +1979,7 @@ export type Database = {
           stripe_subscription_id: string | null
         }
         Insert: {
+          ad_targeting?: Json
           billing_period_start?: string | null
           billing_status?: string
           created_at?: string
@@ -1805,6 +2002,7 @@ export type Database = {
           stripe_subscription_id?: string | null
         }
         Update: {
+          ad_targeting?: Json
           billing_period_start?: string | null
           billing_status?: string
           created_at?: string
@@ -1914,6 +2112,222 @@ export type Database = {
           id?: string
           invited_at?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      witness_file_requests: {
+        Row: {
+          cancelled_at: string | null
+          created_at: string
+          created_by: string | null
+          due_at: string | null
+          due_sent_at: string | null
+          fulfilled_at: string | null
+          id: string
+          label: string
+          message_id: string
+          overdue_sent_at: string | null
+          reminder_24h_sent_at: string | null
+          statement_id: string
+          tenant_id: string
+          thread_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_at?: string | null
+          due_sent_at?: string | null
+          fulfilled_at?: string | null
+          id?: string
+          label: string
+          message_id: string
+          overdue_sent_at?: string | null
+          reminder_24h_sent_at?: string | null
+          statement_id: string
+          tenant_id: string
+          thread_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_at?: string | null
+          due_sent_at?: string | null
+          fulfilled_at?: string | null
+          id?: string
+          label?: string
+          message_id?: string
+          overdue_sent_at?: string | null
+          reminder_24h_sent_at?: string | null
+          statement_id?: string
+          tenant_id?: string
+          thread_id?: string
+        }
+        Relationships: []
+      }
+      witness_messages: {
+        Row: {
+          attachments: Json
+          body: string
+          client_id: string | null
+          created_at: string
+          id: string
+          sender_name: string
+          sender_type: string
+          sender_user_id: string | null
+          statement_id: string
+          tenant_id: string
+          thread_id: string
+        }
+        Insert: {
+          attachments?: Json
+          body?: string
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          sender_name: string
+          sender_type: string
+          sender_user_id?: string | null
+          statement_id: string
+          tenant_id: string
+          thread_id: string
+        }
+        Update: {
+          attachments?: Json
+          body?: string
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          sender_name?: string
+          sender_type?: string
+          sender_user_id?: string | null
+          statement_id?: string
+          tenant_id?: string
+          thread_id?: string
+        }
+        Relationships: []
+      }
+      witness_outbound_sms: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          kind: string
+          send_after: string
+          sent_at: string | null
+          thread_id: string
+          to_phone: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          kind: string
+          send_after: string
+          sent_at?: string | null
+          thread_id: string
+          to_phone: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          send_after?: string
+          sent_at?: string | null
+          thread_id?: string
+          to_phone?: string
+        }
+        Relationships: []
+      }
+      witness_reads: {
+        Row: {
+          last_read_at: string
+          reader_key: string
+          reader_type: string
+          reader_user_id: string | null
+          thread_id: string
+        }
+        Insert: {
+          last_read_at: string
+          reader_key: string
+          reader_type: string
+          reader_user_id?: string | null
+          thread_id: string
+        }
+        Update: {
+          last_read_at?: string
+          reader_key?: string
+          reader_type?: string
+          reader_user_id?: string | null
+          thread_id?: string
+        }
+        Relationships: []
+      }
+      witness_threads: {
+        Row: {
+          created_at: string
+          firm_last_notified_at: string | null
+          firm_last_seen_at: string | null
+          firm_notify_after: string | null
+          firm_unread_since: string | null
+          id: string
+          last_outreach_at: string | null
+          last_outreach_message_id: string | null
+          next_reminder_at: string | null
+          notify_after: string | null
+          outreach_anchor_at: string | null
+          realtime_key: string
+          reminder_stage: number
+          statement_id: string
+          tenant_id: string
+          unread_firm_since: string | null
+          updated_at: string
+          witness_last_message_at: string | null
+          witness_last_seen_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          firm_last_notified_at?: string | null
+          firm_last_seen_at?: string | null
+          firm_notify_after?: string | null
+          firm_unread_since?: string | null
+          id?: string
+          last_outreach_at?: string | null
+          last_outreach_message_id?: string | null
+          next_reminder_at?: string | null
+          notify_after?: string | null
+          outreach_anchor_at?: string | null
+          realtime_key: string
+          reminder_stage?: number
+          statement_id: string
+          tenant_id: string
+          unread_firm_since?: string | null
+          updated_at?: string
+          witness_last_message_at?: string | null
+          witness_last_seen_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          firm_last_notified_at?: string | null
+          firm_last_seen_at?: string | null
+          firm_notify_after?: string | null
+          firm_unread_since?: string | null
+          id?: string
+          last_outreach_at?: string | null
+          last_outreach_message_id?: string | null
+          next_reminder_at?: string | null
+          notify_after?: string | null
+          outreach_anchor_at?: string | null
+          realtime_key?: string
+          reminder_stage?: number
+          statement_id?: string
+          tenant_id?: string
+          unread_firm_since?: string | null
+          updated_at?: string
+          witness_last_message_at?: string | null
+          witness_last_seen_at?: string | null
         }
         Relationships: []
       }

@@ -165,6 +165,7 @@ export function buildFormalizeContract(
     formatWitnessDetails(config, runtime.witnessMetadata),
     formatCaseFacts(runtime.caseFacts ?? []),
     `Confirmed evidence:\n${evidence}`,
+    "Also set accountSummary to one narrative of this person's account, written for the firm, in the third person. Do not split it into headings. Do not format it as a document.",
   ];
   const priorEnquiry = runtime.priorEnquiry?.trim();
   if (priorEnquiry) {

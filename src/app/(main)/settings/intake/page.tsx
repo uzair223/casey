@@ -1,6 +1,7 @@
 "use client";
 
 import { IntakeSettings } from "@/components/leads/intake-settings";
+import { AcquisitionSettings } from "@/components/leads/acquisition-settings";
 import Loading from "@/components/loading";
 import { PageTitle } from "@/components/page-title";
 import { useUserProtected } from "@/contexts/user-context";
@@ -16,7 +17,7 @@ export default function PublicIntakeSettingsPage() {
     <section className="space-y-4">
       <PageTitle
         title="Public intake"
-        description="The hosted enquiry page for this organisation. Colours, the logo, and the wording are part of Growth."
+        description="The enquiry chat, ad accounts, and where an accepted lead is sent."
         actions={[
           {
             label: "Back to settings",
@@ -26,6 +27,7 @@ export default function PublicIntakeSettingsPage() {
         ]}
       />
       <IntakeSettings />
+      <AcquisitionSettings />
     </section>
   );
 }

@@ -2,11 +2,16 @@ import { env } from "@/lib/env";
 import { NextRequest } from "next/server";
 
 import { logAuditEvent } from "@/lib/observability/audit";
+import { logServerEvent } from "@/lib/observability/logger";
 import { requireCronSecret } from "@/lib/api-utils/cron-auth";
 import { ok, serverError } from "@/lib/api-utils/response";
 import { sendStatementReminderEmail } from "@/lib/email";
 import { getServiceClient } from "@/lib/supabase/server";
 import type { Json } from "@/types";
+import {
+  runWitnessChatOutreach,
+  runWitnessChatReminders,
+} from "@/lib/witness-chat/dispatch";
 
 type DueReminderRule = {
   id: string;
@@ -412,6 +417,17 @@ async function runReminderJob(request: NextRequest) {
           next_send_at: nextSendAtIso(now, rule.cadence_days),
         })
         .eq("id", rule.id);
+    }
+  }
+
+  if (!dryRun) {
+    try {
+      await runWitnessChatReminders(now);
+      await runWitnessChatOutreach(now);
+    } catch (error) {
+      await logServerEvent("error", "api.internal.reminders.witness_chat_failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
     }
   }
 

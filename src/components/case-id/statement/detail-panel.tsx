@@ -37,7 +37,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { RhfField } from "@/components/ui/rhf-field";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -71,8 +70,7 @@ import {
   getMessageResponseMeta,
 } from "@/lib/statement-utils";
 import type { FullStatementDataResponse } from "@/types";
-import { CaseNotesCard } from "../case/notes-card";
-import { StatementFollowUpCard } from "./follow-up-card";
+import { WitnessChat } from "@/components/witness-chat/witness-chat";
 import { StatementSupportingDocumentsCard } from "./documents-card";
 import { SignatureCertificateCard } from "./signature-certificate-card";
 import { StatementReminderSettingsCard } from "./settings-card";
@@ -85,6 +83,10 @@ import { toast } from "@/lib/toast";
 import { DocxEditor, DocxEditorPanel } from "@/components/ui/docx-editor";
 import { generateDoc } from "@/lib/doc-gen";
 import { leadContactHidden } from "@/lib/leads/privacy";
+import {
+  documentDraftingEnabled,
+  retainSignedStatement,
+} from "@/lib/statements/document-flow";
 
 type StatementDetailPanelProps = {
   statementId: string;
@@ -222,11 +224,11 @@ export function StatementDetailPanel({
   const role = useUserRole();
   const canSetDemoStatuses = role === "app_admin";
   const canModify = ["tenant_admin", "solicitor"].includes(role);
-  const canPinNotes = ["tenant_admin", "solicitor"].includes(role);
+  const canMessageWitness = ["tenant_admin", "solicitor", "paralegal"].includes(
+    role,
+  );
   const [isEditing, setIsEditing] = useState(false);
-  const [isEditingSections, setIsEditingSections] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSavingSections, setIsSavingSections] = useState(false);
   const [sectionDrafts, setSectionDrafts] = useState<Record<string, string>>(
     {},
   );
@@ -306,6 +308,9 @@ export function StatementDetailPanel({
   useEffect(() => {
     if (!data?.statement) return;
     if (statementDocument) return;
+    const keepFile =
+      documentDraftingEnabled() || retainSignedStatement(data.statement.status);
+    if (!keepFile) return;
 
     void (async () => {
       if (data.statement.signed_document) {
@@ -630,22 +635,6 @@ export function StatementDetailPanel({
     await Promise.all([refreshCase(), fetchStatement()]);
   };
 
-  const onSaveSections = async () => {
-    if (!data) return;
-
-    setIsSavingSections(true);
-    try {
-      await updateStatement(data.statement.id, {
-        sections: sectionDrafts,
-      });
-      await Promise.all([refreshCase(), fetchStatement()]);
-      setIsEditingSections(false);
-      toast.success("Sections saved");
-    } finally {
-      setIsSavingSections(false);
-    }
-  };
-
   return (
     <div className="min-w-0 space-y-4">
       <Tabs defaultValue="manage" className="space-y-4">
@@ -704,7 +693,8 @@ export function StatementDetailPanel({
             <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
               <CardTitle className="text-base">Statement information</CardTitle>
               <div className="flex flex-wrap gap-2">
-                {data.statement.status === "submitted" ? (
+                {documentDraftingEnabled() &&
+                data.statement.status === "submitted" ? (
                   <AsyncButton
                     variant="outline"
                     size="sm"
@@ -714,7 +704,9 @@ export function StatementDetailPanel({
                     Draft account
                   </AsyncButton>
                 ) : null}
-                {canModify && data.statement.status === "submitted" ? (
+                {documentDraftingEnabled() &&
+                canModify &&
+                data.statement.status === "submitted" ? (
                   <AsyncButton
                     variant="outline"
                     size="sm"
@@ -1105,91 +1097,20 @@ export function StatementDetailPanel({
             ) : null}
           </Card>
           <Card>
-            <CardHeader className="flex-row items-center justify-between gap-2">
+            <CardHeader>
               <CardTitle className="text-base">Statement</CardTitle>
-              {canModify && !isContentLocked && !isEditingSections ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditingSections(true)}
-                  disabled={isSavingSections}
-                >
-                  <PenIcon className="h-4 w-4" />
-                  Edit
-                </Button>
-              ) : null}
             </CardHeader>
             <CardContent>
-              {isEditingSections ? (
-                <div className="space-y-4">
-                  {statementConfig.sections.map((section) => (
-                    <div key={section.id}>
-                      <div className="mb-2">
-                        <p className="text-sm font-medium">{section.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {section.description}
-                        </p>
-                      </div>
-                      <Textarea
-                        value={sectionDrafts[section.id] || ""}
-                        onChange={(event) =>
-                          setSectionDrafts((prev) => ({
-                            ...prev,
-                            [section.id]: event.target.value,
-                          }))
-                        }
-                        rows={6}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : statementDocument?.blob ? (
-                <DocxEditor
-                  source={statementDocument.blob}
-                  documentName={data.statement.witness_name || "Statement"}
-                  canEdit={false}
-                >
-                  <DocxEditorPanel
-                    mode="bare"
-                    className="h-[70vh] max-h-[70vh] w-full"
-                    initialZoom={0.85}
-                  />
-                </DocxEditor>
+              {data.statement.account_summary?.trim() ? (
+                <p className="whitespace-pre-wrap text-sm leading-6">
+                  {data.statement.account_summary.trim()}
+                </p>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Preparing the statement...
+                  The summary of this account will appear here.
                 </p>
               )}
             </CardContent>
-            {isEditingSections ? (
-              <CardFooter>
-                <AsyncButton
-                  type="button"
-                  onClick={onSaveSections}
-                  pendingText="Saving sections..."
-                  disabled={isSavingSections}
-                >
-                  <SaveIcon className="h-4 w-4" />
-                  Save sections
-                </AsyncButton>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setSectionDrafts(
-                      normalizeSectionValues(
-                        (data as { sections?: Record<string, unknown> | null })
-                          .sections,
-                        statementConfig.sections.map((section) => section.id),
-                      ),
-                    );
-                    setIsEditingSections(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </CardFooter>
-            ) : null}
           </Card>
           </>
           ) : null}
@@ -1233,16 +1154,10 @@ export function StatementDetailPanel({
         </TabsContent>
 
         <TabsContent value="collaboration" className="space-y-4">
-          <CaseNotesCard
-            caseId={data.case.id}
-            statements={statements}
-            defaultStatementId={data.statement.id}
-            canPinNotes={canPinNotes}
-            title="Notes"
-          />
-          <StatementFollowUpCard
+          <WitnessChat
+            mode="firm"
             statementId={data.statement.id}
-            canRequestFollowUp={["tenant_admin", "solicitor"].includes(role)}
+            canSend={canMessageWitness}
           />
 
           <StatementReminderSettingsCard

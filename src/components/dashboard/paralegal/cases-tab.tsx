@@ -28,12 +28,17 @@ import {
   CaseSearch,
   CreateCaseForm,
 } from "@/components/dashboard/shared/cases";
+import {
+  leadSourceText,
+  useAcquisitionBoard,
+} from "@/components/leads/acquisition-settings";
 
 const ITEMS_PER_PAGE = 10;
 
 export function ParalegalCasesTab() {
   const { user } = useUser();
   const { cases } = useTenant();
+  const board = useAcquisitionBoard();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
@@ -121,6 +126,7 @@ export function ParalegalCasesTab() {
             <TableHeader>
               <TableRow>
                 <TableHead>Title</TableHead>
+                <TableHead>Came from</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Statements</TableHead>
                 <TableHead>Updated</TableHead>
@@ -133,6 +139,7 @@ export function ParalegalCasesTab() {
                   <TableCell className="font-medium">
                     {caseItem.title}
                   </TableCell>
+                  <TableCell>{leadSourceText(board.data, caseItem.statements)}</TableCell>
                   <TableCell className="capitalize">
                     {(
                       caseItem.statements.find(

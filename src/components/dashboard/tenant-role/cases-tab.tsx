@@ -31,29 +31,50 @@ import {
 import { deleteCase } from "@/lib/supabase/mutations";
 import { toast } from "@/lib/toast";
 import { LeadAllowanceMeter } from "@/components/billing/lead-allowance-meter";
+import {
+  leadSourceText,
+  useAcquisitionBoard,
+} from "@/components/leads/acquisition-settings";
 
 const ITEMS_PER_PAGE = 10;
 
 export function TenantRoleCasesTab() {
   const { cases } = useTenant();
+  const board = useAcquisitionBoard();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
 
   const filtered = useMemo(() => {
-    if (!searchTerm.trim()) return cases.data;
-
+    const started = (board.data?.started ?? []).map((enquiry) => ({
+      kind: "started" as const,
+      id: enquiry.id,
+      title: "Started enquiry",
+      source: enquiry.label,
+      updated: enquiry.createdAt,
+    }));
+    const leads = cases.data.map((caseItem) => ({
+      kind: "case" as const,
+      id: caseItem.id,
+      title: caseItem.title,
+      source: leadSourceText(board.data, caseItem.statements),
+      updated: caseItem.updated_at,
+      caseItem,
+    }));
+    const rows = [...started, ...leads];
+    if (!searchTerm.trim()) return rows;
     const lowerSearch = searchTerm.toLowerCase();
-    return cases.data.filter(
-      (caseItem) =>
-        caseItem.title.toLowerCase().includes(lowerSearch) ||
-        caseItem.statements.some(
-          (statement) =>
-            statement.witness_name.toLowerCase().includes(lowerSearch) ||
-            statement.witness_email?.toLowerCase().includes(lowerSearch),
-        ),
-    );
-  }, [cases.data, searchTerm]);
+    return rows.filter((row) => {
+      if (row.title.toLowerCase().includes(lowerSearch)) return true;
+      if (row.source.toLowerCase().includes(lowerSearch)) return true;
+      if (row.kind !== "case") return false;
+      return row.caseItem.statements.some(
+        (statement) =>
+          statement.witness_name.toLowerCase().includes(lowerSearch) ||
+          statement.witness_email?.toLowerCase().includes(lowerSearch),
+      );
+    });
+  }, [board.data, cases.data, searchTerm]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const clampedCurrentPage = Math.min(currentPage, totalPages);
@@ -121,6 +142,7 @@ export function TenantRoleCasesTab() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
+                    <TableHead>Came from</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Statements</TableHead>
                     <TableHead>Assigned</TableHead>
@@ -129,47 +151,52 @@ export function TenantRoleCasesTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedCases.map((caseItem) => (
-                    <TableRow key={caseItem.id}>
-                      <TableCell className="font-medium">
-                        {caseItem.title}
-                      </TableCell>
+                  {paginatedCases.map((row) => (
+                    <TableRow key={`${row.kind}-${row.id}`}>
+                      <TableCell className="font-medium">{row.title}</TableCell>
+                      <TableCell>{row.source}</TableCell>
                       <TableCell className="capitalize">
-                        {(
-                          caseItem.statements.find(
-                            (statement) => statement.participant_kind === "primary",
-                          )?.lead_stage ||
-                          caseItem.status ||
-                          "draft"
-                        ).replaceAll("_", " ")}
+                        {row.kind === "started"
+                          ? "Started"
+                          : (
+                              row.caseItem.statements.find(
+                                (statement) => statement.participant_kind === "primary",
+                              )?.lead_stage ||
+                              row.caseItem.status ||
+                              "draft"
+                            ).replaceAll("_", " ")}
                       </TableCell>
-                      <TableCell>{caseItem.statements.length}</TableCell>
                       <TableCell>
-                        {caseItem.assigned_to_ids?.length
-                          ? `${caseItem.assigned_to_ids.length} member(s)`
-                          : caseItem.assigned_to
-                            ? "1 member"
-                            : "Unassigned"}
+                        {row.kind === "started" ? "—" : row.caseItem.statements.length}
+                      </TableCell>
+                      <TableCell>
+                        {row.kind === "started"
+                          ? "—"
+                          : row.caseItem.assigned_to_ids?.length
+                            ? `${row.caseItem.assigned_to_ids.length} member(s)`
+                            : row.caseItem.assigned_to
+                              ? "1 member"
+                              : "Unassigned"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {new Date(caseItem.updated_at).toLocaleString()}
+                        {new Date(row.updated).toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button asChild variant="outline" size="sm">
-                            <Link href={`/cases/${caseItem.id}`}>
-                              View lead
-                            </Link>
-                          </Button>
-                          <AsyncButton
-                            variant="outline-destructive"
-                            size="sm"
-                            onClick={() => handleDeleteCase(caseItem.id)}
-                            pendingText="Deleting..."
-                          >
-                            Delete lead
-                          </AsyncButton>
-                        </div>
+                        {row.kind === "case" ? (
+                          <div className="flex justify-end gap-2">
+                            <Button asChild variant="outline" size="sm">
+                              <Link href={`/cases/${row.caseItem.id}`}>View lead</Link>
+                            </Button>
+                            <AsyncButton
+                              variant="outline-destructive"
+                              size="sm"
+                              onClick={() => handleDeleteCase(row.caseItem.id)}
+                              pendingText="Deleting..."
+                            >
+                              Delete lead
+                            </AsyncButton>
+                          </div>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))}

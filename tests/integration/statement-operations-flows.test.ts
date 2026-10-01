@@ -16,6 +16,10 @@ const sendStatementReminderEmail = vi.fn();
 const logAuditEvent = vi.fn();
 const enforcePersistentRateLimit = vi.fn();
 const enqueueAiJob = vi.fn();
+const getFirmChatStatement = vi.fn();
+const postFirmChatMessage = vi.fn();
+const runWitnessChatOutreach = vi.fn();
+const runWitnessChatReminders = vi.fn();
 
 vi.mock("@/lib/env", () => ({
   env: {
@@ -59,6 +63,16 @@ vi.mock("@/lib/observability/audit", () => ({
   logAuditEvent,
 }));
 
+vi.mock("@/lib/witness-chat/service", () => ({
+  getFirmChatStatement,
+  postFirmChatMessage,
+}));
+
+vi.mock("@/lib/witness-chat/dispatch", () => ({
+  runWitnessChatOutreach,
+  runWitnessChatReminders,
+}));
+
 vi.mock("@/lib/api-utils", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api-utils")>(
     "@/lib/api-utils",
@@ -100,8 +114,21 @@ describe("statement operation flows", () => {
       userId: "user-1",
       email: "solicitor@firm.co.uk",
       tenantId: "tenant-1",
-      profile: { display_name: "Casey Solicitor" },
+      role: "solicitor",
+      profile: { display_name: "Casey Solicitor", role: "solicitor" },
     });
+    getFirmChatStatement.mockResolvedValue({
+      id: "statement-1",
+      tenantId: "tenant-1",
+      caseId: "case-1",
+      title: "Accident claim",
+      witnessName: "Casey Witness",
+      witnessEmail: "witness@client.test",
+      contactPhone: null,
+    });
+    postFirmChatMessage.mockResolvedValue({ threadId: "thread-1" });
+    runWitnessChatOutreach.mockResolvedValue(undefined);
+    runWitnessChatReminders.mockResolvedValue(undefined);
   });
 
   it("emails the witness their intake link", async () => {
@@ -159,28 +186,7 @@ describe("statement operation flows", () => {
     });
   });
 
-  it("sends a follow-up request and records the event", async () => {
-    SERVERONLY_getStatementForSendLink.mockResolvedValue({
-      token: "magic-token",
-      witness_email: "witness@client.test",
-      witness_name: "Casey Witness",
-      title: "Accident claim",
-    });
-
-    const tenants = createAwaitableBuilder({
-      data: { name: "Tenant Alpha" },
-      error: null,
-    });
-    const reminderEvents = createAwaitableBuilder({ error: null });
-
-    getServiceClient.mockReturnValue({
-      from: vi.fn((table: string) => {
-        if (table === "tenants") return tenants;
-        if (table === "statement_reminder_events") return reminderEvents;
-        throw new Error(`Unexpected table ${table}`);
-      }),
-    });
-
+  it("sends a follow-up request into the witness chat", async () => {
     const route = await importFresh<
       typeof import("@/app/api/tenant/statement/[id]/request-follow-up/route")
     >("@/app/api/tenant/statement/[id]/request-follow-up/route");
@@ -198,20 +204,15 @@ describe("statement operation flows", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(SERVERONLY_saveConversationMessage).toHaveBeenCalledWith(
-      "statement-1",
-      "assistant",
-      "Please upload the site photographs.",
+    expect(postFirmChatMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        followUpRequest: true,
-        requestedBy: "Casey Solicitor",
+        userId: "user-1",
+        senderName: "Casey Solicitor",
+        body: "Please upload the site photographs.",
       }),
     );
-    expect(sendStatementFollowUpRequestEmail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        statementUrl: "https://casey.test/intake/magic-token/follow-up",
-      }),
-    );
+    expect(sendStatementFollowUpRequestEmail).not.toHaveBeenCalled();
+    expect(SERVERONLY_saveConversationMessage).not.toHaveBeenCalled();
   });
 
   it("sends final review to the witness and notifies colleagues", async () => {

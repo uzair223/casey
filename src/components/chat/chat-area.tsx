@@ -23,10 +23,14 @@ import { cn } from "@/lib/utils";
 import type { EvidenceDocument } from "@/lib/evidence";
 
 export type ChatAreaMessage = {
+  id?: string;
   role: string;
   content: string;
   status?: "pending" | "complete" | "error";
   meta?: Record<string, unknown> | null;
+  senderName?: string | null;
+  delivery?: "sent" | "read" | null;
+  plain?: boolean;
 };
 
 export type ChatAreaBubbleColors = {
@@ -47,6 +51,14 @@ export type ChatAreaContentProps = {
   autoScroll?: boolean;
   /** Hide intake-only extras (progress, review, attachments, stop banner). */
   variant?: "intake" | "lead";
+  /** Show message attachments outside the intake interview. */
+  showAttachments?: boolean;
+  /** Named bouncing-dot indicator, for example "Alex is typing". */
+  typingLabel?: string | null;
+  renderMessageExtra?: (
+    message: ChatAreaMessage,
+    index: number,
+  ) => React.ReactNode;
   children?: React.ReactNode;
 };
 
@@ -58,6 +70,7 @@ export type ChatAreaFooterProps = {
   allowAttachments?: boolean;
   /** Disabled composer for settings preview. */
   readOnly?: boolean;
+  onDraftChange?: (value: string) => void;
 };
 
 function getAttachedFiles(message: { meta?: Record<string, unknown> | null }) {
@@ -83,6 +96,9 @@ export function ChatAreaContent({
   hideAvatars = false,
   autoScroll = true,
   variant = messagesProp !== undefined ? "lead" : "intake",
+  showAttachments = false,
+  typingLabel = null,
+  renderMessageExtra,
   children,
 }: ChatAreaContentProps = {}) {
   const intake = useOptionalWitnessStatement();
@@ -151,7 +167,7 @@ export function ChatAreaContent({
               ? getMessageResponseMeta(message, statementConfig)
               : null;
           const attachedFiles =
-            showIntakeExtras && message.role === "user"
+            (showIntakeExtras && message.role === "user") || showAttachments
               ? getAttachedFiles(message)
               : [];
           const isLatest =
@@ -164,10 +180,15 @@ export function ChatAreaContent({
               : bubbleColors?.assistant;
 
           return (
-            <React.Fragment key={idx}>
+            <React.Fragment key={message.id ?? idx}>
               <div className="space-y-1">
                 <MessageCard
                   message={message}
+                  senderName={
+                    "senderName" in message ? message.senderName : undefined
+                  }
+                  delivery={"delivery" in message ? message.delivery : undefined}
+                  plain={"plain" in message ? message.plain : undefined}
                   avatar={hideAvatars ? undefined : avatarSpacer}
                   avatarAnchor={
                     hideAvatars
@@ -188,6 +209,7 @@ export function ChatAreaContent({
                     </>
                   ) : null}
 
+                  {renderMessageExtra?.(message, idx)}
                   {attachedFiles.length > 0 ? (
                     <div className="mt-1 flex flex-wrap items-center gap-2">
                       {attachedFiles.map((file) => (
@@ -226,9 +248,10 @@ export function ChatAreaContent({
             </React.Fragment>
           );
         })}
-        {showPendingAssistant && (
+        {(showPendingAssistant || typingLabel) && (
           <MessageCard
             message={{ role: "assistant", content: "", status: "pending" }}
+            pendingLabel={typingLabel ?? "Casey is typing"}
             avatar={hideAvatars ? undefined : avatarSpacer}
             avatarAnchor={hideAvatars ? undefined : "assistant"}
             bubbleStyle={bubbleColors?.assistant}
@@ -279,6 +302,7 @@ export function ChatAreaFooter({
   placeholder: placeholderProp,
   allowAttachments,
   readOnly = false,
+  onDraftChange,
 }: ChatAreaFooterProps = {}) {
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -367,7 +391,10 @@ export function ChatAreaFooter({
       <Textarea
         ref={textareaRef}
         value={input}
-        onChange={(e) => setInput(e.target.value)}
+        onChange={(e) => {
+          setInput(e.target.value);
+          onDraftChange?.(e.target.value);
+        }}
         onKeyDown={(e) => {
           if (e.key !== "Enter" || e.shiftKey) return;
           e.preventDefault();

@@ -1,6 +1,6 @@
 import { apiFetch } from "@/lib/api-utils/fetch";
 
-const TEAM_EDITABLE_ROLES = ["tenant_admin", "solicitor", "paralegal"];
+const TEAM_EDITABLE_ROLES = ["tenant_admin", "solicitor", "paralegal", "marketer"];
 
 async function getTenantMemberProfile(
   userId: string,

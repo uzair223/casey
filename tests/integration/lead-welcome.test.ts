@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   brandingKeepingWelcome,
   defaultLeadWelcome,
+  PLAIN_ENQUIRY_WELCOME,
+  publicEnquiryWelcome,
   resolveLeadWelcome,
 } from "@/lib/leads/schema";
 
@@ -15,6 +17,14 @@ describe("lead welcome lines", () => {
     expect(defaultLeadWelcome("Housing Disrepair")).toContain("the home");
     expect(defaultLeadWelcome("Employer Liability")).not.toContain(
       "Tell us what happened",
+    );
+  });
+
+  it("opens the public chat without a legal product name", () => {
+    expect(publicEnquiryWelcome(null)).toBe(PLAIN_ENQUIRY_WELCOME);
+    expect(publicEnquiryWelcome("  ")).toBe("Tell us what happened.");
+    expect(publicEnquiryWelcome("What can we help with?")).toBe(
+      "What can we help with?",
     );
   });
 

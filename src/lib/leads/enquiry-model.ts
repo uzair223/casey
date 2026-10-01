@@ -36,6 +36,7 @@ const EnquiryTurnSchema = z.object({
 export async function generateEnquiryTurn(params: {
   firmName: string;
   leadTypeName: string;
+  briefGuidance?: string | null;
   slots: QualificationSlot[];
   answers: SlotAnswers;
   messages: Array<{ role: "user" | "assistant"; content: string }>;
@@ -59,6 +60,7 @@ export async function generateEnquiryTurn(params: {
           givenName: isEnquiryFullName(contact.name) ? "" : contact.name,
           hasEmail: Boolean(contact.email),
           hasPhone: Boolean(contact.phone),
+          briefGuidance: params.briefGuidance,
         }),
         params.note?.trim(),
       ]

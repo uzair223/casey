@@ -8,6 +8,8 @@ import { mergeCaseFacts, type EnquiryMessage } from "./case-facts";
 import { plausibleName } from "./enquiry";
 import { isDisposableEmail, reservedValue, type SlotAnswers } from "./qualify";
 import { leadListTitle } from "./privacy";
+import { withLeadAttribution } from "./attribution";
+import type { LeadAttribution } from "./attribution";
 import {
   primaryRole,
   type LeadTypeConfig,
@@ -40,6 +42,7 @@ export async function promoteQualifiedLead(params: {
   plan: string | null | undefined;
   unverified?: boolean;
   messages?: EnquiryMessage[];
+  attribution?: LeadAttribution | null;
 }) {
   const contact = contactFromAnswers(params.config, params.answers);
   if (!params.unverified && (!contact.name || (!contact.email && !contact.phone))) {
@@ -77,10 +80,13 @@ export async function promoteQualifiedLead(params: {
     ...(summary ? { summary } : {}),
     ...facts,
   };
-  const qualificationAnswers = {
-    ...metadata,
-    ...(messages.length ? { enquiry_transcript: messages } : {}),
-  };
+  const qualificationAnswers = withLeadAttribution(
+    {
+      ...metadata,
+      ...(messages.length ? { enquiry_transcript: messages } : {}),
+    },
+    params.attribution,
+  );
   let duplicateQuery = supabase
     .from("statements")
     .select("id, case_id, qualification_answers")

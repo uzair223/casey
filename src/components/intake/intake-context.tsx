@@ -919,6 +919,7 @@ export function IntakeProvider({
           error_message: string | null;
         } | null;
         sections: Record<string, string>;
+        summary?: string | null;
       };
 
       let payload: Record<string, string> | null = null;
@@ -937,6 +938,19 @@ export function IntakeProvider({
 
         if (poll.job?.status === "succeeded") {
           payload = poll.sections;
+          if (poll.summary) {
+            setStatementData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    statement: {
+                      ...prev.statement,
+                      account_summary: poll.summary,
+                    },
+                  }
+                : prev,
+            );
+          }
           break;
         }
 

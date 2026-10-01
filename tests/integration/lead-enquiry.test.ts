@@ -108,6 +108,7 @@ describe("enquiry conversation", () => {
     expect(turn.answers.name).toBe("Uzair Patel");
     expect(turn.answers.email).toBe("uzair@example.com");
     expect(turn.readyToVerify).toBe(true);
+    expect(turn.reply).toContain("Thanks.");
     expect(turn.reply.toLowerCase()).toContain("emailed");
     expect(turn.reply.toLowerCase()).toContain("junk");
   });
@@ -157,6 +158,21 @@ describe("enquiry conversation", () => {
     expect(instructions).toContain("A date before today has already passed.");
     expect(instructions).toContain("second person only");
     expect(instructions).toContain("only in the summary");
+    expect(instructions).toContain("Do not name a claim type");
+    expect(instructions).not.toContain("about Employer Liability");
+
+    const closing = enquiryInstructions({
+      firmName: "Demo Firm",
+      leadTypeName: "Employer Liability",
+      hasOverview: true,
+      hasName: true,
+      hasEmail: true,
+      hasPhone: false,
+      briefGuidance: "Mention the depot.",
+    });
+    expect(closing).toContain("may be entitled to compensation");
+    expect(closing).toContain("Mention the depot.");
+    expect(closing).not.toContain("I have emailed you a short code");
 
     const turn = settleEnquiryTurn({
       slots,

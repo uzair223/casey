@@ -8,6 +8,10 @@ import { apiFetch, ApiRequestError } from "@/lib/api-utils";
 import { CasePlanPaywall } from "@/components/billing/case-plan-paywall";
 import type { CaseGate } from "@/lib/billing/plans";
 import { leadContactHidden } from "@/lib/leads/privacy";
+import {
+  leadSourceText,
+  useAcquisitionBoard,
+} from "@/components/leads/acquisition-settings";
 import { GENERIC_DECLINE_REASONS, type DeclineReason } from "@/lib/leads/schema";
 import { toast } from "@/lib/toast";
 
@@ -32,6 +36,7 @@ export function LeadActions({
 }) {
   const [gate, setGate] = useState<CaseGate | null>(null);
   const [declineReason, setDeclineReason] = useState("other");
+  const board = useAcquisitionBoard();
   const primary =
     statements.find((statement) => statement.participant_kind === "primary") ??
     null;
@@ -49,15 +54,25 @@ export function LeadActions({
   async function decide(action: "accept" | "decline") {
     if (!primary) return;
     try {
-      await apiFetch(`/api/tenant/leads/${primary.id}/decision`, {
-        method: "POST",
-        body: JSON.stringify({
-          action,
-          reason: action === "decline" ? declineReason : undefined,
-        }),
-      });
-      toast.success(action === "accept" ? "Lead accepted" : "Lead declined");
+      const result = await apiFetch<{ crm?: { status?: string; error?: string | null } }>(
+        `/api/tenant/leads/${primary.id}/decision`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            action,
+            reason: action === "decline" ? declineReason : undefined,
+          }),
+        },
+      );
+      if (action === "accept" && result.crm?.status === "failed") {
+        toast.warning(
+          result.crm.error || "The lead was accepted. The handoff did not send.",
+        );
+      } else {
+        toast.success(action === "accept" ? "Lead accepted" : "Lead declined");
+      }
       await onChanged();
+      await board.handler().catch(() => undefined);
     } catch (error) {
       if (error instanceof ApiRequestError && error.gate) {
         setGate(error.gate);
@@ -73,6 +88,11 @@ export function LeadActions({
         <p className="text-sm text-muted-foreground">
           Lead stage: {primary.lead_stage.replaceAll("_", " ")}
           {primary.role_key ? ` · ${primary.role_key}` : ""}
+        </p>
+      ) : null}
+      {primary && leadSourceText(board.data, [primary]) !== "—" ? (
+        <p className="text-sm text-muted-foreground">
+          Came from {leadSourceText(board.data, [primary])}
         </p>
       ) : null}
       {gate ? (
@@ -106,6 +126,23 @@ export function LeadActions({
               Decline
             </AsyncButton>
           </>
+        ) : null}
+        {primary &&
+        primary.lead_stage &&
+        primary.lead_stage !== "new" &&
+        primary.lead_stage !== "declined" &&
+        board.data?.handoffs[primary.id] !== "sent" ? (
+          <AsyncButton
+            variant="outline"
+            onClick={async () => {
+              await apiFetch(`/api/tenant/leads/${primary.id}/sync`, { method: "POST" });
+              toast.success("Lead sent");
+              await board.handler();
+            }}
+            pendingText="Sending..."
+          >
+            {board.data?.handoffs[primary.id] === "failed" ? "Send again" : "Send to the firm's system"}
+          </AsyncButton>
         ) : null}
         {supporting
           .filter((statement) => !statement.outreach_confirmed_at)

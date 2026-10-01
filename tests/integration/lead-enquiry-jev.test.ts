@@ -7,6 +7,7 @@ import {
   interpretRedirectAnswer,
   mergeEnquiryDecisions,
   rememberDeclinedLeadType,
+  silentLeadTypeRoute,
   type EnquiryLeadTypeOption,
 } from "@/lib/llm/jev/enquiry-turn";
 import { settleEnquiryTurn } from "@/lib/leads/enquiry";
@@ -59,7 +60,7 @@ describe("enquiry JEV decisions", () => {
     expect(enquiryClosesWithoutLead(decision)).toBe(false);
   });
 
-  it("asks about a confident mismatch before ending", () => {
+  it("routes a confident mismatch without asking the visitor", () => {
     const decision = decide({
       conversationAction: { choice: "end", confidence: 0.91 },
       disposition: { choice: "send_to_firm", confidence: 0.8 },
@@ -69,6 +70,7 @@ describe("enquiry JEV decisions", () => {
 
     expect(decision.action).toBe("end");
     expect(decision.redirect).toEqual(clinical);
+    expect(silentLeadTypeRoute(decision, enabled)).toEqual(clinical);
     expect(enquiryClosesWithoutLead(decision)).toBe(false);
   });
 

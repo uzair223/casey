@@ -50,7 +50,7 @@ const controls = [
   {
     icon: UserCheck,
     title: "Role-based write controls",
-    body: "Firm users are assigned roles such as firm admin, solicitor, or paralegal. Sensitive case, statement, magic-link, and storage writes are restricted by database policies to appropriate roles.",
+    body: "Firm users are assigned roles such as firm admin, solicitor, paralegal, or marketer. Sensitive case, statement, magic-link, and storage writes are restricted by database policies to appropriate roles.",
   },
   {
     icon: Link2,

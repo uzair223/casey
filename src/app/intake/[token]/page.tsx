@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { SERVERONLY_getFullStatementFromToken } from "@/lib/supabase/queries";
+import { statementHasUnreadFirmChat } from "@/lib/witness-chat/service";
 
 type MessageLike = {
   role: string;
@@ -48,8 +49,16 @@ export default async function IntakeStepRouterPage({
 
   try {
     const data = await SERVERONLY_getFullStatementFromToken(token, true);
+    const unreadChat = data?.statement?.id
+      ? await statementHasUnreadFirmChat(data.statement.id)
+      : null;
 
-    if (data?.messages?.length && hasPendingFollowUp(data.messages)) {
+    if (
+      unreadChat === true ||
+      (unreadChat === null &&
+        !!data?.messages?.length &&
+        hasPendingFollowUp(data.messages))
+    ) {
       redirect(`/intake/${token}/follow-up`);
     }
   } catch {

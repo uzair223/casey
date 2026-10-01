@@ -10,6 +10,7 @@ const roleRoutes: Record<string, string> = {
   tenant_admin: "/dashboard/tenant-admin",
   solicitor: "/dashboard/solicitor",
   paralegal: "/dashboard/paralegal",
+  marketer: "/dashboard/marketer",
 };
 
 function DashboardRouterPageContent() {
